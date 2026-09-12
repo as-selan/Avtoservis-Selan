@@ -679,7 +679,7 @@ Helper: SQL function `app_is_active_member(org_id uuid)` security definer / stab
 |---|---|---|---|---|
 | `organizations` | active members of that org | service-role / bootstrap only | owner/admin | owner only (rare); prefer archive |
 | `profiles` | self + members sharing an org | trigger / service-role | self (name/phone); admin limited | no hard delete |
-| `organization_memberships` | members of same org | owner/admin | owner/admin (role/active) | owner/admin soft-disable |
+| `organization_memberships` | members of same org | owner/admin (later trusted flow) | owner/admin (later trusted flow) | soft-disable later; **Slice A:** authenticated **SELECT only** — no browser INSERT/UPDATE/DELETE (blocks self-promotion); bootstrap/invite via service-role / reviewed membership-management slice |
 | `customers` | active members | advisor+ | advisor+ | archive by advisor+; no hard delete in client |
 | `vehicles` | active members | advisor+ | advisor+ | archive by advisor+ |
 | `service_requests` | active members | advisor+ | advisor+ | archive by advisor+ |
