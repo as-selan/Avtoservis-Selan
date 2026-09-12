@@ -12,6 +12,7 @@ Future sessions should treat this file as the source of truth for **what comes n
 | **Stable baseline** | `7e073f032fc8a195166b82b37b09c6e1946c8a01` (`main`) |
 | **Current phase** | **Phase 1 — Architecture Freeze** |
 | **Next immediate action** | Review and approve [Data Model & Auth Design V1](./data-model-auth-design-v1.md) before any migration |
+| **Scope terms** | **Phase 1 administrative V1** = inquiry → confirmed appointment/integration handoff (primarily `service_requests`). **Workshop operations / Phase 2 product scope** = intake/repair/`service_orders` (roadmap Phase 16) — see data-model terminology |
 | **Vercel** | Pending Tadej setup — **not a blocker** for local/backend architecture work |
 | **Supabase** | Linked project `avtoservis-selan` (`verxxsjbewmkgoxwqvxo`) |
 | **Migrations / app tables** | **None** as part of this documentation task — do not create until Phase 1 approvals complete |
@@ -400,7 +401,7 @@ Preserve existing Manual Entry UI — **do not redesign**.
 - [ ] create / reuse customer
 - [ ] create / reuse vehicle when safely identifiable
 - [ ] create `service_request`
-- [ ] source = `web`
+- [ ] source = `web_form`
 - [ ] idempotency / duplicate protection
 - [ ] abuse / rate-limit considerations
 - [ ] success / error handling

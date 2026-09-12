@@ -1,8 +1,9 @@
 # Avtoservis Selan — Data Model & Auth Design V1
 
 **Status:** DESIGN ONLY — awaiting review/approval before any migration
-**Baseline:** `main` @ `7e073f032fc8a195166b82b37b09c6e1946c8a01`
+**Baseline code:** `7e073f032fc8a195166b82b37b09c6e1946c8a01` (docs may advance on `main` after Architecture Freeze commits)
 **Supabase project:** `avtoservis-selan` (`verxxsjbewmkgoxwqvxo`)
+**Roadmap contract:** [`docs/implementation-plan.md`](./implementation-plan.md) — migration **slices** must follow that plan; this doc defines the domain model, not a single mega-migration.
 **Scope of this phase:** documentation under `docs/` only — no migrations, SQL, Auth changes, Edge Functions, commits, or deploys
 
 ### Dashboard V1 contract (binding)
@@ -12,6 +13,15 @@ The data model in this document is **subordinate** to the approved visible Dashb
 See: [`docs/dashboard-v1-preservation.md`](./dashboard-v1-preservation.md)
 
 Backend/domain work must be wired **additively** behind the locked dashboard structure. Do not remove, simplify, replace, or materially rename approved UI to fit the schema. If architecture conflicts with the UI: **STOP** and report before changing the UI.
+
+### Product scope terms (use consistently)
+
+| Term | Meaning |
+|---|---|
+| **Phase 1 administrative V1** | Inquiry → data completion → quote/offer → customer approval → appointment holds/selection → confirm → Calendar/MyPlanly handoff. Operates primarily on **`service_requests`** (+ later appointments/holds/integrations). Does **not** require `service_orders`. |
+| **Workshop operations / Phase 2 product scope** | Physical vehicle intake, diagnosis, repair, pickup — the **`service_orders`** lifecycle and related workshop entities. Deferred until Phase 1 administrative workflow is stable ([implementation plan](./implementation-plan.md) Phase 16 / M10). |
+
+Do **not** use “MUST V1” for `service_orders` if that implies Phase 1 administrative delivery requires them.
 
 ---
 
@@ -26,19 +36,20 @@ Confirmed Phase 1 operational journey (Tadej) is primarily **administrative**: i
 | Decision | Recommendation |
 |---|---|
 | UI contract | Data model subordinate to [Dashboard V1 preservation](./dashboard-v1-preservation.md) |
+| Roadmap slices | Follow [implementation plan](./implementation-plan.md): foundation → customers/vehicles/requests → … → appointments/holds → … → workshop `service_orders` last |
 | Tenant | Single workshop as `organizations` row; all business tables carry `organization_id` |
 | Auth | Supabase Auth `auth.users` → `profiles` → `organization_memberships` (role + active flag). Roles are **not** authoritative in `user_metadata` |
 | Customer / vehicle | Separate entities; one customer → many vehicles; history survives across orders; manual entry should search/reuse existing records |
-| Request vs order | **Separate** `service_requests` and `service_orders`; Phase 1 dashboard list maps mainly from requests (+ later orders) without changing the unified UI |
-| Appointment | Belongs primarily to **service_request**; support **temporary holds** on offered slots; optionally link to `service_order` after conversion/intake |
+| Request vs order | **Separate** architectural entities. Phase 1 admin runs on **`service_requests`**. `service_orders` remain in the **long-term** domain model and ER diagram, but are **not** in the first foundation or first business-data migrations |
+| Appointment | Belongs primarily to **service_request**; temporary holds required for Phase 1 — delivered in a **dedicated later slice**, not the first migration |
 | Statuses | **Separate** backend statuses per entity; dashboard Slovenian workflow concepts are a **derived/presentation** view — not one giant DB enum |
 | Attention / Napaka | **Not** a lifecycle status — derived operational/error flags; keep Potrebna pozornost panel |
-| Mileage | Historical reading per visit/order; vehicle keeps only a latest cache |
+| Mileage | Historical reading per visit/request/intake; vehicle keeps only a latest cache |
 | Integrations | Quibi, Google Calendar, MyPlanly are adapters; our app keeps canonical IDs via future `integration_links` |
 | Human gates | Price/quote internal approval and final customer confirmation remain human; automation prepares, does not bypass |
-| V1 size | Small correct foundation: org/auth + customers + vehicles + requests + appointments (incl. holds) + orders + light activity |
+| First migrations | **Small slices only:** (A) org/auth/RLS foundation → (B) customers + vehicles + service_requests — never one mega-migration of all entities |
 
-This document is the design contract for the first real migration. **Do not implement until explicitly approved.**
+This document is the design contract for the domain. **Do not implement migrations until Architecture Freeze approvals are explicit** (see implementation plan Phase 1).
 
 ---
 
@@ -155,26 +166,33 @@ Existing Dashboard V1 also shows **Potreben pregled** in the workflow strip; tre
 
 ## 3. Core entity model
 
+Long-term domain shape (not a single migration):
+
 ```
 organizations
-    ├── organization_memberships ── profiles ── auth.users
-    ├── customers
-    │       └── vehicles
-    ├── service_requests ──→ (optional) service_orders
-    │       └── appointments
-    ├── service_orders ──→ appointments (optional back-link)
-    └── activity_events
+    ├── organization_memberships ── profiles ── auth.users     ← Slice A
+    ├── customers                                               ← Slice B
+    │       └── vehicles                                        ← Slice B
+    ├── service_requests ──→ (optional, later) service_orders   ← Slice B → workshop later
+    │       └── appointments (holds)                            ← dedicated later slice
+    ├── service_orders ──→ appointments (optional back-link)    ← workshop Phase 2 scope
+    └── activity_events                                         ← as needed (not first slice)
 ```
 
 **Ownership rule:** every business row has `organization_id`. Access requires an **active** membership in that organization.
 
 **Identity rule:** our UUIDs are canonical. External systems never own primary keys.
 
+**Canonical intake `source` values** (use everywhere; do not invent aliases like `web`):
+
+`web_form` | `phone` | `sms` | `manual` | `other`
+
 ---
 
 ## 4. Mermaid ER diagram
 
-Reflects the **proposed relational model** for V1 core + clearly marked later entities.
+Reflects the **full proposed relational domain model** (Phase 1 admin + future workshop).
+**Presence on this diagram does not mean the entity is created in the first migration.** See §14–§15 and the [implementation plan](./implementation-plan.md) for slice order.
 
 ```mermaid
 erDiagram
@@ -184,9 +202,9 @@ erDiagram
   organizations ||--o{ customers : owns
   organizations ||--o{ vehicles : owns
   organizations ||--o{ service_requests : owns
-  organizations ||--o{ service_orders : owns
-  organizations ||--o{ appointments : owns
-  organizations ||--o{ activity_events : owns
+  organizations ||--o{ service_orders : "owns (workshop later)"
+  organizations ||--o{ appointments : "owns (holds later)"
+  organizations ||--o{ activity_events : "owns (as needed)"
 
   customers ||--o{ vehicles : "owns (current)"
   customers ||--o{ service_requests : places
@@ -320,7 +338,7 @@ Conventions for all tables unless noted:
 - **Soft archive:** `archived_at timestamptz null` (null = active). Prefer archive over hard delete for operational entities.
 - **Do not duplicate:** customer name/phone/email or vehicle make/model/VIN onto request/order except for **immutable snapshots** only when legally/operationally required (V1: avoid snapshots; join live entities; add snapshots later if Quibi export/print needs freeze-in-time).
 
-### 5.1 `organizations` (MUST V1)
+### 5.1 `organizations` (Slice A — foundation)
 
 | Aspect | Design |
 |---|---|
@@ -331,7 +349,7 @@ Conventions for all tables unless noted:
 | Archive | Soft-archive org only for extreme cases; normally never deleted |
 | Notes | V1 expects **one** org (Avtoservis Selan). Multi-tenant shape is intentional for clean RLS. |
 
-### 5.2 `profiles` (MUST V1)
+### 5.2 `profiles` (Slice A — foundation)
 
 | Aspect | Design |
 |---|---|
@@ -342,7 +360,7 @@ Conventions for all tables unless noted:
 | Archive | Prefer deactivate via membership `is_active`; do not delete profile casually |
 | Notes | Created by trigger on `auth.users` insert (implementation detail for migration phase). **No roles on this table.** |
 
-### 5.3 `organization_memberships` (MUST V1)
+### 5.3 `organization_memberships` (Slice A — foundation)
 
 | Aspect | Design |
 |---|---|
@@ -353,76 +371,83 @@ Conventions for all tables unless noted:
 | Archive | Set `is_active = false` + `disabled_at`; keep row for audit |
 | Auth rule | **This is the source of truth for authorization** |
 
-### 5.4 `customers` (MUST V1)
+### 5.4 `customers` (Slice B — first business data)
 
 | Aspect | Design |
 |---|---|
 | Purpose | Person or business customer |
-| Important columns | `customer_type` (`individual` \| `business`, default `individual`), `display_name` (req — person full name or company name), `email` (opt), `phone` (opt), `notes` (opt, internal), `source` (opt: `phone`, `web_form`, `walk_in`, `manual`, `other`), address fields **optional / later**, `archived_at` |
+| Important columns | `customer_type` (`individual` \| `business`, default `individual`), `display_name` (req — person full name or company name), `email` (opt), `phone` (opt), `notes` (opt, internal), `source` (opt: `web_form` \| `phone` \| `sms` \| `manual` \| `other`), address fields **optional / later**, `archived_at` |
 | Required for create | `organization_id`, `display_name` — email/phone strongly encouraged but not both mandatory at DB level (phone-first calls happen) |
-| Relationships | Has many `vehicles`, many requests/orders |
-| Indexes | (`organization_id`, `archived_at`), trigram/normalized search later; unique constraints **not** on phone/email in V1 |
+| Relationships | Has many `vehicles`, many requests; later many `service_orders` |
+| Indexes | (`organization_id`, `archived_at`), trigram/normalized search later; unique constraints **not** on phone/email in early slices |
 | Duplicate strategy | Normalize phone/email in app; warn via attention UI; optional later `duplicate_of_customer_id` |
-| Do not duplicate | Do not store customer fields on orders as master copy |
+| Do not duplicate | Do not store customer fields on requests/orders as master copy |
 
-### 5.5 `vehicles` (MUST V1)
+### 5.5 `vehicles` (Slice B — first business data)
 
 | Aspect | Design |
 |---|---|
 | Purpose | Persistent vehicle record under a customer |
 | Permanent fields | `vin` (opt but unique per org when present), `make` (req once known), `model` (req once known), `year` (opt), `power_kw` (opt), `engine_displacement_cc` or text `engine_displacement` (opt), `engine_code` (opt), `fuel` (opt enum), `registration_current` (opt — **current** plate), `notes` (opt), `mileage_latest_km` (opt **cache only**), `mileage_latest_recorded_at` (opt) |
 | Per-visit fields (NOT only on vehicle) | Mileage at request/intake/order; registration at time of visit if needed later |
-| Relationships | `customer_id` current owner (req in V1); history of ownership changes = later if needed |
+| Relationships | `customer_id` current owner (req in Slice B+); history of ownership changes = later if needed |
 | Indexes | unique partial (`organization_id`, `vin`) where vin not null; (`organization_id`, `registration_current`); (`customer_id`) |
 | VIN care | Treat as sensitive identifier; never public; allow null while `manjkajo_podatki` |
 | Registration | Can change; store current on vehicle; do not assume lifetime identity |
 | Archive | Soft-archive; keep linked order history |
 
-### 5.6 `service_requests` (MUST V1)
+### 5.6 `service_requests` (Slice B — Phase 1 administrative primary entity)
 
 | Aspect | Design |
 |---|---|
-| Purpose | Incoming inquiry / service request before or until operational acceptance |
-| Important columns | `customer_id` (opt early, req before offer/convert), `vehicle_id` (opt early), `status` (req), `priority` (opt), `summary` (req — short “what they want”), `problem_description` (opt/text), `service_wanted` (opt), `brings_own_material` (bool opt), `mileage_reported_km` (opt — customer-reported), `source` (recommended req: `web_form` \| `phone` \| `sms` \| `manual` \| `other`), `channel` (opt detail), `missing_fields` (text[] or jsonb opt), `next_action` (text opt), `attention_needed` (bool default false), `attention_reason` (opt), `has_error` (bool opt — Napaka), `error_reason` (opt), `converted_service_order_id` (opt unique), timestamps, `archived_at` |
+| Purpose | Canonical inquiry / case for **Phase 1 administrative V1** (and remains the pre-workshop case thereafter) |
+| Important columns | `customer_id` (opt early, req before offer/convert), `vehicle_id` (opt early), `status` (req), `priority` (opt), `summary` (req — short “what they want”), `problem_description` (opt/text), `service_wanted` (opt), `brings_own_material` (bool opt), `mileage_reported_km` (opt — customer-reported), `source` (recommended req: `web_form` \| `phone` \| `sms` \| `manual` \| `other`), `channel` (opt detail), `missing_fields` (text[] or jsonb opt), `next_action` (text opt), `attention_needed` (bool default false), `attention_reason` (opt), `has_error` (bool opt — Napaka), `error_reason` (opt), timestamps, `archived_at` |
+| Deferred FK | `converted_service_order_id` — add only when `service_orders` workshop slice exists |
 | Status (request) | See §7 |
-| Relationships | 0..1 `service_orders`; 0..n `appointments` |
+| Relationships | Later 0..1 `service_orders`; later 0..n `appointments` |
 | Indexes | (`organization_id`, `status`, `updated_at desc`), (`customer_id`), (`vehicle_id`), (`attention_needed`) where true |
 | Archive | Soft-archive declined/spam; keep for audit |
 
-### 5.7 `service_orders` (MUST V1)
+### 5.7 `service_orders` (WORKSHOP / Phase 2 product scope — NOT first migrations)
 
 | Aspect | Design |
 |---|---|
-| Purpose | Operational workshop job after acceptance |
+| Purpose | Operational workshop job after physical acceptance / bay work — **long-term domain entity**, not required for Phase 1 administrative V1 |
+| When to migrate | Only in workshop-operations phase ([implementation plan](./implementation-plan.md) Phase 16) unless a later **explicitly approved** slice proves earlier need |
 | Important columns | `service_request_id` (opt — walk-in may skip request, or create request+order together), `customer_id` (req), `vehicle_id` (req), `public_number` (req, org-scoped human number like `1050`), `status` (req), `summary` (req), `location_label` (opt — “Dvigalo 2”), `mileage_at_intake_km` (opt), `next_action` (opt), `attention_needed` (bool), `opened_at`, `ready_at`, `completed_at`, `archived_at` |
 | Relationships | Optionally from one request; many appointments; later findings/quotes/intake |
 | Indexes | unique(`organization_id`, `public_number`); (`organization_id`, `status`, `updated_at desc`); (`vehicle_id`); (`customer_id`) |
 | Do not duplicate | Customer/vehicle master fields |
 | Archive | Soft-archive; almost never hard-delete completed work |
+| Phase 1 note | Dashboard may still show a unified list driven by `service_requests`; UI labels stay locked |
 
-### 5.8 `appointments` (MUST V1)
+### 5.8 `appointments` (Phase 1 admin capability — dedicated later slice)
 
 | Aspect | Design |
 |---|---|
 | Purpose | Scheduled time slots **and temporary holds** on offered slots |
-| Important columns | `service_request_id` (opt but **preferred** for pre-intake booking), `service_order_id` (opt), `customer_id` (req), `vehicle_id` (opt), `appointment_type` (`intake`/`sprejem` \| `service`/`servis` \| `diagnosis`/`diagnoza`), `status` (req), `starts_at` (req), `ends_at` (opt), `hold_expires_at` (opt — required when status is held), `held_for_service_request_id` (opt; usually same as `service_request_id`), `proposed_slots` (jsonb opt — alternative representation of multiple offered candidates), `notes` (opt internal), `cancelled_at` |
-| Ownership | **Primary:** request during booking phase. **Also** link to order when order exists (intake day / workshop schedule). At least one of `service_request_id` or `service_order_id` should be present (check constraint). |
-| Holds (Phase 1 requirement) | After customer approves the offer, the system offers available slots and **temporarily holds** them so they cannot be offered to another customer. On selection: confirm chosen slot; **release unused holds**. Holds may expire (`hold_expires_at`) and must free capacity. Representation options (choose at migration): (1) one `appointments` row per offered slot with status `held` / `offered`, or (2) parent offer + child slot rows. Prefer explicit rows over only jsonb so exclusivity can be enforced with indexes/constraints. |
+| Migration timing | **Not** in Slice A or B. Dedicated roadmap phase for availability + holds ([implementation plan](./implementation-plan.md) Phase 10) after earlier admin slices |
+| Important columns | `service_request_id` (req for Phase 1 booking; preferred always), `service_order_id` (opt — only after workshop orders exist), `customer_id` (req), `vehicle_id` (opt), `appointment_type` (`intake`/`sprejem` \| `service`/`servis` \| `diagnosis`/`diagnoza`), `status` (req), `starts_at` (req), `ends_at` (opt), `hold_expires_at` (opt — required when status is held), `held_for_service_request_id` (opt; usually same as `service_request_id`), `proposed_slots` (jsonb opt — alternative representation of multiple offered candidates), `notes` (opt internal), `cancelled_at` |
+| Ownership | **Primary:** request during booking phase. **Also** link to order when order exists. Phase 1: require `service_request_id`. |
+| Holds (Phase 1 requirement) | After customer approves the offer, the system offers available slots and **temporarily holds** them so they cannot be offered to another customer. On selection: confirm chosen slot; **release unused holds**. Holds may expire (`hold_expires_at`) and must free capacity. Prefer explicit rows over only jsonb so exclusivity can be enforced. |
 | Indexes | (`organization_id`, `starts_at`); (`service_request_id`); (`service_order_id`); (`status`); partial unique/exclusion later for non-overlapping held/confirmed slots per bay/resource if/when resources exist |
 | Archive | Cancel / release via status; retain history |
 
-### 5.9 `activity_events` (MUST V1 — lightweight)
+### 5.9 `activity_events` (as needed — not first foundation slice)
 
 | Aspect | Design |
 |---|---|
 | Purpose | Dashboard “Aktivnost” + basic audit trail |
+| Migration timing | Introduce lightly when Manual Entry / dashboard wiring needs it; expand through later phases — **not** required in Slice A |
 | Important columns | `actor_profile_id` (null = system), `event_type` (text), `entity_type` (text), `entity_id` (uuid), `payload` (jsonb), `occurred_at` (default now()) — no `archived_at`; append-only |
 | Indexes | (`organization_id`, `occurred_at desc`); (`entity_type`, `entity_id`) |
 | Delete | No casual delete; retention policy later |
 
-### 5.10 Later entities (design sketch only — NOT first migration)
+### 5.10 Later entities (design sketch — not Slice A/B)
 
-#### `vehicle_intakes` (LATER)
+Includes workshop `service_orders` dependents and other deferred tables. Full `service_orders` table itself is also deferred (see §5.7).
+
+#### `vehicle_intakes` (LATER — workshop)
 
 Purpose: structured intake moment (photos checklist, odometer confirmation, damage notes).
 FK: `service_order_id` (req), `vehicle_id`, `mileage_km`, `intake_at`, `received_by`.
@@ -468,10 +493,11 @@ V1 can start with `attention_needed` boolean + reason on request/order; promote 
 3. **Vehicle history:** service_requests and service_orders reference `vehicle_id`; deleting/archiving a customer must not destroy order history (restrict or reassign; prefer archive customer + keep FKs).
 4. **Request → order:** at most **one** active conversion (`service_orders.service_request_id` unique when not null, or `service_requests.converted_service_order_id` unique).
 5. **Not every request becomes an order:** declined / cancelled / spam / customer no-show without acceptance stay as requests.
-6. **Walk-in / phone-to-bay:** may create `service_order` directly (and optionally a request row for uniformity — product choice; see open questions).
-7. **Appointment:** may exist before order; must not require `service_order_id` at booking time.
+6. **Walk-in / phone-to-bay:** Phase 1 admin creates/updates a `service_request`. Creating a workshop `service_order` is deferred to workshop scope (see open questions).
+7. **Appointment:** may exist before any order; Phase 1 booking must not require `service_order_id`.
 8. **No duplicated masters:** UI joins customer/vehicle; list demos today are denormalized projections only.
 9. **External IDs:** never as PK; never as required columns on core tables.
+10. **Migration slices:** do not create `appointments`, `service_orders`, quotes, or integration tables in Slice A/B.
 
 ---
 
@@ -751,63 +777,76 @@ This is not legal advice — implementation policies need owner confirmation.
 
 ---
 
-## 14. V1 vs Later scope
+## 14. Scope vs migration slices
 
-### MUST HAVE for first functional V1 (first migration series)
+Aligned with [`docs/implementation-plan.md`](./implementation-plan.md). **Do not combine all business entities into one initial migration.**
 
-1. `organizations`
-2. `profiles` + Auth linkage trigger
-3. `organization_memberships`
-4. `customers`
-5. `vehicles`
-6. `service_requests` (canonical case; web/phone/SMS/manual)
-7. `appointments` (including hold / offer / confirm / release)
-8. `service_orders` (foundation; Phase 1 UI may still be request-heavy)
-9. `activity_events` (lightweight)
-10. RLS policies for the above (mechanic rules deferred until Tadej confirms)
-11. Seed path for single org (manual, after approval)
+### Phase 1 administrative V1 — domain needed (tables arrive in slices)
 
-### LATER / NOT in first migration
+| Capability | Entity | Migration timing |
+|---|---|---|
+| Tenant + Auth + RLS | `organizations`, `profiles`, `organization_memberships` | **Slice A** (roadmap Phase 2) |
+| Customers / vehicles / cases | `customers`, `vehicles`, `service_requests` | **Slice B** (roadmap Phase 3) |
+| Activity feed | `activity_events` | As needed (from Manual Entry onward; not Slice A) |
+| Appointments + temporary holds | `appointments` | Dedicated later slice (roadmap Phase 10) |
+| Quotes / Quibi mapping | quotes + `integration_links` | Dedicated later slices (roadmap Phases 8–9) |
+| Calendar / MyPlanly | `integration_links` | Dedicated later slices (roadmap Phases 11–12) |
 
-- `vehicle_intakes`
-- `service_order_findings`
-- `quotes` / `quote_items` / `customer_approvals`
-- `attachments` + Storage buckets
-- `communications`
-- `integration_links`
-- `attention_items` (unless booleans prove insufficient)
+Phase 1 administrative workflow **operates primarily on `service_requests`**. Dashboard unified list maps from requests until workshop orders exist.
+
+### Workshop operations / Phase 2 product scope — deferred
+
+| Entity | Notes |
+|---|---|
+| `service_orders` | Long-term domain; ER keeps it; **not** in Slice A/B or first foundation |
+| `vehicle_intakes`, findings, repair photos, etc. | After Phase 1 admin is stable (roadmap Phase 16) |
+
+### Explicitly out of product scope for now
+
 - Accounting, invoicing, inventory, procurement
 - Complex employee scheduling / shifts
-- AI extraction tables
+- AI extraction tables as systems of record
 - CRM marketing automation
-- Customer self-serve portal auth
-- Address book / full GDPR workflow automation
-
-### Explicitly out of scope for V1 product surface
-
-- Multi-workshop franchise complexity beyond `organization_id` shape
-- Making Quibi/MyPlanly schema-authoritative
+- Making Quibi/MyPlanly/Calendar schema-authoritative
 
 ---
 
-## 15. Proposed migration order
+## 15. Proposed migration order (roadmap-aligned slices)
 
-*(Do not run until approved.)*
+*(Do not run until Architecture Freeze approvals are explicit. Match [implementation plan](./implementation-plan.md) phase ordering.)*
 
-1. Extensions helpers (`pgcrypto` / `uuid`, updated_at trigger function)
+### Slice A — Secure foundation (roadmap Phase 2)
+
+1. Extensions / helpers (`pgcrypto` / `uuid`, `updated_at` trigger function)
 2. `organizations`
 3. `profiles` + `auth.users` → profile trigger
-4. `organization_memberships` + RLS helper functions
-5. RLS on org/profile/membership
-6. `customers` + RLS
-7. `vehicles` + RLS
-8. `service_requests` + RLS
-9. `appointments` + RLS
-10. `service_orders` + RLS (+ convert FK links)
-11. `activity_events` + RLS
-12. Seed: Avtoservis Selan org + initial memberships (controlled, non-prod-first preferred)
+4. `organization_memberships` (roles + active/inactive)
+5. RLS helper functions
+6. RLS on org / profile / membership
+7. Controlled seed of single org + initial memberships (after approval; non-prod-first preferred)
 
-Storage buckets and quote tables only after this foundation is stable.
+**Gate:** RLS negative tests; no business tables yet.
+
+### Slice B — First business data (roadmap Phase 3)
+
+1. `customers` + RLS
+2. `vehicles` + RLS
+3. `service_requests` + RLS
+4. Positive + cross-org denial tests
+
+**Gate:** Manual Entry vertical slice can begin (roadmap Phase 4) against these tables only.
+
+### Later dedicated slices (not one mega-migration)
+
+| Later slice | Entities / work | Roadmap phase |
+|---|---|---|
+| Activity as needed | `activity_events` | Phases 4–5 / 13 |
+| Appointments + temporary holds | `appointments` (+ hold/concurrency) | Phase 10 |
+| Quotes / approvals | quote tables when ready | Phases 8–9 |
+| Integrations | `integration_links`, Quibi / Calendar / MyPlanly | Phases 8, 11–12 |
+| Workshop operations | `service_orders`, intakes, findings, photos… | Phase 16 |
+
+Storage buckets and quote tables only when their phases start — **never** bundled into Slice A.
 
 ---
 
@@ -827,6 +866,7 @@ Storage buckets and quote tables only after this foundation is stable.
 | AD-10 | Temporary appointment holds | Double-booking if only jsonb | Prefer explicit `held` appointment rows + expiry/release |
 | AD-11 | Phase 1 “Zaključeno” vs repair complete | Wrong KPIs / closed jobs | Separate `admin_completed` (request) from order `completed` |
 | AD-12 | Data model vs Dashboard V1 | Pressure to redesign UI | [Preservation rule](./dashboard-v1-preservation.md) wins |
+| AD-13 | Small migration slices vs mega-schema | Temptation to ship `service_orders` early | Align with [implementation plan](./implementation-plan.md); Phase 1 admin = requests first |
 
 ---
 
