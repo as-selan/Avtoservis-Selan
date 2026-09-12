@@ -1,8 +1,9 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Minimal browser Supabase client foundation.
- * No auth, queries, or schema usage yet — placeholders only.
+ * Browser Supabase client (publishable key only).
+ * Returns null when public env vars are missing.
  */
 export function createBrowserSupabaseClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,5 +13,5 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
     return null;
   }
 
-  return createClient(url, publishableKey);
+  return createBrowserClient(url, publishableKey);
 }
