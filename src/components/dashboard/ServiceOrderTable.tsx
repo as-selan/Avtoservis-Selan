@@ -43,7 +43,7 @@ export function ServiceOrderTable({ orders }: ServiceOrderTableProps) {
         <tbody>
           {orders.map((order) => (
             <tr
-              key={order.id}
+              key={order.serviceRequestId ?? order.id}
               className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60"
             >
               <td className="px-4 py-3 font-medium text-slate-800">

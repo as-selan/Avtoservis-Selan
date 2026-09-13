@@ -18,8 +18,8 @@ export const DASHBOARD_PERIOD_HELP =
   "Velja za workflow, aktivne naloge, termine, pozornost in aktivnost.";
 
 /**
- * Demo-only date window helper (Europe/Ljubljana calendar).
- * Swap this for real query filters when Supabase data is wired.
+ * Period window helper for dashboard filtering (Europe/Ljubljana calendar).
+ * Used with real service_request timestamps and a shared reference `now`.
  */
 export function isDateInPeriod(
   isoDate: string,
