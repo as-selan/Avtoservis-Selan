@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { FUEL_OPTIONS } from "@/lib/dashboard/demo-data";
 import type { FuelType } from "@/lib/dashboard/types";
@@ -60,6 +61,7 @@ const INITIAL: FormState = {
 type FieldKey = keyof FormState;
 
 export function ManualServiceOrderEntry() {
+  const router = useRouter();
   const { open, setOpen } = useManualEntry();
   const [form, setForm] = useState<FormState>(INITIAL);
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
@@ -234,6 +236,7 @@ export function ManualServiceOrderEntry() {
 
       resetLocalState({ rotateRequestId: true });
       setSuccessMessage(result.message);
+      router.refresh();
     });
   }
 
