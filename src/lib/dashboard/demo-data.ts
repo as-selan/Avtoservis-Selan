@@ -183,6 +183,7 @@ export function buildDemoAppointments(now: Date): AppointmentDemo[] {
   return [
     {
       id: "a1",
+      dateLabel: "Danes",
       time: "09:00",
       customerName: "Eva Kocjan",
       vehicleLabel: "Audi A4 2.0 TDI · LJ 41-NPK",
@@ -191,6 +192,7 @@ export function buildDemoAppointments(now: Date): AppointmentDemo[] {
     },
     {
       id: "a2",
+      dateLabel: "Danes",
       time: "11:00",
       customerName: "Borut Zajc",
       vehicleLabel: "VW Golf VII · KP 58-GOL",
@@ -199,6 +201,7 @@ export function buildDemoAppointments(now: Date): AppointmentDemo[] {
     },
     {
       id: "a3",
+      dateLabel: "Danes",
       time: "14:00",
       customerName: "Maja Rozman",
       vehicleLabel: "Peugeot 3008 · CE 26-RVM",

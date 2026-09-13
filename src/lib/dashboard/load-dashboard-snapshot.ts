@@ -7,7 +7,18 @@ import {
   type ServiceRequestRow,
   type VehicleRow,
 } from "@/lib/dashboard/adapt-dashboard";
+import {
+  adaptAppointmentToDashboard,
+  type AppointmentCustomerRow,
+  type AppointmentRow,
+  type AppointmentVehicleRow,
+} from "@/lib/dashboard/adapt-appointment";
+import {
+  DASHBOARD_APPOINTMENT_LIST_LIMIT,
+  getAppointmentDashboardWindow,
+} from "@/lib/dashboard/appointment-window";
 import type {
+  AppointmentDemo,
   AttentionItemDemo,
   DashboardSnapshot,
   ServiceOrderDemo,
@@ -126,15 +137,102 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       }
     }
 
+    const appointments = await loadConfirmedAppointments(
+      supabase,
+      access.organizationId,
+      now,
+    );
+
     return {
       ok: true,
       generatedAt,
       orders,
       attention,
-      appointments: [],
+      appointments,
       activity: [],
     };
   } catch {
     return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
   }
+}
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Confirmed appointments for the Dashboard Termini card:
+ * Europe/Ljubljana [today, today+14 calendar days), ASC, limit 5.
+ * Query failure throws so the snapshot fails safely (no fake empty list).
+ */
+async function loadConfirmedAppointments(
+  supabase: SupabaseServerClient,
+  organizationId: string,
+  now: Date,
+): Promise<AppointmentDemo[]> {
+  const { start, endExclusive } = getAppointmentDashboardWindow(now);
+
+  const { data: appointmentRows, error: appointmentError } = await supabase
+    .from("appointments")
+    .select("id, customer_id, vehicle_id, appointment_type, starts_at")
+    .eq("organization_id", organizationId)
+    .eq("status", "confirmed")
+    .gte("starts_at", start.toISOString())
+    .lt("starts_at", endExclusive.toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(DASHBOARD_APPOINTMENT_LIST_LIMIT);
+
+  if (appointmentError) {
+    throw new Error("appointments_query_failed");
+  }
+
+  const rows = (appointmentRows ?? []) as unknown as AppointmentRow[];
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const customerIds = uniqueIds(rows.map((r) => r.customer_id));
+  const vehicleIds = uniqueIds(rows.map((r) => r.vehicle_id));
+
+  const customersById = new Map<string, AppointmentCustomerRow>();
+  const vehiclesById = new Map<string, AppointmentVehicleRow>();
+
+  if (customerIds.length > 0) {
+    const { data: customerRows, error: customerError } = await supabase
+      .from("customers")
+      .select("id, display_name")
+      .eq("organization_id", organizationId)
+      .in("id", customerIds);
+
+    if (customerError) {
+      throw new Error("appointments_customers_query_failed");
+    }
+
+    for (const row of (customerRows ?? []) as unknown as AppointmentCustomerRow[]) {
+      customersById.set(row.id, row);
+    }
+  }
+
+  if (vehicleIds.length > 0) {
+    const { data: vehicleRows, error: vehicleError } = await supabase
+      .from("vehicles")
+      .select("id, make, model, registration_current")
+      .eq("organization_id", organizationId)
+      .in("id", vehicleIds);
+
+    if (vehicleError) {
+      throw new Error("appointments_vehicles_query_failed");
+    }
+
+    for (const row of (vehicleRows ?? []) as unknown as AppointmentVehicleRow[]) {
+      vehiclesById.set(row.id, row);
+    }
+  }
+
+  return rows.map((row) =>
+    adaptAppointmentToDashboard(
+      row,
+      customersById.get(row.customer_id),
+      row.vehicle_id ? vehiclesById.get(row.vehicle_id) : undefined,
+      now,
+    ),
+  );
 }
