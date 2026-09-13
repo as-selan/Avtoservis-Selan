@@ -623,55 +623,51 @@ V1 migration can seed **one** org + memberships for Aleš/Tadej manually after a
 
 ## 9. Roles and permissions
 
-### 9.1 Roles — mechanic access NOT YET CONFIRMED
+### 9.1 Roles — mechanic access CONFIRMED as two future modes
 
 | Role | Need in V1? | Rationale |
 |---|---|---|
-| `owner` / `admin` | **Yes** | Full access |
-| `advisor` (reception / service advisor) | **Yes** | Administrative workflow (Phase 1 journey) |
-| `mechanic` | Schema placeholder | **Awaiting Tadej confirmation** — see open question below |
+| `owner` / `admin` | **Yes** | Full administrative / operational access |
+| `advisor` (reception / service advisor) | **Yes** | Administrative workflow (Phase 1 journey). Schema role value: `reception`. |
+| `mechanic` | **Yes (placeholder membership role)** | **No automatic access in M3.** Access will later be one of two configurable modes (Tadej confirmed). |
 
-**Current recommendation (NOT YET CONFIRMED by Tadej):**
+**Tadej confirmed — two future configurable mechanic modes (not implemented in M3):**
 
-- `admin` / `owner` = full access
-- reception / service advisor = administrative workflow access
-- mechanic = limited operational access (assigned/needed data only) **or** full access — **undecided**
+1. **Restricted:** only assigned / necessary jobs, vehicles, and related customer data
+2. **Full workshop access:** broader appropriate workshop data
 
-Do **not** treat the matrix below as final policy. Avoid shipping irreversible RLS that assumes mechanic scope until Tadej confirms:
+**Current M3 slice (customers, vehicles, service_requests):**
 
-1. full access, or
-2. restricted access to assigned/needed operational data only.
+- `owner` = SELECT / INSERT / UPDATE
+- `admin` = SELECT / INSERT / UPDATE
+- `reception` = SELECT / INSERT / UPDATE
+- `mechanic` = **no automatic access**
 
-### 9.2 Capability matrix (conceptual draft only)
+Mechanic permission/assignment logic is a **dedicated later slice**. `assigned_profile_id` on `service_requests` is tenant-safe storage only and does **not** grant visibility.
 
-| Capability | owner/admin | advisor | mechanic (UNCONFIRMED) |
+### 9.2 Capability matrix (M3 + later)
+
+| Capability | owner/admin | reception / advisor | mechanic |
 |---|---|---|---|
 | Manage memberships | yes | no | no |
-| Customers / vehicles CRUD | yes | yes | TBD (read vs limited) |
-| Service requests | yes | yes | TBD |
-| Appointments | yes | yes | TBD |
-| Service orders | yes | yes | TBD (likely progress updates if restricted) |
-| Archive core records | yes | yes (limited) | no |
-| Activity read | yes | yes | TBD |
+| Customers / vehicles CRUD | **yes (M3)** | **yes (M3)** | **no automatic access (M3)**; later mode A or B |
+| Service requests | **yes (M3)** | **yes (M3)** | **no automatic access (M3)**; later mode A or B |
+| Appointments | yes | yes | later (same two modes; not M3) |
+| Service orders | yes | yes | later (same two modes; not M3) |
+| Archive core records | yes | yes (limited) | no (M3) |
+| Activity read | yes | yes | later |
 
-Prefer coarse active-member RLS first; tighten mechanic rules only after confirmation.
+Do **not** implement either mechanic mode in M3. Do **not** use `private.is_active_org_member` for customers / vehicles / service_requests (that would include mechanic).
 
 ---
 
 ## 10. RLS strategy
 
-**Core rule:** authenticated user may access a row iff:
+**Tenant floor:** a user may only ever see rows for organizations where they have an **active** membership.
 
-```text
-exists (
-  select 1 from organization_memberships m
-  where m.organization_id = <row>.organization_id
-    and m.profile_id = auth.uid()
-    and m.is_active = true
-)
-```
+**M3 business tables (`customers`, `vehicles`, `service_requests`) are stricter than that floor:** access is **owner / admin / reception only**. Mechanic is an active member but has **no automatic read or write** until the later configurable-mode slice.
 
-Helper: SQL function `app_is_active_member(org_id uuid)` security definer / stable — details at migration time.
+Helper used by M3 policies: `private.has_org_role(organization_id, '{owner,admin,reception}')`. Do **not** use `private.is_active_org_member` for these three tables.
 
 ### 10.1 Policy concepts by table
 
@@ -680,11 +676,11 @@ Helper: SQL function `app_is_active_member(org_id uuid)` security definer / stab
 | `organizations` | active members of that org | service-role / bootstrap only | owner/admin | owner only (rare); prefer archive |
 | `profiles` | self + members sharing an org | trigger / service-role | self (name/phone); admin limited | no hard delete |
 | `organization_memberships` | members of same org | owner/admin (later trusted flow) | owner/admin (later trusted flow) | soft-disable later; **Slice A:** authenticated **SELECT only** — no browser INSERT/UPDATE/DELETE (blocks self-promotion); bootstrap/invite via service-role / reviewed membership-management slice |
-| `customers` | active members | advisor+ | advisor+ | archive by advisor+; no hard delete in client |
-| `vehicles` | active members | advisor+ | advisor+ | archive by advisor+ |
-| `service_requests` | active members | advisor+ | advisor+ | archive by advisor+ |
-| `service_orders` | active members | advisor+ | advisor+ ; mechanic **TBD** | archive by advisor+ |
-| `appointments` | active members | advisor+ | advisor+ | cancel/archive by advisor+ |
+| `customers` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception; no hard delete in client |
+| `vehicles` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception |
+| `service_requests` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception |
+| `service_orders` | later; mechanic via mode A or B (not M3) | advisor+ | advisor+ ; mechanic later | archive by advisor+ |
+| `appointments` | later; mechanic via mode A or B (not M3) | advisor+ | advisor+ | cancel/archive by advisor+ |
 | `activity_events` | active members | members (or trigger-only) | **none** (immutable) | **none** via client |
 
 ### 10.2 Service-role boundaries (never in browser)
@@ -860,7 +856,7 @@ Storage buckets and quote tables only when their phases start — **never** bund
 | AD-4 | Attention / Napaka as flags | Staff might want strip-only filters | Keep Potrebna pozornost; derive Napaka counts |
 | AD-5 | VIN optional | Duplicate vehicles | Partial unique index + registration search + attention |
 | AD-6 | Mileage cache on vehicle | Stale odometer | Always record per request/intake/order |
-| AD-7 | Mechanic permissions | Over/under permission | **NOT CONFIRMED** — coarse RLS until Tadej decides |
+| AD-7 | Mechanic permissions | Over/under permission | **CONFIRMED requirement:** two future modes (restricted assigned/necessary vs full workshop). **M3:** no automatic mechanic access. Implement modes in a dedicated later slice. |
 | AD-8 | No integration columns on core tables | Slightly more join work later | `integration_links` keeps core clean |
 | AD-9 | Demo “Ustvari servisni nalog” vs request entity | Language drift | **Do not change UI copy** without approval; backend may create `service_request` |
 | AD-10 | Temporary appointment holds | Double-booking if only jsonb | Prefer explicit `held` appointment rows + expiry/release |
@@ -872,7 +868,7 @@ Storage buckets and quote tables only when their phases start — **never** bund
 
 ## 17. Open questions requiring Aleš / Tadej confirmation
 
-1. **Mechanic permissions (NOT YET CONFIRMED):** full access **or** restricted access to assigned/needed operational data only? (Current draft recommendation: admin full; advisor administrative; mechanic limited — **unconfirmed**.)
+1. **Mechanic permissions (CONFIRMED requirement, implementation deferred):** two configurable modes — (A) restricted to assigned/necessary jobs, vehicles, and related customer data, or (B) full workshop access. **M3:** owner/admin/reception only; mechanic has no automatic access. Assignment/visibility logic is a later dedicated slice.
 2. **Conversion trigger:** When does a povpraševanje become a workshop `service_order` — at appointment confirm, at physical intake, or manually by Tadej? (Phase 1 can complete administratively before an order exists.)
 3. **Walk-ins:** Always create both request+order, or request-first until intake?
 4. **VIN required when?** Phone/SMS often lack VIN — allow request without VIN (recommended), require before offer or at intake?
