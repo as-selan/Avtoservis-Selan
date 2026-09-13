@@ -62,7 +62,7 @@ This document is the design contract for the domain. **Do not implement migratio
 | Nadzorna plošča | `/dashboard` | Only live route |
 | Servisni nalog | `ServiceOrderDemo` | Denormalized work row spanning inquiry → appointment → quote wait |
 | Povpraševanja | nav `inquiries` | Planned list; not implemented |
-| Termini | `AppointmentDemo` | Day list: sprejem / servis / diagnoza |
+| Termini | `AppointmentDemo` | Confirmed upcoming appointments (14 calendar days including today): sprejem / servis / diagnoza |
 | Ponudbe | nav `offers` | Planned |
 | Stranke / Vozila | nav | Planned |
 | Next action | `nextActionLabel` | Human “what to do next” |
@@ -421,17 +421,19 @@ Conventions for all tables unless noted:
 | Archive | Soft-archive; almost never hard-delete completed work |
 | Phase 1 note | Dashboard may still show a unified list driven by `service_requests`; UI labels stay locked |
 
-### 5.8 `appointments` (Phase 1 admin capability — dedicated later slice)
+### 5.8 `appointments` (Phase 1 admin capability)
 
 | Aspect | Design |
 |---|---|
 | Purpose | Scheduled time slots **and temporary holds** on offered slots |
-| Migration timing | **Not** in Slice A or B. Dedicated roadmap phase for availability + holds ([implementation plan](./implementation-plan.md) Phase 10) after earlier admin slices |
-| Important columns | `service_request_id` (req for Phase 1 booking; preferred always), `service_order_id` (opt — only after workshop orders exist), `customer_id` (req), `vehicle_id` (opt), `appointment_type` (`intake`/`sprejem` \| `service`/`servis` \| `diagnosis`/`diagnoza`), `status` (req), `starts_at` (req), `ends_at` (opt), `hold_expires_at` (opt — required when status is held), `held_for_service_request_id` (opt; usually same as `service_request_id`), `proposed_slots` (jsonb opt — alternative representation of multiple offered candidates), `notes` (opt internal), `cancelled_at` |
-| Ownership | **Primary:** request during booking phase. **Also** link to order when order exists. Phase 1: require `service_request_id`. |
-| Holds (Phase 1 requirement) | After customer approves the offer, the system offers available slots and **temporarily holds** them so they cannot be offered to another customer. On selection: confirm chosen slot; **release unused holds**. Holds may expire (`hold_expires_at`) and must free capacity. Prefer explicit rows over only jsonb so exclusivity can be enforced. |
-| Indexes | (`organization_id`, `starts_at`); (`service_request_id`); (`service_order_id`); (`status`); partial unique/exclusion later for non-overlapping held/confirmed slots per bay/resource if/when resources exist |
+| Migration timing | **Foundation PREP** migration `20260914003000_appointments_foundation.sql` prepares the canonical table + RLS early. Full availability/hold/selection workflow remains roadmap Phase 10 and is **not** implemented in this foundation. |
+| Important columns | `service_request_id` (req for Phase 1 booking; preferred always), `service_order_id` (**not yet** — only after workshop orders exist), `customer_id` (req), `vehicle_id` (opt), `appointment_type` (`intake` \| `service` \| `diagnosis`), `status` (req), `starts_at` (req), `ends_at` (opt), `hold_expires_at` (opt — required when status is held), `notes` (opt internal), `cancelled_at` |
+| Ownership | **Primary:** request during booking phase. Appointment identity is **derived from** `service_request` (historical customer/vehicle). Authenticated clients may set identity on **INSERT** only; they cannot relink via **UPDATE**. Corrections update the request; a SECURITY DEFINER sync rewrites linked appointment identity atomically. `vehicles.customer_id` transfers do not. Future reassignment (if ever needed) requires a controlled workflow/RPC. |
+| Holds (Phase 1 requirement) | Status set includes proposed/offered/held/selected/confirmed/released. **Concurrency, capacity, bay exclusivity, expiry jobs, and customer selection are deferred** to Phase 10. |
+| Dashboard Termini | Confirmed appointments only; presentation window = **14 calendar days including today** (Europe/Ljubljana); max 5 nearest. Window is configuration, not a schema constraint. |
+| Indexes | (`organization_id`, `starts_at`); (`organization_id`, `status`, `starts_at`); (`service_request_id`); (`customer_id`); partial (`vehicle_id`) |
 | Archive | Cancel / release via status; retain history |
+| Integrations | Google Calendar / MyPlanly remain deferred adapters — internal appointment is system of record |
 
 ### 5.9 `activity_events` (as needed — not first foundation slice)
 
@@ -497,7 +499,7 @@ V1 can start with `attention_needed` boolean + reason on request/order; promote 
 7. **Appointment:** may exist before any order; Phase 1 booking must not require `service_order_id`.
 8. **No duplicated masters:** UI joins customer/vehicle; list demos today are denormalized projections only.
 9. **External IDs:** never as PK; never as required columns on core tables.
-10. **Migration slices:** do not create `appointments`, `service_orders`, quotes, or integration tables in Slice A/B.
+10. **Migration slices:** do not create `service_orders`, quotes, or integration tables in Slice A/B. Canonical `appointments` table + base RLS may be prepared early (foundation PREP); availability/holds/selection remain Phase 10.
 
 ---
 
@@ -583,7 +585,7 @@ Until `quotes` tables exist, Phase 1 offer states live on `service_requests` (an
 - Duplicate customer suspicion → attention warning
 - Integration sync failure after confirm → Napaka without rolling back confirmed appointment unless staff decides
 
-Dashboard question: **“Kaj mora Tadej / mehanik narediti naslednje?”** → `next_action` + attention/Napaka queue + today’s appointments — not one mega-status.
+Dashboard question: **“Kaj mora Tadej / mehanik narediti naslednje?”** → `next_action` + attention/Napaka queue + confirmed upcoming appointments in the Termini 14-calendar-day window — not one mega-status.
 
 ### 7.4 Mapping to the locked Dashboard V1 strip
 
@@ -680,7 +682,7 @@ Helper used by M3 policies: `private.has_org_role(organization_id, '{owner,admin
 | `vehicles` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception |
 | `service_requests` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception |
 | `service_orders` | later; mechanic via mode A or B (not M3) | advisor+ | advisor+ ; mechanic later | archive by advisor+ |
-| `appointments` | later; mechanic via mode A or B (not M3) | advisor+ | advisor+ | cancel/archive by advisor+ |
+| `appointments` | foundation PREP table/RLS; mechanic via mode A or B later | advisor+ | advisor+ (identity columns INSERT-only; request sync updates identity) | cancel/archive by advisor+ |
 | `activity_events` | active members | members (or trigger-only) | **none** (immutable) | **none** via client |
 
 ### 10.2 Service-role boundaries (never in browser)
@@ -784,7 +786,8 @@ Aligned with [`docs/implementation-plan.md`](./implementation-plan.md). **Do not
 | Tenant + Auth + RLS | `organizations`, `profiles`, `organization_memberships` | **Slice A** (roadmap Phase 2) |
 | Customers / vehicles / cases | `customers`, `vehicles`, `service_requests` | **Slice B** (roadmap Phase 3) |
 | Activity feed | `activity_events` | As needed (from Manual Entry onward; not Slice A) |
-| Appointments + temporary holds | `appointments` | Dedicated later slice (roadmap Phase 10) |
+| Appointments table + base RLS | `appointments` | **Foundation PREP** (`20260914003000_appointments_foundation.sql`) — table + identity sync + advisor RLS prepared early |
+| Appointment availability / holds / selection | hold concurrency, multi-slot offer, expiry, capacity | Dedicated later slice (roadmap **Phase 10**) — not complete when the table exists |
 | Quotes / Quibi mapping | quotes + `integration_links` | Dedicated later slices (roadmap Phases 8–9) |
 | Calendar / MyPlanly | `integration_links` | Dedicated later slices (roadmap Phases 11–12) |
 
@@ -837,7 +840,8 @@ Phase 1 administrative workflow **operates primarily on `service_requests`**. Da
 | Later slice | Entities / work | Roadmap phase |
 |---|---|---|
 | Activity as needed | `activity_events` | Phases 4–5 / 13 |
-| Appointments + temporary holds | `appointments` (+ hold/concurrency) | Phase 10 |
+| Appointments foundation (table + RLS) | `appointments` canonical storage + identity sync | Prepared early (`20260914003000_appointments_foundation.sql`) |
+| Appointment availability + holds | multi-slot offers, holds, expiry, capacity/exclusivity, selection, concurrency-safe booking | Phase 10 |
 | Quotes / approvals | quote tables when ready | Phases 8–9 |
 | Integrations | `integration_links`, Quibi / Calendar / MyPlanly | Phases 8, 11–12 |
 | Workshop operations | `service_orders`, intakes, findings, photos… | Phase 16 |

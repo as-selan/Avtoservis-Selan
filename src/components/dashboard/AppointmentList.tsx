@@ -2,6 +2,7 @@
 
 import { CalendarDays } from "lucide-react";
 import type { AppointmentDemo, AppointmentType } from "@/lib/dashboard/types";
+import { DASHBOARD_APPOINTMENT_WINDOW_DAYS } from "@/lib/dashboard/appointment-window";
 
 const TYPE_STYLES: Record<
   AppointmentType,
@@ -44,15 +45,18 @@ export function AppointmentList({ appointments }: AppointmentListProps) {
       <ul className="divide-y divide-slate-100">
         {appointments.length === 0 ? (
           <li className="px-4 py-6 text-center text-sm text-slate-500">
-            Ni terminov za izbrano obdobje.
+            {`Ni potrjenih terminov v naslednjih ${DASHBOARD_APPOINTMENT_WINDOW_DAYS} dneh.`}
           </li>
         ) : (
           appointments.map((item) => {
             const type = TYPE_STYLES[item.type];
             return (
               <li key={item.id} className="flex items-start gap-3 px-4 py-3">
-                <span className="w-12 shrink-0 text-sm font-semibold text-slate-800">
-                  {item.time}
+                <span className="w-14 shrink-0 leading-tight text-slate-800">
+                  <span className="block text-[11px] font-medium text-slate-500">
+                    {item.dateLabel}
+                  </span>
+                  <span className="block text-sm font-semibold">{item.time}</span>
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-900">

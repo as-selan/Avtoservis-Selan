@@ -40,10 +40,13 @@ export interface ServiceOrderDemo {
 
 export interface AppointmentDemo {
   id: string;
+  /** Compact date label for multi-day Termini card (e.g. Danes / 14. 9.). */
+  dateLabel: string;
   time: string;
   customerName: string;
   vehicleLabel: string;
   type: AppointmentType;
+  /** Workshop YYYY-MM-DD for the appointment start. */
   date: string;
 }
 

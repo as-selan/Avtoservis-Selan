@@ -1,4 +1,5 @@
 import type { DashboardPeriodId } from "./types";
+import { DASHBOARD_APPOINTMENT_WINDOW_DAYS } from "./appointment-window";
 import { getZonedParts, startOfZonedDay, zonedDateTimeToUtc } from "./zoned-time";
 
 export interface PeriodOption {
@@ -15,7 +16,7 @@ export const DASHBOARD_PERIOD_OPTIONS: PeriodOption[] = [
 ];
 
 export const DASHBOARD_PERIOD_HELP =
-  "Velja za workflow, aktivne naloge, termine, pozornost in aktivnost.";
+  `Velja za workflow, aktivne naloge, pozornost in aktivnost. Termini prikazujejo naslednjih ${DASHBOARD_APPOINTMENT_WINDOW_DAYS} dni.`;
 
 /**
  * Period window helper for dashboard filtering (Europe/Ljubljana calendar).

@@ -484,6 +484,8 @@ After approval → transition to appointment proposal workflow (Phase 10).
 **Core Phase 1 requirement.**
 **Contract:** data-model §5.8 (holds), §7.2 appointment statuses.
 
+**Note:** Canonical `public.appointments` table + RLS were prepared early as PREP foundation (`20260914003000_appointments_foundation.sql`). Dashboard Termini can read **confirmed** rows in a 14-calendar-day window. This Phase still owns availability, holds, selection, expiry, and concurrency — do not treat the foundation migration as Phase 10 complete.
+
 - [ ] appointment availability model
 - [ ] temporary appointment hold entity / state
 - [ ] multiple offered slots per request
