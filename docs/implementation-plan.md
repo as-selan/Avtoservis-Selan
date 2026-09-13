@@ -587,13 +587,15 @@ Each event records where appropriate: organization · entity · action · actor 
 
 **Tentative roles:** admin/owner · reception/service advisor · mechanic
 
-**Current recommendation (NOT YET CONFIRMED by Tadej):**
+**Tadej confirmed — two future configurable mechanic modes (not implemented in M3):**
 
 | Role | Access |
 |---|---|
 | admin / owner | full operational / admin access |
 | reception / advisor | customers, requests, quotes, appointments |
-| mechanic | limited operational data needed for assigned work **OR** full — **unconfirmed** |
+| mechanic | **M3: no automatic access.** Later: (A) restricted — only assigned/necessary jobs, vehicles, related customer data, **or** (B) full workshop access |
+
+Mechanic permission/assignment logic is a dedicated later slice. RLS remains authoritative.
 
 - [ ] login
 - [ ] logout
@@ -697,7 +699,7 @@ List and **explicitly defer** — do not implement opportunistically:
 
 | # | Question | Status | Blocking? |
 |---|---|---|---|
-| Q1 | Confirm mechanic permissions with Tadej (full vs restricted to assigned/needed data) | **OPEN** | BLOCKING FOR PHASE 14 (role UX); soft for Phase 2 if coarse membership RLS only |
+| Q1 | Mechanic permissions: two configurable modes (restricted assigned/necessary vs full workshop) | **CONFIRMED requirement; modes not implemented** | BLOCKING FOR PHASE 14 (role UX / mechanic modes). **Not blocking M3:** mechanic has no automatic access |
 | Q2 | Confirm exact meaning of Phase 1 “Zaključeno” (admin journey complete vs other) | **OPEN** (design proposal: admin complete ≠ repair) | BLOCKING FOR PHASE 1 approval / PHASE 5 mapping |
 | Q3 | Confirm temporary slot hold duration | **OPEN** | BLOCKING FOR PHASE 10 |
 | Q4 | Confirm what happens if customer never responds | **OPEN** | BLOCKING FOR PHASE 9–10 |
@@ -722,7 +724,7 @@ Update statuses to **CONFIRMED** when decided. Do not start a phase marked BLOCK
 | **M0** | Dashboard baseline | Dashboard V1 on `main` @ `7e073f0…`; lint/build/QA evidence; GitHub aligned |
 | **M1** | Architecture approved | Preservation + data-model + this roadmap reviewed; entity/status/hold/integration/RLS/migration decisions approved; no migrations yet |
 | **M2** | Secure Supabase foundation | Org/profiles/memberships live with RLS; negative access tests PASS; applied only after approval |
-| **M3** | Real customer/vehicle/request data | Schemas + RLS; create/read under membership; cross-org denied |
+| **M3** | Real customer/vehicle/request data | Schemas + RLS; owner/admin/reception create/read/update; mechanic no automatic access; cross-org denied |
 | **M4** | Manual intake end-to-end | Phone-call scenario: reuse customer/vehicle, create request, appears on locked dashboard |
 | **M5** | Website intake + missing-data completion | Web → same `service_request`; missing-data email; completion attaches to same case |
 | **M6** | Quote approval workflow | Quibi draft + human price gate + send + customer approve/reject mapped to dashboard |
