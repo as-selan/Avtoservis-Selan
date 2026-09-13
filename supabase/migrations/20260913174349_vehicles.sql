@@ -9,15 +9,15 @@
 
 -- -----------------------------------------------------------------------------
 -- 1) vehicles
--- VIN optional (phone-first intake); unique per org when present/non-empty.
+-- VIN optional (phone-first intake); unique per org when present/non-empty,
+-- normalized as upper(btrim(vin)) — no 17-character DB constraint.
 -- registration_current is the current plate, not unique, not lifetime identity.
 -- mileage_latest_* is a cache only — visit/request mileage lives later on
 -- service_requests (and later intake/order), not as vehicle history.
 -- Composite FK (organization_id, customer_id) keeps the vehicle in the same
--- tenant as its current customer.
--- unique (organization_id, id) is the target for same-org FKs.
--- unique (organization_id, customer_id, id) is the target for same-customer
--- FKs (service_requests when both customer_id and vehicle_id are present).
+-- tenant as its current customer. unique (organization_id, id) is the target
+-- for same-org FKs. customer_id is mutable (sale/transfer); historical
+-- service_requests keep the customer at the time of the request.
 -- -----------------------------------------------------------------------------
 create table public.vehicles (
   id uuid primary key default gen_random_uuid(),
@@ -46,8 +46,6 @@ create table public.vehicles (
     on delete restrict,
   constraint vehicles_org_id_id_unique
     unique (organization_id, id),
-  constraint vehicles_org_customer_id_unique
-    unique (organization_id, customer_id, id),
   constraint vehicles_year_check
     check (year is null or year between 1886 and 2100),
   constraint vehicles_power_kw_check
@@ -73,8 +71,8 @@ create table public.vehicles (
     )
 );
 
-create unique index vehicles_organization_id_vin_unique
-  on public.vehicles (organization_id, vin)
+create unique index vehicles_organization_id_vin_normalized_unique
+  on public.vehicles (organization_id, (upper(btrim(vin))))
   where vin is not null and char_length(btrim(vin)) > 0;
 
 create index vehicles_organization_id_registration_current_idx
@@ -98,7 +96,22 @@ revoke all on table public.vehicles from public;
 revoke all on table public.vehicles from anon;
 revoke all on table public.vehicles from authenticated;
 grant select on table public.vehicles to authenticated;
-grant insert on table public.vehicles to authenticated;
+grant insert (
+  organization_id,
+  customer_id,
+  registration_current,
+  vin,
+  make,
+  model,
+  year,
+  power_kw,
+  engine,
+  engine_type,
+  fuel,
+  notes,
+  mileage_latest_km,
+  mileage_latest_recorded_at
+) on table public.vehicles to authenticated;
 grant update (
   customer_id,
   registration_current,
@@ -116,6 +129,7 @@ grant update (
   archived_at
 ) on table public.vehicles to authenticated;
 -- delete: not granted — archive via archived_at
+-- column INSERT limited: id/created_at/updated_at from defaults/triggers only
 -- column UPDATE limited: id/organization_id/created_at/updated_at not updatable by browser
 -- revoke-from-authenticated first clears any default table-wide privileges
 

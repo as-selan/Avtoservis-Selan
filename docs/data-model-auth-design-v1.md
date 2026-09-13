@@ -390,9 +390,9 @@ Conventions for all tables unless noted:
 | Purpose | Persistent vehicle record under a customer |
 | Permanent fields | `vin` (opt but unique per org when present), `make` (req once known), `model` (req once known), `year` (opt), `power_kw` (opt), `engine_displacement_cc` or text `engine_displacement` (opt), `engine_code` (opt), `fuel` (opt enum), `registration_current` (opt — **current** plate), `notes` (opt), `mileage_latest_km` (opt **cache only**), `mileage_latest_recorded_at` (opt) |
 | Per-visit fields (NOT only on vehicle) | Mileage at request/intake/order; registration at time of visit if needed later |
-| Relationships | `customer_id` current owner (req in Slice B+); history of ownership changes = later if needed |
-| Indexes | unique partial (`organization_id`, `vin`) where vin not null; (`organization_id`, `registration_current`); (`customer_id`) |
-| VIN care | Treat as sensitive identifier; never public; allow null while `manjkajo_podatki` |
+| Relationships | `customer_id` is the **current** owner (req in Slice B+); mutable on sale/transfer. `service_requests.customer_id` is historical (who brought the vehicle then) and is **not** retargeted when current ownership changes. Attaching both IDs on a request is validated against **current** vehicle owner; incomplete (null) IDs stay allowed. |
+| Indexes | unique partial (`organization_id`, `upper(btrim(vin))`) where VIN present/non-empty; (`organization_id`, `registration_current`); (`customer_id`) |
+| VIN care | Treat as sensitive identifier; never public; allow null while `manjkajo_podatki`. Uniqueness is case/whitespace-normalized; no 17-character DB constraint. |
 | Registration | Can change; store current on vehicle; do not assume lifetime identity |
 | Archive | Soft-archive; keep linked order history |
 
@@ -404,7 +404,7 @@ Conventions for all tables unless noted:
 | Important columns | `customer_id` (opt early, req before offer/convert), `vehicle_id` (opt early), `status` (req), `priority` (opt), `summary` (req — short “what they want”), `problem_description` (opt/text), `service_wanted` (opt), `brings_own_material` (bool opt), `mileage_reported_km` (opt — customer-reported), `source` (recommended req: `web_form` \| `phone` \| `sms` \| `manual` \| `other`), `channel` (opt detail), `missing_fields` (text[] or jsonb opt), `next_action` (text opt), `attention_needed` (bool default false), `attention_reason` (opt), `has_error` (bool opt — Napaka), `error_reason` (opt), timestamps, `archived_at` |
 | Deferred FK | `converted_service_order_id` — add only when `service_orders` workshop slice exists |
 | Status (request) | See §7 |
-| Relationships | Later 0..1 `service_orders`; later 0..n `appointments` |
+| Relationships | Later 0..1 `service_orders`; later 0..n `appointments`. Same-org FKs to customer and vehicle. `customer_id` on the request is **historical** (owner at request time), not a live pointer to `vehicles.customer_id`. |
 | Indexes | (`organization_id`, `status`, `updated_at desc`), (`customer_id`), (`vehicle_id`), (`attention_needed`) where true |
 | Archive | Soft-archive declined/spam; keep for audit |
 
@@ -489,8 +489,8 @@ V1 can start with `attention_needed` boolean + reason on request/order; promote 
 ## 6. Relationship rules
 
 1. **Org isolation:** every query is scoped by `organization_id`.
-2. **Customer → vehicles:** 1:N. A vehicle has one **current** `customer_id` in V1.
-3. **Vehicle history:** service_requests and service_orders reference `vehicle_id`; deleting/archiving a customer must not destroy order history (restrict or reassign; prefer archive customer + keep FKs).
+2. **Customer → vehicles:** 1:N. A vehicle has one **current** `customer_id` in V1. That column may change (sale/transfer).
+3. **Vehicle history:** `service_requests` (and later `service_orders`) keep `customer_id` + `vehicle_id` as of that case. Changing `vehicles.customer_id` must not rewrite or invalidate old requests. Same-org FKs only; current-owner match is enforced only when attaching/changing both IDs on a request. Deleting/archiving a customer must not destroy history (restrict; prefer archive).
 4. **Request → order:** at most **one** active conversion (`service_orders.service_request_id` unique when not null, or `service_requests.converted_service_order_id` unique).
 5. **Not every request becomes an order:** declined / cancelled / spam / customer no-show without acceptance stay as requests.
 6. **Walk-in / phone-to-bay:** Phase 1 admin creates/updates a `service_request`. Creating a workshop `service_order` is deferred to workshop scope (see open questions).
@@ -854,7 +854,7 @@ Storage buckets and quote tables only when their phases start — **never** bund
 | AD-2 | Appointments owned primarily by request | Orphans if request archived poorly | Restrict archive while future appointments exist; link to order when converted |
 | AD-3 | Split statuses vs one enum | Dashboard strip harder | Explicit presentation mapping; UI preserved |
 | AD-4 | Attention / Napaka as flags | Staff might want strip-only filters | Keep Potrebna pozornost; derive Napaka counts |
-| AD-5 | VIN optional | Duplicate vehicles | Partial unique index + registration search + attention |
+| AD-5 | VIN optional | Duplicate vehicles | Partial unique on `(organization_id, upper(btrim(vin)))` + registration search + attention |
 | AD-6 | Mileage cache on vehicle | Stale odometer | Always record per request/intake/order |
 | AD-7 | Mechanic permissions | Over/under permission | **CONFIRMED requirement:** two future modes (restricted assigned/necessary vs full workshop). **M3:** no automatic mechanic access. Implement modes in a dedicated later slice. |
 | AD-8 | No integration columns on core tables | Slightly more join work later | `integration_links` keeps core clean |

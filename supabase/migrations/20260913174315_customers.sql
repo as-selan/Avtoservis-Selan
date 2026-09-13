@@ -54,7 +54,15 @@ revoke all on table public.customers from public;
 revoke all on table public.customers from anon;
 revoke all on table public.customers from authenticated;
 grant select on table public.customers to authenticated;
-grant insert on table public.customers to authenticated;
+grant insert (
+  organization_id,
+  customer_type,
+  display_name,
+  email,
+  phone,
+  notes,
+  source
+) on table public.customers to authenticated;
 grant update (
   customer_type,
   display_name,
@@ -65,6 +73,7 @@ grant update (
   archived_at
 ) on table public.customers to authenticated;
 -- delete: not granted — archive via archived_at
+-- column INSERT limited: id/created_at/updated_at from defaults/triggers only
 -- column UPDATE limited: id/organization_id/created_at/updated_at not updatable by browser
 -- revoke-from-authenticated first clears any default table-wide privileges
 
