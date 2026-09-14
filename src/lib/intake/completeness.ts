@@ -7,6 +7,7 @@ import { blankToNull } from "@/lib/intake/normalize";
  * Quibi required fields are known.
  *
  * status = new only when phone, email, vin, make, and model are all present.
+ * Website intake uses the same contract via computeIntakeCompleteness.
  */
 export function computeManualIntakeCompleteness(input: {
   phone: string | null;
@@ -36,3 +37,6 @@ export function computeManualIntakeCompleteness(input: {
     next_action: "Pridobi manjkajoče podatke stranke ali vozila.",
   };
 }
+
+/** Alias — website and manual intake share the V1 completeness contract. */
+export const computeIntakeCompleteness = computeManualIntakeCompleteness;

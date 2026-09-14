@@ -9,13 +9,22 @@ import { NextResponse, type NextRequest } from "next/server";
  * Invite-only note: the app has no signup UI, but hosted Supabase Auth must also
  * have public signup disabled before launch (Dashboard setting). This code does
  * not change that remote setting.
+ *
+ * Unauthenticated routes are explicit — do not wildcard /api.
+ * /dashboard and other workshop routes stay identity-gated below.
  */
-function isPublicAuthRoute(pathname: string): boolean {
+export function isPublicUnauthenticatedPath(pathname: string): boolean {
   return (
     pathname === "/login" ||
     pathname === "/auth" ||
-    pathname.startsWith("/auth/")
+    pathname.startsWith("/auth/") ||
+    pathname === "/povprasevanje" ||
+    pathname === "/api/povprasevanje"
   );
+}
+
+function isPublicAuthRoute(pathname: string): boolean {
+  return isPublicUnauthenticatedPath(pathname);
 }
 
 /**
