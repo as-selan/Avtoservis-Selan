@@ -396,17 +396,19 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 **Goal:** Website inquiries enter the **same** canonical workflow.
 
-- [ ] define secure intake endpoint
-- [ ] validate submitted data
-- [ ] create / reuse customer
-- [ ] create / reuse vehicle when safely identifiable
-- [ ] create `service_request`
-- [ ] source = `web_form`
-- [ ] idempotency / duplicate protection
-- [ ] abuse / rate-limit considerations
-- [ ] success / error handling
-- [ ] dashboard visibility
-- [ ] activity event
+**PREP V1:** [`docs/website-intake-prep-v1.md`](./website-intake-prep-v1.md) — public `/povprasevanje` + same-origin `POST /api/povprasevanje` + `public.create_web_service_request_intake`. Website and manual intake converge into `service_requests` with `source = web_form`. Organization/status/source are server-authoritative. Migration is **unapplied**. Durable rate limit / bot challenge is a **production launch blocker**. Phase 7 completion-email is **not** implemented.
+
+- [x] define secure intake endpoint (PREP; migration unapplied)
+- [x] validate submitted data (PREP)
+- [x] create / safely reuse customer (PREP RPC; unsafe identity is quarantined for human review)
+- [x] create / reuse vehicle when safely identifiable (PREP RPC)
+- [x] create `service_request` (PREP RPC)
+- [x] source = `web_form`
+- [x] idempotency / replay protection (`intake_request_id`; not general duplicate prevention)
+- [ ] abuse / rate-limit considerations — basic honeypot/size/same-origin in PREP; **durable rate limit still required before production exposure**
+- [x] success / error handling (generic public messages)
+- [x] dashboard visibility via existing Phase 5 `service_requests` loader (no second queue)
+- [ ] activity event — **deferred** until canonical `activity_events` exists (do not use demo activity)
 
 **Important:** Do **not** create a parallel “website inquiries” system. All inputs converge into `service_requests`.
 

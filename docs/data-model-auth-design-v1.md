@@ -112,6 +112,8 @@ All of the following create the **same** canonical `service_request` (case):
 
 Manual entry should **search/reuse** existing customer and vehicle where possible (phone, email, registration, VIN) instead of always inserting duplicates.
 
+Phase 6 PREP (unapplied): public website intake writes the same `service_requests` row with `source = web_form` via `public.create_web_service_request_intake`. Callers cannot supply `organization_id` / `source` / status. See [`docs/website-intake-prep-v1.md`](./website-intake-prep-v1.md).
+
 ### Unified administrative flow
 
 ```text
