@@ -116,6 +116,8 @@ Phase 6 PREP (unapplied): public website intake writes the same `service_request
 
 Phase 7 PREP (unapplied): missing-data completion updates that **same** `service_request` through hashed completion links (`public.service_request_completion_links`). Raw tokens are never stored. Fragment URL `/dopolnitev#token=…`. Complete → `preparing_offer` (STOP; Quibi is **not** implemented). See [`docs/missing-data-completion-prep-v1.md`](./missing-data-completion-prep-v1.md).
 
+Phase 8 PREP (unapplied): internal `offer_preparations` for `preparing_offer` requests. Provider-neutral boundary only; **no live Quibi API / credentials**. `service_request` remains `preparing_offer`. See [`docs/offer-preparation-prep-v1.md`](./offer-preparation-prep-v1.md). Phase 9 owns Tadej review, send, and `awaiting_customer_approval`.
+
 ### Unified administrative flow
 
 ```text
@@ -218,6 +220,7 @@ erDiagram
   vehicles ||--o{ service_orders : subject
 
   service_requests ||--o| service_orders : "converts to (0..1)"
+  service_requests ||--o| offer_preparations : "phase 8 prep"
   service_requests ||--o{ appointments : schedules
   service_orders ||--o{ appointments : "may link"
 
@@ -234,6 +237,7 @@ erDiagram
   quotes ||--o{ customer_approvals : "later"
   organizations ||--o{ attachments : "later"
   organizations ||--o{ communications : "later"
+  organizations ||--o{ offer_preparations : "phase 8 prep"
   organizations ||--o{ integration_links : "later"
 
   organizations {
@@ -465,10 +469,14 @@ Purpose: diagnosis / additional faults discovered.
 Visibility: `visibility` = `internal` \| `customer_safe`.
 Do not conflate with customer email body.
 
-#### `quotes`, `quote_items`, `customer_approvals` (LATER)
+#### `offer_preparations` (Phase 8 PREP — unapplied)
 
-Purpose: replace “Priprava ponudbe / Čaka potrditev”.
-Quote status separate from order status. Approval records who/when/channel.
+Purpose: **canonical** internal row that a `service_request` in `preparing_offer` is ready for a later external offer workflow. Unique `(organization_id, service_request_id)`. Status V1: `ready_for_provider` only. Dashboard readiness is this row/status — **not** `next_action` text (`next_action` is human guidance only). Eligibility also requires canonical V1 completeness (phone, email, VIN, make, model) via `private.compute_intake_completeness`; `preparing_offer` alone is not sufficient. Incomplete state fails closed with no insert. Does **not** store Quibi IDs. Creating it **must not** move `service_requests.status` off `preparing_offer`. Phase 8 does **not** execute the provider adapter. See [`docs/offer-preparation-prep-v1.md`](./offer-preparation-prep-v1.md).
+
+#### `quotes`, `quote_items`, `customer_approvals` (LATER — Phase 9+)
+
+Purpose: replace “Čaka potrditev” once a real provider draft and Tadej review/send exist.
+Quote status separate from order status. Approval records who/when/channel. Not created in Phase 8 PREP.
 
 #### `attachments` (LATER)
 
@@ -534,7 +542,7 @@ Dashboard V1 visible workflow concepts (including Tadej’s Phase 1 list) are a 
 |---|---|
 | `new` | Novo |
 | `needs_data` | Manjkajo podatki (Phase 7 PREP: hashed completion link; replies attach to **same** request; email send still later) |
-| `preparing_offer` | Priprava ponudbe (incl. Quibi draft + internal price approval) |
+| `preparing_offer` | Priprava ponudbe (Phase 8 PREP: internal `offer_preparations`; Quibi draft + Tadej price gate remain later) |
 | `awaiting_customer_approval` | Čaka potrditev ponudbe |
 | `awaiting_slot_selection` | Čaka izbiro termina (slots offered + held) |
 | `appointment_confirmed` | Termin potrjen |
@@ -569,7 +577,7 @@ Dashboard V1 visible workflow concepts (including Tadej’s Phase 1 list) are a 
 | `completed` | Repair/job **Zaključeno** (workshop sense — do not conflate with request `admin_completed`) |
 | `cancelled` | Cancelled after acceptance |
 
-Until `quotes` tables exist, Phase 1 offer states live on `service_requests` (and activity/integration payloads). Add quote tables when ready; **do not** force one shared enum across request/order/quote/appointment.
+Until `quotes` tables exist, Phase 1 offer states live on `service_requests` plus Phase 8 `offer_preparations`. Add quote tables when a real provider draft exists; **do not** force one shared enum across request/order/quote/appointment.
 
 ### 7.3 `next_action`, attention, and Napaka
 
@@ -733,7 +741,7 @@ Phase 1 integration touchpoints (outbound/inbound as designed later):
 
 | Step | System | Our app remains source of truth for |
 |---|---|---|
-| Quote-estimate draft | Quibi | Case identity, internal price approval gate, offer status |
+| Quote-estimate draft | Quibi (later) | Case identity, internal `offer_preparations`, internal price approval gate, offer status |
 | Confirmed appointment write | Google Calendar | Appointment row + hold/confirm lifecycle |
 | Appointment/data sync + reminders | MyPlanly | Canonical appointment; MyPlanly continues SMS/email reminders |
 | Missing-data email | Email | Same `service_request`; completion attaches to same case |
@@ -792,7 +800,8 @@ Aligned with [`docs/implementation-plan.md`](./implementation-plan.md). **Do not
 | Activity feed | `activity_events` | As needed (from Manual Entry onward; not Slice A) |
 | Appointments table + base RLS | `appointments` | **Foundation PREP** (`20260914003000_appointments_foundation.sql`) — table + identity sync + advisor RLS prepared early |
 | Appointment availability / holds / selection | hold concurrency, multi-slot offer, expiry, capacity | Dedicated later slice (roadmap **Phase 10**) — not complete when the table exists |
-| Quotes / Quibi mapping | quotes + `integration_links` | Dedicated later slices (roadmap Phases 8–9) |
+| Internal offer preparation | `offer_preparations` | **Phase 8 PREP** (`20260917100000_create_offer_preparations.sql`) — unapplied; no live Quibi |
+| Quotes / Quibi mapping | quotes + `integration_links` | After confirmed Quibi API (roadmap Phase 8 adapter + Phase 9 send/approval) |
 | Calendar / MyPlanly | `integration_links` | Dedicated later slices (roadmap Phases 11–12) |
 
 Phase 1 administrative workflow **operates primarily on `service_requests`**. Dashboard unified list maps from requests until workshop orders exist.
@@ -846,8 +855,9 @@ Phase 1 administrative workflow **operates primarily on `service_requests`**. Da
 | Activity as needed | `activity_events` | Phases 4–5 / 13 |
 | Appointments foundation (table + RLS) | `appointments` canonical storage + identity sync | Prepared early (`20260914003000_appointments_foundation.sql`) |
 | Appointment availability + holds | multi-slot offers, holds, expiry, capacity/exclusivity, selection, concurrency-safe booking | Phase 10 |
-| Quotes / approvals | quote tables when ready | Phases 8–9 |
-| Integrations | `integration_links`, Quibi / Calendar / MyPlanly | Phases 8, 11–12 |
+| Internal offer preparation | `offer_preparations` + unconfigured provider | Phase 8 PREP (unapplied; no live Quibi) |
+| Quotes / approvals | quote tables when ready | Phase 9+ |
+| Integrations | `integration_links`, Quibi / Calendar / MyPlanly | After confirmed APIs (Quibi adapter after docs; Calendar/MyPlanly Phases 11–12) |
 | Workshop operations | `service_orders`, intakes, findings, photos… | Phase 16 |
 
 Storage buckets and quote tables only when their phases start — **never** bundled into Slice A.

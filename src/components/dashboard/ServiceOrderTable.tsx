@@ -7,6 +7,7 @@ import {
   getStatusLabel,
 } from "@/lib/dashboard/statuses";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
+import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 
 interface ServiceOrderTableProps {
   orders: ServiceOrderDemo[];
@@ -104,6 +105,12 @@ export function ServiceOrderTable({ orders }: ServiceOrderTableProps) {
                   {order.status === "manjkajo_podatki" && order.serviceRequestId ? (
                     <CreateCompletionLinkButton
                       serviceRequestId={order.serviceRequestId}
+                    />
+                  ) : null}
+                  {order.status === "priprava_ponudbe" && order.serviceRequestId ? (
+                    <PrepareOfferButton
+                      serviceRequestId={order.serviceRequestId}
+                      alreadyPrepared={order.offerPreparationReady === true}
                     />
                   ) : null}
                   <button

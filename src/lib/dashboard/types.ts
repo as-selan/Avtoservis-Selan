@@ -36,6 +36,8 @@ export interface ServiceOrderDemo {
   appointmentTime?: string | null;
   updatedAt: string;
   updatedLabel: string;
+  /** True when offer_preparations.status is ready_for_provider (canonical). */
+  offerPreparationReady?: boolean;
 }
 
 export interface AppointmentDemo {

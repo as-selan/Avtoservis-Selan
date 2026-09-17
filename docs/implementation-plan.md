@@ -437,9 +437,11 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 ## PHASE 8 — Quote / Quibi integration
 
-**Do NOT implement until API capabilities are confirmed.**
+**PREP V1:** [`docs/offer-preparation-prep-v1.md`](./offer-preparation-prep-v1.md) — internal `offer_preparations` is canonical preparation state. `next_action` is human copy only. Provider-neutral `OfferDraftProvider` is a **future boundary** (unconfigured / fail closed); **Phase 8 does not execute it**. Eligibility: locked `preparing_offer`, not archived, **and** canonical V1 completeness (phone, email, VIN, make, model) still holds — `preparing_offer` is necessary but not sufficient. Incomplete data fails closed (`incomplete_data`; no insert, no `needs_data` rollback). Idempotent one row per request. Migration **unapplied**. **No live Quibi API, no Quibi credentials, no invented endpoints.** `service_requests.status` stays `preparing_offer`. No MyPlanly. Phase 9 owns Tadej review, send, and `awaiting_customer_approval`. Live Quibi adapter waits for confirmed API docs/access.
 
-### Discovery first
+**Do NOT implement a live Quibi adapter until API capabilities are confirmed.**
+
+### Discovery first (still blocking a real adapter)
 
 - [ ] obtain Quibi API documentation / access
 - [ ] confirm create / read / update capabilities
@@ -448,17 +450,23 @@ Preserve existing Manual Entry UI — **do not redesign**.
 - [ ] confirm webhooks / polling possibilities
 - [ ] document rate limits / errors
 
-### Then implement
+### PREP implemented (internal only)
 
-- [ ] integration connection model
-- [ ] create Quibi draft after data completeness
-- [ ] store integration mapping
-- [ ] internal price review gate
+- [x] provider-neutral offer-draft interface (unconfigured / fail closed; **not invoked** by Phase 8 UI/action)
+- [x] internal offer-preparation entity (`offer_preparations`)
+- [x] create internal preparation after completeness (`preparing_offer` gate)
+- [ ] store integration mapping — **deferred** until a real external ID exists (`integration_links` later; do not fabricate)
+- [x] retry / idempotency for internal preparation (unique + lock `910007`)
+- [x] dashboard CTA **Pripravi ponudbo** with truthful unconfigured copy
+
+### Then implement (Phase 9 / after Quibi docs)
+
+- [ ] real Quibi adapter (only with confirmed API docs/access)
+- [ ] internal price review gate (Tadej)
 - [ ] do **NOT** auto-send unreviewed pricing
 - [ ] approve / send offer
-- [ ] sync status back to case
-- [ ] error / attention handling
-- [ ] retry / idempotency
+- [ ] sync status back to case (`awaiting_customer_approval` is Phase 9)
+- [ ] error / attention handling for live provider
 - [ ] audit trail
 
 **Quibi is NOT canonical storage.**
@@ -710,8 +718,8 @@ List and **explicitly defer** — do not implement opportunistically:
 | Q3 | Confirm temporary slot hold duration | **OPEN** | BLOCKING FOR PHASE 10 |
 | Q4 | Confirm what happens if customer never responds | **OPEN** | BLOCKING FOR PHASE 9–10 |
 | Q5 | Confirm quote expiry behavior | **OPEN** | BLOCKING FOR PHASE 9 |
-| Q6 | Confirm whether approved quote can later change | **OPEN** | BLOCKING FOR PHASE 8–9 |
-| Q7 | Obtain Quibi API capabilities | **OPEN** | BLOCKING FOR PHASE 8 |
+| Q6 | Confirm whether approved quote can later change | **OPEN** | BLOCKING FOR PHASE 9 (customer send/approval). **Not blocking Phase 8 internal PREP** |
+| Q7 | Obtain Quibi API capabilities | **OPEN** | **BLOCKING FOR the live Quibi adapter only.** **Not blocking Phase 8 internal PREP** (`offer_preparations` + unconfigured provider boundary) |
 | Q8 | Obtain MyPlanly API capabilities | **OPEN** | BLOCKING FOR PHASE 12 |
 | Q9 | Confirm Google Calendar account / calendar ownership | **OPEN** | BLOCKING FOR PHASE 11 |
 | Q10 | Confirm email sender / service for automated emails | **OPEN** | BLOCKING FOR PHASE 7 |
@@ -750,7 +758,8 @@ Approve docs (Phase 1)
   → Phase 4 manual entry E2E
   → Phase 5 dashboard real-data wiring
   → Phase 6–7 web + missing data
-  → Phase 8–9 quotes (after Quibi API)
+  → Phase 8 internal offer prep (PREP; live Quibi after API)
+  → Phase 9 customer send/approval (after human price gate)
   → Phase 10 holds
   → Phase 11–12 Calendar / MyPlanly (after APIs)
   → Phase 13–14 harden activity + auth UX

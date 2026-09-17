@@ -68,6 +68,7 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
+  offerPreparationReady = false,
 ): ServiceOrderDemo {
   const uiStatus = mapDbStatusToUiStatus(row.status);
 
@@ -81,6 +82,7 @@ export function adaptServiceRequestToOrder(
     requestSummary: row.summary,
     status: uiStatus,
     nextActionLabel: nextActionLabel(row.next_action, uiStatus),
+    offerPreparationReady,
     locationLabel: undefined,
     appointmentTime: null,
     updatedAt: row.updated_at,
