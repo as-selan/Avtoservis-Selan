@@ -396,7 +396,7 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 **Goal:** Website inquiries enter the **same** canonical workflow.
 
-**PREP V1:** [`docs/website-intake-prep-v1.md`](./website-intake-prep-v1.md) — public `/povprasevanje` + same-origin `POST /api/povprasevanje` + `public.create_web_service_request_intake`. Website and manual intake converge into `service_requests` with `source = web_form`. Organization/status/source are server-authoritative. Migration is **unapplied**. Durable rate limit / bot challenge is a **production launch blocker**. Phase 7 completion-email is **not** implemented.
+**PREP V1:** [`docs/website-intake-prep-v1.md`](./website-intake-prep-v1.md) — public `/povprasevanje` + same-origin `POST /api/povprasevanje` + `public.create_web_service_request_intake`. Website and manual intake converge into `service_requests` with `source = web_form`. Organization/status/source are server-authoritative. Migration is **unapplied**. Durable rate limit / bot challenge is a **production launch blocker**. Phase 7 completion is a separate PREP (copy-link; email send still later).
 
 - [x] define secure intake endpoint (PREP; migration unapplied)
 - [x] validate submitted data (PREP)
@@ -418,18 +418,20 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 ## PHASE 7 — Missing data completion
 
-- [ ] completeness rules
-- [ ] determine required data
-- [ ] mark request “Manjkajo podatki”
-- [ ] prepare / send completion email
-- [ ] secure completion link / token
-- [ ] customer submits missing data
-- [ ] attach changes to **same** `service_request`
-- [ ] no duplicate case
-- [ ] activity history
-- [ ] expiry / security controls
-- [ ] dashboard state updates automatically
-- [ ] human / manual fallback required
+**PREP V1:** [`docs/missing-data-completion-prep-v1.md`](./missing-data-completion-prep-v1.md) — hashed completion links on `service_request_completion_links`; public `/dopolnitev#token=…` + `POST /api/dopolnitev`; SAME `service_request` update; complete → `preparing_offer` then STOP. Migration **unapplied**. No Quibi, MyPlanly, Calendar, or email send.
+
+- [x] completeness rules (same V1: phone, email, VIN, make, model) — PREP
+- [x] determine required data — PREP (no extra Quibi fields)
+- [x] mark request “Manjkajo podatki” (`needs_data`) — already from intake; completion recalculates
+- [ ] prepare / send completion email — **deferred** (staff copy-link only)
+- [x] secure completion link / token — PREP (32-byte crypto, SHA-256 stored, 7-day expiry, revoke-on-regenerate)
+- [x] customer submits missing data — PREP public form
+- [x] attach changes to **same** `service_request` — PREP (no second INSERT)
+- [x] no duplicate case — PREP
+- [ ] activity history — **deferred** (no `activity_events` model yet)
+- [x] expiry / security controls — PREP token lifecycle; production rate limit still a launch blocker (same class as Phase 6)
+- [x] dashboard state updates automatically — existing Phase 5 loader; copy-link on `needs_data`
+- [x] human / manual fallback required — staff issue/copy; identity conflicts → attention, `has_error = false`
 
 ---
 

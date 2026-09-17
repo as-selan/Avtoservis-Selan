@@ -114,6 +114,8 @@ Manual entry should **search/reuse** existing customer and vehicle where possibl
 
 Phase 6 PREP (unapplied): public website intake writes the same `service_requests` row with `source = web_form` via `public.create_web_service_request_intake`. Callers cannot supply `organization_id` / `source` / status. See [`docs/website-intake-prep-v1.md`](./website-intake-prep-v1.md).
 
+Phase 7 PREP (unapplied): missing-data completion updates that **same** `service_request` through hashed completion links (`public.service_request_completion_links`). Raw tokens are never stored. Fragment URL `/dopolnitev#token=…`. Complete → `preparing_offer` (STOP; Quibi is **not** implemented). See [`docs/missing-data-completion-prep-v1.md`](./missing-data-completion-prep-v1.md).
+
 ### Unified administrative flow
 
 ```text
@@ -531,7 +533,7 @@ Dashboard V1 visible workflow concepts (including Tadej’s Phase 1 list) are a 
 | Status | Visible mapping |
 |---|---|
 | `new` | Novo |
-| `needs_data` | Manjkajo podatki (auto email may request completion; replies attach to **same** request) |
+| `needs_data` | Manjkajo podatki (Phase 7 PREP: hashed completion link; replies attach to **same** request; email send still later) |
 | `preparing_offer` | Priprava ponudbe (incl. Quibi draft + internal price approval) |
 | `awaiting_customer_approval` | Čaka potrditev ponudbe |
 | `awaiting_slot_selection` | Čaka izbiro termina (slots offered + held) |
