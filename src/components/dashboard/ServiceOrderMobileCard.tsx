@@ -6,6 +6,7 @@ import {
   getStatusBadgeClass,
   getStatusLabel,
 } from "@/lib/dashboard/statuses";
+import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 
 interface ServiceOrderMobileCardProps {
   order: ServiceOrderDemo;
@@ -59,6 +60,12 @@ export function ServiceOrderMobileCard({ order }: ServiceOrderMobileCardProps) {
       >
         {order.nextActionLabel} →
       </button>
+      {order.status === "manjkajo_podatki" && order.serviceRequestId ? (
+        <CreateCompletionLinkButton
+          serviceRequestId={order.serviceRequestId}
+          compact
+        />
+      ) : null}
 
       <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
         <span>{order.locationLabel ?? "Lokacija ni znana"}</span>

@@ -73,7 +73,7 @@ Direct `anon` RPC execute is currently possible with the publishable key; the Ne
 
 ## Deferred
 
-- **Phase 7** missing-data completion email / secure token — not implemented. Incomplete requests stay `needs_data` (`Manjkajo podatki` on the existing dashboard).
+- **Phase 7** missing-data completion — separate PREP in [`docs/missing-data-completion-prep-v1.md`](./missing-data-completion-prep-v1.md) (copy-link + hashed token; **email send still not implemented**). Incomplete requests stay `needs_data` until that flow completes.
 - **Activity event** — no canonical `activity_events` persistence model exists yet; not invented here. Roadmap activity item remains deferred.
 - Quibi, MyPlanly, Google Calendar, offers, appointments/holds — later dedicated phases.
 

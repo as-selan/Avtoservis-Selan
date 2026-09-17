@@ -19,7 +19,9 @@ export function isPublicUnauthenticatedPath(pathname: string): boolean {
     pathname === "/auth" ||
     pathname.startsWith("/auth/") ||
     pathname === "/povprasevanje" ||
-    pathname === "/api/povprasevanje"
+    pathname === "/api/povprasevanje" ||
+    pathname === "/dopolnitev" ||
+    pathname === "/api/dopolnitev"
   );
 }
 

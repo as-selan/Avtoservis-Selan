@@ -6,6 +6,7 @@ import {
   getStatusBadgeClass,
   getStatusLabel,
 } from "@/lib/dashboard/statuses";
+import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 
 interface ServiceOrderTableProps {
   orders: ServiceOrderDemo[];
@@ -99,13 +100,20 @@ export function ServiceOrderTable({ orders }: ServiceOrderTableProps) {
                 {order.updatedLabel}
               </td>
               <td className="px-3 py-3">
-                <button
-                  type="button"
-                  className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                  aria-label={`Dejanja za nalog ${order.id}`}
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  {order.status === "manjkajo_podatki" && order.serviceRequestId ? (
+                    <CreateCompletionLinkButton
+                      serviceRequestId={order.serviceRequestId}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    aria-label={`Dejanja za nalog ${order.id}`}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
