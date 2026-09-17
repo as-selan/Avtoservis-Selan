@@ -17,6 +17,7 @@ import {
   DASHBOARD_APPOINTMENT_LIST_LIMIT,
   getAppointmentDashboardWindow,
 } from "@/lib/dashboard/appointment-window";
+import { OFFER_PREPARATION_STATUS_READY_FOR_PROVIDER } from "@/lib/offer-preparation/constants";
 import type {
   AppointmentDemo,
   AttentionItemDemo,
@@ -118,6 +119,12 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       }
     }
 
+    const preparedRequestIds = await loadReadyOfferPreparationIds(
+      supabase,
+      access.organizationId,
+      requests.map((r) => r.id),
+    );
+
     const orders: ServiceOrderDemo[] = [];
     const attention: AttentionItemDemo[] = [];
 
@@ -129,7 +136,15 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
         ? vehiclesById.get(row.vehicle_id)
         : undefined;
 
-      orders.push(adaptServiceRequestToOrder(row, customer, vehicle, now));
+      orders.push(
+        adaptServiceRequestToOrder(
+          row,
+          customer,
+          vehicle,
+          now,
+          preparedRequestIds.has(row.id),
+        ),
+      );
 
       const attentionItem = adaptServiceRequestToAttention(row, now);
       if (attentionItem) {
@@ -157,6 +172,48 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
 }
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+type OfferPreparationRow = {
+  service_request_id: string;
+  status: string;
+};
+
+/**
+ * Canonical Phase 8 readiness: offer_preparations with status ready_for_provider.
+ * Query failure throws so the snapshot fails safely (no fake empty prepared set).
+ */
+async function loadReadyOfferPreparationIds(
+  supabase: SupabaseServerClient,
+  organizationId: string,
+  serviceRequestIds: string[],
+): Promise<Set<string>> {
+  const ready = new Set<string>();
+  if (serviceRequestIds.length === 0) {
+    return ready;
+  }
+
+  const { data: prepRows, error: prepError } = await supabase
+    .from("offer_preparations")
+    .select("service_request_id, status")
+    .eq("organization_id", organizationId)
+    .eq("status", OFFER_PREPARATION_STATUS_READY_FOR_PROVIDER)
+    .in("service_request_id", serviceRequestIds);
+
+  if (prepError) {
+    throw new Error("offer_preparations_query_failed");
+  }
+
+  for (const row of (prepRows ?? []) as unknown as OfferPreparationRow[]) {
+    if (
+      row.status === OFFER_PREPARATION_STATUS_READY_FOR_PROVIDER &&
+      typeof row.service_request_id === "string"
+    ) {
+      ready.add(row.service_request_id);
+    }
+  }
+
+  return ready;
+}
 
 /**
  * Confirmed appointments for the Dashboard Termini card:

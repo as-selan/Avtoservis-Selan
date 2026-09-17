@@ -7,6 +7,7 @@ import {
   getStatusLabel,
 } from "@/lib/dashboard/statuses";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
+import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 
 interface ServiceOrderMobileCardProps {
   order: ServiceOrderDemo;
@@ -63,6 +64,13 @@ export function ServiceOrderMobileCard({ order }: ServiceOrderMobileCardProps) {
       {order.status === "manjkajo_podatki" && order.serviceRequestId ? (
         <CreateCompletionLinkButton
           serviceRequestId={order.serviceRequestId}
+          compact
+        />
+      ) : null}
+      {order.status === "priprava_ponudbe" && order.serviceRequestId ? (
+        <PrepareOfferButton
+          serviceRequestId={order.serviceRequestId}
+          alreadyPrepared={order.offerPreparationReady === true}
           compact
         />
       ) : null}
