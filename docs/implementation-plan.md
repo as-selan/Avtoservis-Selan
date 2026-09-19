@@ -477,17 +477,19 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 ## PHASE 9 — Customer offer approval
 
-- [ ] sent status
-- [ ] viewed if available
-- [ ] approved
-- [ ] rejected
-- [ ] expired
-- [ ] approval timestamp
-- [ ] immutable evidence of what was approved where necessary
-- [ ] dashboard mapping
-- [ ] activity history
+**PREP V1:** [`docs/offer-review-customer-approval-prep-v1.md`](./offer-review-customer-approval-prep-v1.md) — provider-neutral `quotes` (immutable version evidence on `service_request` + `offer_preparation`, **not** `service_order`) + `customer_approvals`, with composite FKs for exact prep and quote/hash binding. Tadej review RPCs fail closed without real evidence (stale-version before idempotent). Delivery RPC always `delivery_unavailable` when still `preparing_offer` (no transport). DB guards for `awaiting_customer_approval` / premature `awaiting_slot_selection`. No fabricated prices/provider IDs. No Quibi HTTP. No MyPlanly/Calendar/slots. Phase 8 UI stays truthful (Quibi unconfigured). Migration **unapplied**. Activity history **deferred** (no `activity_events`). No successful customer-approval → `service_requests.status` transition yet (Phase 10 owns post-approval scheduling transition).
 
-After approval → transition to appointment proposal workflow (Phase 10).
+- [x] immutable offer version evidence model (`quotes` + `content_sha256`) — PREP
+- [x] Tadej internal review gate (`unreviewed` → `approved_for_send` / `rejected_for_revision`) — PREP contracts; fail closed without evidence
+- [x] customer lifecycle foundation (`not_delivered` → `delivered` → `approved` / `rejected` / `expired`) — PREP schema
+- [ ] sent / delivered status (real delivery transport) — **deferred** (RPC fails closed)
+- [ ] viewed if available — **deferred** (`viewed_at` nullable; never synthesized)
+- [ ] customer approved / rejected / expired executable path — **deferred** until real delivery
+- [ ] approval timestamp on successful customer decision — schema ready; path deferred
+- [x] dashboard mapping preserved for `awaiting_customer_approval` label — no fake send/review CTA
+- [ ] activity history — **deferred** until canonical `activity_events` exists
+
+After **real** customer approval → Phase 10 resolves transition toward appointment proposal (do **not** flip to `awaiting_slot_selection` before slots are offered).
 
 ---
 
