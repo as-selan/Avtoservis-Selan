@@ -1,23 +1,29 @@
-import type { WorkshopAccess, WorkshopRole } from "@/lib/auth/requireWorkshopAccess";
-import { requireWorkshopAccess } from "@/lib/auth/requireWorkshopAccess";
-
-const MANUAL_INTAKE_ROLES = new Set<WorkshopRole>([
-  "owner",
-  "admin",
-  "reception",
-]);
+import type {
+  Phase1OperationalAccess,
+  WorkshopAccess,
+} from "@/lib/auth/requireWorkshopAccess";
+import {
+  isPhase1OperationalRole,
+  requireWorkshopAccess,
+} from "@/lib/auth/requireWorkshopAccess";
 
 /**
  * Fail-closed gate for manual intake (mechanic excluded).
- * Uses the same org resolution as dashboard access, then restricts roles.
+ * Uses requireWorkshopAccess() + shared isPhase1OperationalRole().
+ * Returns { ok: false, errorCode: "forbidden" } for mechanic — does not redirect.
  */
 export async function requireManualIntakeAccess(): Promise<
-  | { ok: true; access: WorkshopAccess }
+  | { ok: true; access: Phase1OperationalAccess }
   | { ok: false; errorCode: "forbidden" }
 > {
-  const access = await requireWorkshopAccess();
-  if (!MANUAL_INTAKE_ROLES.has(access.role)) {
+  const access: WorkshopAccess = await requireWorkshopAccess();
+  if (!isPhase1OperationalRole(access.role)) {
     return { ok: false, errorCode: "forbidden" };
   }
-  return { ok: true, access };
+  const phase1Access: Phase1OperationalAccess = {
+    userId: access.userId,
+    organizationId: access.organizationId,
+    role: access.role,
+  };
+  return { ok: true, access: phase1Access };
 }

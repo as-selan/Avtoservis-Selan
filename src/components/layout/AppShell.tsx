@@ -1,24 +1,33 @@
 "use client";
 
+import { useState } from "react";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { ManualEntryProvider, useManualEntry } from "@/components/dashboard/ManualEntryContext";
 import { ManualServiceOrderEntry } from "@/components/dashboard/ManualServiceOrderEntry";
-import { useState } from "react";
+import type { DashboardShellUser } from "@/lib/auth/shellUser";
 
-function AppShellInner({ children }: { children: React.ReactNode }) {
+function AppShellInner({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: DashboardShellUser;
+}) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { setOpen: setManualOpen } = useManualEntry();
 
   return (
     <div className="flex min-h-screen bg-slate-100 text-slate-900">
       <AppSidebar
+        user={user}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
+          user={user}
           onOpenMobileNav={() => setMobileNavOpen(true)}
           onOpenManualEntry={() => setManualOpen(true)}
         />
@@ -32,10 +41,16 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: DashboardShellUser;
+}) {
   return (
     <ManualEntryProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <AppShellInner user={user}>{children}</AppShellInner>
     </ManualEntryProvider>
   );
 }

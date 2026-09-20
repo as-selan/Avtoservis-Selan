@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireWorkshopAccess } from "@/lib/auth/requireWorkshopAccess";
+import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import {
   adaptServiceRequestToAttention,
   adaptServiceRequestToOrder,
@@ -44,8 +44,8 @@ function uniqueIds(values: Array<string | null | undefined>): string[] {
  * Uses the publishable cookie client only (no service_role).
  */
 export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
-  // Outside try: requireWorkshopAccess may redirect() — must not be swallowed.
-  const access = await requireWorkshopAccess();
+  // Outside try: requirePhase1OperationalAccess may redirect() — must not be swallowed.
+  const access = await requirePhase1OperationalAccess();
 
   // One server reference time for labels + client SSR/hydration period filtering.
   const now = new Date();

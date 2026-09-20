@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
-import { requireWorkshopAccess } from "@/lib/auth/requireWorkshopAccess";
+import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
+import { loadDashboardShellUser } from "@/lib/auth/loadDashboardShellUser";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireWorkshopAccess();
+  const access = await requirePhase1OperationalAccess();
+  const user = await loadDashboardShellUser(access.userId, access.role);
 
-  return <AppShell>{children}</AppShell>;
+  return <AppShell user={user}>{children}</AppShell>;
 }

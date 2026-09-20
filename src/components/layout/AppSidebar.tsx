@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Car, ChevronDown, X } from "lucide-react";
-import { APP_NAV_ITEMS, CURRENT_USER } from "@/lib/dashboard/navigation";
+import { Car, LogOut, X } from "lucide-react";
+import { APP_NAV_ITEMS } from "@/lib/dashboard/navigation";
+import type { DashboardShellUser } from "@/lib/auth/shellUser";
 
 interface AppSidebarProps {
+  user: DashboardShellUser;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }
 
-export function AppSidebar({ mobileOpen, onMobileClose }: AppSidebarProps) {
+export function AppSidebar({ user, mobileOpen, onMobileClose }: AppSidebarProps) {
   const pathname = usePathname();
 
   const nav = (
@@ -79,23 +81,28 @@ export function AppSidebar({ mobileOpen, onMobileClose }: AppSidebarProps) {
       </nav>
 
       <div className="border-t border-white/10 p-3">
-        <button
-          type="button"
-          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-white/5"
-        >
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-semibold text-white">
-            {CURRENT_USER.initials}
+            {user.initials}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium text-white">
-              {CURRENT_USER.name}
+              {user.displayName}
             </span>
             <span className="block truncate text-xs text-slate-400">
-              {CURRENT_USER.role}
+              {user.role}
             </span>
           </span>
-          <ChevronDown className="h-4 w-4 text-slate-500" aria-hidden />
-        </button>
+        </div>
+        <form action="/auth/signout" method="post" className="mt-1">
+          <button
+            type="submit"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+            <span>Odjava</span>
+          </button>
+        </form>
       </div>
     </>
   );
