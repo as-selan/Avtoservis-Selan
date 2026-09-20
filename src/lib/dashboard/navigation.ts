@@ -84,10 +84,3 @@ export const APP_NAV_ITEMS: NavItem[] = [
     available: false,
   },
 ];
-
-export const CURRENT_USER = {
-  name: "Tadej Selan",
-  shortName: "Tadej",
-  role: "Administrator",
-  initials: "T",
-} as const;

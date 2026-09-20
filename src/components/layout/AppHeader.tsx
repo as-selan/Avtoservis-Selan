@@ -1,17 +1,22 @@
 "use client";
 
 import { Bell, Menu, Plus, Search } from "lucide-react";
-import { CURRENT_USER } from "@/lib/dashboard/navigation";
+import type { DashboardShellUser } from "@/lib/auth/shellUser";
+import { shortNameFromDisplayName } from "@/lib/auth/shellUser";
 
 interface AppHeaderProps {
+  user: DashboardShellUser;
   onOpenMobileNav: () => void;
   onOpenManualEntry: () => void;
 }
 
 export function AppHeader({
+  user,
   onOpenMobileNav,
   onOpenManualEntry,
 }: AppHeaderProps) {
+  const shortName = shortNameFromDisplayName(user.displayName);
+
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-5 lg:px-6">
@@ -59,15 +64,13 @@ export function AppHeader({
 
         <div className="hidden items-center gap-2 border-l border-slate-200 pl-3 md:flex">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-white">
-            {CURRENT_USER.initials}
+            {user.initials}
           </span>
           <span className="leading-tight">
             <span className="block text-sm font-medium text-slate-800">
-              {CURRENT_USER.shortName}
+              {shortName}
             </span>
-            <span className="block text-[11px] text-slate-500">
-              {CURRENT_USER.role}
-            </span>
+            <span className="block text-[11px] text-slate-500">{user.role}</span>
           </span>
         </div>
       </div>
