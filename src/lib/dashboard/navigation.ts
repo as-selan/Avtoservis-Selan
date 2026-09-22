@@ -17,7 +17,7 @@ export interface NavItem {
   label: string;
   href?: string;
   icon: LucideIcon;
-  /** Only /dashboard is implemented in this slice */
+  /** Linked items are implemented. Unavailable items stay visible as "Kmalu". */
   available: boolean;
 }
 
@@ -56,8 +56,9 @@ export const APP_NAV_ITEMS: NavItem[] = [
   {
     id: "customers",
     label: "Stranke",
+    href: "/dashboard/stranke",
     icon: Users,
-    available: false,
+    available: true,
   },
   {
     id: "vehicles",

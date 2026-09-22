@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Car, LogOut, X } from "lucide-react";
+import { isAvailableNavActive } from "@/lib/dashboard/nav-active";
 import { APP_NAV_ITEMS } from "@/lib/dashboard/navigation";
 import type { DashboardShellUser } from "@/lib/auth/shellUser";
 
@@ -40,10 +41,7 @@ export function AppSidebar({ user, mobileOpen, onMobileClose }: AppSidebarProps)
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3" aria-label="Glavna navigacija">
         {APP_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const active =
-            item.available && item.href
-              ? pathname === item.href || pathname.startsWith(`${item.href}/`)
-              : false;
+          const active = isAvailableNavActive(pathname, item);
 
           if (!item.available || !item.href) {
             return (
