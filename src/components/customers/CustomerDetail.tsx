@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { toPresentationRef } from "@/lib/dashboard/adapt-dashboard";
 import { CustomerEditPanel } from "@/components/customers/CustomerEditPanel";
+import { VehicleCreatePanel } from "@/components/customers/VehicleCreatePanel";
 import { VehicleEditPanel } from "@/components/customers/VehicleEditPanel";
 import type {
   CustomerDetailView,
@@ -116,6 +117,7 @@ function RequestCard({ request }: { request: CustomerServiceRequestView }) {
 
 export function CustomerDetail({ customer }: { customer: CustomerDetailView }) {
   const [editingCustomer, setEditingCustomer] = useState(false);
+  const [creatingVehicle, setCreatingVehicle] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   return (
@@ -187,17 +189,41 @@ export function CustomerDetail({ customer }: { customer: CustomerDetailView }) {
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900">Vozila</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Aktivna vozila v lasti te stranke.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Vozila</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Aktivna vozila v lasti te stranke.
+            </p>
+          </div>
+          {!creatingVehicle ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSaveNotice(null);
+                setCreatingVehicle(true);
+              }}
+              className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Dodaj vozilo
+            </button>
+          ) : null}
         </div>
-        {customer.vehicles.length === 0 ? (
+        {creatingVehicle ? (
+          <VehicleCreatePanel
+            customerId={customer.id}
+            onCancel={() => setCreatingVehicle(false)}
+            onCreated={() => {
+              setCreatingVehicle(false);
+              setSaveNotice("Vozilo je bilo dodano.");
+            }}
+          />
+        ) : null}
+        {customer.vehicles.length === 0 && !creatingVehicle ? (
           <p className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500 shadow-sm">
             Ni aktivnih vozil.
           </p>
-        ) : (
+        ) : customer.vehicles.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
             {customer.vehicles.map((vehicle) => (
               <VehicleCard
@@ -210,7 +236,7 @@ export function CustomerDetail({ customer }: { customer: CustomerDetailView }) {
               />
             ))}
           </div>
-        )}
+        ) : null}
       </section>
 
       <section className="space-y-3">
