@@ -69,7 +69,7 @@ export async function loadCustomerDetail(
         supabase
           .from("vehicles")
           .select(
-            "id, registration_current, vin, make, model, year, fuel, mileage_latest_km",
+            "id, registration_current, vin, make, model, year, power_kw, engine, engine_type, fuel, notes, mileage_latest_km",
           )
           .eq("organization_id", organizationId)
           .eq("customer_id", customerId)
@@ -115,7 +115,7 @@ export async function loadCustomerDetail(
       const { data: linkedRows, error: linkedError } = await supabase
         .from("vehicles")
         .select(
-          "id, registration_current, vin, make, model, year, fuel, mileage_latest_km",
+          "id, registration_current, vin, make, model, year, power_kw, engine, engine_type, fuel, notes, mileage_latest_km",
         )
         .eq("organization_id", organizationId)
         .in("id", missingVehicleIds)
@@ -137,6 +137,7 @@ export async function loadCustomerDetail(
         displayName: customer.display_name.trim(),
         phone: cleanText(customer.phone),
         email: cleanText(customer.email),
+        customerType: customer.customer_type,
         customerTypeLabel: customerTypeLabel(customer.customer_type),
         notes: cleanText(customer.notes),
         vehicles,

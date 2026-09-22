@@ -25,6 +25,10 @@ const FUEL_LABELS: Record<string, string> = {
   other: "Drugo",
 };
 
+export const VEHICLE_FUEL_OPTIONS = Object.entries(FUEL_LABELS).map(
+  ([value, label]) => ({ value, label }),
+);
+
 export type DirectoryCustomerSource = {
   id: string;
   display_name: string;
@@ -46,7 +50,11 @@ export type VehicleSource = {
   make: string | null;
   model: string | null;
   year: number | null;
+  power_kw: number | null;
+  engine: string | null;
+  engine_type: string | null;
   fuel: string | null;
+  notes: string | null;
   mileage_latest_km: number | null;
 };
 
@@ -155,7 +163,14 @@ export function toCustomerVehicleView(row: VehicleSource): CustomerVehicleView {
     make: cleanText(row.make),
     model: cleanText(row.model),
     year: typeof row.year === "number" ? row.year : null,
+    powerKw: typeof row.power_kw === "number" ? row.power_kw : null,
+    engine: cleanText(row.engine),
+    engineType: cleanText(row.engine_type),
+    fuel: cleanText(row.fuel),
     fuelLabel: fuelLabel(row.fuel),
+    notes: cleanText(row.notes),
+    mileageLatestKm:
+      typeof row.mileage_latest_km === "number" ? row.mileage_latest_km : null,
     mileageLabel: formatMileageKm(row.mileage_latest_km),
   };
 }
