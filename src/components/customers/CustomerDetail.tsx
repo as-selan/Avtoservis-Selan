@@ -1,5 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { toPresentationRef } from "@/lib/dashboard/adapt-dashboard";
+import { CustomerEditPanel } from "@/components/customers/CustomerEditPanel";
+import { VehicleEditPanel } from "@/components/customers/VehicleEditPanel";
 import type {
   CustomerDetailView,
   CustomerServiceRequestView,
@@ -21,19 +26,52 @@ function Field({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function VehicleCard({ vehicle }: { vehicle: CustomerVehicleView }) {
+function VehicleCard({
+  customerId,
+  vehicle,
+  onSaved,
+}: {
+  customerId: string;
+  vehicle: CustomerVehicleView;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">
-        {[vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vozilo"}
-        {vehicle.year != null ? ` · ${vehicle.year}` : ""}
-      </p>
-      <dl className="mt-3 grid grid-cols-2 gap-3">
-        <Field label="Registracija" value={vehicle.registration} />
-        <Field label="VIN" value={vehicle.vin} />
-        <Field label="Gorivo" value={vehicle.fuelLabel} />
-        <Field label="Kilometri" value={vehicle.mileageLabel} />
-      </dl>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-900">
+          {[vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vozilo"}
+          {vehicle.year != null ? ` · ${vehicle.year}` : ""}
+        </p>
+        {!editing ? (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Uredi vozilo
+          </button>
+        ) : null}
+      </div>
+      {!editing ? (
+        <dl className="mt-3 grid grid-cols-2 gap-3">
+          <Field label="Registracija" value={vehicle.registration} />
+          <Field label="VIN" value={vehicle.vin} />
+          <Field label="Gorivo" value={vehicle.fuelLabel} />
+          <Field label="Kilometri" value={vehicle.mileageLabel} />
+        </dl>
+      ) : (
+        <VehicleEditPanel
+          customerId={customerId}
+          vehicle={vehicle}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onSaved();
+          }}
+        />
+      )}
     </article>
   );
 }
@@ -77,6 +115,9 @@ function RequestCard({ request }: { request: CustomerServiceRequestView }) {
 }
 
 export function CustomerDetail({ customer }: { customer: CustomerDetailView }) {
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
   return (
     <div className="space-y-4 lg:space-y-5">
       <div>
@@ -92,25 +133,57 @@ export function CustomerDetail({ customer }: { customer: CustomerDetailView }) {
         <p className="mt-0.5 text-sm text-slate-500">
           {customer.customerTypeLabel}
         </p>
+        {saveNotice ? (
+          <p className="mt-2 text-sm text-emerald-700" role="status">
+            {saveNotice}
+          </p>
+        ) : null}
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Stranka</h2>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label="Telefon" value={customer.phone} />
-          <Field label="E-pošta" value={customer.email} />
-          <Field label="Tip" value={customer.customerTypeLabel} />
-        </dl>
-        {customer.notes ? (
-          <div className="mt-4">
-            <h3 className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-              Opombe
-            </h3>
-            <p className="mt-1 text-sm whitespace-pre-wrap text-slate-800">
-              {customer.notes}
-            </p>
-          </div>
-        ) : null}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h2 className="text-base font-semibold text-slate-900">Stranka</h2>
+          {!editingCustomer ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSaveNotice(null);
+                setEditingCustomer(true);
+              }}
+              className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Uredi stranko
+            </button>
+          ) : null}
+        </div>
+        {!editingCustomer ? (
+          <>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label="Telefon" value={customer.phone} />
+              <Field label="E-pošta" value={customer.email} />
+              <Field label="Tip" value={customer.customerTypeLabel} />
+            </dl>
+            {customer.notes ? (
+              <div className="mt-4">
+                <h3 className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                  Opombe
+                </h3>
+                <p className="mt-1 text-sm whitespace-pre-wrap text-slate-800">
+                  {customer.notes}
+                </p>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <CustomerEditPanel
+            customer={customer}
+            onCancel={() => setEditingCustomer(false)}
+            onSaved={() => {
+              setEditingCustomer(false);
+              setSaveNotice("Spremembe stranke so shranjene.");
+            }}
+          />
+        )}
       </section>
 
       <section className="space-y-3">
@@ -127,7 +200,14 @@ export function CustomerDetail({ customer }: { customer: CustomerDetailView }) {
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {customer.vehicles.map((vehicle) => (
-              <VehicleCard key={vehicle.id} vehicle={vehicle} />
+              <VehicleCard
+                key={vehicle.id}
+                customerId={customer.id}
+                vehicle={vehicle}
+                onSaved={() =>
+                  setSaveNotice("Spremembe vozila so shranjene.")
+                }
+              />
             ))}
           </div>
         )}

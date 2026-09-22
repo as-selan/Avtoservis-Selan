@@ -22,7 +22,13 @@ export type CustomerVehicleView = {
   make: string | null;
   model: string | null;
   year: number | null;
+  powerKw: number | null;
+  engine: string | null;
+  engineType: string | null;
+  fuel: string | null;
   fuelLabel: string | null;
+  notes: string | null;
+  mileageLatestKm: number | null;
   mileageLabel: string | null;
 };
 
@@ -46,6 +52,7 @@ export type CustomerDetailView = {
   displayName: string;
   phone: string | null;
   email: string | null;
+  customerType: string;
   customerTypeLabel: string;
   notes: string | null;
   vehicles: CustomerVehicleView[];
