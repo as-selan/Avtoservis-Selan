@@ -63,10 +63,10 @@ jobs:
             echo "Skipping M4 offline intake tests (runner or test files not present on this branch)."
           fi
 
-      - name: Quibi V1 read-only contract tests
+      - name: Workflow and Quibi V1 contract tests
         run: |
           shopt -s nullglob
-          tests=(src/lib/quibi/*.test.ts)
+          tests=(src/lib/quibi/*.test.ts src/lib/cases/*.test.ts)
           if (( ${#tests[@]} > 0 )); then
             node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
           fi

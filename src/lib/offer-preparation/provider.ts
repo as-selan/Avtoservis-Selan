@@ -5,8 +5,9 @@ import type {
 } from "@/lib/offer-preparation/types";
 
 /**
- * Fail-closed adapter until a real offer system (Quibi) is documented and configured.
- * No HTTP, no credentials, no invented endpoints, no fabricated external IDs.
+ * Quibi write boundary. Public documentation names a create endpoint but does
+ * not define a safe idempotency/reconciliation contract or returned ID shape.
+ * The read integration never enables this provider's writes.
  */
 export function getOfferDraftProvider(): OfferDraftProvider {
   return unconfiguredOfferDraftProvider;
@@ -14,7 +15,7 @@ export function getOfferDraftProvider(): OfferDraftProvider {
 
 const unconfiguredResult = (): OfferProviderResult => ({
   ok: false,
-  code: "NOT_CONFIGURED",
+  code: "CONTRACT_UNVERIFIED",
   message: OFFER_PROVIDER_UNCONFIGURED_MESSAGE,
 });
 

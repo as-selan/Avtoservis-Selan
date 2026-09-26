@@ -40,6 +40,7 @@ export type CanonicalOfferInput = {
 
 export type OfferProviderFailureCode =
   | "NOT_CONFIGURED"
+  | "CONTRACT_UNVERIFIED"
   | "PROVIDER_UNAVAILABLE";
 
 export type OfferProviderResult =

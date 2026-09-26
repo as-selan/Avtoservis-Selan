@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canQueryCustomerId } from "@/lib/customers/present";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { customerFingerprint } from "@/lib/quibi/contracts";
+import { readFailureCode, syncOutcome } from "@/lib/quibi/sync-state";
 
 export async function confirmQuibiCustomerLink(form: FormData): Promise<void> {
   const access = await requirePhase1OperationalAccess();
@@ -50,4 +51,46 @@ export async function confirmQuibiCustomerLink(form: FormData): Promise<void> {
     outcome = "error";
   }
   redirect(`${back}?result=${outcome}`);
+}
+
+/** Re-checks only the confirmed Quibi customer. Never changes the baseline or Quibi. */
+export async function refreshQuibiCustomerLink(form: FormData): Promise<void> {
+  const access = await requirePhase1OperationalAccess();
+  const customerId = form.get("customerId");
+  if (typeof customerId !== "string" || !canQueryCustomerId(customerId)) redirect("/dashboard/stranke");
+  const back = `/dashboard/stranke/${customerId}/quibi`;
+  let outcome = "error";
+  try {
+    const db = await createClient();
+    const { data: customer, error: customerError } = await db.from("customers")
+      .select("id").eq("organization_id", access.organizationId)
+      .eq("id", customerId).is("archived_at", null).maybeSingle();
+    if (customerError || !customer) throw new Error("QUIBI_CUSTOMER_UNAVAILABLE");
+    const { data: link, error: linkError } = await db.from("integration_links")
+      .select("external_id, external_fingerprint")
+      .eq("organization_id", access.organizationId).eq("provider", "quibi")
+      .eq("entity_type", "customer").eq("entity_id", customerId).maybeSingle();
+    if (!linkError && link) {
+      let state: {
+        sync_status: "ok" | "remote_changed" | "error";
+        last_seen_fingerprint: string | null;
+        last_error_code: string | null;
+      };
+      try {
+        const remote = await configuredQuibiReadClient().customer(link.external_id);
+        state = syncOutcome(link.external_fingerprint, customerFingerprint(remote));
+      } catch (error) {
+        state = { sync_status: "error", last_seen_fingerprint: null, last_error_code: readFailureCode(error) };
+      }
+      const { error } = await db.from("integration_links").update({
+        ...state, last_checked_at: new Date().toISOString(),
+      }).eq("organization_id", access.organizationId).eq("provider", "quibi")
+        .eq("entity_type", "customer").eq("entity_id", customerId)
+        .eq("external_id", link.external_id);
+      if (!error) outcome = state.sync_status;
+    }
+  } catch {
+    outcome = "error";
+  }
+  redirect(`${back}?refresh=${outcome}`);
 }

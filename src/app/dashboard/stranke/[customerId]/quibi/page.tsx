@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { loadCustomerDetail } from "@/lib/customers/load-customer-detail";
 import { createClient } from "@/lib/supabase/server";
-import { confirmQuibiCustomerLink } from "@/lib/quibi/actions";
+import { confirmQuibiCustomerLink, refreshQuibiCustomerLink } from "@/lib/quibi/actions";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { customerFingerprint, type QuibiCustomer, type QuibiDocument } from "@/lib/quibi/contracts";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function QuibiCustomerPage({ params, searchParams }: {
   params: Promise<{ customerId: string }>;
-  searchParams: Promise<{ q?: string; result?: string; error?: string }>;
+  searchParams: Promise<{ q?: string; result?: string; error?: string; refresh?: string }>;
 }) {
   const access = await requirePhase1OperationalAccess();
   const { customerId } = await params;
@@ -20,7 +20,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
 
   const db = await createClient();
   const { data: link, error: linkError } = await db.from("integration_links")
-    .select("external_id, local_fingerprint, external_fingerprint, confirmed_at")
+    .select("external_id, local_fingerprint, external_fingerprint, confirmed_at, sync_status, last_checked_at, last_error_code")
     .eq("organization_id", access.organizationId).eq("entity_type", "customer")
     .eq("provider", "quibi").eq("entity_id", customerId).maybeSingle();
   if (linkError) return <p role="alert">Povezav Quibi trenutno ni mogoče prebrati.</p>;
@@ -58,12 +58,21 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
     {query.result === "linked" && <p role="status" className="text-green-700">Povezava je shranjena.</p>}
     {query.result === "changed" && <p role="alert" className="text-amber-800">Podatki v Quibiju so se od prikaza spremenili. Ponovno preverite stranko.</p>}
     {query.result === "already" && <p role="alert" className="text-amber-800">Ta stranka ali Quibijev ID je že povezan.</p>}
+    {query.refresh === "ok" && <p role="status" className="text-green-700">Quibijeva povezava je znova preverjena.</p>}
+    {query.refresh === "remote_changed" && <p role="alert" className="text-amber-800">Quibijevi podatki so se spremenili; preverite jih ročno.</p>}
     {(query.result === "error" || query.error || query.result === "missing") && <p role="alert" className="text-red-700">Povezave ni bilo mogoče shraniti.</p>}
     {readError && <p role="alert" className="text-red-700">{readError}</p>}
     {link ? <>
       <section className="rounded-xl border bg-white p-4 space-y-2">
         <h2 className="font-semibold">Potrjena povezava: Quibi #{link.external_id}</h2>
         <p className="text-sm">Potrjeno: {new Date(link.confirmed_at).toLocaleString("sl-SI")}</p>
+        <p className="text-sm">Zadnji zabeleženi pregled: {link.last_checked_at ? new Date(link.last_checked_at).toLocaleString("sl-SI") : "še ni izveden"}</p>
+        {link.sync_status === "error" && <p role="alert" className="text-red-700">Zadnja sinhronizacija ni uspela ({link.last_error_code ?? "QUIBI_READ_FAILED"}). Preverite dostop in poskusite znova.</p>}
+        {link.sync_status === "remote_changed" && <p role="alert" className="text-amber-800">Pri zadnjem pregledu je bila zaznana sprememba v Quibiju.</p>}
+        <form action={refreshQuibiCustomerLink}>
+          <input type="hidden" name="customerId" value={customerId} />
+          <button className="rounded border border-blue-700 px-3 py-2 text-sm text-blue-700">Ponovno preveri Quibi</button>
+        </form>
         {remote && <p className="text-sm">Quibi: {remote.name} · {remote.phone || "brez telefona"} · {remote.email || "brez e-pošte"}</p>}
         {localChanged && <p role="alert" className="text-amber-800">Selanovi podatki so se po povezavi spremenili.</p>}
         {remoteChanged && <p role="alert" className="text-amber-800">Quibijevi podatki so se po povezavi spremenili.</p>}

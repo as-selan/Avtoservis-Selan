@@ -27,7 +27,8 @@ insert into public.customers (id, organization_id, display_name, archived_at) va
 
 do $$ begin
   if not has_table_privilege('authenticated', 'public.integration_links', 'SELECT')
-    or has_table_privilege('authenticated', 'public.integration_links', 'UPDATE')
+    or not has_column_privilege('authenticated', 'public.integration_links', 'sync_status', 'UPDATE')
+    or has_column_privilege('authenticated', 'public.integration_links', 'external_id', 'UPDATE')
     or has_table_privilege('authenticated', 'public.integration_links', 'DELETE')
     or has_table_privilege('anon', 'public.integration_links', 'SELECT')
   then raise exception 'Quibi link grants are unsafe'; end if;
@@ -49,6 +50,14 @@ do $$ begin
   if (select count(*) from public.integration_links) <> 1 then
     raise exception 'Owner cannot read own Quibi link or tenant isolation failed';
   end if;
+end $$;
+update public.integration_links set sync_status = 'ok', last_checked_at = now(),
+  last_seen_fingerprint = repeat('b',64), last_error_code = null
+where organization_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and entity_id = 'cccccccc-cccc-4ccc-8ccc-cccccccc0001';
+do $$ begin
+  if not exists (select 1 from public.integration_links where external_id = '13510' and sync_status = 'ok')
+  then raise exception 'Owner could not record successful read state'; end if;
 end $$;
 
 do $$

@@ -120,7 +120,7 @@ function stripComments(src: string): string {
 
 const featureSrc = stripComments(featureFiles.map(read).join("\n"));
 assert(!/service_role/i.test(featureSrc), "no service role in customer slice");
-assert(!/quibi/i.test(featureSrc), "no Quibi integration in customer slice");
+assert(!/\/api2\/|QUIBI_DEV_PASSWORD/i.test(featureSrc), "customer read surfaces do not call Quibi directly");
 assert(!/myplanly/i.test(featureSrc), "no MyPlanly integration in customer slice");
 assert(
   !/\.(insert|update|upsert|delete)\(/.test(featureSrc),

@@ -1,6 +1,7 @@
 "use client";
 
 import { MoreVertical } from "lucide-react";
+import Link from "next/link";
 import type { ServiceOrderDemo } from "@/lib/dashboard/types";
 import {
   getStatusBadgeClass,
@@ -82,12 +83,10 @@ export function ServiceOrderTable({ orders }: ServiceOrderTableProps) {
                 </span>
               </td>
               <td className="px-3 py-3">
-                <button
-                  type="button"
+                {order.serviceRequestId ? <Link
+                  href={`/dashboard/primeri/${order.serviceRequestId}`}
                   className="text-left text-sm font-semibold text-blue-600 hover:text-blue-700"
-                >
-                  {order.nextActionLabel} →
-                </button>
+                >{order.nextActionLabel} →</Link> : <span>{order.nextActionLabel}</span>}
                 {order.locationLabel ? (
                   <div className="mt-0.5 text-xs text-slate-500">
                     {order.locationLabel}
@@ -113,13 +112,13 @@ export function ServiceOrderTable({ orders }: ServiceOrderTableProps) {
                       alreadyPrepared={order.offerPreparationReady === true}
                     />
                   ) : null}
-                  <button
-                    type="button"
+                  {order.serviceRequestId ? <Link
+                    href={`/dashboard/primeri/${order.serviceRequestId}`}
                     className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                     aria-label={`Dejanja za nalog ${order.id}`}
                   >
                     <MoreVertical className="h-4 w-4" />
-                  </button>
+                  </Link> : null}
                 </div>
               </td>
             </tr>
