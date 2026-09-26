@@ -1,5 +1,5 @@
-import type { IntakeCompleteness, IntakeMissingField } from "@/lib/intake/types";
-import { blankToNull } from "@/lib/intake/normalize";
+import type { IntakeCompleteness, IntakeMissingField } from "./types";
+import { blankToNull } from "./normalize";
 
 /**
  * V1 completeness — mirrored from private.compute_manual_intake_completeness.

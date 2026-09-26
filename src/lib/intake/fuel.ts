@@ -1,5 +1,5 @@
-import type { FuelType } from "@/lib/dashboard/types";
-import type { IntakeFuelDb } from "@/lib/intake/types";
+import type { FuelType } from "../dashboard/types";
+import type { IntakeFuelDb } from "./types";
 
 /** Map demo UI fuel values to M3 DB fuel enum. */
 export function mapUiFuelToDb(

@@ -230,6 +230,18 @@ export function ManualServiceOrderEntry() {
           }
           setErrors(mapped);
         }
+        // Keep the same clientRequestId: network retries must reuse it, and a
+        // conflict must not auto-create a duplicate via silent ID rotation.
+        // Follow-up: dedicated existing-request edit/view route (not in M4).
+        if (result.errorCode === "idempotency_conflict") {
+          const existingId = result.existingServiceRequestId;
+          setFormError(
+            existingId
+              ? `${result.message} Obstoječa zahteva: ${existingId}.`
+              : result.message,
+          );
+          return;
+        }
         setFormError(result.message);
         return;
       }
@@ -624,7 +636,7 @@ export function ManualServiceOrderEntry() {
               disabled={submitPending}
               className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {submitPending ? "Shranjujem…" : "Ustvari servisni nalog"}
+              {submitPending ? "Shranjujem…" : "Ustvari povpraševanje"}
             </button>
           </div>
         </form>

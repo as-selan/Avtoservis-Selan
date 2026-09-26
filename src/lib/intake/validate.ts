@@ -1,10 +1,10 @@
-import type { ManualIntakeChannel, ManualIntakeInput } from "@/lib/intake/types";
+import type { ManualIntakeChannel, ManualIntakeInput } from "./types";
 import {
   blankToNull,
   normalizeIntakeEmail,
   normalizeIntakePhone,
-} from "@/lib/intake/normalize";
-import { isIntakeFuelDb } from "@/lib/intake/fuel";
+} from "./normalize";
+import { isIntakeFuelDb } from "./fuel";
 
 const CHANNELS = new Set<ManualIntakeChannel>(["phone", "sms", "manual"]);
 
