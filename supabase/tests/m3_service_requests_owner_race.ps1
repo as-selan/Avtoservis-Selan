@@ -220,24 +220,26 @@ from private.m3_test_run_registry;
     throw "Refusing to run: private.m3_test_run_registry has leftover row(s) from a previous failed/aborted run [$leftoverPrivate]. Inspect fixtures, clean manually, then retry. No changes made."
   }
 
-  $publicState = Invoke-Psql @"
-select case
-  when to_regclass('public.m3_test_run_registry') is null then 'absent'
-  when exists (select 1 from public.m3_test_run_registry) then 'has_rows'
-  else 'empty'
-end;
+  # Probe legacy public registry only after to_regclass confirms it exists.
+  # A single CASE with EXISTS still plans/resolves public.m3_test_run_registry
+  # and fails with "relation does not exist" when the table is absent.
+  $publicExists = Invoke-Psql @"
+select (to_regclass('public.m3_test_run_registry') is not null)::text;
 "@
-  if ($publicState -eq 'has_rows') {
-    $leftoverPublic = Invoke-Psql @"
+  if ($publicExists -eq 't' -or $publicExists -eq 'true') {
+    $publicHasRows = Invoke-Psql @"
+select exists (select 1 from public.m3_test_run_registry)::text;
+"@
+    if ($publicHasRows -eq 't' -or $publicHasRows -eq 'true') {
+      $leftoverPublic = Invoke-Psql @"
 select coalesce(
   string_agg(run_id || ':' || coalesce(organization_id::text, '-'), ',' order by created_at),
   ''
 )
 from public.m3_test_run_registry;
 "@
-    throw "Refusing to run: legacy public.m3_test_run_registry still has leftover row(s) [$leftoverPublic]. Inspect/clean manually (table is not auto-dropped). No changes made."
-  }
-  if ($publicState -eq 'empty') {
+      throw "Refusing to run: legacy public.m3_test_run_registry still has leftover row(s) [$leftoverPublic]. Inspect/clean manually (table is not auto-dropped). No changes made."
+    }
     Write-Host "Note: legacy public.m3_test_run_registry exists and is empty; leaving it in place (not dropped)."
   }
 }
