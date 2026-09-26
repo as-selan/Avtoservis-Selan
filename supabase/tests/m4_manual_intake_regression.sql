@@ -4,13 +4,13 @@
 -- HARD RULES:
 --   - Do NOT run without scripts/run-m4-db-regression.ps1 (or equivalent gate).
 --   - Direct `psql "$DATABASE_URL"` is forbidden; use M4_ISOLATED_TEST_DATABASE_URL
---     via the runner after manual setup_isolated_test_marker.sql.
+--     via the runner after manual setup_m4_isolated_test_marker.sql.
 --   - Auth fixtures are created inside this transaction and discarded by ROLLBACK.
 --     Do not create durable external auth users for this suite.
 --
 -- Prerequisites (applied in order on the isolated DB):
 --   M2 foundation, M3 customers/vehicles/service_requests, M4 intake RPC,
---   supabase/tests/setup_isolated_test_marker.sql (manual).
+--   supabase/tests/setup_m4_isolated_test_marker.sql (manual).
 -- =============================================================================
 
 \ir assert_isolated_test_target.sql

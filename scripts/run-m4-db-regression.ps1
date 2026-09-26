@@ -7,12 +7,15 @@
   Modeled on M3 isolated-target protections. Independently verifies:
   - M4_ISOLATED_TEST_DATABASE_URL (never plain DATABASE_URL / production URLs)
   - Host is loopback
-  - URI port is present and local
+  - URI/host port matches docker-published 5432/tcp HostPort (EXTERNAL only)
   - M4_ISOLATED_PROJECT_REF (required; optional/empty alone is insufficient)
   - M4_ISOLATED_CONTAINER_ID (required disposable container/host identity)
-  - assert_isolated_test_target.sql (marker + database + port + ref + container)
+  - assert_isolated_test_target.sql (M4 marker + database + INTERNAL port + ref + container)
 
-  Does not apply setup_isolated_test_marker.sql (manual operator step).
+  Port layers are distinct: this runner never compares the published host/URI
+  port to PostgreSQL inet_server_port(); the SQL gate handles the internal port.
+
+  Does not apply setup_m4_isolated_test_marker.sql (manual operator step).
   This script is prepared for later local execution. Do not run against hosted DBs.
 #>
 param(
@@ -110,8 +113,10 @@ if ($null -ne $ports.'5432/tcp') {
 if ($null -eq $publishedDbPort) {
   Fail "Container '$ContainerId' has no published host port for 5432/tcp."
 }
+# External-only check: host/URI port vs Docker published HostPort.
+# Do NOT compare either value to inet_server_port() (internal DB listen port).
 if ($publishedDbPort -ne $urlPort) {
-  Fail "URL port $urlPort does not match docker published DB port $publishedDbPort for container '$ContainerId'."
+  Fail "URL host port $urlPort does not match docker published host port $publishedDbPort for container '$ContainerId' (external mapping only; not inet_server_port)."
 }
 $inspectedId = [string]$inspect[0].Id
 $inspectedName = ([string]$inspect[0].Name).TrimStart('/')

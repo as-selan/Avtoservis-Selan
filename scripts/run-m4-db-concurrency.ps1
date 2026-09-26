@@ -12,6 +12,10 @@
   Requires isolated target gate (same as run-m4-db-regression.ps1).
   Asserts JSON result payloads (not merely process exit codes).
   Creates ephemeral auth + org fixtures, then ALWAYS attempts cleanup.
+
+  Does not apply setup_m4_isolated_test_marker.sql (manual operator step).
+  External host/URI port is checked against docker published HostPort only;
+  internal inet_server_port() is validated by assert_isolated_test_target.sql.
 #>
 param(
   [string]$DatabaseUrl = $env:M4_ISOLATED_TEST_DATABASE_URL,
@@ -96,8 +100,10 @@ if ($null -ne $ports.'5432/tcp') {
 if ($null -eq $publishedDbPort) {
   Fail "Container '$ContainerId' has no published host port for 5432/tcp."
 }
+# External-only check: host/URI port vs Docker published HostPort.
+# Do NOT compare either value to inet_server_port() (internal DB listen port).
 if ($publishedDbPort -ne $urlPort) {
-  Fail "URL port $urlPort does not match docker published DB port $publishedDbPort."
+  Fail "URL host port $urlPort does not match docker published host port $publishedDbPort (external mapping only; not inet_server_port)."
 }
 
 $inspectedName = ([string]$inspect[0].Name).TrimStart('/')

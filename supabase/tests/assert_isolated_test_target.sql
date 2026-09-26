@@ -5,10 +5,15 @@
 --   1) marker = avtoservis-selan-m4-isolated
 --   2) current_database() = marker.expected_database
 --   3) inet_server_port() = marker.expected_port
+--      (INTERNAL Postgres listen port — NOT the Docker-published host/URI port)
 --   4) session GUC m4.isolated_project_ref = marker.expected_project_ref
 --      (GUC required; optional/empty project ref alone is insufficient)
 --   5) session GUC m4.isolated_container_id = marker.expected_container_id
 --      (GUC required; identifies the disposable Docker/local instance)
+--
+-- External host port identity is enforced only by the PowerShell runners
+-- (URI port vs docker inspect published HostPort). This SQL gate must never
+-- compare the published host port to inet_server_port().
 -- =============================================================================
 
 do $$
@@ -37,15 +42,15 @@ begin
         v_expected_ref,
         v_expected_port,
         v_expected_container
-    from private.avtoservis_isolated_test_marker as m
+    from private.avtoservis_m4_isolated_test_marker as m
     where m.singleton;
   exception
     when undefined_table then
       raise exception
-        'REFUSING M4 DB TESTS: private.avtoservis_isolated_test_marker missing. Apply supabase/tests/setup_isolated_test_marker.sql manually on the disposable local DB only.';
+        'REFUSING M4 DB TESTS: private.avtoservis_m4_isolated_test_marker missing. Apply supabase/tests/setup_m4_isolated_test_marker.sql manually on the disposable local DB only.';
     when undefined_column then
       raise exception
-        'REFUSING M4 DB TESTS: marker table is missing required identity columns (expected_port / expected_container_id). Re-apply setup_isolated_test_marker.sql on the disposable DB.';
+        'REFUSING M4 DB TESTS: marker table is missing required identity columns (expected_port / expected_container_id). Re-apply setup_m4_isolated_test_marker.sql on the disposable DB.';
   end;
 
   if v_marker is distinct from 'avtoservis-selan-m4-isolated' then
@@ -71,12 +76,12 @@ begin
 
   if v_port is null then
     raise exception
-      'REFUSING M4 DB TESTS: inet_server_port() is null (cannot verify local port identity)';
+      'REFUSING M4 DB TESTS: inet_server_port() is null (cannot verify internal DB port identity)';
   end if;
 
   if v_port is distinct from v_expected_port then
     raise exception
-      'REFUSING M4 DB TESTS: connected port % but marker expects %',
+      'REFUSING M4 DB TESTS: connected internal port % but marker expects % (internal inet_server_port; not host/URI port)',
       v_port,
       v_expected_port;
   end if;
@@ -124,11 +129,11 @@ begin
   -- Soft signal only: superuser bypasses RLS; suites must SET ROLE authenticated.
   if v_user in ('postgres', 'supabase_admin') then
     raise notice
-      'M4 gate OK (marker/db/port/ref/container). Connected as % — suite must SET ROLE authenticated for RLS cases.',
+      'M4 gate OK (marker/db/internal_port/ref/container). Connected as % — suite must SET ROLE authenticated for RLS cases.',
       v_user;
   else
     raise notice
-      'M4 isolated gate OK: db=% port=% marker=% project_ref=% container=% user=%',
+      'M4 isolated gate OK: db=% internal_port=% marker=% project_ref=% container=% user=%',
       v_db, v_port, v_marker, v_session_ref, v_session_container, v_user;
   end if;
 end;
