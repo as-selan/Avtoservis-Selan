@@ -874,6 +874,7 @@ do $$
 declare
   v_owner uuid := 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   v_req_id uuid := 'f1f1f1f1-f1f1-41f1-81f1-f1f1f1f1f1f1';
+  v_vehicle_req_id uuid := 'f2f2f2f2-f2f2-42f2-82f2-f2f2f2f2f2f2';
   v_first jsonb;
   v_second jsonb;
   v_field text;
@@ -889,7 +890,6 @@ declare
     'service_wanted',
     'problem_description',
     'selected_customer_id',
-    'selected_vehicle_id',
     'vin',
     'phone',
     'email',
@@ -939,6 +939,11 @@ begin
     coalesce((v_first->>'ok')::boolean, false),
     v_first::text
   );
+  perform pg_temp.m4_assert(
+    'field_matrix_created_customer_vehicle',
+    v_first->>'customer_id' is not null and v_first->>'vehicle_id' is not null,
+    v_first::text
+  );
 
   perform pg_temp.m4_become_postgres();
   select count(*)::integer into v_sr_before
@@ -977,15 +982,6 @@ begin
         p_mileage_reported_km := 90000, p_service_wanted := 'Osnova',
         p_problem_description := 'Opis osnova', p_brings_own_material := false,
         p_selected_customer_id := 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        p_client_request_id := v_req_id)
-      when 'selected_vehicle_id' then public.create_manual_service_request_intake(
-        p_display_name := 'Field Matrix', p_phone := '041900001', p_email := 'field-matrix@test.si',
-        p_channel := 'phone', p_vin := 'WBAKFIELDMATRIX01', p_registration := 'LJGO123',
-        p_make := 'Audi', p_model := 'A4', p_year := 2019, p_power_kw := 110,
-        p_engine := '2.0', p_engine_type := 'DEUA', p_fuel := 'diesel',
-        p_mileage_reported_km := 90000, p_service_wanted := 'Osnova',
-        p_problem_description := 'Opis osnova', p_brings_own_material := false,
-        p_selected_vehicle_id := 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
         p_client_request_id := v_req_id)
       when 'vin' then public.create_manual_service_request_intake(
         p_display_name := 'Field Matrix', p_phone := '041900001', p_email := 'field-matrix@test.si',
@@ -1119,6 +1115,35 @@ begin
     );
   end loop;
 
+  -- A selected vehicle requires a selected customer. Use a separate, valid
+  -- baseline with that customer so the replay changes only selected_vehicle_id.
+  v_second := public.create_manual_service_request_intake(
+    p_display_name := 'Field Matrix', p_phone := '041900001',
+    p_email := 'field-matrix@test.si', p_channel := 'phone',
+    p_vin := 'WBAKFIELDMATRIX01', p_service_wanted := 'Osnova',
+    p_selected_customer_id := (v_first->>'customer_id')::uuid,
+    p_client_request_id := v_vehicle_req_id
+  );
+  perform pg_temp.m4_assert(
+    'field_vehicle_baseline_ok',
+    coalesce((v_second->>'ok')::boolean, false),
+    v_second::text
+  );
+  v_second := public.create_manual_service_request_intake(
+    p_display_name := 'Field Matrix', p_phone := '041900001',
+    p_email := 'field-matrix@test.si', p_channel := 'phone',
+    p_vin := 'WBAKFIELDMATRIX01', p_service_wanted := 'Osnova',
+    p_selected_customer_id := (v_first->>'customer_id')::uuid,
+    p_selected_vehicle_id := (v_first->>'vehicle_id')::uuid,
+    p_client_request_id := v_vehicle_req_id
+  );
+  perform pg_temp.m4_assert(
+    'field_conflict_selected_vehicle_id',
+    (v_second->>'ok') = 'false'
+      and (v_second->>'error_code') = 'idempotency_conflict',
+    v_second::text
+  );
+
   perform pg_temp.m4_become_postgres();
   select count(*)::integer into v_sr_after
   from public.service_requests where intake_request_id = v_req_id;
@@ -1129,6 +1154,12 @@ begin
 
   perform pg_temp.m4_assert('field_matrix_no_extra_sr', v_sr_after = v_sr_before and v_sr_before = 1);
   perform pg_temp.m4_assert('field_matrix_no_extra_snap', v_snap_after = v_snap_before and v_snap_before = 1);
+  perform pg_temp.m4_assert(
+    'field_vehicle_no_extra_rows',
+    (select count(*) from public.service_requests where intake_request_id = v_vehicle_req_id) = 1
+      and (select count(*) from private.manual_intake_material_snapshots
+           where intake_request_id = v_vehicle_req_id) = 1
+  );
   perform pg_temp.m4_assert(
     'field_matrix_no_sr_mutation',
     v_updated_after is not distinct from v_updated_before
