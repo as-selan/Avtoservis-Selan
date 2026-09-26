@@ -66,7 +66,10 @@ else { Fail "patch-ci-config allowed same-path overwrite" }
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 
 Write-Host "== Negative URL target probes =="
-$ps = (Get-Command powershell).Source
+$pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+$ps = if ($pwsh) { $pwsh.Source } else { (Get-Command powershell).Source }
+$psArgs = @("-NoProfile")
+if (-not $pwsh) { $psArgs += @("-ExecutionPolicy", "Bypass") }
 
 function Invoke-ShouldRefuse([string]$Label, [hashtable]$EnvMap, [string]$ScriptPath, [string[]]$Patterns) {
   $tmpOut = Join-Path ([System.IO.Path]::GetTempPath()) ("neg-" + [guid]::NewGuid().ToString("N") + ".txt")
@@ -77,7 +80,7 @@ function Invoke-ShouldRefuse([string]$Label, [hashtable]$EnvMap, [string]$Script
   }
   $code = 0
   try {
-    & $ps -NoProfile -File $ScriptPath *> $tmpOut
+    & $ps @psArgs -File $ScriptPath *> $tmpOut
     $code = $LASTEXITCODE
   } catch {
     $code = 1

@@ -139,11 +139,30 @@ function Invoke-Psql([string]$File) {
 }
 
 function Invoke-ParallelSessions([string]$FileA, [string]$FileB, [string]$Label) {
-  $p1 = Start-Process -FilePath $Psql -ArgumentList @($DatabaseUrl, "-v", "ON_ERROR_STOP=1", "-f", $FileA) -PassThru -NoNewWindow -Wait:$false
-  $p2 = Start-Process -FilePath $Psql -ArgumentList @($DatabaseUrl, "-v", "ON_ERROR_STOP=1", "-f", $FileB) -PassThru -NoNewWindow -Wait:$false
-  Wait-Process -InputObject @($p1, $p2)
-  if ($p1.ExitCode -ne 0 -or $p2.ExitCode -ne 0) {
-    throw "$Label process exit failed (A=$($p1.ExitCode) B=$($p2.ExitCode))"
+  $processes = @()
+  try {
+    foreach ($file in @($FileA, $FileB)) {
+      # Start-Process joins ArgumentList on Windows, so quote URL and SQL path explicitly.
+      $args = @(([char]34 + $DatabaseUrl + [char]34), "-X", "-v", "ON_ERROR_STOP=1", "-f", ([char]34 + $file + [char]34))
+      $processes += Start-Process -FilePath $Psql -ArgumentList $args -PassThru -NoNewWindow
+    }
+    foreach ($process in $processes) {
+      if (-not $process.WaitForExit(45000)) {
+        throw "$Label timed out after 45 seconds"
+      }
+    }
+    if ($processes[0].ExitCode -ne 0 -or $processes[1].ExitCode -ne 0) {
+      throw "$Label process exit failed (A=$($processes[0].ExitCode) B=$($processes[1].ExitCode))"
+    }
+  }
+  finally {
+    foreach ($process in $processes) {
+      if (-not $process.HasExited) {
+        $process.Kill()
+        [void]$process.WaitForExit(5000)
+      }
+      $process.Dispose()
+    }
   }
 }
 
@@ -154,8 +173,8 @@ Invoke-Psql $gateSql
 $cleanupNeeded = $false
 try {
   Write-Host "M4 concurrency: setup ephemeral fixtures..."
-  Invoke-Psql $setupSql
   $cleanupNeeded = $true
+  Invoke-Psql $setupSql
 
   Write-Host "M4 concurrency: parallel duplicate client_request_id (identical)..."
   Invoke-ParallelSessions $sessionIdemA $sessionIdemB "Idempotency identical race"
@@ -185,6 +204,6 @@ try {
 finally {
   if ($cleanupNeeded) {
     Write-Host "M4 concurrency: cleanup ephemeral fixtures..."
-    try { Invoke-Psql $cleanupSql } catch { Write-Warning "Cleanup failed: $_" }
+    Invoke-Psql $cleanupSql
   }
 }

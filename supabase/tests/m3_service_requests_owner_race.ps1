@@ -408,7 +408,7 @@ function Stop-ActiveJobsStrict {
   foreach ($job in @($script:ActiveJobs)) {
     try {
       if ($job.State -eq 'Running') {
-        Stop-Job -Job $job -Force -ErrorAction Stop
+        Stop-Job -Job $job -ErrorAction Stop
       }
       Remove-Job -Job $job -Force -ErrorAction Stop
     }
@@ -685,7 +685,7 @@ select (
 
   # Release holder lock by committing the open transaction.
   $holder.Process.StandardInput.WriteLine("commit;")
-  $holder.Process.StandardInput.WriteLine("\\q")
+  $holder.Process.StandardInput.WriteLine('\q')
   $holder.Process.StandardInput.Flush()
   if (-not $holder.Process.WaitForExit(30000)) {
     throw "FAIL ${Label}: holder did not exit after COMMIT"
