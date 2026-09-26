@@ -135,6 +135,9 @@ export function CustomerDetail({ customer }: { customer: CustomerDetailView }) {
         <p className="mt-0.5 text-sm text-slate-500">
           {customer.customerTypeLabel}
         </p>
+        <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="mt-2 inline-block text-sm font-medium text-blue-700 hover:text-blue-800">
+          Quibi: povezava in dokumenti →
+        </Link>
         {saveNotice ? (
           <p className="mt-2 text-sm text-emerald-700" role="status">
             {saveNotice}

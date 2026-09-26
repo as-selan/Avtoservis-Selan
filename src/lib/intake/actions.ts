@@ -53,6 +53,7 @@ function asErrorCode(value: string | undefined): ManualIntakeErrorCode {
     case "archived_customer_match":
     case "archived_vehicle_match":
     case "selection_conflict":
+    case "idempotency_conflict":
       return value;
     default:
       return "unexpected";
@@ -141,6 +142,7 @@ export type CreateManualIntakeActionResult =
       errorCode: ManualIntakeErrorCode;
       message: string;
       fieldErrors?: Record<string, string>;
+      existingServiceRequestId?: string | null;
     };
 
 async function callCreateRpc(
@@ -179,7 +181,15 @@ async function callCreateRpc(
 
   const payload = (data ?? {}) as RpcErrorPayload;
   if (!payload.ok) {
-    return { ok: false, errorCode: asErrorCode(payload.error_code) };
+    const code = asErrorCode(payload.error_code);
+    return {
+      ok: false,
+      errorCode: code,
+      existingServiceRequestId:
+        typeof payload.service_request_id === "string"
+          ? payload.service_request_id
+          : null,
+    };
   }
 
   if (
@@ -256,6 +266,7 @@ export async function createManualServiceRequestIntakeAction(raw: {
       ok: false,
       errorCode: result.errorCode,
       message: manualIntakeErrorMessage(result.errorCode),
+      existingServiceRequestId: result.existingServiceRequestId ?? null,
     };
   }
 

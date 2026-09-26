@@ -15,6 +15,7 @@ export type ManualIntakeErrorCode =
   | "archived_customer_match"
   | "archived_vehicle_match"
   | "selection_conflict"
+  | "idempotency_conflict"
   | "unexpected";
 
 /** Machine-readable missing field ids from V1 completeness. */
@@ -98,6 +99,8 @@ export type CreateManualIntakeSuccess = {
 export type CreateManualIntakeFailure = {
   ok: false;
   errorCode: ManualIntakeErrorCode;
+  /** Present on idempotency_conflict when the original request row exists. */
+  existingServiceRequestId?: string | null;
 };
 
 export type CreateManualIntakeResult =

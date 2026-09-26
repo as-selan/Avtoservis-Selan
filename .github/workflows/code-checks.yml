@@ -1,0 +1,96 @@
+# Code checks for M3 / M4 preparation branches.
+# No database, Docker, migrations, deployments, or production secrets.
+# CI NEXT_PUBLIC_SUPABASE_* placeholders are dummy compile-time values only —
+# they cannot validate actual Vercel environment configuration.
+name: Code checks
+
+on:
+  push:
+    branches:
+      - cursor/m3-business-data-prep-v1
+      - cursor/m4-manual-intake-prep-v1
+      - codex/quibi-integration-prep
+  pull_request:
+    branches:
+      - main
+      - cursor/m3-business-data-prep-v1
+      - cursor/phase14b-customer-vehicle-create-v1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-typecheck:
+    name: Lint, typecheck, offline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # M4 only: runner + tests live on the M4 prep branch; skipped on M3.
+      - name: M4 offline intake tests (when present)
+        run: |
+          set -euo pipefail
+          RUNNER="scripts/ts-ext-register.mjs"
+          shopt -s nullglob
+          tests=(src/lib/intake/*.test.ts)
+          if [[ -f "$RUNNER" && ${#tests[@]} -gt 0 ]]; then
+            echo "Running M4 offline intake tests (${#tests[@]} files)..."
+            node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
+          else
+            echo "Skipping M4 offline intake tests (runner or test files not present on this branch)."
+          fi
+
+      - name: Quibi V1 read-only contract tests
+        run: |
+          shopt -s nullglob
+          tests=(src/lib/quibi/*.test.ts)
+          if (( ${#tests[@]} > 0 )); then
+            node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # CI-only dummy placeholders (non-secret). Not real Supabase credentials.
+      # These only satisfy Next.js compile-time reads; they do NOT validate
+      # actual Vercel environment configuration or production connectivity.
+      NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.invalid"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder-publishable-key-not-a-secret"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build

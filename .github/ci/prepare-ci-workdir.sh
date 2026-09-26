@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Prepare a disposable Supabase workdir for isolated M3/M4 DB CI.
+# Never mutates the repository canonical supabase/config.toml.
+set -euo pipefail
+
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+PHASE="${1:-m3}" # m3 | m4
+CI_WORKDIR="${CI_WORKDIR:-}"
+
+if [[ -z "${CI_WORKDIR}" ]]; then
+  echo "Refusing: set CI_WORKDIR to a temporary directory outside the repo canonical supabase/ path." >&2
+  exit 2
+fi
+
+M3_MIGRATIONS=(
+  "20260912181715_secure_foundation_slice_a.sql"
+  "20260913174315_customers.sql"
+  "20260913174349_vehicles.sql"
+  "20260913174900_service_requests.sql"
+)
+M4_MIGRATION="20260913214500_create_manual_service_request_intake.sql"
+
+mkdir -p "${CI_WORKDIR}/supabase/migrations"
+
+node "${REPO_ROOT}/.github/ci/patch-ci-config.mjs" \
+  "${REPO_ROOT}/supabase/config.toml" \
+  "${CI_WORKDIR}/supabase/config.toml"
+
+# Always stage M3 migrations first.
+for f in "${M3_MIGRATIONS[@]}"; do
+  src="${REPO_ROOT}/supabase/migrations/${f}"
+  if [[ ! -f "${src}" ]]; then
+    echo "Refusing: missing M3 migration ${src}" >&2
+    exit 2
+  fi
+  cp -f "${src}" "${CI_WORKDIR}/supabase/migrations/${f}"
+done
+
+if [[ "${PHASE}" == "m4" ]]; then
+  src="${REPO_ROOT}/supabase/migrations/${M4_MIGRATION}"
+  if [[ ! -f "${src}" ]]; then
+    echo "Refusing: missing M4 migration ${src}" >&2
+    exit 2
+  fi
+  cp -f "${src}" "${CI_WORKDIR}/supabase/migrations/${M4_MIGRATION}"
+elif [[ "${PHASE}" != "m3" ]]; then
+  echo "Refusing: phase must be m3 or m4 (got '${PHASE}')" >&2
+  exit 2
+fi
+
+# Safety: ensure M4 migration is absent during pure M3 bootstrap.
+if [[ "${PHASE}" == "m3" && -f "${CI_WORKDIR}/supabase/migrations/${M4_MIGRATION}" ]]; then
+  echo "Refusing: M4 migration present during m3 phase" >&2
+  exit 2
+fi
+
+echo "Prepared CI workdir ${CI_WORKDIR} (phase=${PHASE})"
+ls -1 "${CI_WORKDIR}/supabase/migrations"
