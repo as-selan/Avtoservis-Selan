@@ -124,6 +124,20 @@ create trigger service_requests_set_updated_at
 -- IDs must match the vehicle's CURRENT customer in the same org.
 -- UPDATE that does not change those IDs: skip (historical pair stays valid
 -- after a later vehicle transfer).
+--
+-- Concurrency: SELECT ... FOR SHARE on the vehicle row so a concurrent
+-- ownership UPDATE waits (or this check sees the committed owner). Plain
+-- SELECT is racy under READ COMMITTED. FOR SHARE (not FOR NO KEY UPDATE)
+-- still blocks owner writers while allowing concurrent attach checks on
+-- the same vehicle. FOR KEY SHARE alone is insufficient (compatible with
+-- non-key UPDATE of vehicles.customer_id).
+--
+-- Lock order / deadlock: BEFORE UPDATE on service_requests locks the
+-- request row first, then this trigger takes FOR SHARE on vehicles.
+-- Keep M4 flows as separate transactions (transfer owner XOR attach
+-- request) — do not lock vehicles then the same service_requests row in
+-- one txn while another attach holds the request and waits on the vehicle
+-- (SR → vehicle vs vehicle → SR). INSERT only locks the vehicle here.
 -- -----------------------------------------------------------------------------
 create or replace function private.service_requests_require_current_vehicle_customer()
 returns trigger
@@ -144,11 +158,13 @@ begin
     return new;
   end if;
 
+  -- FOR SHARE: block concurrent owner UPDATE; allow concurrent checkers.
   select v.customer_id
     into v_current_customer_id
   from public.vehicles as v
   where v.organization_id = new.organization_id
-    and v.id = new.vehicle_id;
+    and v.id = new.vehicle_id
+  for share;
 
   if not found
      or v_current_customer_id is distinct from new.customer_id then
