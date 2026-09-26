@@ -1,5 +1,5 @@
 export type CaseStepKind =
-  | "verify_intake" | "request_data" | "link_quibi" | "prepare_offer"
+  | "verify_intake" | "request_data" | "link_quibi" | "review_quibi_mismatch" | "prepare_offer"
   | "quote_contract_blocked" | "await_customer" | "scheduling_blocked"
   | "manual_external_handoff" | "closed";
 
@@ -9,6 +9,7 @@ export function nextCaseStep(input: {
   status: string;
   offerPrepared: boolean;
   quibiLinked: boolean;
+  quibiSyncStatus?: string;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
   switch (input.status) {
@@ -16,6 +17,8 @@ export function nextCaseStep(input: {
     case "new": return step("verify_intake", "Preveri stranko, vozilo in podatke povpraševanja.");
     case "preparing_offer":
       if (!input.quibiLinked) return step("link_quibi", "Ročno potrdi obstoječo stranko v Quibiju.");
+      if (input.quibiSyncStatus && !["ok", "never_checked"].includes(input.quibiSyncStatus))
+        return step("review_quibi_mismatch", "Preveri spremembe ali napako Quibijeve povezave pred nadaljevanjem.");
       if (!input.offerPrepared) return step("prepare_offer", "Pripravi podatke za predračun.");
       return step("quote_contract_blocked", "Quibijevo ustvarjanje predračuna čaka na potrjeno pogodbo API-ja.");
     case "awaiting_customer_approval": return step("await_customer", "Po dejanski dostavi počakaj na odločitev stranke.");

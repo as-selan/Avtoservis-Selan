@@ -51,7 +51,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const link = linkResult.data;
     const quote = quoteResult.data?.[0] ?? null;
     const appointments = appointmentResult.data ?? [];
-    const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider", quibiLinked: !!link });
+    const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider", quibiLinked: !!link, quibiSyncStatus: link?.sync_status });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
 
     return <div className="space-y-5">
@@ -65,11 +65,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <p className="mt-1 text-sm text-blue-900">{step.label}</p>
         {request.next_action && <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
       </section>
-      {(request.has_error || request.attention_needed || link?.sync_status === "error") && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+      {(request.has_error || request.attention_needed || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>
         {request.has_error && <p>{request.error_reason || "Primer ima zabeleženo napako."}</p>}
         {request.attention_needed && <p>{request.attention_reason || "Primer potrebuje pregled."}</p>}
         {link?.sync_status === "error" && <p>Quibi: {link.last_error_code || "QUIBI_READ_FAILED"}. Odprite povezavo in ponovite branje.</p>}
+        {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -90,7 +91,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Quibi in predračun</h2>
           {customer && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
-          {request.status === "preparing_offer" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
+          {request.status === "preparing_offer" && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
         </section>

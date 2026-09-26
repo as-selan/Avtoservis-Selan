@@ -60,6 +60,8 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
     {query.result === "already" && <p role="alert" className="text-amber-800">Ta stranka ali Quibijev ID je že povezan.</p>}
     {query.refresh === "ok" && <p role="status" className="text-green-700">Quibijeva povezava je znova preverjena.</p>}
     {query.refresh === "remote_changed" && <p role="alert" className="text-amber-800">Quibijevi podatki so se spremenili; preverite jih ročno.</p>}
+    {query.refresh === "local_changed" && <p role="alert" className="text-amber-800">Selanovi podatki so se spremenili; preverite jih ročno.</p>}
+    {query.refresh === "both_changed" && <p role="alert" className="text-amber-800">Podatki so se spremenili v obeh sistemih; preverite jih ročno.</p>}
     {(query.result === "error" || query.error || query.result === "missing") && <p role="alert" className="text-red-700">Povezave ni bilo mogoče shraniti.</p>}
     {readError && <p role="alert" className="text-red-700">{readError}</p>}
     {link ? <>
@@ -69,6 +71,8 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         <p className="text-sm">Zadnji zabeleženi pregled: {link.last_checked_at ? new Date(link.last_checked_at).toLocaleString("sl-SI") : "še ni izveden"}</p>
         {link.sync_status === "error" && <p role="alert" className="text-red-700">Zadnja sinhronizacija ni uspela ({link.last_error_code ?? "QUIBI_READ_FAILED"}). Preverite dostop in poskusite znova.</p>}
         {link.sync_status === "remote_changed" && <p role="alert" className="text-amber-800">Pri zadnjem pregledu je bila zaznana sprememba v Quibiju.</p>}
+        {link.sync_status === "local_changed" && <p role="alert" className="text-amber-800">Pri zadnjem pregledu je bila zaznana sprememba v Selanu.</p>}
+        {link.sync_status === "both_changed" && <p role="alert" className="text-amber-800">Pri zadnjem pregledu so bile zaznane spremembe v obeh sistemih.</p>}
         <form action={refreshQuibiCustomerLink}>
           <input type="hidden" name="customerId" value={customerId} />
           <button className="rounded border border-blue-700 px-3 py-2 text-sm text-blue-700">Ponovno preveri Quibi</button>

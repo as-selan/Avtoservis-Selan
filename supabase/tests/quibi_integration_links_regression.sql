@@ -59,6 +59,13 @@ do $$ begin
   if not exists (select 1 from public.integration_links where external_id = '13510' and sync_status = 'ok')
   then raise exception 'Owner could not record successful read state'; end if;
 end $$;
+update public.integration_links set sync_status = 'both_changed'
+where organization_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and entity_id = 'cccccccc-cccc-4ccc-8ccc-cccccccc0001';
+do $$ begin
+  if not exists (select 1 from public.integration_links where external_id = '13510' and sync_status = 'both_changed')
+  then raise exception 'Combined customer drift state was not retained'; end if;
+end $$;
 
 do $$
 declare denied boolean := false;

@@ -63,22 +63,25 @@ export async function refreshQuibiCustomerLink(form: FormData): Promise<void> {
   try {
     const db = await createClient();
     const { data: customer, error: customerError } = await db.from("customers")
-      .select("id").eq("organization_id", access.organizationId)
+      .select("id, display_name, phone, email").eq("organization_id", access.organizationId)
       .eq("id", customerId).is("archived_at", null).maybeSingle();
     if (customerError || !customer) throw new Error("QUIBI_CUSTOMER_UNAVAILABLE");
     const { data: link, error: linkError } = await db.from("integration_links")
-      .select("external_id, external_fingerprint")
+      .select("external_id, external_fingerprint, local_fingerprint")
       .eq("organization_id", access.organizationId).eq("provider", "quibi")
       .eq("entity_type", "customer").eq("entity_id", customerId).maybeSingle();
     if (!linkError && link) {
       let state: {
-        sync_status: "ok" | "remote_changed" | "error";
+        sync_status: "ok" | "local_changed" | "remote_changed" | "both_changed" | "error";
         last_seen_fingerprint: string | null;
         last_error_code: string | null;
       };
       try {
         const remote = await configuredQuibiReadClient().customer(link.external_id);
-        state = syncOutcome(link.external_fingerprint, customerFingerprint(remote));
+        const localFingerprint = customerFingerprint({
+          name: customer.display_name, phone: customer.phone ?? "", email: customer.email ?? "",
+        });
+        state = syncOutcome(link.external_fingerprint, customerFingerprint(remote), link.local_fingerprint, localFingerprint);
       } catch (error) {
         state = { sync_status: "error", last_seen_fingerprint: null, last_error_code: readFailureCode(error) };
       }

@@ -9,7 +9,7 @@ create table public.integration_links (
   local_fingerprint text not null check (local_fingerprint ~ '^[0-9a-f]{64}$'),
   external_fingerprint text not null check (external_fingerprint ~ '^[0-9a-f]{64}$'),
   sync_status text not null default 'never_checked'
-    check (sync_status in ('never_checked', 'ok', 'remote_changed', 'error')),
+    check (sync_status in ('never_checked', 'ok', 'local_changed', 'remote_changed', 'both_changed', 'error')),
   last_checked_at timestamptz,
   last_seen_fingerprint text check (last_seen_fingerprint is null or last_seen_fingerprint ~ '^[0-9a-f]{64}$'),
   last_error_code text check (last_error_code is null or last_error_code in

@@ -1,9 +1,13 @@
-export type QuibiSyncStatus = "ok" | "remote_changed" | "error";
+export type QuibiSyncStatus = "ok" | "local_changed" | "remote_changed" | "both_changed" | "error";
 
-export function syncOutcome(confirmed: string, observed: string) {
+export function syncOutcome(confirmedRemote: string, observedRemote: string, confirmedLocal: string, observedLocal: string) {
+  const remoteChanged = confirmedRemote !== observedRemote;
+  const localChanged = confirmedLocal !== observedLocal;
+  const sync_status: QuibiSyncStatus = remoteChanged && localChanged ? "both_changed"
+    : remoteChanged ? "remote_changed" : localChanged ? "local_changed" : "ok";
   return {
-    sync_status: confirmed === observed ? "ok" as const : "remote_changed" as const,
-    last_seen_fingerprint: observed,
+    sync_status,
+    last_seen_fingerprint: observedRemote,
     last_error_code: null,
   };
 }
