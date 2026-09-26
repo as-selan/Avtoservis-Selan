@@ -14,7 +14,12 @@
 --   * M3 tables present
 --   * FOR SHARE lock clause in function prosrc after SQL-comment stripping
 --
--- Run (when that DB is available AND the marker has been installed manually):
+-- Supported execution path (URL loopback + independent Docker identity/port
+-- preflight + marker check; never creates the marker):
+--   $env:DATABASE_URL = "postgresql://postgres:...@127.0.0.1:55322/postgres"
+--   pwsh -File supabase/tests/run-m3-db-regression.ps1
+--
+-- Direct psql (lacks the independent Docker preflight — not the supported path):
 --   psql "postgresql://postgres:...@127.0.0.1:55322/postgres?application_name=avtoservis-selan-isolated-m3" \
 --     -v ON_ERROR_STOP=1 \
 --     -f supabase/tests/m3_service_requests_current_owner_regression.sql
