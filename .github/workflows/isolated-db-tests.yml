@@ -76,7 +76,8 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Tested in the isolated suite; avoid the unauthenticated "latest" release lookup rate limit.
+          version: 2.118.0
 
       - name: Install psql + PowerShell
         shell: bash
