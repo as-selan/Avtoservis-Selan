@@ -84,11 +84,11 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Delovni nalogi v Quibiju</h2>
         <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}>Nalog #{doc.id}</li>)}</ul>
-        {orders.length === 0 && <p className="text-sm text-slate-600">Ni prikazanih nalogov.</p>}
+        {orders.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih nalogov.</p>}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračuni v Quibiju</h2>
         <ul className="mt-2 space-y-1 text-sm">{estimates.map((doc) => <li key={doc.id}>Predračun #{doc.id}</li>)}</ul>
-        {estimates.length === 0 && <p className="text-sm text-slate-600">Ni prikazanih predračunov.</p>}
+        {estimates.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih predračunov.</p>}
       </section>
     </> : <section className="rounded-xl border bg-white p-4 space-y-4">
       <h2 className="font-semibold">Poišči obstoječo stranko v Quibiju</h2>
