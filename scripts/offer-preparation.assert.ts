@@ -183,12 +183,12 @@ async function assertProviderUnconfigured() {
   const created = await provider.createDraft(sampleInput);
   const got = await provider.getDraft(sampleInput);
   const updated = await provider.updateDraft(sampleInput);
-  assert(created.ok === false && created.code === "NOT_CONFIGURED", "createDraft NOT_CONFIGURED");
-  assert(got.ok === false && got.code === "NOT_CONFIGURED", "getDraft NOT_CONFIGURED");
-  assert(updated.ok === false && updated.code === "NOT_CONFIGURED", "updateDraft NOT_CONFIGURED");
+  assert(created.ok === false && created.code === "CONTRACT_UNVERIFIED", "createDraft CONTRACT_UNVERIFIED");
+  assert(got.ok === false && got.code === "CONTRACT_UNVERIFIED", "getDraft CONTRACT_UNVERIFIED");
+  assert(updated.ok === false && updated.code === "CONTRACT_UNVERIFIED", "updateDraft CONTRACT_UNVERIFIED");
   assert(created.message === OFFER_PROVIDER_UNCONFIGURED_MESSAGE, "user-facing unconfigured copy");
   assert(typesSrc.includes("PROVIDER_UNAVAILABLE"), "typed PROVIDER_UNAVAILABLE exists");
-  assert(providerSrc.includes("No HTTP, no credentials"), "provider documents no HTTP");
+  assert(!/fetch\s*\(|\/api2\//.test(providerSrc), "provider cannot call Quibi write API");
 }
 
 // J. no fabricated external resource ID / no invented commercial fields
@@ -215,7 +215,7 @@ async function assertProviderUnconfigured() {
   assert(OFFER_PREP_ACTION_LABEL === "Pripravi ponudbo", "action label");
   assert(OFFER_PREP_READY_NEXT_ACTION === "Podatki za ponudbo so pripravljeni.", "ready copy");
   assert(
-    OFFER_PROVIDER_UNCONFIGURED_MESSAGE === "Povezava s Quibijem še ni nastavljena.",
+    OFFER_PROVIDER_UNCONFIGURED_MESSAGE === "Branje Quibija deluje; ustvarjanje predračuna čaka na potrjeno pogodbo API-ja.",
     "unconfigured copy",
   );
   assert(!/Quibi draft|ponudba je poslana|cena je potrjena|stranka je potrdila/i.test(allUi), "no false success claims");

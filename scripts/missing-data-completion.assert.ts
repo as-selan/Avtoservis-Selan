@@ -28,7 +28,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 function read(rel: string): string {
-  return readFileSync(resolve(process.cwd(), rel), "utf8");
+  return readFileSync(resolve(process.cwd(), rel), "utf8").replace(/\r\n/g, "\n");
 }
 
 const sql = read(

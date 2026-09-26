@@ -131,7 +131,7 @@ assert(
 );
 
 assert(!/service_role/i.test(mutationSrc), "no service_role");
-assert(!/quibi/i.test(mutationSrc), "no Quibi");
+assert(!/\/api2\/|QUIBI_DEV_PASSWORD|\.createDraft\s*\(/i.test(mutationSrc), "customer and vehicle edits never write to Quibi");
 assert(!/myplanly/i.test(mutationSrc), "no MyPlanly");
 assert(
   actionsSrc.includes('from "@/lib/supabase/server"') &&

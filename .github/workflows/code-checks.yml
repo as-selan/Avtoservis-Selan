@@ -10,11 +10,13 @@ on:
       - cursor/m3-business-data-prep-v1
       - cursor/m4-manual-intake-prep-v1
       - codex/quibi-integration-prep
+      - codex/selan-v1-workflow
   pull_request:
     branches:
       - main
       - cursor/m3-business-data-prep-v1
       - cursor/phase14b-customer-vehicle-create-v1
+      - codex/quibi-integration-prep
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -61,10 +63,10 @@ jobs:
             echo "Skipping M4 offline intake tests (runner or test files not present on this branch)."
           fi
 
-      - name: Quibi V1 read-only contract tests
+      - name: Workflow and Quibi V1 contract tests
         run: |
           shopt -s nullglob
-          tests=(src/lib/quibi/*.test.ts)
+          tests=(src/lib/quibi/*.test.ts src/lib/cases/*.test.ts)
           if (( ${#tests[@]} > 0 )); then
             node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
           fi

@@ -12,9 +12,11 @@ on:
   push:
     branches:
       - cursor/m3-m4-ci-db-tests-v1
+      - codex/selan-v1-workflow
   pull_request:
     branches:
       - cursor/m3-m4-ci-db-tests-v1
+      - codex/quibi-integration-prep
   workflow_dispatch:
 
 concurrency:
@@ -49,7 +51,7 @@ jobs:
           bash .github/ci/negative-safety-checks.sh
 
   isolated-db-suites:
-    name: M3 then M4 isolated DB suites
+    name: M3, M4 and full-chain isolated DB suites
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: negative-safety
@@ -74,7 +76,8 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Tested in the isolated suite; avoid the unauthenticated "latest" release lookup rate limit.
+          version: 2.118.0
 
       - name: Install psql + PowerShell
         shell: bash

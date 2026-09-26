@@ -116,7 +116,7 @@ assert(
 
 assert(!/service_role/i.test(sliceCSrc), "no service_role");
 assert(!/SUPABASE_SERVICE_ROLE/.test(sliceCSrc), "no service role env usage");
-assert(!/quibi/i.test(sliceCSrc), "no Quibi");
+assert(!/\/api2\/|QUIBI_DEV_PASSWORD|\.createDraft\s*\(/i.test(sliceCSrc), "vehicle creation never writes to Quibi");
 assert(!/myplanly/i.test(sliceCSrc), "no MyPlanly");
 assert(
   !/\.from\("service_requests"\)/.test(createFn) &&
