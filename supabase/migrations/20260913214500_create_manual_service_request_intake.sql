@@ -84,6 +84,25 @@ revoke all on function private.normalize_intake_phone(text) from public;
 revoke all on function private.normalize_intake_phone(text) from anon;
 grant execute on function private.normalize_intake_phone(text) to authenticated;
 
+-- Email format gate (mirrors TS validateManualIntakeForm).
+-- normalize_intake_email only lowercases/trims — it does not prove a usable address.
+create or replace function private.is_valid_intake_email(p_email text)
+returns boolean
+language sql
+immutable
+parallel safe
+set search_path = ''
+as $$
+  select
+    p_email is not null
+    and btrim(p_email) <> ''
+    and btrim(p_email) ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$';
+$$;
+
+revoke all on function private.is_valid_intake_email(text) from public;
+revoke all on function private.is_valid_intake_email(text) from anon;
+grant execute on function private.is_valid_intake_email(text) to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 2) Completeness (server-authoritative V1 — adjust later when Quibi fields known)
 --
@@ -346,26 +365,203 @@ revoke all on function public.search_manual_intake_candidates(text, integer) fro
 grant execute on function public.search_manual_intake_candidates(text, integer) to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 5) Idempotency column on service_requests (M4)
--- Writable only on INSERT; not granted for UPDATE.
+-- 5) Idempotency key + private JSONB snapshot (M4 V2)
+--
+-- intake_request_id: client-supplied idempotency key on service_requests.
+--   Written only by SECURITY DEFINER create_manual_service_request_intake.
+--   No authenticated INSERT grant on this column (prevents orphan keys).
+--
+-- private.manual_intake_material_snapshots:
+--   Canonical material JSONB for the original write (19 business fields).
+--   PII — retain/erase with parent service_request (ON DELETE CASCADE).
+--   Zero DML/DQL for anon/authenticated. Not in PostgREST schemas.
+--   Never returned in RPC JSON or application logs.
+--
+-- Owner role analysis: a dedicated non-login DEFINER role cannot use existing
+-- RLS policies (TO authenticated) without BYPASSRLS or policy rewrites.
+-- Safest Supabase-supported alternative: postgres-owned SECURITY DEFINER RPC
+-- with search_path locked, explicit auth.uid()/role/tenant checks on every
+-- selected and written row, and no EXECUTE on snapshot helpers for end users.
 -- -----------------------------------------------------------------------------
 alter table public.service_requests
   add column if not exists intake_request_id uuid;
+
+-- Remove prep-only public snapshot column / GUC write path if present from
+-- earlier M4 drafts (column was never applied to hosted/prod).
+alter table public.service_requests
+  drop column if exists intake_material;
+
+drop trigger if exists service_requests_intake_material_bi
+  on public.service_requests;
+drop trigger if exists service_requests_intake_material_bu
+  on public.service_requests;
+drop function if exists private.service_requests_intake_material_bi();
+drop function if exists private.service_requests_intake_material_bu();
 
 create unique index if not exists service_requests_organization_id_intake_request_id_unique
   on public.service_requests (organization_id, intake_request_id)
   where intake_request_id is not null;
 
-grant insert (intake_request_id) on table public.service_requests to authenticated;
+-- Drop earlier draft grant that allowed authenticated to set orphan keys.
+revoke insert (intake_request_id) on table public.service_requests from authenticated;
 
--- Drop prior M4 signature if present (argument list changed: + p_client_request_id).
+create table if not exists private.manual_intake_material_snapshots (
+  service_request_id uuid not null,
+  organization_id uuid not null
+    references public.organizations (id),
+  intake_request_id uuid not null,
+  material jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (service_request_id),
+  -- Composite FK ties snapshot org to the parent service_request org
+  -- (uses existing M3 unique (organization_id, id); no M3 schema change).
+  constraint manual_intake_material_snapshots_org_sr_fkey
+    foreign key (organization_id, service_request_id)
+    references public.service_requests (organization_id, id)
+    on delete cascade,
+  constraint manual_intake_material_snapshots_org_request_unique
+    unique (organization_id, intake_request_id),
+  constraint manual_intake_material_snapshots_material_object
+    check (jsonb_typeof(material) = 'object')
+);
+
+-- Upgrade path if an earlier prep draft used a single-column FK only.
+do $$
+begin
+  if exists (
+    select 1
+    from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+    where n.nspname = 'private'
+      and t.relname = 'manual_intake_material_snapshots'
+      and c.conname = 'manual_intake_material_snapshots_service_request_id_fkey'
+  ) then
+    alter table private.manual_intake_material_snapshots
+      drop constraint manual_intake_material_snapshots_service_request_id_fkey;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+    where n.nspname = 'private'
+      and t.relname = 'manual_intake_material_snapshots'
+      and c.conname = 'manual_intake_material_snapshots_org_sr_fkey'
+  ) then
+    alter table private.manual_intake_material_snapshots
+      add constraint manual_intake_material_snapshots_org_sr_fkey
+      foreign key (organization_id, service_request_id)
+      references public.service_requests (organization_id, id)
+      on delete cascade;
+  end if;
+end;
+$$;
+
+comment on table private.manual_intake_material_snapshots is
+  'M4 private canonical intake material for idempotency. PII — cascade-delete with service_request; never expose via API/UI/logs.';
+
+revoke all on table private.manual_intake_material_snapshots from public;
+revoke all on table private.manual_intake_material_snapshots from anon;
+revoke all on table private.manual_intake_material_snapshots from authenticated;
+-- Intentionally no grants to authenticated/anon.
+
+-- Drop prior 8-field signature if present.
+drop function if exists private.canonical_manual_intake_material(
+  text, text, uuid, uuid, text, text, text, integer
+);
+
+create or replace function private.canonical_manual_intake_material(
+  p_service_wanted text,
+  p_problem_description text,
+  p_selected_customer_id uuid,
+  p_selected_vehicle_id uuid,
+  p_vin text,
+  p_phone text,
+  p_email text,
+  p_mileage_reported_km integer,
+  p_display_name text,
+  p_channel text,
+  p_registration text,
+  p_make text,
+  p_model text,
+  p_year integer,
+  p_power_kw integer,
+  p_engine text,
+  p_engine_type text,
+  p_fuel text,
+  p_brings_own_material boolean
+)
+returns jsonb
+language sql
+immutable
+parallel safe
+set search_path = ''
+as $$
+  -- Canonicalize once for first write and retries. Explicit selection IDs are
+  -- stored as submitted (not resolved auto-match IDs). Registration uses the
+  -- approved match-key normalizer to avoid false conflicts on plate formatting.
+  select jsonb_build_object(
+    'service_wanted', nullif(btrim(p_service_wanted), ''),
+    'problem_description', nullif(btrim(p_problem_description), ''),
+    'selected_customer_id', p_selected_customer_id,
+    'selected_vehicle_id', p_selected_vehicle_id,
+    'vin', private.normalize_intake_vin(p_vin),
+    'phone', private.normalize_intake_phone(p_phone),
+    'email', private.normalize_intake_email(p_email),
+    'mileage_reported_km', p_mileage_reported_km,
+    'display_name', nullif(btrim(p_display_name), ''),
+    'channel', nullif(btrim(p_channel), ''),
+    'registration', private.normalize_intake_registration(p_registration),
+    'make', nullif(btrim(p_make), ''),
+    'model', nullif(btrim(p_model), ''),
+    'year', p_year,
+    'power_kw', p_power_kw,
+    'engine', nullif(btrim(p_engine), ''),
+    'engine_type', nullif(btrim(p_engine_type), ''),
+    'fuel', nullif(btrim(p_fuel), ''),
+    'brings_own_material', coalesce(p_brings_own_material, false)
+  );
+$$;
+
+-- Callable only by privileged DEFINER owner — not by authenticated SQL users.
+revoke all on function private.canonical_manual_intake_material(
+  text, text, uuid, uuid, text, text, text, integer,
+  text, text, text, text, text, integer, integer, text, text, text, boolean
+) from public;
+revoke all on function private.canonical_manual_intake_material(
+  text, text, uuid, uuid, text, text, text, integer,
+  text, text, text, text, text, integer, integer, text, text, text, boolean
+) from anon;
+revoke all on function private.canonical_manual_intake_material(
+  text, text, uuid, uuid, text, text, text, integer,
+  text, text, text, text, text, integer, integer, text, text, text, boolean
+) from authenticated;
+
+-- Drop prior M4 signatures if present.
 drop function if exists public.create_manual_service_request_intake(
   text, text, text, text, text, text, text, text, integer, integer,
   text, text, text, integer, text, text, boolean, uuid, uuid
 );
+drop function if exists public.create_manual_service_request_intake(
+  text, text, text, text, text, text, text, text, integer, integer,
+  text, text, text, integer, text, text, boolean, uuid, uuid, uuid
+);
 
 -- -----------------------------------------------------------------------------
--- 6) Atomic manual intake RPC
+-- 6) Atomic manual intake RPC (SECURITY DEFINER — this function only)
+--
+-- Privilege model:
+--   Owner: migration role (postgres). Table-owner bypasses RLS → every
+--   SELECT/INSERT/UPDATE re-checks organization_id = resolved Selan org and
+--   auth.uid() membership via resolve_manual_intake_org.
+--   End users: EXECUTE on this public RPC only. No private snapshot DML/DQL.
+--   No user-controlled GUCs for authorization or snapshot writes.
+--   Dedicated non-login owner role rejected: existing RLS policies are
+--   TO authenticated; without BYPASSRLS or policy rewrites the custom role
+--   cannot insert/select under those policies. postgres-owned DEFINER with
+--   explicit tenant checks is the safest supported alternative.
 --
 -- Advisory locks (transaction-scoped), deterministic order to avoid deadlocks:
 --   0) client request id  namespace 910000 + hashtext(org || unitsep || request_id)
@@ -402,10 +598,11 @@ create or replace function public.create_manual_service_request_intake(
 )
 returns jsonb
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
+  v_uid uuid := (select auth.uid());
   v_org_id uuid;
   v_display_name text;
   v_phone text;
@@ -456,7 +653,14 @@ declare
   v_comp_make text;
   v_comp_model text;
   v_replay public.service_requests%rowtype;
+  v_material jsonb;
+  v_stored_material jsonb;
+  v_snapshot_found boolean;
 begin
+  if v_uid is null then
+    return jsonb_build_object('ok', false, 'error_code', 'forbidden');
+  end if;
+
   v_org_id := private.resolve_manual_intake_org();
   if v_org_id is null then
     return jsonb_build_object('ok', false, 'error_code', 'forbidden');
@@ -491,6 +695,14 @@ begin
   if v_display_name is null then
     return jsonb_build_object('ok', false, 'error_code', 'validation_failed');
   end if;
+
+  -- Reject non-blank invalid email (direct RPC must not bypass app validation).
+  -- Invalid email must not satisfy the contact requirement or completeness.
+  if nullif(btrim(p_email), '') is not null
+     and not private.is_valid_intake_email(v_email) then
+    return jsonb_build_object('ok', false, 'error_code', 'validation_failed');
+  end if;
+
   if v_phone is null and v_email is null then
     return jsonb_build_object('ok', false, 'error_code', 'validation_failed');
   end if;
@@ -516,6 +728,29 @@ begin
     return jsonb_build_object('ok', false, 'error_code', 'validation_failed');
   end if;
 
+  -- Canonical material from original RPC params only (never from mutable rows).
+  v_material := private.canonical_manual_intake_material(
+    v_service_wanted,
+    v_problem_description,
+    p_selected_customer_id,
+    p_selected_vehicle_id,
+    p_vin,
+    p_phone,
+    p_email,
+    p_mileage_reported_km,
+    v_display_name,
+    v_channel,
+    p_registration,
+    v_make,
+    v_model,
+    p_year,
+    p_power_kw,
+    v_engine,
+    v_engine_type,
+    v_fuel,
+    coalesce(p_brings_own_material, false)
+  );
+
   -- 0) Idempotency lock BEFORE identity locks
   perform pg_advisory_xact_lock(
     910000,
@@ -529,6 +764,26 @@ begin
     and sr.intake_request_id = p_client_request_id;
 
   if found then
+    select s.material
+      into v_stored_material
+    from private.manual_intake_material_snapshots as s
+    where s.organization_id = v_org_id
+      and s.intake_request_id = p_client_request_id
+      and s.service_request_id = v_replay.id;
+
+    v_snapshot_found := found;
+
+    -- Missing/unreadable snapshot → fail closed (never silent replay).
+    if not v_snapshot_found
+       or v_stored_material is null
+       or v_stored_material is distinct from v_material then
+      return jsonb_build_object(
+        'ok', false,
+        'error_code', 'idempotency_conflict',
+        'service_request_id', v_replay.id
+      );
+    end if;
+
     return jsonb_build_object(
       'ok', true,
       'replayed', true,
@@ -647,7 +902,12 @@ begin
     select (c.archived_at is not null)
       into v_auto_customer_archived
     from public.customers as c
-    where c.id = v_auto_customer_id;
+    where c.id = v_auto_customer_id
+      and c.organization_id = v_org_id;
+
+    if not found then
+      return jsonb_build_object('ok', false, 'error_code', 'selection_conflict');
+    end if;
 
     if v_auto_customer_archived then
       return jsonb_build_object('ok', false, 'error_code', 'archived_customer_match');
@@ -705,7 +965,12 @@ begin
           v_auto_vehicle_archived,
           v_auto_vehicle_customer_id
         from public.vehicles as v
-        where v.id = v_reg_vehicle_ids[1];
+        where v.id = v_reg_vehicle_ids[1]
+          and v.organization_id = v_org_id;
+
+        if not found then
+          return jsonb_build_object('ok', false, 'error_code', 'selection_conflict');
+        end if;
       end if;
     end if;
   end if;
@@ -753,10 +1018,10 @@ begin
       into v_customer
     from public.customers as c
     where c.id = v_customer_id
+      and c.organization_id = v_org_id
     for update;
 
-    if not found
-       or v_customer.organization_id is distinct from v_org_id then
+    if not found then
       return jsonb_build_object('ok', false, 'error_code', 'selection_conflict');
     end if;
     if v_customer.archived_at is not null then
@@ -783,10 +1048,10 @@ begin
       into v_vehicle
     from public.vehicles as v
     where v.id = v_vehicle_id
+      and v.organization_id = v_org_id
     for update;
 
-    if not found
-       or v_vehicle.organization_id is distinct from v_org_id then
+    if not found then
       return jsonb_build_object('ok', false, 'error_code', 'selection_conflict');
     end if;
     if v_vehicle.archived_at is not null then
@@ -842,6 +1107,7 @@ begin
         else c.email
       end
     where c.id = v_customer_id
+      and c.organization_id = v_org_id
       and (
         (c.phone is null and v_phone_store is not null)
         or (c.email is null and v_email is not null)
@@ -857,6 +1123,8 @@ begin
     );
 
   if v_create_vehicle then
+    -- First known reading may seed vehicles.mileage_latest_* cache.
+    -- Subsequent manual intakes must not overwrite that cache (see UPDATE below).
     insert into public.vehicles (
       organization_id,
       customer_id,
@@ -926,16 +1194,12 @@ begin
       fuel = case
         when v.fuel is null and v_fuel is not null then v_fuel
         else v.fuel
-      end,
-      mileage_latest_km = case
-        when p_mileage_reported_km is not null then p_mileage_reported_km
-        else v.mileage_latest_km
-      end,
-      mileage_latest_recorded_at = case
-        when p_mileage_reported_km is not null then now()
-        else v.mileage_latest_recorded_at
       end
-    where v.id = v_vehicle_id;
+      -- mileage_latest_* is a cache only. Manual intake never overwrites it on
+      -- an existing vehicle — reported mileage lives on service_requests only.
+      -- New-vehicle INSERT above may seed the cache from the first reading.
+    where v.id = v_vehicle_id
+      and v.organization_id = v_org_id;
   end if;
 
   v_summary := coalesce(v_service_wanted, v_problem_description);
@@ -946,7 +1210,8 @@ begin
     private.normalize_intake_email(c.email)
   into v_existing_phone, v_existing_email
   from public.customers as c
-  where c.id = v_customer_id;
+  where c.id = v_customer_id
+    and c.organization_id = v_org_id;
 
   if v_vehicle_id is not null then
     select
@@ -955,7 +1220,8 @@ begin
       nullif(btrim(v.model), '')
     into v_existing_vin, v_comp_make, v_comp_model
     from public.vehicles as v
-    where v.id = v_vehicle_id;
+    where v.id = v_vehicle_id
+      and v.organization_id = v_org_id;
   else
     v_existing_vin := null;
     v_comp_make := null;
@@ -1019,6 +1285,18 @@ begin
   )
   returning id into v_service_request_id;
 
+  insert into private.manual_intake_material_snapshots (
+    service_request_id,
+    organization_id,
+    intake_request_id,
+    material
+  ) values (
+    v_service_request_id,
+    v_org_id,
+    p_client_request_id,
+    v_material
+  );
+
   return jsonb_build_object(
     'ok', true,
     'replayed', false,
@@ -1033,7 +1311,47 @@ begin
   );
 exception
   when unique_violation then
-    -- Concurrent VIN uniqueness or rare race; fail closed (txn rolled back).
+    -- Concurrent duplicate intake_request_id (or rare VIN race).
+    -- Re-read under the held advisory lock and apply snapshot rules.
+    select *
+      into v_replay
+    from public.service_requests as sr
+    where sr.organization_id = v_org_id
+      and sr.intake_request_id = p_client_request_id;
+
+    if found then
+      select s.material
+        into v_stored_material
+      from private.manual_intake_material_snapshots as s
+      where s.organization_id = v_org_id
+        and s.intake_request_id = p_client_request_id
+        and s.service_request_id = v_replay.id;
+
+      v_snapshot_found := found;
+
+      if not v_snapshot_found
+         or v_stored_material is null
+         or v_stored_material is distinct from v_material then
+        return jsonb_build_object(
+          'ok', false,
+          'error_code', 'idempotency_conflict',
+          'service_request_id', v_replay.id
+        );
+      end if;
+      return jsonb_build_object(
+        'ok', true,
+        'replayed', true,
+        'customer_id', v_replay.customer_id,
+        'customer_created', false,
+        'vehicle_id', v_replay.vehicle_id,
+        'vehicle_created', false,
+        'service_request_id', v_replay.id,
+        'status', v_replay.status,
+        'missing_fields', coalesce(to_jsonb(v_replay.missing_fields), '[]'::jsonb),
+        'next_action', v_replay.next_action
+      );
+    end if;
+
     return jsonb_build_object('ok', false, 'error_code', 'selection_conflict');
   when others then
     raise;
