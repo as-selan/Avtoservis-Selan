@@ -175,4 +175,22 @@ echo "== M4 concurrency =="
 pwsh -NoProfile -File "${REPO_ROOT}/scripts/run-m4-db-concurrency.ps1"
 echo "PASS: M4 concurrency"
 
-echo "== All isolated M3/M4 DB suites passed on disposable local Docker target =="
+echo "== Staging complete ordered migration chain on the same disposable DB =="
+bash "${REPO_ROOT}/.github/ci/prepare-ci-workdir.sh" full
+(
+  cd "${CI_WORKDIR}"
+  supabase migration up
+)
+
+echo "== Re-verify Docker identity after full-chain migration =="
+pwsh -NoProfile -File "${REPO_ROOT}/supabase/tests/verify_isolated_docker_target.ps1" \
+  -ExpectedContainerName "${EXPECTED_CONTAINER_NAME}" \
+  -ExpectedHostPort ${EXPECTED_HOST_PORT}
+
+echo "== Quibi link RLS, tenant isolation, and duplicate regression =="
+PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
+  psql "${DB_URL}" -v ON_ERROR_STOP=1 \
+  -f "${REPO_ROOT}/supabase/tests/quibi_integration_links_regression.sql"
+echo "PASS: Quibi integration-link regression"
+
+echo "== All isolated M3/M4 + full-chain DB suites passed on disposable local Docker target =="
