@@ -425,7 +425,7 @@ begin
       insert into public.service_requests (
         organization_id, customer_id, vehicle_id, summary, source
       ) values (
-        v_org_a, v_cust_a, v_veh, 'Mechanic SR blocked', 'manual'
+        v_org_a, v_cust_b, v_veh, 'Mechanic SR blocked', 'manual'
       );
       raise exception 'FAIL R6w: mechanic INSERT service_requests should be denied';
     exception
