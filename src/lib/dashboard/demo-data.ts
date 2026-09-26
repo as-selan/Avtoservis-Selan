@@ -3,9 +3,8 @@
  * Timestamps are derived from the caller's `now` so period filters
  * (Danes / Ta teden / Ta mesec) stay meaningful without a hardcoded product calendar day.
  *
- * DASHBOARD_INITIAL_CLOCK is a fixed UTC instant used only for the isomorphic
- * SSR + first client paint so hydration HTML matches. After mount the UI
- * switches to the real local clock.
+ * DASHBOARD_INITIAL_CLOCK remains for legacy demo helpers only.
+ * The real dashboard uses server `generatedAt` via useDashboardNow(iso).
  */
 
 import type {

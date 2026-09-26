@@ -87,7 +87,10 @@ export function ActiveServiceOrders({
           </p>
         ) : (
           orders.map((order) => (
-            <ServiceOrderMobileCard key={order.id} order={order} />
+            <ServiceOrderMobileCard
+              key={order.serviceRequestId ?? order.id}
+              order={order}
+            />
           ))
         )}
       </div>

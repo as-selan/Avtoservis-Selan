@@ -23,6 +23,8 @@ export type FuelType = "bencin" | "dizel" | "hibrid" | "elektrika" | "plin";
 
 export interface ServiceOrderDemo {
   id: string;
+  /** Canonical service_requests.id (UUID). Not shown in the ID column. */
+  serviceRequestId?: string;
   customerName: string;
   customerPhone?: string;
   vehicleMakeModel: string;
@@ -53,6 +55,8 @@ export interface AttentionItemDemo {
   timeLabel: string;
   primaryAction: string;
   secondaryAction?: string;
+  /** ISO timestamp for period filtering (real data). */
+  occurredAt?: string;
 }
 
 export interface ActivityItemDemo {
@@ -63,3 +67,22 @@ export interface ActivityItemDemo {
   timeAgo: string;
   occurredAt: string;
 }
+
+/** Server-loaded dashboard payload (no demo fallback). */
+export type DashboardSnapshotOk = {
+  ok: true;
+  /** Server reference instant used for labels + SSR/hydration period filtering. */
+  generatedAt: string;
+  orders: ServiceOrderDemo[];
+  attention: AttentionItemDemo[];
+  appointments: AppointmentDemo[];
+  activity: ActivityItemDemo[];
+};
+
+export type DashboardSnapshotError = {
+  ok: false;
+  generatedAt: string;
+  message: string;
+};
+
+export type DashboardSnapshot = DashboardSnapshotOk | DashboardSnapshotError;
