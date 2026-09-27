@@ -135,3 +135,97 @@ export async function reviewManualQuibiEstimate(
   }
   return { ok: true, reviewStatus: payload.review_status };
 }
+
+export async function recordManualEstimateDelivery(
+  quoteId: string, channel: string, reference: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const access = await requirePhase1OperationalAccess();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
+      || !["email", "sms", "in_person", "other"].includes(channel)
+      || reference.trim().length < 4 || reference.trim().length > 200) {
+    return error("Navedite veljaven način in referenco dejansko poslanega sporočila.");
+  }
+  const db = await createClient();
+  const { data: quote, error: quoteError } = await db.from("quotes")
+    .select("service_request_id, content_sha256, evidence_kind, evidence_payload, internal_review_status")
+    .eq("organization_id", access.organizationId).eq("id", quoteId).maybeSingle();
+  const evidence = quote?.evidence_payload as { external_id?: unknown; customer_external_id?: unknown } | null;
+  if (quoteError || !quote || quote.internal_review_status !== "approved_for_send"
+      || quote.evidence_kind !== "quibi_manual_estimate"
+      || !evidence || typeof evidence.external_id !== "string"
+      || typeof evidence.customer_external_id !== "string") {
+    return error("Predračun še ni odobren za pošiljanje.");
+  }
+  const { data: request } = await db.from("service_requests")
+    .select("customer_id, status").eq("organization_id", access.organizationId)
+    .eq("id", quote.service_request_id).is("archived_at", null).maybeSingle();
+  if (!request || request.status !== "preparing_offer" || !request.customer_id) {
+    return error("Primer ni v stanju za prvo evidentiranje dostave.");
+  }
+  const [{ data: customer }, { data: link }] = await Promise.all([
+    db.from("customers").select("display_name, phone, email")
+      .eq("organization_id", access.organizationId).eq("id", request.customer_id)
+      .is("archived_at", null).maybeSingle(),
+    db.from("integration_links").select("external_id, local_fingerprint, external_fingerprint, sync_status")
+      .eq("organization_id", access.organizationId).eq("provider", "quibi")
+      .eq("entity_type", "customer").eq("entity_id", request.customer_id).maybeSingle(),
+  ]);
+  if (!customer || !link || link.external_id !== evidence.customer_external_id
+      || !["ok", "never_checked"].includes(link.sync_status)
+      || customerFingerprint({ name: customer.display_name, phone: customer.phone ?? "", email: customer.email ?? "" }) !== link.local_fingerprint) {
+    return error("Povezavo stranke s Quibijem je treba znova preveriti.");
+  }
+  try {
+    const quibi = configuredQuibiReadClient();
+    const remote = await quibi.customer(link.external_id);
+    if (customerFingerprint(remote) !== link.external_fingerprint) {
+      return error("Quibijevi podatki stranke so se spremenili.");
+    }
+    const listed = await quibi.estimates(link.external_id);
+    if (!listed.some((item) => item.id === evidence.external_id)) {
+      return error("Predračun ni več na seznamu potrjene stranke.");
+    }
+    const detail = await quibi.estimateDetail(evidence.external_id, link.external_id);
+    if (detail.lines.length === 0 || detail.contentSha256 !== quote.content_sha256) {
+      return error("Quibijev predračun se je spremenil. Pred pošiljanjem povežite in odobrite novo različico.");
+    }
+  } catch {
+    return error("Dejanskega Quibijevega predračuna ni bilo mogoče preveriti pred dostavo.");
+  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !secret) return error("Varna strežniška povezava za dokazila ni nastavljena.");
+  const trusted = createPrivilegedClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error: writeError } = await trusted.rpc("record_manual_estimate_delivery", {
+    p_organization_id: access.organizationId, p_quote_id: quoteId,
+    p_content_sha256: quote.content_sha256, p_actor_id: access.userId,
+    p_channel: channel, p_reference: reference.trim(),
+  });
+  if (writeError || (data as { ok?: boolean } | null)?.ok !== true) {
+    return error("Dostave ni bilo mogoče shraniti. Preverite različico in poskusite znova.");
+  }
+  return { ok: true };
+}
+
+export async function recordManualEstimateDecision(
+  quoteId: string, decision: "approved" | "rejected", reference: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const access = await requirePhase1OperationalAccess();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
+      || !["approved", "rejected"].includes(decision)
+      || reference.trim().length < 4 || reference.trim().length > 200) {
+    return error("Navedite veljavno odločitev in referenco strankinega odgovora.");
+  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !secret) return error("Varna strežniška povezava za dokazila ni nastavljena.");
+  const trusted = createPrivilegedClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error: writeError } = await trusted.rpc("record_manual_estimate_decision", {
+    p_organization_id: access.organizationId, p_quote_id: quoteId,
+    p_actor_id: access.userId, p_decision: decision, p_reference: reference.trim(),
+  });
+  if (writeError || (data as { ok?: boolean } | null)?.ok !== true) {
+    return error("Odločitve ni bilo mogoče shraniti. Preverite stanje primera.");
+  }
+  return { ok: true };
+}

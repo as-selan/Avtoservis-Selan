@@ -40,6 +40,15 @@ do $$ begin
      or not has_function_privilege('service_role',
        'public.review_verified_manual_quote(uuid,uuid,text,uuid,text)', 'EXECUTE')
   then raise exception 'Quote review can bypass verified server read'; end if;
+  if has_function_privilege('authenticated',
+      'public.record_manual_estimate_delivery(uuid,uuid,text,uuid,text,text)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+      'public.record_manual_estimate_decision(uuid,uuid,uuid,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+      'public.record_manual_estimate_delivery(uuid,uuid,text,uuid,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+      'public.record_manual_estimate_decision(uuid,uuid,uuid,text,text)', 'EXECUTE')
+  then raise exception 'Manual delivery or decision grants are unsafe'; end if;
   if not has_table_privilege('authenticated', 'public.integration_links', 'SELECT')
     or not has_column_privilege('authenticated', 'public.integration_links', 'sync_status', 'UPDATE')
     or has_column_privilege('authenticated', 'public.integration_links', 'external_id', 'UPDATE')

@@ -8,6 +8,7 @@ import { CreateCompletionLinkButton } from "@/components/dashboard/CreateComplet
 import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimateForm";
 import { ReviewManualEstimate } from "@/components/dashboard/ReviewManualEstimate";
+import { ManualEstimateHandoff } from "@/components/dashboard/ManualEstimateHandoff";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       .is("archived_at", null).maybeSingle();
     if (requestError || !request) return unavailable;
 
-    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult] = await Promise.all([
+    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult] = await Promise.all([
       request.customer_id ? db.from("customers").select("id, display_name, phone, email")
         .eq("organization_id", access.organizationId).eq("id", request.customer_id)
         .is("archived_at", null).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -44,8 +45,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       db.from("appointments").select("id, status, appointment_type, starts_at, ends_at")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("starts_at", { ascending: true }),
+      db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, customer_decision, decided_at, decision_evidence_reference")
+        .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
+        .order("created_at", { ascending: false }).limit(1),
     ]);
-    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult].some((result) => result.error)) return unavailable;
+    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult].some((result) => result.error)) return unavailable;
 
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
@@ -57,6 +61,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
       ? quoteEvidence.external_id : null;
     const appointments = appointmentResult.data ?? [];
+    const latestApproval = approvalResult.data?.[0] ?? null;
+    const approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
     const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider", quibiLinked: !!link, quibiSyncStatus: link?.sync_status });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
 
@@ -107,6 +113,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           </Link>}
           {quote?.internal_review_status === "unreviewed" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             <ReviewManualEstimate quoteId={quote.id} />}
+          {quote?.internal_review_status === "approved_for_send" && quibiEstimateId &&
+            <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} />}
+          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">Ročno poslano prek {approval.delivery_channel}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Termini</h2>

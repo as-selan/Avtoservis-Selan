@@ -107,6 +107,16 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("checkbox", { name: /Odprl sem Quibijev dokument/ }).check();
   await page.getByRole("button", { name: "Odobri ceno za pošiljanje" }).click();
   await expect(page.getByText("Zabeležena različica ponudbe #1: approved_for_send")).toBeVisible();
+  await page.getByRole("textbox", { name: "Referenca poslanega sporočila" }).fill("QA-MESSAGE-4001");
+  await page.getByRole("checkbox", { name: /Ta predračun sem dejansko poslal/ }).check();
+  await page.getByRole("button", { name: "Evidentiraj dejansko pošiljanje" }).click();
+  await expect(page.getByText("Ročno poslano prek email; referenca: QA-MESSAGE-4001.", { exact: false })).toBeVisible();
+  await expect(page.getByText(/Status: awaiting_customer_approval/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Referenca dejanskega odgovora" }).fill("QA-REPLY-4001");
+  await page.getByRole("checkbox", { name: /Prejel sem dejanski odgovor stranke/ }).check();
+  await page.getByRole("button", { name: "Stranka potrdi popravilo" }).click();
+  await expect(page.getByText(/Status: awaiting_slot_selection/)).toBeVisible();
+  await expect(page.getByText("Strankina odločitev: approved.", { exact: false })).toBeVisible();
 });
 
 test("customer search and customer and vehicle edits persist in the same organization", async ({ page }) => {
