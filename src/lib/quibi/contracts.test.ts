@@ -24,7 +24,9 @@ test("estimate detail exposes real review fields only for the linked customer", 
     Statusi: { id: 1, naziv: "Osnutek" },
     Postavkedokumenta: [{ opis: "Delo", kolicina: "1", cenaZDDV: "125.50" }],
   }] } };
-  assert.deepEqual(parseEstimateDetail(response, "101", "12"), {
+  const { contentSha256, ...detail } = parseEstimateDetail(response, "101", "12");
+  assert.match(contentSha256, /^[0-9a-f]{64}$/);
+  assert.deepEqual(detail, {
     id: "101", customerId: "12", amount: "125.50", status: "Osnutek",
     lines: [{ description: "Delo", quantity: "1", grossPrice: "125.50" }],
   });

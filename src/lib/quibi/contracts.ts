@@ -5,7 +5,16 @@ export type QuibiDocument = { id: string; customerId: string; numberingId: strin
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
   lines: { description: string; quantity: string; grossPrice: string }[];
+  contentSha256: string;
 };
+
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") return Object.fromEntries(
+    Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]),
+  );
+  return value;
+}
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("QUIBI_INVALID_RESPONSE");
@@ -68,6 +77,7 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
   return {
     id, customerId: owner, amount,
     status: entry.Statusi ? field(object(entry.Statusi).naziv) : "",
+    contentSha256: createHash("sha256").update(JSON.stringify(canonical(entry))).digest("hex"),
     lines: lines.map((row) => {
       const item = object(row);
       return { description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV) };

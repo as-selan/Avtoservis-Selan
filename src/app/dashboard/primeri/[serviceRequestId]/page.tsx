@@ -6,6 +6,7 @@ import { toPresentationRef } from "@/lib/dashboard/adapt-dashboard";
 import { nextCaseStep } from "@/lib/cases/next-step";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
+import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimateForm";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <h2 className="font-semibold">Quibi in predračun</h2>
           {customer && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "preparing_offer" && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
+          {request.status === "preparing_offer" && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" &&
+            <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
         </section>

@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 type Seed = { owner: string; reception: string; mechanic: string; foreign: string;
   customer: string; linkedCustomer: string; vehicle: string; caseId: string;
+  preparedCaseId: string;
   incompleteCases: { desktop: string; mobile: string } };
 const path = process.env.E2E_FIXTURES_PATH;
 if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1" || !path || !process.env.E2E_PASSWORD) {
@@ -89,6 +90,17 @@ test("manual Quibi confirmation requires an explicit match and prevents duplicat
   await page.getByRole("checkbox", { name: /Ročno sem preveril/ }).check();
   await page.getByRole("button", { name: "Potrdi povezavo" }).click();
   await expect(page.getByText("Potrjena povezava: Quibi #2002")).toBeVisible();
+});
+
+test("manual estimate ID is linked only after a live Quibi read", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "One verified synthetic estimate is linked once.");
+  await login(page, seed.owner);
+  await page.goto(`/dashboard/primeri/${seed.preparedCaseId}`);
+  await page.getByRole("textbox", { name: "Quibijev ID predračuna" }).fill("4001");
+  await page.getByRole("checkbox", { name: /Ročno sem preveril, da gre za predračun/ }).check();
+  await page.getByRole("button", { name: "Preveri in poveži predračun" }).click();
+  await expect(page.getByRole("status")).toContainText("predračun je povezan kot različica #1");
+  await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed")).toBeVisible();
 });
 
 test("customer search and customer and vehicle edits persist in the same organization", async ({ page }) => {

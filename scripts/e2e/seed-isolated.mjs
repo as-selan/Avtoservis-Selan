@@ -55,6 +55,8 @@ const customer = randomUUID();
 const linkedCustomer = randomUUID();
 const vehicle = randomUUID();
 const caseId = randomUUID();
+const preparedCaseId = randomUUID();
+const preparedVehicleId = randomUUID();
 const incompleteCustomers = { desktop: randomUUID(), mobile: randomUUID() };
 const incompleteCases = { desktop: randomUUID(), mobile: randomUUID() };
 await insert("customers", [
@@ -65,8 +67,14 @@ await insert("customers", [
 ]);
 await insert("vehicles", { id: vehicle, organization_id: org, customer_id: customer,
   registration_current: "LJ E2E", vin: "TST00000000000001", make: "Test", model: "Model" });
+await insert("vehicles", { id: preparedVehicleId, organization_id: org, customer_id: linkedCustomer,
+  registration_current: "LJ QB1", vin: "TST00000000000006", make: "Test", model: "Quibi" });
 await insert("service_requests", { id: caseId, organization_id: org, customer_id: customer,
   vehicle_id: vehicle, status: "new", source: "manual", summary: "Izolirani E2E primer" });
+await insert("service_requests", { id: preparedCaseId, organization_id: org, customer_id: linkedCustomer,
+  vehicle_id: preparedVehicleId, status: "preparing_offer", source: "manual", summary: "Quibi predračun" });
+await insert("offer_preparations", { organization_id: org, service_request_id: preparedCaseId,
+  created_by_profile_id: owner.id, status: "ready_for_provider" });
 await insert("service_requests", [
   { id: incompleteCases.desktop, organization_id: org, customer_id: incompleteCustomers.desktop,
     status: "needs_data", source: "manual", summary: "Dopolnitev namizje", missing_fields: ["vin", "make", "model"] },
@@ -91,6 +99,6 @@ if (webError || webProbe?.ok !== true) {
 
 await writeFile(E2E_FIXTURES_PATH, JSON.stringify({
   owner: owner.email, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
-  customer, linkedCustomer, vehicle, caseId, incompleteCases,
+  customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases,
 }), { mode: 0o600 });
 console.log("Isolated E2E users and synthetic business records seeded on loopback.");

@@ -48,6 +48,7 @@ E2E_API_URL="${E2E_API_URL}" node --input-type=module -e '
 export E2E_PASSWORD="$(node --input-type=module -e 'import {randomBytes} from "node:crypto"; process.stdout.write(randomBytes(24).toString("base64url"))')"
 export E2E_FIXTURES_PATH="${CI_WORKDIR}/e2e-fixtures.json"
 node "${REPO_ROOT}/scripts/e2e/seed-isolated.mjs"
+export SUPABASE_SERVICE_ROLE_KEY="${E2E_SERVICE_ROLE_KEY}"
 unset E2E_SERVICE_ROLE_KEY
 
 export QUIBI_DEV_USERNAME="isolated-e2e"

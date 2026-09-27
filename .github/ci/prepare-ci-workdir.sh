@@ -26,6 +26,7 @@ LATER_MIGRATIONS=(
   "20260917100000_create_offer_preparations.sql"
   "20260919140000_create_offer_review_customer_approval.sql"
   "20260926120000_quibi_read_links.sql"
+  "20260927085839_manual_quibi_estimate_v1.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"
