@@ -138,7 +138,8 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("textbox", { name: "Quibijev ID predračuna" }).fill("4001");
   await page.getByRole("checkbox", { name: /Ročno sem preveril, da gre za predračun/ }).check();
   await page.getByRole("button", { name: "Preveri in poveži predračun" }).click();
-  await expect(page.getByRole("status")).toContainText("predračun je povezan kot različica #1");
+  await expect(page.getByRole("status").filter({ hasText: "predračun je povezan" }))
+    .toContainText("različica #1");
   await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed")).toBeVisible();
   await page.getByRole("checkbox", { name: /Odprl sem Quibijev dokument/ }).check();
   await page.getByRole("button", { name: "Odobri ceno za pošiljanje" }).click();
