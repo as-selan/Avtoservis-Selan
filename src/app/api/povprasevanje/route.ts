@@ -21,6 +21,8 @@ function json(body: unknown, status = 200): NextResponse {
 }
 
 export async function POST(request: NextRequest) {
+  const trace = process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1";
+  if (trace) console.info("ISOLATED_INTAKE_ORIGINS", request.nextUrl.origin, request.headers.get("origin"));
   if (!isSameOriginRequest(request, request.nextUrl.origin)) {
     return json(publicWebIntakeFailure(), 400);
   }
@@ -67,6 +69,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (error) {
+      if (trace) console.info("ISOLATED_INTAKE_RPC_ERROR", error.code);
       return json(publicWebIntakeFailure(), 400);
     }
 
@@ -76,6 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (payload.ok === false) {
+      if (trace) console.info("ISOLATED_INTAKE_RPC_REJECTED");
       return json(publicWebIntakeFailure(), 400);
     }
 
