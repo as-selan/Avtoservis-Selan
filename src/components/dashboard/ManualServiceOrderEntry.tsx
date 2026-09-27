@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { FUEL_OPTIONS } from "@/lib/dashboard/demo-data";
@@ -520,10 +520,11 @@ export function ManualServiceOrderEntry() {
                   onChange={(v) => update("engineCode", v)}
                 />
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                  <label htmlFor="manual-intake-fuel" className="mb-1 block text-xs font-medium text-slate-600">
                     Vrsta goriva
                   </label>
                   <select
+                    id="manual-intake-fuel"
                     value={form.fuel}
                     onChange={(e) =>
                       update("fuel", e.target.value as FuelType | "")
@@ -575,10 +576,11 @@ export function ManualServiceOrderEntry() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                  <label htmlFor="manual-intake-problem" className="mb-1 block text-xs font-medium text-slate-600">
                     Kaj stranka potrebuje / opis težave
                   </label>
                   <textarea
+                    id="manual-intake-problem"
                     rows={3}
                     value={form.problemDescription}
                     onChange={(e) =>
@@ -658,12 +660,14 @@ function Field({
   error?: string;
   type?: string;
 }) {
+  const id = useId();
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-slate-600">
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-slate-600">
         {label}
       </label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}

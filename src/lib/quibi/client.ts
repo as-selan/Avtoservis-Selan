@@ -1,16 +1,17 @@
 import { parseCustomerDetail, parseCustomers, parseDocuments } from "./contracts.ts";
 
-type Config = { username: string; password: string; fetcher?: typeof fetch };
+type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string };
 const ORIGIN = "https://dev.quibi.net";
 
 export function createQuibiReadClient(config: Config) {
   if (!config.username || !config.password) throw new Error("QUIBI_NOT_CONFIGURED");
   const fetcher = config.fetcher ?? fetch;
+  const origin = config.origin ?? ORIGIN;
 
   async function read(path: string, method: "GET" | "POST" = "GET"): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await fetcher(`${ORIGIN}${path}`, {
+        const response = await fetcher(`${origin}${path}`, {
           method,
           headers: { username: config.username, password: config.password, "Content-Type": "application/json" },
           body: method === "POST" ? JSON.stringify({ Filtriraj: {} }) : undefined,
@@ -57,8 +58,15 @@ export function createQuibiReadClient(config: Config) {
 }
 
 export function configuredQuibiReadClient() {
+  // The fixture is available only in disposable CI, and only on loopback.
+  const fixture = process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1"
+    ? process.env.QUIBI_E2E_ORIGIN : undefined;
+  if (fixture && !/^http:\/\/127\.0\.0\.1:\d+$/.test(fixture)) {
+    throw new Error("QUIBI_INVALID_TEST_ORIGIN");
+  }
   return createQuibiReadClient({
     username: process.env.QUIBI_DEV_USERNAME ?? "",
     password: process.env.QUIBI_DEV_PASSWORD ?? "",
+    origin: fixture,
   });
 }
