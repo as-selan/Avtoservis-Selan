@@ -90,7 +90,7 @@ begin
     return jsonb_build_object('ok', false, 'error_code', 'inspection_not_completed');
   end if;
   if v_row.repair_decision <> 'pending' then
-    if v_row.repair_decision = case p_action when 'repair_ordered' then 'ordered' else 'not_ordered' end then
+    if v_row.repair_decision = (case p_action when 'repair_ordered' then 'ordered' else 'not_ordered' end) then
       return jsonb_build_object('ok', true, 'idempotent', true);
     end if;
     return jsonb_build_object('ok', false, 'error_code', 'decision_already_recorded');
