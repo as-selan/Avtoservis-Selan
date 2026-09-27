@@ -1,11 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { requireManualIntakeAccess } from "@/lib/intake/access";
 import { COMPLETION_LINK_TTL_MS } from "@/lib/completion/constants";
 import { generateCompletionToken } from "@/lib/completion/token";
 import { buildCompletionUrl } from "@/lib/completion/url";
+import { configuredCompletionOrigin } from "@/lib/completion/origin";
 
 export type IssueCompletionLinkResult =
   | { ok: true; url: string }
@@ -20,18 +20,6 @@ function issueErrorMessage(code: string | undefined): string {
     default:
       return "Povezave trenutno ni mogoče ustvariti. Poskusite znova.";
   }
-}
-
-async function resolveRequestOrigin(): Promise<string> {
-  const h = await headers();
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  if (host) {
-    return `${proto}://${host}`;
-  }
-  const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
-  if (site) return site;
-  return "http://localhost:3000";
 }
 
 /**
@@ -55,6 +43,12 @@ export async function issueCompletionLinkAction(
     return { ok: false, message: issueErrorMessage("unexpected") };
   }
 
+  const origin = configuredCompletionOrigin(
+    process.env.COMPLETION_PUBLIC_ORIGIN,
+    process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1",
+  );
+  if (!origin) return { ok: false, message: issueErrorMessage("unexpected") };
+
   const { rawToken, tokenHash } = generateCompletionToken();
   const expiresAt = new Date(Date.now() + COMPLETION_LINK_TTL_MS).toISOString();
 
@@ -77,6 +71,5 @@ export async function issueCompletionLinkAction(
     return { ok: false, message: issueErrorMessage(payload.error_code) };
   }
 
-  const origin = await resolveRequestOrigin();
   return { ok: true, url: buildCompletionUrl(origin, rawToken) };
 }

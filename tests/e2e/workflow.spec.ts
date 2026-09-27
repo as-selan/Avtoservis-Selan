@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 type Seed = { owner: string; reception: string; mechanic: string; foreign: string;
-  customer: string; linkedCustomer: string; vehicle: string; caseId: string };
+  customer: string; linkedCustomer: string; vehicle: string; caseId: string;
+  incompleteCases: { desktop: string; mobile: string } };
 const path = process.env.E2E_FIXTURES_PATH;
 if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1" || !path || !process.env.E2E_PASSWORD) {
   throw new Error("Playwright E2E requires disposable CI fixtures");
@@ -104,7 +105,7 @@ test("customer search and customer and vehicle edits persist in the same organiz
   await page.getByLabel("Registracija").fill("LJ QA1");
   await page.getByRole("button", { name: "Shrani" }).click();
   await expect(page.getByRole("status")).toContainText("Spremembe vozila so shranjene");
-  await expect(page.getByText("LJ QA1")).toBeVisible();
+  await expect(page.getByText("LJ QA1").first()).toBeVisible();
   await noHorizontalOverflow(page);
 });
 
@@ -136,4 +137,25 @@ test("manual phone intake explicitly reuses the selected customer and vehicle", 
   await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Preizkus telefonskega sprejema");
   await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
   await expect(dialog.getByRole("status")).toContainText("Povpraševanje je shranjeno");
+});
+
+test("missing data link completes the original case without exposing the token in the URL", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  const caseId = mobile ? seed.incompleteCases.mobile : seed.incompleteCases.desktop;
+  await login(page, seed.owner);
+  await page.goto(`/dashboard/primeri/${caseId}`);
+  await page.getByRole("button", { name: "Ustvari povezavo za dopolnitev" }).click();
+  const link = await page.getByRole("textbox", { name: "Povezava za dopolnitev" }).inputValue();
+  expect(link).toMatch(/^http:\/\/127\.0\.0\.1:3000\/dopolnitev#token=/);
+
+  await page.goto(link);
+  await expect(page).not.toHaveURL(/#token=/);
+  await page.getByLabel("VIN").fill(mobile ? "TST00000000000003" : "TST00000000000002");
+  await page.getByLabel("Znamka").fill("Test");
+  await page.getByLabel("Model").fill("Dopolnjen");
+  await page.getByRole("button", { name: "Pošlji podatke" }).click();
+  await expect(page.getByRole("status")).toContainText("Podatki so dopolnjeni");
+
+  await page.goto(`/dashboard/primeri/${caseId}`);
+  await expect(page.getByText("Status: preparing_offer")).toBeVisible();
 });
