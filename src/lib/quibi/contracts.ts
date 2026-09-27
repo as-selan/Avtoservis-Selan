@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 
 export type QuibiCustomer = { id: string; name: string; phone: string; email: string };
 export type QuibiDocument = { id: string; customerId: string; numberingId: string };
+export type QuibiEstimateDetail = {
+  id: string; customerId: string; amount: string; status: string;
+  lines: { description: string; quantity: string; grossPrice: string }[];
+};
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("QUIBI_INVALID_RESPONSE");
@@ -46,6 +50,29 @@ export function parseDocuments(value: unknown, customerId: string): QuibiDocumen
     if (!/^\d+$/.test(id) || !/^\d+$/.test(owner)) throw new Error("QUIBI_INVALID_DOCUMENT_ID");
     return { id, customerId: owner, numberingId: field(doc.stevilcenje_id) };
   }).filter((doc) => doc.customerId === customerId);
+}
+
+/** Read-only projection of a real Quibi estimate; never persisted as a second document. */
+export function parseEstimateDetail(value: unknown, expectedId: string, customerId: string): QuibiEstimateDetail {
+  const documents = rows(value, "Dokumenti");
+  if (documents.length !== 1) throw new Error("QUIBI_INVALID_RESPONSE");
+  const entry = object(documents[0]);
+  const header = object(entry.Glavadokumenta);
+  const id = field(header.id);
+  const owner = field(header.stranka_id);
+  if (id !== expectedId) throw new Error("QUIBI_DOCUMENT_ID_MISMATCH");
+  if (owner !== customerId) throw new Error("QUIBI_CUSTOMER_ID_MISMATCH");
+  const amount = field(header.znesek);
+  const lines = entry.Postavkedokumenta;
+  if (!amount || !Array.isArray(lines) || lines.length > 200) throw new Error("QUIBI_INVALID_RESPONSE");
+  return {
+    id, customerId: owner, amount,
+    status: entry.Statusi ? field(object(entry.Statusi).naziv) : "",
+    lines: lines.map((row) => {
+      const item = object(row);
+      return { description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV) };
+    }),
+  };
 }
 
 export function customerFingerprint(customer: Pick<QuibiCustomer, "name" | "phone" | "email">): string {

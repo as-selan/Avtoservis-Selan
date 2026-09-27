@@ -38,5 +38,12 @@ http.createServer((req, res) => {
       { Glavadokumenta: { id, stranka_id: "2001", stevilcenje_id: "1" } },
     ] } });
   }
+  if (url.pathname === "/api2/glavadokumenta/view/4001" && req.method === "GET") {
+    return send(res, 200, { error: false, data: { Dokumenti: [{
+      Glavadokumenta: { id: "4001", stranka_id: "2001", znesek: "125.50" },
+      Statusi: { id: "1", naziv: "Osnutek" },
+      Postavkedokumenta: [{ opis: "Preizkusna storitev", kolicina: "1", cenaZDDV: "125.50" }],
+    }] } });
+  }
   return send(res, 404, { error: true });
 }).listen(47862, "127.0.0.1", () => console.log("Isolated Quibi read fixture ready on loopback."));

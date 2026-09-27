@@ -63,6 +63,10 @@ test("confirmed Quibi link shows only linked documents and records drift and rea
   await expect(page.getByText("Potrjena povezava: Quibi #2001")).toBeVisible();
   await expect(page.getByText("Nalog #3001")).toBeVisible();
   await expect(page.getByText("Predračun #4001")).toBeVisible();
+  await page.getByRole("link", { name: "Predračun #4001 · preveri vsebino" }).click();
+  await expect(page.getByRole("heading", { name: "Quibijev predračun #4001" })).toBeVisible();
+  await expect(page.getByText("Preizkusna storitev")).toBeVisible();
+  await page.goto(`/dashboard/stranke/${seed.linkedCustomer}/quibi`);
   await noHorizontalOverflow(page);
 
   await fixtureMode("changed");

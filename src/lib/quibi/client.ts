@@ -1,4 +1,4 @@
-import { parseCustomerDetail, parseCustomers, parseDocuments } from "./contracts.ts";
+import { parseCustomerDetail, parseCustomers, parseDocuments, parseEstimateDetail } from "./contracts.ts";
 
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string };
 const ORIGIN = "https://dev.quibi.net";
@@ -53,6 +53,9 @@ export function createQuibiReadClient(config: Config) {
     },
     async estimates(customerId: string) {
       return parseDocuments(await read("/api2/predracuni", "POST"), validId(customerId));
+    },
+    async estimateDetail(id: string, customerId: string) {
+      return parseEstimateDetail(await read(`/api2/glavadokumenta/view/${validId(id)}`), id, validId(customerId));
     },
   };
 }

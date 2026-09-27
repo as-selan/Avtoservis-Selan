@@ -87,7 +87,9 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         {orders.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih nalogov.</p>}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračuni v Quibiju</h2>
-        <ul className="mt-2 space-y-1 text-sm">{estimates.map((doc) => <li key={doc.id}>Predračun #{doc.id}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-sm">{estimates.map((doc) => <li key={doc.id}>
+          <Link className="font-medium text-blue-700" href={`/dashboard/stranke/${customerId}/quibi/predracuni/${doc.id}`}>Predračun #{doc.id} · preveri vsebino</Link>
+        </li>)}</ul>
         {estimates.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih predračunov.</p>}
       </section>
     </> : <section className="rounded-xl border bg-white p-4 space-y-4">
