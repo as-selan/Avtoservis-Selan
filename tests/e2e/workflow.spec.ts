@@ -139,6 +139,30 @@ test("manual phone intake explicitly reuses the selected customer and vehicle", 
   await expect(dialog.getByRole("status")).toContainText("Povpraševanje je shranjeno");
 });
 
+test("manual intake creates a new customer and vehicle for the same case", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  const name = mobile ? "Ročni Preizkus Mobilno" : "Ročni Preizkus Namizje";
+  const vin = mobile ? "TST00000000000005" : "TST00000000000004";
+  await login(page, seed.reception);
+  await page.getByRole("button", { name: "Ročni vnos" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Ročni vnos" });
+  await dialog.getByRole("button", { name: "Telefon", exact: true }).click();
+  await dialog.getByRole("textbox", { name: "Ime in priimek *" }).fill(name);
+  await dialog.getByRole("textbox", { name: "Telefon" }).fill(mobile ? "+38640777333" : "+38640777444");
+  await dialog.getByRole("textbox", { name: "VIN / številka šasije" }).fill(vin);
+  await dialog.getByRole("textbox", { name: "Znamka" }).fill("Test");
+  await dialog.getByRole("textbox", { name: "Model" }).fill("Novo");
+  await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Pregled vozila v izoliranem testu");
+  await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Povpraševanje je shranjeno");
+  await dialog.getByRole("button", { name: "Zapri" }).click();
+  await page.goto("/dashboard/stranke");
+  await page.getByRole("searchbox", { name: /Išči po imenu/ }).fill(name);
+  await page.getByRole("link", { name }).click();
+  await expect(page.getByText(vin)).toBeVisible();
+  await noHorizontalOverflow(page);
+});
+
 test("missing data link completes the original case without exposing the token in the URL", async ({ page }, testInfo) => {
   const mobile = testInfo.project.name === "mobile-chromium";
   const caseId = mobile ? seed.incompleteCases.mobile : seed.incompleteCases.desktop;
