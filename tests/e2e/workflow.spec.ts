@@ -117,6 +117,28 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("button", { name: "Stranka potrdi popravilo" }).click();
   await expect(page.getByText(/Status: awaiting_slot_selection/)).toBeVisible();
   await expect(page.getByText("Strankina odločitev: approved.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
+  await expect(page.getByText(/Pregled je potreben/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Izoliran pregled vozila je bil opravljen.");
+  await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
+  await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
+  await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();
+  await page.getByRole("button", { name: "Popravilo naročeno" }).click();
+  await expect(page.getByText(/predhodni pregled je brezplačen/)).toBeVisible();
+});
+
+test("completed preliminary inspection remains payable when repair is not ordered", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "A single isolated inspection outcome is recorded once.");
+  await login(page, seed.reception);
+  await page.goto(`/dashboard/primeri/${seed.caseId}`);
+  await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
+  await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Pregled je bil opravljen brez naročila popravila.");
+  await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
+  await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
+  await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();
+  await page.getByRole("button", { name: "Popravilo ni naročeno" }).click();
+  await expect(page.getByText(/predhodni pregled je plačljiv/)).toBeVisible();
+  await noHorizontalOverflow(page);
 });
 
 test("customer search and customer and vehicle edits persist in the same organization", async ({ page }) => {

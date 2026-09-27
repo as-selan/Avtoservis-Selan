@@ -252,9 +252,9 @@ create or replace function public.record_manual_estimate_delivery(
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v_quote public.quotes%rowtype; v_status text; v_approval public.customer_approvals%rowtype;
 begin
-  if p_channel not in ('email', 'sms', 'in_person', 'other')
+  if p_channel is null or p_channel not in ('email', 'sms', 'in_person', 'other')
      or char_length(btrim(coalesce(p_reference, ''))) not between 4 and 200
-     or p_content_sha256 !~ '^[0-9a-f]{64}$' then
+     or p_content_sha256 is null or p_content_sha256 !~ '^[0-9a-f]{64}$' then
     return jsonb_build_object('ok', false, 'error_code', 'invalid');
   end if;
   if not exists (select 1 from public.organization_memberships m
@@ -275,7 +275,7 @@ begin
   if v_quote.evidence_kind <> 'quibi_manual_estimate'
      or v_quote.content_sha256 <> p_content_sha256
      or v_quote.internal_review_status <> 'approved_for_send'
-     or v_status not in ('preparing_offer','awaiting_customer_approval')
+     or v_status is null or v_status not in ('preparing_offer','awaiting_customer_approval')
      or exists (select 1 from public.quotes newer
        where newer.organization_id = p_organization_id
          and newer.service_request_id = v_quote.service_request_id
@@ -292,7 +292,7 @@ begin
     end if;
     return jsonb_build_object('ok', false, 'error_code', 'already_delivered');
   end if;
-  if v_status <> 'preparing_offer' then
+  if v_status is distinct from 'preparing_offer' then
     return jsonb_build_object('ok', false, 'error_code', 'invalid_status');
   end if;
   insert into public.customer_approvals (
@@ -361,7 +361,7 @@ create or replace function public.record_manual_estimate_decision(
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v_quote public.quotes%rowtype; v_approval public.customer_approvals%rowtype; v_status text;
 begin
-  if p_decision not in ('approved','rejected')
+  if p_decision is null or p_decision not in ('approved','rejected')
      or char_length(btrim(coalesce(p_reference, ''))) not between 4 and 200 then
     return jsonb_build_object('ok', false, 'error_code', 'invalid');
   end if;
@@ -398,7 +398,7 @@ begin
     end if;
     return jsonb_build_object('ok', false, 'error_code', 'already_decided');
   end if;
-  if v_status <> 'awaiting_customer_approval' then
+  if v_status is distinct from 'awaiting_customer_approval' then
     return jsonb_build_object('ok', false, 'error_code', 'invalid_status');
   end if;
   update public.customer_approvals ca set customer_decision = p_decision,

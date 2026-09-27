@@ -193,4 +193,10 @@ PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_con
   -f "${REPO_ROOT}/supabase/tests/quibi_integration_links_regression.sql"
 echo "PASS: Quibi integration-link regression"
 
+echo "== Preliminary inspection RLS, decisions, and tenant isolation =="
+PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
+  psql "${DB_URL}" -v ON_ERROR_STOP=1 \
+  -f "${REPO_ROOT}/supabase/tests/preliminary_inspection_regression.sql"
+echo "PASS: Preliminary inspection regression"
+
 echo "== All isolated M3/M4 + full-chain DB suites passed on disposable local Docker target =="

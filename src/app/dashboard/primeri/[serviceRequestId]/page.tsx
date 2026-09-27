@@ -9,6 +9,7 @@ import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimateForm";
 import { ReviewManualEstimate } from "@/components/dashboard/ReviewManualEstimate";
 import { ManualEstimateHandoff } from "@/components/dashboard/ManualEstimateHandoff";
+import { PreliminaryInspection } from "@/components/dashboard/PreliminaryInspection";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       .is("archived_at", null).maybeSingle();
     if (requestError || !request) return unavailable;
 
-    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult] = await Promise.all([
+    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult] = await Promise.all([
       request.customer_id ? db.from("customers").select("id, display_name, phone, email")
         .eq("organization_id", access.organizationId).eq("id", request.customer_id)
         .is("archived_at", null).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -48,8 +49,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, customer_decision, decided_at, decision_evidence_reference")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("created_at", { ascending: false }).limit(1),
+      db.from("preliminary_inspections").select("status, findings, repair_decision")
+        .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId).maybeSingle(),
     ]);
-    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult].some((result) => result.error)) return unavailable;
+    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult].some((result) => result.error)) return unavailable;
 
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
@@ -124,5 +127,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <p className="text-xs text-amber-800">Google Koledar in MyPlanly nista avtomatsko potrjena. Zunanje usklajevanje opravite in preverite ročno.</p>
         </section>
       </div>
+      <PreliminaryInspection serviceRequestId={serviceRequestId}
+        status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}
+        findings={inspectionResult.data?.findings ?? null}
+        repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} />
     </div>;
 }
