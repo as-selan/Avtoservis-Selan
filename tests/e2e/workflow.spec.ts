@@ -85,3 +85,55 @@ test("manual Quibi confirmation requires an explicit match and prevents duplicat
   await page.getByRole("button", { name: "Potrdi povezavo" }).click();
   await expect(page.getByText("Potrjena povezava: Quibi #2002")).toBeVisible();
 });
+
+test("customer search and customer and vehicle edits persist in the same organization", async ({ page }) => {
+  await login(page, seed.reception);
+  await page.goto("/dashboard/stranke");
+  await page.getByRole("searchbox", { name: /Išči po imenu/ }).fill("Ana Preizkus");
+  await expect(page.getByRole("link", { name: "Ana Preizkus" })).toBeVisible();
+  await page.getByRole("link", { name: "Ana Preizkus" }).click();
+  await expect(page).toHaveURL(new RegExp(`/dashboard/stranke/${seed.customer}$`));
+
+  await page.getByRole("button", { name: "Uredi stranko" }).click();
+  await page.getByLabel("Telefon").fill("+38640999888");
+  await page.getByRole("button", { name: "Shrani" }).click();
+  await expect(page.getByRole("status")).toContainText("Spremembe stranke so shranjene");
+  await expect(page.getByText("+38640999888")).toBeVisible();
+
+  await page.getByRole("button", { name: "Uredi vozilo" }).first().click();
+  await page.getByLabel("Registracija").fill("LJ QA1");
+  await page.getByRole("button", { name: "Shrani" }).click();
+  await expect(page.getByRole("status")).toContainText("Spremembe vozila so shranjene");
+  await expect(page.getByText("LJ QA1")).toBeVisible();
+  await noHorizontalOverflow(page);
+});
+
+test("public inquiry creates a case that staff can find through the same customer directory", async ({ page }, testInfo) => {
+  const suffix = testInfo.project.name === "desktop-chromium" ? "Namizje" : "Mobilno";
+  const name = `Spletni Preizkus ${suffix}`;
+  await page.goto("/povprasevanje");
+  await page.getByLabel("Ime in priimek / naziv").fill(name);
+  await page.getByLabel("Telefon").fill(suffix === "Namizje" ? "+38640777111" : "+38640777222");
+  await page.getByLabel("Opis težave").fill("Preizkus spletnega sprejema v izoliranem okolju.");
+  await page.getByRole("button", { name: "Pošlji povpraševanje" }).click();
+  await expect(page.getByText("Hvala. Vaše povpraševanje smo prejeli.")).toBeVisible();
+
+  await login(page, seed.reception);
+  await page.goto("/dashboard/stranke");
+  await page.getByRole("searchbox", { name: /Išči po imenu/ }).fill(name);
+  await expect(page.getByRole("link", { name })).toBeVisible();
+});
+
+test("manual phone intake explicitly reuses the selected customer and vehicle", async ({ page }) => {
+  await login(page, seed.owner);
+  await page.getByRole("button", { name: "Ročni vnos" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Ročni vnos" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Iskanje" }).fill("Ana Preizkus");
+  await dialog.getByRole("button", { name: /Ana Preizkus/ }).click();
+  await dialog.getByRole("button", { name: /Test Model.*VIN/ }).click();
+  await expect(dialog.getByText(/Izbrana stranka: Ana Preizkus.*izbrano vozilo/)).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Preizkus telefonskega sprejema");
+  await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Povpraševanje je shranjeno");
+});
