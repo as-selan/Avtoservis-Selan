@@ -7,6 +7,7 @@ import { nextCaseStep } from "@/lib/cases/next-step";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimateForm";
+import { ReviewManualEstimate } from "@/components/dashboard/ReviewManualEstimate";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         .eq("organization_id", access.organizationId).eq("provider", "quibi")
         .eq("entity_type", "customer").eq("entity_id", request.customer_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      db.from("quotes").select("id, version_no, internal_review_status")
+      db.from("quotes").select("id, version_no, internal_review_status, evidence_kind, evidence_payload")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("version_no", { ascending: false }).limit(1),
       db.from("appointments").select("id, status, appointment_type, starts_at, ends_at")
@@ -51,6 +52,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const prep = prepResult.data;
     const link = linkResult.data;
     const quote = quoteResult.data?.[0] ?? null;
+    const quoteEvidence = quote?.evidence_payload as { external_id?: unknown } | null;
+    const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
+      typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
+      ? quoteEvidence.external_id : null;
     const appointments = appointmentResult.data ?? [];
     const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider", quibiLinked: !!link, quibiSyncStatus: link?.sync_status });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
@@ -97,6 +102,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
+          {customer && quibiEstimateId && <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi/predracuni/${quibiEstimateId}`}>
+            Odpri dejanski Quibijev predračun #{quibiEstimateId} →
+          </Link>}
+          {quote?.internal_review_status === "unreviewed" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
+            <ReviewManualEstimate quoteId={quote.id} />}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Termini</h2>

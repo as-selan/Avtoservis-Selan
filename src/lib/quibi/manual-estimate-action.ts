@@ -7,7 +7,7 @@ import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { customerFingerprint } from "@/lib/quibi/contracts";
 
 type Result = { ok: true; quoteId: string; versionNo: number } | { ok: false; message: string };
-const error = (message: string): Result => ({ ok: false, message });
+const error = (message: string): { ok: false; message: string } => ({ ok: false, message });
 
 /** Registers a digest and ID only after re-reading the real estimate in Quibi. */
 export async function linkManualQuibiEstimate(serviceRequestId: string, estimateId: string): Promise<Result> {
@@ -72,4 +72,66 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
     return error("Preverjenega predračuna ni bilo mogoče povezati. Poskusite znova.");
   }
   return { ok: true, quoteId: payload.quote_id, versionNo: payload.version_no };
+}
+
+export async function reviewManualQuibiEstimate(
+  quoteId: string,
+  decision: "approve" | "reject",
+): Promise<{ ok: true; reviewStatus: string } | { ok: false; message: string }> {
+  const access = await requirePhase1OperationalAccess();
+  if (!["owner", "admin"].includes(access.role)) return error("Samo Tadej oziroma skrbnik lahko odloči o ceni.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
+      || !["approve", "reject"].includes(decision)) return error("Neveljaven predračun ali odločitev.");
+  const db = await createClient();
+  const { data: quote, error: quoteError } = await db.from("quotes")
+    .select("service_request_id, content_sha256, evidence_kind, evidence_payload")
+    .eq("organization_id", access.organizationId).eq("id", quoteId).maybeSingle();
+  const evidence = quote?.evidence_payload as { external_id?: unknown; customer_external_id?: unknown } | null;
+  if (quoteError || !quote || quote.evidence_kind !== "quibi_manual_estimate"
+      || !evidence || typeof evidence.external_id !== "string"
+      || typeof evidence.customer_external_id !== "string") {
+    return error("Preverjen predračun ni na voljo.");
+  }
+  const { data: request } = await db.from("service_requests")
+    .select("customer_id, status").eq("organization_id", access.organizationId)
+    .eq("id", quote.service_request_id).is("archived_at", null).maybeSingle();
+  if (!request || request.status !== "preparing_offer" || !request.customer_id) {
+    return error("Primer ni več pripravljen za pregled cene.");
+  }
+  const { data: link } = await db.from("integration_links")
+    .select("external_id, external_fingerprint, sync_status")
+    .eq("organization_id", access.organizationId).eq("provider", "quibi")
+    .eq("entity_type", "customer").eq("entity_id", request.customer_id).maybeSingle();
+  if (!link || link.external_id !== evidence.customer_external_id || !["ok", "never_checked"].includes(link.sync_status)) {
+    return error("Povezavo Quibijeve stranke je treba znova preveriti.");
+  }
+  try {
+    const quibi = configuredQuibiReadClient();
+    const remote = await quibi.customer(link.external_id);
+    if (customerFingerprint(remote) !== link.external_fingerprint) {
+      return error("Quibijevi podatki stranke so se spremenili.");
+    }
+    const detail = await quibi.estimateDetail(evidence.external_id, link.external_id);
+    if (detail.contentSha256 !== quote.content_sha256 || detail.lines.length === 0) {
+      return error("Vsebina predračuna se je spremenila. Povežite novo različico pred pregledom.");
+    }
+  } catch {
+    return error("Dejanske vsebine predračuna ni mogoče znova preveriti.");
+  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !secret) return error("Varna strežniška povezava za dokazila ni nastavljena.");
+  const trusted = createPrivilegedClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error: writeError } = await trusted.rpc("review_verified_manual_quote", {
+    p_organization_id: access.organizationId,
+    p_quote_id: quoteId,
+    p_content_sha256: quote.content_sha256,
+    p_actor_id: access.userId,
+    p_decision: decision,
+  });
+  const payload = (data ?? {}) as { ok?: boolean; review_status?: string };
+  if (writeError || payload.ok !== true || !payload.review_status) {
+    return error("Odločitve ni bilo mogoče shraniti. Osvežite primer in poskusite znova.");
+  }
+  return { ok: true, reviewStatus: payload.review_status };
 }

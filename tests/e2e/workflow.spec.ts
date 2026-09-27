@@ -104,6 +104,9 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("button", { name: "Preveri in poveži predračun" }).click();
   await expect(page.getByRole("status")).toContainText("predračun je povezan kot različica #1");
   await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed")).toBeVisible();
+  await page.getByRole("checkbox", { name: /Odprl sem Quibijev dokument/ }).check();
+  await page.getByRole("button", { name: "Odobri ceno za pošiljanje" }).click();
+  await expect(page.getByText("Zabeležena različica ponudbe #1: approved_for_send")).toBeVisible();
 });
 
 test("customer search and customer and vehicle edits persist in the same organization", async ({ page }) => {
