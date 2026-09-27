@@ -14,6 +14,7 @@ async function login(page: Page, email: string) {
   await page.getByLabel("E-pošta").fill(email);
   await page.getByLabel("Geslo").fill(process.env.E2E_PASSWORD!);
   await page.getByRole("button", { name: "Prijava" }).click();
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 }
 async function fixtureMode(mode: "normal" | "changed" | "error") {
   const response = await fetch(`http://127.0.0.1:47862/__control?mode=${mode}`, { method: "POST" });

@@ -11,12 +11,14 @@ on:
       - cursor/m4-manual-intake-prep-v1
       - codex/quibi-integration-prep
       - codex/selan-v1-workflow
+      - codex/selan-v1-test-release
   pull_request:
     branches:
       - main
       - cursor/m3-business-data-prep-v1
       - cursor/phase14b-customer-vehicle-create-v1
       - codex/quibi-integration-prep
+      - codex/selan-v1-workflow
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
