@@ -12,6 +12,7 @@ on:
       - codex/quibi-integration-prep
       - codex/selan-v1-workflow
       - codex/selan-v1-test-release
+      - codex/selan-manual-estimate-v1
   pull_request:
     branches:
       - main
@@ -19,6 +20,7 @@ on:
       - cursor/phase14b-customer-vehicle-create-v1
       - codex/quibi-integration-prep
       - codex/selan-v1-workflow
+      - codex/selan-v1-test-release
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

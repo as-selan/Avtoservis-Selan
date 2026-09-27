@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - codex/selan-v1-test-release
+      - codex/selan-manual-estimate-v1
   pull_request:
     branches:
       - codex/selan-v1-workflow
+      - codex/selan-v1-test-release
   workflow_dispatch:
 
 concurrency:
