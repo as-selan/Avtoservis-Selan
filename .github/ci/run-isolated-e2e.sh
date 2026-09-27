@@ -54,6 +54,7 @@ export QUIBI_DEV_USERNAME="isolated-e2e"
 export QUIBI_DEV_PASSWORD="${E2E_PASSWORD}"
 export QUIBI_E2E_ORIGIN="http://127.0.0.1:47862"
 export COMPLETION_PUBLIC_ORIGIN="http://127.0.0.1:3000"
+export PUBLIC_APP_ORIGIN="http://127.0.0.1:3000"
 node "${REPO_ROOT}/scripts/e2e/quibi-fixture.mjs" &
 QUIBI_FIXTURE_PID=$!
 

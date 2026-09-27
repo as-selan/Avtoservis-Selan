@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { validateWebIntakeForm } from "@/lib/intake/web-validate";
+import { trustedPublicRequestOrigin } from "@/lib/intake/trusted-origin";
 import {
   isJsonContentType,
   isOversizedContentLength,
@@ -21,9 +22,9 @@ function json(body: unknown, status = 200): NextResponse {
 }
 
 export async function POST(request: NextRequest) {
-  const trace = process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1";
-  if (trace) console.info("ISOLATED_INTAKE_ORIGINS", request.nextUrl.origin, request.headers.get("origin"));
-  if (!isSameOriginRequest(request, request.nextUrl.origin)) {
+  const origin = trustedPublicRequestOrigin(process.env.PUBLIC_APP_ORIGIN, request.nextUrl.origin,
+    process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1");
+  if (!origin || !isSameOriginRequest(request, origin)) {
     return json(publicWebIntakeFailure(), 400);
   }
 
@@ -69,7 +70,6 @@ export async function POST(request: NextRequest) {
     );
 
     if (error) {
-      if (trace) console.info("ISOLATED_INTAKE_RPC_ERROR", error.code);
       return json(publicWebIntakeFailure(), 400);
     }
 
@@ -79,7 +79,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (payload.ok === false) {
-      if (trace) console.info("ISOLATED_INTAKE_RPC_REJECTED");
       return json(publicWebIntakeFailure(), 400);
     }
 

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hashCompletionToken } from "@/lib/completion/token";
 import { COMPLETION_MAX_BODY_BYTES } from "@/lib/completion/constants";
 import { validateCompletionFields } from "@/lib/completion/validate";
+import { trustedPublicRequestOrigin } from "@/lib/intake/trusted-origin";
 import {
   isJsonContentType,
   isOversizedCompletionContentLength,
@@ -25,9 +26,9 @@ function json(body: unknown, status = 200): NextResponse {
 }
 
 export async function POST(request: NextRequest) {
-  const trace = process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1";
-  if (trace) console.info("ISOLATED_COMPLETION_ORIGINS", request.nextUrl.origin, request.headers.get("origin"));
-  if (!isSameOriginRequest(request, request.nextUrl.origin)) {
+  const origin = trustedPublicRequestOrigin(process.env.PUBLIC_APP_ORIGIN, request.nextUrl.origin,
+    process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1");
+  if (!origin || !isSameOriginRequest(request, origin)) {
     return json(publicCompletionUnavailable(), 400);
   }
 
@@ -70,12 +71,10 @@ export async function POST(request: NextRequest) {
         { p_token_hash: tokenHash },
       );
       if (error) {
-        if (trace) console.info("ISOLATED_COMPLETION_RPC_ERROR", error.code);
         return json(publicCompletionUnavailable(), 400);
       }
       const payload = (data ?? {}) as { ok?: boolean };
       if (payload.ok !== true) {
-        if (trace) console.info("ISOLATED_COMPLETION_RPC_REJECTED");
         return json(publicCompletionUnavailable(), 400);
       }
       return json(payload, 200);
