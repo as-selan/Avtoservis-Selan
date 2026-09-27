@@ -95,6 +95,9 @@ test("manual Quibi confirmation requires an explicit match and prevents duplicat
 test("manual estimate ID is linked only after a live Quibi read", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "One verified synthetic estimate is linked once.");
   await login(page, seed.owner);
+  await page.goto(`/dashboard/stranke/${seed.linkedCustomer}/quibi`);
+  await page.getByRole("button", { name: "Ponovno preveri Quibi" }).click();
+  await expect(page.getByRole("status")).toContainText("Quibijeva povezava je znova preverjena");
   await page.goto(`/dashboard/primeri/${seed.preparedCaseId}`);
   await page.getByRole("textbox", { name: "Quibijev ID predračuna" }).fill("4001");
   await page.getByRole("checkbox", { name: /Ročno sem preveril, da gre za predračun/ }).check();
