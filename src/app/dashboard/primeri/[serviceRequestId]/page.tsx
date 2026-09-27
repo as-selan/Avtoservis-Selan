@@ -72,7 +72,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
     const diagnosisOffer = slotOffersResult.data?.find((item) => item.appointment_type === "diagnosis") ?? null;
     const serviceOffer = slotOffersResult.data?.find((item) => item.appointment_type === "service") ?? null;
-    const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider", quibiLinked: !!link, quibiSyncStatus: link?.sync_status });
+    const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider",
+      quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
+      deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
 
     return <div className="space-y-5">

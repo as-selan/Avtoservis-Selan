@@ -6,6 +6,21 @@ import { createClient } from "@/lib/supabase/server";
 type Result = { ok: true } | { ok: false; message: string };
 const invalid = (message: string): Result => ({ ok: false, message });
 const uuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const slotErrors: Record<string, string> = {
+  case_not_ready: "Najprej povežite stranko s primerom.",
+  stage_not_ready: "Primer še ni v ustreznem koraku za ta termin.",
+  stage_changed: "Stanje primera se je spremenilo. Osvežite primer pred nadaljevanjem.",
+  active_offer_exists: "Za ta primer že obstaja aktivna ponudba terminov. Najprej jo dokončajte ali umaknite.",
+  slot_expired: "Eden od terminov je že potekel. Ponudbo umaknite in preverite nove možnosti.",
+  invalid_status: "Ta korak ni več na voljo. Osvežite primer.",
+  booking_already_confirmed: "Termin je že potrjen. Za spremembo je potreben ločen postopek.",
+};
+function rpcResult(data: unknown, error: unknown, fallback: string): Result {
+  if (error) return invalid(fallback);
+  const payload = data as { ok?: boolean; error_code?: string } | null;
+  if (payload?.ok === true) return { ok: true };
+  return invalid(slotErrors[payload?.error_code ?? ""] ?? fallback);
+}
 
 export async function proposeManualSlots(
   serviceRequestId: string, appointmentType: "diagnosis" | "service",
@@ -27,9 +42,7 @@ export async function proposeManualSlots(
     p_slot_1: slots[0], p_slot_2: slots[1], p_slot_3: slots[2],
     p_availability_reference: availabilityReference.trim(),
   });
-  return error || (data as { ok?: boolean } | null)?.ok !== true
-    ? invalid("Terminov ni bilo mogoče predlagati. Preverite primer in obstoječe ponudbe terminov.")
-    : { ok: true };
+  return rpcResult(data, error, "Terminov ni bilo mogoče predlagati. Poskusite znova.");
 }
 
 export async function advanceManualSlotOffer(
@@ -48,7 +61,5 @@ export async function advanceManualSlotOffer(
     p_offer_id: offerId, p_action: action, p_reference: reference.trim(),
     p_selected_slot: action === "select" ? selectedSlot : null,
   });
-  return error || (data as { ok?: boolean } | null)?.ok !== true
-    ? invalid("Koraka termina ni bilo mogoče shraniti. Preverite stanje ponudbe in razpoložljivost.")
-    : { ok: true };
+  return rpcResult(data, error, "Koraka termina ni bilo mogoče shraniti. Poskusite znova.");
 }

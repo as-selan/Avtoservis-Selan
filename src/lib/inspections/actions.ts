@@ -20,8 +20,15 @@ export async function recordPreliminaryInspection(
     p_action: action,
     p_findings: action === "complete" ? findings?.trim() : null,
   });
-  if (error || (data as { ok?: boolean } | null)?.ok !== true) {
-    return { ok: false, message: "Pregleda ni bilo mogoče shraniti. Preverite stanje primera." };
+  const payload = data as { ok?: boolean; error_code?: string } | null;
+  if (error || payload?.ok !== true) {
+    const known: Record<string, string> = {
+      inspection_not_requested: "Najprej označite, da je predhodni pregled potreben.",
+      inspection_not_completed: "Odločitev o popravilu lahko zabeležite šele po opravljenem pregledu.",
+      already_completed: "Ugotovitve pregleda so že shranjene; za popravek je potreben skrbniški pregled.",
+      decision_already_recorded: "Odločitev o popravilu je že zabeležena; ne prepišem je brez pregleda.",
+    };
+    return { ok: false, message: known[payload?.error_code ?? ""] ?? "Pregleda ni bilo mogoče shraniti. Preverite stanje primera." };
   }
   return { ok: true };
 }

@@ -1,6 +1,7 @@
 export type CaseStepKind =
   | "verify_intake" | "request_data" | "link_quibi" | "review_quibi_mismatch" | "prepare_offer"
-  | "quote_contract_blocked" | "await_customer" | "scheduling_blocked"
+  | "manual_quibi_estimate" | "review_estimate" | "revise_estimate" | "send_estimate"
+  | "await_customer" | "manual_scheduling"
   | "manual_external_handoff" | "closed";
 
 export type CaseStep = { kind: CaseStepKind; label: string; externalConfirmed: false };
@@ -10,6 +11,9 @@ export function nextCaseStep(input: {
   offerPrepared: boolean;
   quibiLinked: boolean;
   quibiSyncStatus?: string;
+  quoteReviewStatus?: string;
+  deliveryStatus?: string;
+  customerDecision?: string | null;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
   switch (input.status) {
@@ -20,9 +24,15 @@ export function nextCaseStep(input: {
       if (input.quibiSyncStatus && !["ok", "never_checked"].includes(input.quibiSyncStatus))
         return step("review_quibi_mismatch", "Preveri spremembe ali napako Quibijeve povezave pred nadaljevanjem.");
       if (!input.offerPrepared) return step("prepare_offer", "Pripravi podatke za predračun.");
-      return step("quote_contract_blocked", "Quibijevo ustvarjanje predračuna čaka na potrjeno pogodbo API-ja.");
+      if (input.customerDecision === "rejected" || input.quoteReviewStatus === "rejected_for_revision")
+        return step("revise_estimate", "Po zavrnitvi se s stranko dogovori o nadaljevanju in po potrebi pripravi novo različico v Quibiju.");
+      if (input.quoteReviewStatus === "unreviewed")
+        return step("review_estimate", "Tadej naj pregleda dejanski Quibijev dokument in odloči o ceni.");
+      if (input.quoteReviewStatus === "approved_for_send" && input.deliveryStatus !== "delivered")
+        return step("send_estimate", "Odobreni predračun dejansko pošlji stranki in zabeleži dokazilo o pošiljanju.");
+      return step("manual_quibi_estimate", "Predračun ustvari ročno v Quibiju, nato preveri in poveži dejanski dokument.");
     case "awaiting_customer_approval": return step("await_customer", "Po dejanski dostavi počakaj na odločitev stranke.");
-    case "awaiting_slot_selection": return step("scheduling_blocked", "Ročno preveri tri možnosti v MyPlanlyju, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
+    case "awaiting_slot_selection": return step("manual_scheduling", "Ročno preveri tri možnosti v MyPlanlyju, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
     case "appointment_confirmed": return step("manual_external_handoff", "Interni termin temelji na ročno zabeleženi rezervaciji v MyPlanlyju. Google Koledar ni samodejno usklajen.");
     default: return step("closed", "Preveri stanje primera in morebitne odprte napake.");
   }
