@@ -22,8 +22,8 @@ export function nextCaseStep(input: {
       if (!input.offerPrepared) return step("prepare_offer", "Pripravi podatke za predračun.");
       return step("quote_contract_blocked", "Quibijevo ustvarjanje predračuna čaka na potrjeno pogodbo API-ja.");
     case "awaiting_customer_approval": return step("await_customer", "Po dejanski dostavi počakaj na odločitev stranke.");
-    case "awaiting_slot_selection": return step("scheduling_blocked", "Ponudba treh terminov čaka na potrjena pravila rezervacij.");
-    case "appointment_confirmed": return step("manual_external_handoff", "Interni termin je potrjen; preveri in ročno uskladi Google Koledar ter MyPlanly.");
+    case "awaiting_slot_selection": return step("scheduling_blocked", "Ročno preveri tri možnosti v MyPlanlyju, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
+    case "appointment_confirmed": return step("manual_external_handoff", "Interni termin temelji na ročno zabeleženi rezervaciji v MyPlanlyju. Google Koledar ni samodejno usklajen.");
     default: return step("closed", "Preveri stanje primera in morebitne odprte napake.");
   }
 }

@@ -24,7 +24,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision }: {
       setMessage(result.ok
         ? kind === "delivery" ? "Dejanska ročna dostava je evidentirana." : "Strankina odločitev je evidentirana."
         : result.message);
-      if (result.ok) router.refresh();
+      if (result.ok) { setAttested(false); setReference(""); router.refresh(); }
     });
   }
   if (decision) return <p className="text-sm">Strankina odločitev: {decision}. Evidentirano za to različico predračuna.</p>;

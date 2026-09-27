@@ -10,6 +10,7 @@ import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimat
 import { ReviewManualEstimate } from "@/components/dashboard/ReviewManualEstimate";
 import { ManualEstimateHandoff } from "@/components/dashboard/ManualEstimateHandoff";
 import { PreliminaryInspection } from "@/components/dashboard/PreliminaryInspection";
+import { ManualSlotOffer } from "@/components/dashboard/ManualSlotOffer";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       .is("archived_at", null).maybeSingle();
     if (requestError || !request) return unavailable;
 
-    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult] = await Promise.all([
+    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult] = await Promise.all([
       request.customer_id ? db.from("customers").select("id, display_name, phone, email")
         .eq("organization_id", access.organizationId).eq("id", request.customer_id)
         .is("archived_at", null).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -51,8 +52,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         .order("created_at", { ascending: false }).limit(1),
       db.from("preliminary_inspections").select("status, findings, repair_decision")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId).maybeSingle(),
+      db.from("manual_slot_offers").select("id, appointment_type, status, slot_1, slot_2, slot_3, selected_slot, availability_reference, offer_reference, response_reference, booking_reference")
+        .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
+        .neq("status", "cancelled"),
     ]);
-    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult].some((result) => result.error)) return unavailable;
+    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult].some((result) => result.error)) return unavailable;
 
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
@@ -66,6 +70,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const appointments = appointmentResult.data ?? [];
     const latestApproval = approvalResult.data?.[0] ?? null;
     const approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
+    const diagnosisOffer = slotOffersResult.data?.find((item) => item.appointment_type === "diagnosis") ?? null;
+    const serviceOffer = slotOffersResult.data?.find((item) => item.appointment_type === "service") ?? null;
     const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider", quibiLinked: !!link, quibiSyncStatus: link?.sync_status });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
 
@@ -131,5 +137,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}
         findings={inspectionResult.data?.findings ?? null}
         repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} />
+      {(inspectionResult.data?.status === "requested" || diagnosisOffer) &&
+        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" offer={diagnosisOffer} />}
+      {(request.status === "awaiting_slot_selection" || serviceOffer) &&
+        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" offer={serviceOffer} />}
     </div>;
 }

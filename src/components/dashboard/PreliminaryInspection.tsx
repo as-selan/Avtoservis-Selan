@@ -20,7 +20,7 @@ export function PreliminaryInspection({ serviceRequestId, status, findings, repa
     startTransition(async () => {
       const result = await recordPreliminaryInspection(serviceRequestId, action, text);
       setMessage(result.ok ? "Korak predhodnega pregleda je shranjen." : result.message);
-      if (result.ok) router.refresh();
+      if (result.ok) { setAttested(false); setText(""); router.refresh(); }
     });
   }
   return <section className="rounded-xl border bg-white p-4 space-y-2">
