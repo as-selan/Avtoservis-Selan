@@ -142,7 +142,7 @@ test("manual phone intake explicitly reuses the selected customer and vehicle", 
 test("manual intake creates a new customer and vehicle for the same case", async ({ page }, testInfo) => {
   const mobile = testInfo.project.name === "mobile-chromium";
   const name = mobile ? "Ročni Preizkus Mobilno" : "Ročni Preizkus Namizje";
-  const phone = mobile ? "+38640777333" : "+38640777444";
+  const phone = mobile ? "+38640777555" : "+38640777444";
   const vin = mobile ? "TST00000000000005" : "TST00000000000004";
   await login(page, seed.reception);
   await page.getByRole("button", { name: "Ročni vnos" }).first().click();
