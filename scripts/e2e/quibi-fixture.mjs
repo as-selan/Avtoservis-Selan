@@ -32,11 +32,32 @@ http.createServer((req, res) => {
       ...customer, naziv: mode === "changed" ? `${customer.naziv} spremenjen` : customer.naziv,
     } } } });
   }
+  if (url.pathname === "/api2/vozila" && req.method === "GET") {
+    return send(res, 200, { error: false, data: { Vozila: [{ Vozila: {
+      id: "5001", stranka_id: "2001", internastevilka: "TST00000000000006",
+      registrskastevilka: mode === "changed" ? "LJ QB2" : "LJ QB1",
+      proizvajalec: "Test", model: "Quibi", disabled: 0,
+    } }] } });
+  }
+  if (url.pathname === "/api2/vozila/view/5001" && req.method === "GET") {
+    return send(res, 200, { error: false, data: { Vozilo: { Vozila: {
+      id: "5001", stranka_id: "2001", internastevilka: "TST00000000000006",
+      registrskastevilka: mode === "changed" ? "LJ QB2" : "LJ QB1",
+      proizvajalec: "Test", model: "Quibi", disabled: 0,
+    } } } });
+  }
   if (["/api2/dn", "/api2/predracuni"].includes(url.pathname) && req.method === "POST") {
     const id = url.pathname === "/api2/dn" ? "3001" : "4001";
     return send(res, 200, { error: false, data: { Dokumenti: [
       { Glavadokumenta: { id, stranka_id: "2001", stevilcenje_id: "1" } },
     ] } });
+  }
+  if (url.pathname === "/api2/glavadokumenta/view/4001" && req.method === "GET") {
+    return send(res, 200, { error: false, data: { Dokumenti: [{
+      Glavadokumenta: { id: "4001", stranka_id: "2001", znesek: "125.50" },
+      Statusi: { id: "1", naziv: "Osnutek" },
+      Postavkedokumenta: [{ opis: "Preizkusna storitev", kolicina: "1", cenaZDDV: "125.50" }],
+    }] } });
   }
   return send(res, 404, { error: true });
 }).listen(47862, "127.0.0.1", () => console.log("Isolated Quibi read fixture ready on loopback."));

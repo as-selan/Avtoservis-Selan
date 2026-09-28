@@ -395,7 +395,7 @@ async function assertBoundedReads() {
 // --- SQL contract (unapplied migration text) ---
 {
   const sql = readFileSync(
-    resolve("supabase/migrations/20260914024500_create_web_service_request_intake.sql"),
+    resolve("supabase/migrations/20260928175302_20260914024500_create_web_service_request_intake.sql"),
     "utf8",
   );
 

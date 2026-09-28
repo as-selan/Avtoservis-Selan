@@ -12,6 +12,7 @@ on:
       - codex/quibi-integration-prep
       - codex/selan-v1-workflow
       - codex/selan-v1-test-release
+      - codex/selan-manual-estimate-v1
   pull_request:
     branches:
       - main
@@ -19,6 +20,7 @@ on:
       - cursor/phase14b-customer-vehicle-create-v1
       - codex/quibi-integration-prep
       - codex/selan-v1-workflow
+      - codex/selan-v1-test-release
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -68,7 +70,7 @@ jobs:
       - name: Workflow and Quibi V1 contract tests
         run: |
           shopt -s nullglob
-          tests=(src/lib/quibi/*.test.ts src/lib/cases/*.test.ts src/lib/completion/*.test.ts src/lib/intake/trusted-origin.test.ts)
+          tests=(src/lib/quibi/*.test.ts src/lib/cases/*.test.ts src/lib/completion/*.test.ts src/lib/appointments/*.test.ts src/lib/intake/trusted-origin.test.ts)
           if (( ${#tests[@]} > 0 )); then
             node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
           fi

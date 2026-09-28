@@ -32,7 +32,7 @@ function read(rel: string): string {
 }
 
 const sql = read(
-  "supabase/migrations/20260914033000_create_service_request_completion_links.sql",
+  "supabase/migrations/20260928175317_20260914033000_create_service_request_completion_links.sql",
 );
 const tokenSrc = read("src/lib/completion/token.ts");
 const urlSrc = read("src/lib/completion/url.ts");

@@ -6,8 +6,14 @@ test("missing data continues the same case before any offer step", () => {
   assert.equal(nextCaseStep({ status: "needs_data", offerPrepared: false, quibiLinked: false }).kind, "request_data");
 });
 
-test("prepared case with a Quibi link still cannot claim an estimate exists", () => {
-  assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: true, quibiLinked: true }).kind, "quote_contract_blocked");
+test("prepared case directs staff to create and link a real Quibi estimate", () => {
+  assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: true, quibiLinked: true }).kind, "manual_quibi_estimate");
+  assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: true, quibiLinked: true,
+    quoteReviewStatus: "unreviewed" }).kind, "review_estimate");
+  assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: true, quibiLinked: true,
+    quoteReviewStatus: "approved_for_send" }).kind, "send_estimate");
+  assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: true, quibiLinked: true,
+    quoteReviewStatus: "approved_for_send", customerDecision: "rejected" }).kind, "revise_estimate");
 });
 
 test("changed customer data blocks the next Quibi-dependent step", () => {

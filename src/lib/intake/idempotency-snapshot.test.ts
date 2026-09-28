@@ -11,7 +11,7 @@ import { manualIntakeErrorMessage } from "./errors.ts";
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationPath = join(
   here,
-  "../../../supabase/migrations/20260913214500_create_manual_service_request_intake.sql",
+  "../../../supabase/migrations/20260928175120_20260913214500_create_manual_service_request_intake.sql",
 );
 
 const MATERIAL_KEYS = [

@@ -14,11 +14,13 @@ on:
       - cursor/m3-m4-ci-db-tests-v1
       - codex/selan-v1-workflow
       - codex/selan-v1-test-release
+      - codex/selan-manual-estimate-v1
   pull_request:
     branches:
       - cursor/m3-m4-ci-db-tests-v1
       - codex/quibi-integration-prep
       - codex/selan-v1-workflow
+      - codex/selan-v1-test-release
   workflow_dispatch:
 
 concurrency:

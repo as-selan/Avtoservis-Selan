@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 type Seed = { owner: string; reception: string; mechanic: string; foreign: string;
+  invitedEmail: string; inviteActionLink: string;
   customer: string; linkedCustomer: string; vehicle: string; caseId: string;
+  preparedCaseId: string;
   incompleteCases: { desktop: string; mobile: string } };
 const path = process.env.E2E_FIXTURES_PATH;
 if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1" || !path || !process.env.E2E_PASSWORD) {
@@ -28,6 +30,37 @@ async function noHorizontalOverflow(page: Page) {
   expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport + 1);
 }
 
+function futureLjubljanaDate(days: number) {
+  const target = new Date(Date.now() + days * 86_400_000);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Ljubljana", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(target).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}T10:00`;
+}
+
+async function recordThreeManualSlots(page: Page, label: string) {
+  for (const [index, days] of [7, 8, 9].entries()) {
+    await page.getByLabel(`Možnost ${index + 1} · Europe/Ljubljana`).fill(futureLjubljanaDate(days));
+  }
+  await page.getByRole("textbox", { name: "Referenca preverjanja razpoložljivosti" }).fill(`${label}-CHECK`);
+  await page.getByRole("checkbox", { name: "Tri termine sem dejansko preveril v MyPlanlyju." }).check();
+  await page.getByRole("button", { name: "Shrani tri možnosti" }).click();
+  await expect(page.getByText("Tri možnosti so pripravljene, niso še poslane ali rezervirane.")).toBeVisible();
+  await page.getByRole("textbox", { name: "Referenca dejansko poslanih možnosti" }).fill(`${label}-SENT`);
+  await page.getByRole("checkbox", { name: "Te tri možnosti sem dejansko poslal stranki." }).check();
+  await page.getByRole("button", { name: "Evidentiraj dejansko pošiljanje" }).click();
+  await expect(page.getByText("Tri možnosti so bile ročno poslane; nobena ni začasno rezervirana.")).toBeVisible();
+  await page.getByRole("combobox", { name: "Izbrana možnost" }).selectOption("2");
+  await page.getByRole("textbox", { name: "Referenca strankine izbire" }).fill(`${label}-REPLY`);
+  await page.getByRole("checkbox", { name: "Prejel sem dejansko izbiro stranke." }).check();
+  await page.getByRole("button", { name: "Evidentiraj strankino izbiro" }).click();
+  await expect(page.getByText("Stranka je izbrala termin; rezervacija v MyPlanlyju še ni potrjena.")).toBeVisible();
+  await page.getByRole("textbox", { name: "Referenca dejanske rezervacije v MyPlanlyju" }).fill(`${label}-BOOKING`);
+  await page.getByRole("checkbox", { name: "Izbrani termin sem dejansko rezerviral v MyPlanlyju." }).check();
+  await page.getByRole("button", { name: "Potrdi ročno rezerviran termin" }).click();
+  await expect(page.getByText(`Referenca ročne rezervacije: ${label}-BOOKING`)).toBeVisible();
+}
+
 test.beforeEach(async () => { await fixtureMode("normal"); });
 
 test("public intake loads and protected dashboard requires login", async ({ page }) => {
@@ -36,6 +69,17 @@ test("public intake loads and protected dashboard requires login", async ({ page
   await noHorizontalOverflow(page);
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
+});
+
+test("default Supabase invite link establishes a cookie session and allows password setup", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Single-use isolated invite token.");
+  await page.goto(seed.inviteActionLink);
+  await expect(page).toHaveURL(/\/nastavi-geslo$/);
+  await expect(page.getByRole("heading", { name: "Avtoservis Selan" })).toBeVisible();
+  await page.getByLabel("Novo geslo").fill(process.env.E2E_PASSWORD!);
+  await page.getByLabel("Ponovi geslo").fill(process.env.E2E_PASSWORD!);
+  await page.getByRole("button", { name: "Shrani geslo" }).click();
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
 });
 
 test("real owner login opens dashboard and canonical case", async ({ page }) => {
@@ -63,6 +107,10 @@ test("confirmed Quibi link shows only linked documents and records drift and rea
   await expect(page.getByText("Potrjena povezava: Quibi #2001")).toBeVisible();
   await expect(page.getByText("Nalog #3001")).toBeVisible();
   await expect(page.getByText("Predračun #4001")).toBeVisible();
+  await page.getByRole("link", { name: "Predračun #4001 · preveri vsebino" }).click();
+  await expect(page.getByRole("heading", { name: "Quibijev predračun #4001" })).toBeVisible();
+  await expect(page.getByText("Preizkusna storitev")).toBeVisible();
+  await page.goto(`/dashboard/stranke/${seed.linkedCustomer}/quibi`);
   await noHorizontalOverflow(page);
 
   await fixtureMode("changed");
@@ -85,6 +133,76 @@ test("manual Quibi confirmation requires an explicit match and prevents duplicat
   await page.getByRole("checkbox", { name: /Ročno sem preveril/ }).check();
   await page.getByRole("button", { name: "Potrdi povezavo" }).click();
   await expect(page.getByText("Potrjena povezava: Quibi #2002")).toBeVisible();
+});
+
+test("vehicle ID needs manual confirmation and later drift is visible", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "One shared synthetic vehicle is linked once.");
+  await login(page, seed.owner);
+  await page.goto(`/dashboard/stranke/${seed.linkedCustomer}/quibi`);
+  await expect(page.getByText(/Quibi #5001/).first()).toBeVisible();
+  await expect(page.getByText(/TST00000000000006/).first()).toBeVisible();
+  await page.getByRole("checkbox", { name: "Preveril sem, da gre za isto vozilo." }).check();
+  await page.getByRole("button", { name: "Poveži vozili" }).click();
+  await expect(page.getByText(/Selan LJ QB1 ↔ Quibi #5001/)).toBeVisible();
+  await page.getByRole("button", { name: "Ponovno preveri vozilo" }).click();
+  await expect(page.getByRole("status")).toContainText("Povezava vozila je znova preverjena");
+  await fixtureMode("changed");
+  await page.getByRole("button", { name: "Ponovno preveri vozilo" }).click();
+  await expect(page.getByText(/Podatki vozila so se spremenili/)).toBeVisible();
+});
+
+test("manual estimate ID is linked only after a live Quibi read", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "One verified synthetic estimate is linked once.");
+  await login(page, seed.owner);
+  await page.goto(`/dashboard/stranke/${seed.linkedCustomer}/quibi`);
+  await page.getByRole("button", { name: "Ponovno preveri Quibi" }).click();
+  await expect(page.getByRole("status")).toContainText("Quibijeva povezava je znova preverjena");
+  await page.goto(`/dashboard/primeri/${seed.preparedCaseId}`);
+  await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
+  await expect(page.getByText(/Pregled je potreben/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Izoliran pregled vozila je bil opravljen.");
+  await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
+  await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
+  await page.getByRole("textbox", { name: "Quibijev ID predračuna" }).fill("4001");
+  await page.getByRole("checkbox", { name: /Ročno sem preveril, da gre za predračun/ }).check();
+  await page.getByRole("button", { name: "Preveri in poveži predračun" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "predračun je povezan" }))
+    .toContainText("različica #1");
+  await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed")).toBeVisible();
+  await page.getByRole("checkbox", { name: /Odprl sem Quibijev dokument/ }).check();
+  await page.getByRole("button", { name: "Odobri ceno za pošiljanje" }).click();
+  await expect(page.getByText("Zabeležena različica ponudbe #1: approved_for_send")).toBeVisible();
+  await page.getByRole("textbox", { name: "Referenca poslanega sporočila" }).fill("QA-MESSAGE-4001");
+  await page.getByRole("checkbox", { name: /Ta predračun sem dejansko poslal/ }).check();
+  await page.getByRole("button", { name: "Evidentiraj dejansko pošiljanje" }).click();
+  await expect(page.getByText("Ročno poslano prek email; referenca: QA-MESSAGE-4001.", { exact: false })).toBeVisible();
+  await expect(page.getByText(/Status: awaiting_customer_approval/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Referenca dejanskega odgovora" }).fill("QA-REPLY-4001");
+  await page.getByRole("checkbox", { name: /Prejel sem dejanski odgovor stranke/ }).check();
+  await page.getByRole("button", { name: "Stranka potrdi popravilo" }).click();
+  await expect(page.getByText(/Status: awaiting_slot_selection/)).toBeVisible();
+  await expect(page.getByText("Strankina odločitev: approved.", { exact: false })).toBeVisible();
+  await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();
+  await page.getByRole("button", { name: "Popravilo naročeno" }).click();
+  await expect(page.getByText(/predhodni pregled je brezplačen/)).toBeVisible();
+  await recordThreeManualSlots(page, "REPAIR");
+  await expect(page.getByText(/Status: appointment_confirmed/)).toBeVisible();
+});
+
+test("completed preliminary inspection remains payable when repair is not ordered", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "A single isolated inspection outcome is recorded once.");
+  await login(page, seed.reception);
+  await page.goto(`/dashboard/primeri/${seed.caseId}`);
+  await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
+  await recordThreeManualSlots(page, "INSPECTION");
+  await expect(page.getByText(/diagnosis · interno: confirmed/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Pregled je bil opravljen brez naročila popravila.");
+  await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
+  await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
+  await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();
+  await page.getByRole("button", { name: "Popravilo ni naročeno" }).click();
+  await expect(page.getByText(/predhodni pregled je plačljiv/)).toBeVisible();
+  await noHorizontalOverflow(page);
 });
 
 test("customer search and customer and vehicle edits persist in the same organization", async ({ page }) => {

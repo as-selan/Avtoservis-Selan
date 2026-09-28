@@ -26,6 +26,29 @@ insert into public.customers (id, organization_id, display_name, archived_at) va
   ('cccccccc-cccc-4ccc-8ccc-cccccccc0004', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Fixture B', null);
 
 do $$ begin
+  if has_function_privilege('authenticated',
+      'public.register_manual_quibi_estimate(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+     or has_function_privilege('anon',
+      'public.register_manual_quibi_estimate(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+      'public.register_manual_quibi_estimate(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+  then raise exception 'Manual Quibi evidence writer has unsafe grants'; end if;
+  if has_function_privilege('authenticated', 'public.approve_quote_for_send(uuid,text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.reject_quote_for_revision(uuid,text)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+       'public.review_verified_manual_quote(uuid,uuid,text,uuid,text)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+       'public.review_verified_manual_quote(uuid,uuid,text,uuid,text)', 'EXECUTE')
+  then raise exception 'Quote review can bypass verified server read'; end if;
+  if has_function_privilege('authenticated',
+      'public.record_manual_estimate_delivery(uuid,uuid,text,uuid,text,text)', 'EXECUTE')
+     or has_function_privilege('authenticated',
+      'public.record_manual_estimate_decision(uuid,uuid,uuid,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+      'public.record_manual_estimate_delivery(uuid,uuid,text,uuid,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role',
+      'public.record_manual_estimate_decision(uuid,uuid,uuid,text,text)', 'EXECUTE')
+  then raise exception 'Manual delivery or decision grants are unsafe'; end if;
   if not has_table_privilege('authenticated', 'public.integration_links', 'SELECT')
     or not has_column_privilege('authenticated', 'public.integration_links', 'sync_status', 'UPDATE')
     or has_column_privilege('authenticated', 'public.integration_links', 'external_id', 'UPDATE')

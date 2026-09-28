@@ -39,6 +39,14 @@ const owner = await user("owner");
 const reception = await user("reception");
 const mechanic = await user("mechanic");
 const foreign = await user("foreign");
+const invitedEmail = "selan-e2e-invited@example.test";
+const { data: invited, error: inviteError } = await db.auth.admin.generateLink({
+  type: "invite", email: invitedEmail,
+  options: { redirectTo: "http://127.0.0.1:3000/auth/accept-invite" },
+});
+if (inviteError || !invited.user || !invited.properties?.action_link) {
+  throw new Error(`auth invite fixture: ${inviteError?.code ?? "generate_failed"}`);
+}
 const org = randomUUID();
 const otherOrg = randomUUID();
 await insert("organizations", [
@@ -47,6 +55,7 @@ await insert("organizations", [
 ]);
 await insert("organization_memberships", [
   { organization_id: org, profile_id: owner.id, role: "owner" },
+  { organization_id: org, profile_id: invited.user.id, role: "admin" },
   { organization_id: org, profile_id: reception.id, role: "reception" },
   { organization_id: org, profile_id: mechanic.id, role: "mechanic" },
   { organization_id: otherOrg, profile_id: foreign.id, role: "owner" },
@@ -55,6 +64,8 @@ const customer = randomUUID();
 const linkedCustomer = randomUUID();
 const vehicle = randomUUID();
 const caseId = randomUUID();
+const preparedCaseId = randomUUID();
+const preparedVehicleId = randomUUID();
 const incompleteCustomers = { desktop: randomUUID(), mobile: randomUUID() };
 const incompleteCases = { desktop: randomUUID(), mobile: randomUUID() };
 await insert("customers", [
@@ -65,8 +76,14 @@ await insert("customers", [
 ]);
 await insert("vehicles", { id: vehicle, organization_id: org, customer_id: customer,
   registration_current: "LJ E2E", vin: "TST00000000000001", make: "Test", model: "Model" });
+await insert("vehicles", { id: preparedVehicleId, organization_id: org, customer_id: linkedCustomer,
+  registration_current: "LJ QB1", vin: "TST00000000000006", make: "Test", model: "Quibi" });
 await insert("service_requests", { id: caseId, organization_id: org, customer_id: customer,
   vehicle_id: vehicle, status: "new", source: "manual", summary: "Izolirani E2E primer" });
+await insert("service_requests", { id: preparedCaseId, organization_id: org, customer_id: linkedCustomer,
+  vehicle_id: preparedVehicleId, status: "preparing_offer", source: "manual", summary: "Quibi predračun" });
+await insert("offer_preparations", { organization_id: org, service_request_id: preparedCaseId,
+  created_by_profile_id: owner.id, status: "ready_for_provider" });
 await insert("service_requests", [
   { id: incompleteCases.desktop, organization_id: org, customer_id: incompleteCustomers.desktop,
     status: "needs_data", source: "manual", summary: "Dopolnitev namizje", missing_fields: ["vin", "make", "model"] },
@@ -77,20 +94,27 @@ await insert("integration_links", { organization_id: org, provider: "quibi", ent
   entity_id: linkedCustomer, external_id: "2001", local_fingerprint: fingerprint("Bor Preizkus", "+38640333444", "bor@example.test"),
   external_fingerprint: fingerprint("Bor Preizkus", "+38640333444", "bor@example.test"), confirmed_by: owner.id });
 
-// Test the public RPC under the actual anon key, before the browser route wraps errors.
+// The browser must not call the intake RPC directly. Verify the privilege
+// boundary, then seed through the same server credential as the route.
 const anon = createClient(E2E_API_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
-const { data: webProbe, error: webError } = await anon.rpc("create_web_service_request_intake", {
+const webArgs = {
   p_client_request_id: randomUUID(), p_display_name: "Izolirani spletni RPC preizkus",
-  p_phone: "+38640777333", p_problem_description: "Anonimni integracijski preizkus",
-});
+  p_phone: "+38640777333", p_problem_description: "Strežniški integracijski preizkus",
+};
+const { error: anonError } = await anon.rpc("create_web_service_request_intake", webArgs);
+if (anonError?.code !== "42501") {
+  throw new Error(`public intake anonymous grant: ${anonError?.code ?? "unexpected_access"}`);
+}
+const { data: webProbe, error: webError } = await db.rpc("create_web_service_request_intake", webArgs);
 if (webError || webProbe?.ok !== true) {
   throw new Error(`public intake RPC: ${webError?.code ?? webProbe?.error_code ?? "unexpected"}`);
 }
 
 await writeFile(E2E_FIXTURES_PATH, JSON.stringify({
   owner: owner.email, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
-  customer, linkedCustomer, vehicle, caseId, incompleteCases,
+  invitedEmail, inviteActionLink: invited.properties.action_link,
+  customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases,
 }), { mode: 0o600 });
 console.log("Isolated E2E users and synthetic business records seeded on loopback.");

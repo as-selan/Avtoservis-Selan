@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createHmac } from "node:crypto";
+import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { validateWebIntakeForm } from "@/lib/intake/web-validate";
 import { trustedPublicRequestOrigin } from "@/lib/intake/trusted-origin";
 import {
@@ -63,7 +64,26 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !secret) return json(publicWebIntakeFailure(), 503);
+    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    if (process.env.VERCEL && !forwarded) return json(publicWebIntakeFailure(), 503);
+    const clientHash = createHmac("sha256", secret)
+      .update("selan-web-intake-client-v1\0")
+      .update(forwarded || "unknown-client")
+      .digest("hex");
+    const supabase = createPrivilegedClient(url, secret, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: budget, error: budgetError } = await supabase.rpc("consume_web_intake_budget", {
+      p_client_hash: clientHash, p_client_request_id: validated.input.clientRequestId,
+    });
+    if (budgetError) return json(publicWebIntakeFailure(), 503);
+    if ((budget as { ok?: boolean; error_code?: string } | null)?.ok !== true) {
+      return json(publicWebIntakeFailure(),
+        (budget as { error_code?: string } | null)?.error_code === "limited" ? 429 : 503);
+    }
     const { data, error } = await supabase.rpc(
       "create_web_service_request_intake",
       toRpcArgs(validated.input),
