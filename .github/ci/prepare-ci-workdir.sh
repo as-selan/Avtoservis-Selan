@@ -30,7 +30,7 @@ LATER_MIGRATIONS=(
   "20260928175644_20260927101529_preliminary_inspection_v1.sql"
   "20260928175656_20260927102728_manual_slot_offer_v1.sql"
   "20260928175707_20260928163011_protect_public_web_intake_v1.sql"
-  "20260928190000_quibi_vehicle_links.sql"
+  "20260928183213_quibi_vehicle_links.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"
