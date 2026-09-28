@@ -39,6 +39,14 @@ const owner = await user("owner");
 const reception = await user("reception");
 const mechanic = await user("mechanic");
 const foreign = await user("foreign");
+const invitedEmail = "selan-e2e-invited@example.test";
+const { data: invited, error: inviteError } = await db.auth.admin.generateLink({
+  type: "invite", email: invitedEmail,
+  options: { redirectTo: "http://127.0.0.1:3000/auth/accept-invite" },
+});
+if (inviteError || !invited.user || !invited.properties?.action_link) {
+  throw new Error(`auth invite fixture: ${inviteError?.code ?? "generate_failed"}`);
+}
 const org = randomUUID();
 const otherOrg = randomUUID();
 await insert("organizations", [
@@ -47,6 +55,7 @@ await insert("organizations", [
 ]);
 await insert("organization_memberships", [
   { organization_id: org, profile_id: owner.id, role: "owner" },
+  { organization_id: org, profile_id: invited.user.id, role: "admin" },
   { organization_id: org, profile_id: reception.id, role: "reception" },
   { organization_id: org, profile_id: mechanic.id, role: "mechanic" },
   { organization_id: otherOrg, profile_id: foreign.id, role: "owner" },
@@ -105,6 +114,7 @@ if (webError || webProbe?.ok !== true) {
 
 await writeFile(E2E_FIXTURES_PATH, JSON.stringify({
   owner: owner.email, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
+  invitedEmail, inviteActionLink: invited.properties.action_link,
   customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases,
 }), { mode: 0o600 });
 console.log("Isolated E2E users and synthetic business records seeded on loopback.");

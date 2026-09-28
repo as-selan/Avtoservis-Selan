@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 type Seed = { owner: string; reception: string; mechanic: string; foreign: string;
+  invitedEmail: string; inviteActionLink: string;
   customer: string; linkedCustomer: string; vehicle: string; caseId: string;
   preparedCaseId: string;
   incompleteCases: { desktop: string; mobile: string } };
@@ -68,6 +69,17 @@ test("public intake loads and protected dashboard requires login", async ({ page
   await noHorizontalOverflow(page);
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
+});
+
+test("default Supabase invite link establishes a cookie session and allows password setup", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Single-use isolated invite token.");
+  await page.goto(seed.inviteActionLink);
+  await expect(page).toHaveURL(/\/nastavi-geslo$/);
+  await expect(page.getByRole("heading", { name: "Avtoservis Selan" })).toBeVisible();
+  await page.getByLabel("Novo geslo").fill(process.env.E2E_PASSWORD!);
+  await page.getByLabel("Ponovi geslo").fill(process.env.E2E_PASSWORD!);
+  await page.getByRole("button", { name: "Shrani geslo" }).click();
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
 });
 
 test("real owner login opens dashboard and canonical case", async ({ page }) => {
