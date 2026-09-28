@@ -193,6 +193,12 @@ PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_con
   -f "${REPO_ROOT}/supabase/tests/quibi_integration_links_regression.sql"
 echo "PASS: Quibi integration-link regression"
 
+echo "== Quibi vehicle link grants, tenant isolation, and duplicate regression =="
+PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
+  psql "${DB_URL}" -v ON_ERROR_STOP=1 \
+  -f "${REPO_ROOT}/supabase/tests/quibi_vehicle_links_regression.sql"
+echo "PASS: Quibi vehicle-link regression"
+
 echo "== Preliminary inspection RLS, decisions, and tenant isolation =="
 PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
   psql "${DB_URL}" -v ON_ERROR_STOP=1 \

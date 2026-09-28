@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 
 export type QuibiCustomer = { id: string; name: string; phone: string; email: string };
+export type QuibiVehicle = {
+  id: string; customerId: string; vin: string; registration: string;
+  make: string; model: string; disabled: boolean;
+};
 export type QuibiDocument = { id: string; customerId: string; numberingId: string };
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
@@ -51,6 +55,36 @@ export function parseCustomerDetail(value: unknown): QuibiCustomer {
   return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl) };
 }
 
+function projectVehicle(value: unknown): QuibiVehicle {
+  const vehicle = object(object(value).Vozila);
+  const id = field(vehicle.id);
+  const customerId = field(vehicle.stranka_id);
+  if (!/^\d+$/.test(id) || !/^\d+$/.test(customerId)) throw new Error("QUIBI_INVALID_VEHICLE_ID");
+  const disabled = vehicle.disabled;
+  if (![0, 1, false, true, "0", "1"].includes(disabled as string | number | boolean)) {
+    throw new Error("QUIBI_INVALID_RESPONSE");
+  }
+  return {
+    id, customerId, vin: field(vehicle.internastevilka),
+    registration: field(vehicle.registrskastevilka),
+    make: field(vehicle.proizvajalec), model: field(vehicle.model),
+    disabled: disabled === 1 || disabled === true || disabled === "1",
+  };
+}
+
+export function parseVehicles(value: unknown): QuibiVehicle[] {
+  return rows(value, "Vozila").map(projectVehicle);
+}
+
+export function parseVehicleDetail(value: unknown, expectedId: string, customerId: string): QuibiVehicle {
+  const envelope = object(value);
+  if (envelope.error !== false) throw new Error("QUIBI_API_ERROR");
+  const projected = projectVehicle(object(envelope.data).Vozilo);
+  if (projected.id !== expectedId) throw new Error("QUIBI_VEHICLE_ID_MISMATCH");
+  if (projected.customerId !== customerId) throw new Error("QUIBI_CUSTOMER_ID_MISMATCH");
+  return projected;
+}
+
 export function parseDocuments(value: unknown, customerId: string): QuibiDocument[] {
   return rows(value, "Dokumenti").map((entry) => {
     const doc = object(object(entry).Glavadokumenta);
@@ -89,5 +123,12 @@ export function customerFingerprint(customer: Pick<QuibiCustomer, "name" | "phon
   const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI");
   return createHash("sha256").update(JSON.stringify([
     normalize(customer.name), normalize(customer.phone), normalize(customer.email),
+  ])).digest("hex");
+}
+
+export function vehicleFingerprint(vehicle: Pick<QuibiVehicle, "vin" | "registration" | "make" | "model">): string {
+  const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLocaleUpperCase("sl-SI");
+  return createHash("sha256").update(JSON.stringify([
+    normalize(vehicle.vin), normalize(vehicle.registration), normalize(vehicle.make), normalize(vehicle.model),
   ])).digest("hex");
 }

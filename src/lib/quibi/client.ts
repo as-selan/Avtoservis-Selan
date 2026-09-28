@@ -1,4 +1,4 @@
-import { parseCustomerDetail, parseCustomers, parseDocuments, parseEstimateDetail } from "./contracts.ts";
+import { parseCustomerDetail, parseCustomers, parseDocuments, parseEstimateDetail, parseVehicleDetail, parseVehicles } from "./contracts.ts";
 
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string };
 const ORIGIN = "https://dev.quibi.net";
@@ -47,6 +47,14 @@ export function createQuibiReadClient(config: Config) {
       const value = parseCustomerDetail(await read(`/api2/stranka/view/${validId(id)}`));
       if (value.id !== id) throw new Error("QUIBI_CUSTOMER_ID_MISMATCH");
       return value;
+    },
+    async vehicles(customerId: string) {
+      const id = validId(customerId);
+      return parseVehicles(await read("/api2/vozila")).filter((vehicle) => vehicle.customerId === id);
+    },
+    async vehicle(id: string, customerId: string) {
+      const vehicleId = validId(id);
+      return parseVehicleDetail(await read(`/api2/vozila/view/${vehicleId}`), vehicleId, validId(customerId));
     },
     async workOrders(customerId: string) {
       return parseDocuments(await read("/api2/dn", "POST"), validId(customerId));

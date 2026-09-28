@@ -1,12 +1,20 @@
 "use server";
 
+import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
 import { canQueryCustomerId } from "@/lib/customers/present";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
-import { customerFingerprint } from "@/lib/quibi/contracts";
+import { customerFingerprint, vehicleFingerprint } from "@/lib/quibi/contracts";
 import { readFailureCode, syncOutcome } from "@/lib/quibi/sync-state";
+
+function trustedQuibiLinkDb() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !secret) throw new Error("QUIBI_LINK_STORAGE_NOT_CONFIGURED");
+  return createPrivilegedClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+}
 
 export async function confirmQuibiCustomerLink(form: FormData): Promise<void> {
   const access = await requirePhase1OperationalAccess();
@@ -96,4 +104,100 @@ export async function refreshQuibiCustomerLink(form: FormData): Promise<void> {
     outcome = "error";
   }
   redirect(`${back}?refresh=${outcome}`);
+}
+
+/** An operator confirms one vehicle pair after a fresh owner-scoped Quibi read. */
+export async function confirmQuibiVehicleLink(form: FormData): Promise<void> {
+  const access = await requirePhase1OperationalAccess();
+  const customerId = form.get("customerId");
+  const vehicleId = form.get("vehicleId");
+  const externalId = form.get("externalId");
+  const expectedFingerprint = form.get("remoteFingerprint");
+  if (typeof customerId !== "string" || !canQueryCustomerId(customerId)) redirect("/dashboard/stranke");
+  const back = `/dashboard/stranke/${customerId}/quibi`;
+  if (typeof vehicleId !== "string" || !canQueryCustomerId(vehicleId)
+    || typeof externalId !== "string" || !/^\d+$/.test(externalId)
+    || typeof expectedFingerprint !== "string" || !/^[0-9a-f]{64}$/.test(expectedFingerprint)
+    || form.get("confirmed") !== "yes") redirect(`${back}?vehicleResult=invalid`);
+
+  let outcome = "error";
+  try {
+    const db = await createClient();
+    const [{ data: link }, { data: customer }, { data: vehicle }] = await Promise.all([
+      db.from("integration_links").select("external_id, external_fingerprint, local_fingerprint")
+        .eq("organization_id", access.organizationId).eq("provider", "quibi")
+        .eq("entity_type", "customer").eq("entity_id", customerId).maybeSingle(),
+      db.from("customers").select("display_name, phone, email")
+        .eq("organization_id", access.organizationId).eq("id", customerId)
+        .is("archived_at", null).maybeSingle(),
+      db.from("vehicles").select("id, customer_id, vin, registration_current, make, model")
+        .eq("organization_id", access.organizationId).eq("id", vehicleId)
+        .eq("customer_id", customerId).is("archived_at", null).maybeSingle(),
+    ]);
+    if (!link || !customer || !vehicle) outcome = "missing";
+    else {
+      const quibi = configuredQuibiReadClient();
+      const remoteCustomer = await quibi.customer(link.external_id);
+      const localCustomerHash = customerFingerprint({ name: customer.display_name, phone: customer.phone ?? "", email: customer.email ?? "" });
+      if (customerFingerprint(remoteCustomer) !== link.external_fingerprint || localCustomerHash !== link.local_fingerprint) {
+        outcome = "customer_changed";
+      } else {
+        const remoteVehicle = await quibi.vehicle(externalId, link.external_id);
+        if (remoteVehicle.disabled) outcome = "disabled";
+        else if (vehicleFingerprint(remoteVehicle) !== expectedFingerprint) outcome = "changed";
+        else {
+          const { error } = await trustedQuibiLinkDb().from("quibi_vehicle_links").insert({
+            organization_id: access.organizationId, customer_id: customerId, vehicle_id: vehicleId,
+            quibi_customer_id: link.external_id, quibi_vehicle_id: externalId,
+            local_fingerprint: vehicleFingerprint({
+              vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
+              make: vehicle.make ?? "", model: vehicle.model ?? "",
+            }),
+            external_fingerprint: expectedFingerprint, confirmed_by: access.userId,
+          });
+          outcome = error?.code === "23505" ? "already" : error ? "error" : "linked";
+        }
+      }
+    }
+  } catch { outcome = "error"; }
+  redirect(`${back}?vehicleResult=${outcome}`);
+}
+
+/** Records drift without overwriting either system's confirmed baseline. */
+export async function refreshQuibiVehicleLink(form: FormData): Promise<void> {
+  const access = await requirePhase1OperationalAccess();
+  const customerId = form.get("customerId");
+  const vehicleId = form.get("vehicleId");
+  if (typeof customerId !== "string" || !canQueryCustomerId(customerId)) redirect("/dashboard/stranke");
+  const back = `/dashboard/stranke/${customerId}/quibi`;
+  if (typeof vehicleId !== "string" || !canQueryCustomerId(vehicleId)) redirect(`${back}?vehicleRefresh=invalid`);
+  let outcome = "error";
+  try {
+    const db = await createClient();
+    const { data: link } = await db.from("quibi_vehicle_links")
+      .select("quibi_customer_id, quibi_vehicle_id, local_fingerprint, external_fingerprint")
+      .eq("organization_id", access.organizationId).eq("customer_id", customerId)
+      .eq("vehicle_id", vehicleId).maybeSingle();
+    if (link) {
+      const { data: vehicle } = await db.from("vehicles")
+        .select("customer_id, vin, registration_current, make, model")
+        .eq("organization_id", access.organizationId).eq("id", vehicleId)
+        .is("archived_at", null).maybeSingle();
+      let state: ReturnType<typeof syncOutcome> | { sync_status: "error"; last_seen_fingerprint: null; last_error_code: string };
+      try {
+        if (!vehicle || vehicle.customer_id !== customerId) throw new Error("QUIBI_CUSTOMER_ID_MISMATCH");
+        const remote = await configuredQuibiReadClient().vehicle(link.quibi_vehicle_id, link.quibi_customer_id);
+        if (remote.disabled) throw new Error("QUIBI_INVALID_RESPONSE");
+        state = syncOutcome(link.external_fingerprint, vehicleFingerprint(remote), link.local_fingerprint,
+          vehicleFingerprint({ vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
+            make: vehicle.make ?? "", model: vehicle.model ?? "" }));
+      } catch (error) {
+        state = { sync_status: "error", last_seen_fingerprint: null, last_error_code: readFailureCode(error) };
+      }
+      const { error } = await trustedQuibiLinkDb().from("quibi_vehicle_links").update({ ...state, last_checked_at: new Date().toISOString() })
+        .eq("organization_id", access.organizationId).eq("customer_id", customerId).eq("vehicle_id", vehicleId);
+      if (!error) outcome = state.sync_status;
+    }
+  } catch { outcome = "error"; }
+  redirect(`${back}?vehicleRefresh=${outcome}`);
 }

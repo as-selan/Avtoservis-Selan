@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseCustomers, parseDocuments, parseEstimateDetail, customerFingerprint } from "./contracts.ts";
+import { parseCustomers, parseDocuments, parseEstimateDetail, parseVehicles, parseVehicleDetail, customerFingerprint, vehicleFingerprint } from "./contracts.ts";
+
+test("vehicle reads use Quibi id and internastevilka without assuming VIN uniqueness", () => {
+  const list = { error: false, data: { Vozila: [
+    { Vozila: { id: 972, stranka_id: 12, internastevilka: " WTEST123 ", registrskastevilka: "LJ-01", proizvajalec: "Test", model: "A", disabled: 0 }, Stranka: { id: 12 } },
+    { Vozila: { id: 973, stranka_id: 13, internastevilka: "WTEST123", disabled: 0 }, Stranka: { id: 13 } },
+  ] } };
+  assert.equal(parseVehicles(list).length, 2);
+  assert.deepEqual(parseVehicles(list)[0], { id: "972", customerId: "12", vin: "WTEST123", registration: "LJ-01", make: "Test", model: "A", disabled: false });
+  assert.equal(parseVehicleDetail({ error: false, data: { Vozilo: list.data.Vozila[0] } }, "972", "12").id, "972");
+  assert.throws(() => parseVehicleDetail({ error: false, data: { Vozilo: list.data.Vozila[0] } }, "972", "13"));
+  assert.throws(() => parseVehicles({ error: false, data: { Vozila: [{ Vozila: { stranka_id: 12 } }] } }));
+});
 
 test("customer response projects only documented fields and rejects malformed envelopes", () => {
   assert.deepEqual(parseCustomers({ error: false, data: { Stranke: [{ Stranka: { id: "12", naziv: " Ana ", telst: "040 123", emajl: "A@example.test" } }] } }), [
@@ -38,4 +50,10 @@ test("fingerprint is stable across superficial formatting but detects changes", 
   const a = { id: "12", name: "Ana Novak", phone: "040 123", email: "A@example.test" };
   assert.equal(customerFingerprint(a), customerFingerprint({ ...a, name: " ana  novak ", email: "a@EXAMPLE.test" }));
   assert.notEqual(customerFingerprint(a), customerFingerprint({ ...a, phone: "040 999" }));
+});
+
+test("vehicle fingerprint tracks VIN, registration and model changes", () => {
+  const a = { vin: "wtest123", registration: "lj-01", make: "Test", model: "A" };
+  assert.equal(vehicleFingerprint(a), vehicleFingerprint({ ...a, vin: " WTEST123 ", registration: "LJ-01" }));
+  assert.notEqual(vehicleFingerprint(a), vehicleFingerprint({ ...a, model: "B" }));
 });
