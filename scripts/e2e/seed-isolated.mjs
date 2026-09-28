@@ -85,14 +85,20 @@ await insert("integration_links", { organization_id: org, provider: "quibi", ent
   entity_id: linkedCustomer, external_id: "2001", local_fingerprint: fingerprint("Bor Preizkus", "+38640333444", "bor@example.test"),
   external_fingerprint: fingerprint("Bor Preizkus", "+38640333444", "bor@example.test"), confirmed_by: owner.id });
 
-// Test the public RPC under the actual anon key, before the browser route wraps errors.
+// The browser must not call the intake RPC directly. Verify the privilege
+// boundary, then seed through the same server credential as the route.
 const anon = createClient(E2E_API_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
-const { data: webProbe, error: webError } = await anon.rpc("create_web_service_request_intake", {
+const webArgs = {
   p_client_request_id: randomUUID(), p_display_name: "Izolirani spletni RPC preizkus",
-  p_phone: "+38640777333", p_problem_description: "Anonimni integracijski preizkus",
-});
+  p_phone: "+38640777333", p_problem_description: "Strežniški integracijski preizkus",
+};
+const { error: anonError } = await anon.rpc("create_web_service_request_intake", webArgs);
+if (anonError?.code !== "42501") {
+  throw new Error(`public intake anonymous grant: ${anonError?.code ?? "unexpected_access"}`);
+}
+const { data: webProbe, error: webError } = await db.rpc("create_web_service_request_intake", webArgs);
 if (webError || webProbe?.ok !== true) {
   throw new Error(`public intake RPC: ${webError?.code ?? webProbe?.error_code ?? "unexpected"}`);
 }
