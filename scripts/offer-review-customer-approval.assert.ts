@@ -27,7 +27,7 @@ function read(rel: string): string {
 }
 
 const MIGRATION =
-  "supabase/migrations/20260919140000_create_offer_review_customer_approval.sql";
+  "supabase/migrations/20260928175548_20260919140000_create_offer_review_customer_approval.sql";
 const sql = read(MIGRATION);
 const typesSrc = read("src/lib/offer-approval/types.ts");
 const constantsSrc = read("src/lib/offer-approval/constants.ts");
@@ -36,7 +36,7 @@ const phase9Doc = read("docs/offer-review-customer-approval-prep-v1.md");
 const dataModel = read("docs/data-model-auth-design-v1.md");
 const implPlan = read("docs/implementation-plan.md");
 const phase8Sql = read(
-  "supabase/migrations/20260917100000_create_offer_preparations.sql",
+  "supabase/migrations/20260928175331_20260917100000_create_offer_preparations.sql",
 );
 const buttonSrc = read("src/components/dashboard/PrepareOfferButton.tsx");
 const tableSrc = read("src/components/dashboard/ServiceOrderTable.tsx");

@@ -23,7 +23,7 @@ function read(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), "utf8");
 }
 
-const sql = read("supabase/migrations/20260917100000_create_offer_preparations.sql");
+const sql = read("supabase/migrations/20260928175331_20260917100000_create_offer_preparations.sql");
 const providerSrc = read("src/lib/offer-preparation/provider.ts");
 const actionsSrc = read("src/lib/offer-preparation/actions.ts");
 const canonicalSrc = read("src/lib/offer-preparation/canonical-input.ts");

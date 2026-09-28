@@ -14,22 +14,22 @@ fi
 
 M3_MIGRATIONS=(
   "20260912181715_secure_foundation_slice_a.sql"
-  "20260913174315_customers.sql"
-  "20260913174349_vehicles.sql"
-  "20260913174900_service_requests.sql"
+  "20260928173816_20260913174315_customers.sql"
+  "20260928175048_20260913174349_vehicles.sql"
+  "20260928175103_20260913174900_service_requests.sql"
 )
-M4_MIGRATION="20260913214500_create_manual_service_request_intake.sql"
+M4_MIGRATION="20260928175120_20260913214500_create_manual_service_request_intake.sql"
 LATER_MIGRATIONS=(
-  "20260914003000_appointments_foundation.sql"
-  "20260914024500_create_web_service_request_intake.sql"
-  "20260914033000_create_service_request_completion_links.sql"
-  "20260917100000_create_offer_preparations.sql"
-  "20260919140000_create_offer_review_customer_approval.sql"
-  "20260926120000_quibi_read_links.sql"
-  "20260927085839_manual_quibi_estimate_v1.sql"
-  "20260927101529_preliminary_inspection_v1.sql"
-  "20260927102728_manual_slot_offer_v1.sql"
-  "20260928163011_protect_public_web_intake_v1.sql"
+  "20260928175203_20260914003000_appointments_foundation.sql"
+  "20260928175302_20260914024500_create_web_service_request_intake.sql"
+  "20260928175317_20260914033000_create_service_request_completion_links.sql"
+  "20260928175331_20260917100000_create_offer_preparations.sql"
+  "20260928175548_20260919140000_create_offer_review_customer_approval.sql"
+  "20260928175600_20260926120000_quibi_read_links.sql"
+  "20260928175615_20260927085839_manual_quibi_estimate_v1.sql"
+  "20260928175644_20260927101529_preliminary_inspection_v1.sql"
+  "20260928175656_20260927102728_manual_slot_offer_v1.sql"
+  "20260928175707_20260928163011_protect_public_web_intake_v1.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"
