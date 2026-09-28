@@ -32,6 +32,20 @@ http.createServer((req, res) => {
       ...customer, naziv: mode === "changed" ? `${customer.naziv} spremenjen` : customer.naziv,
     } } } });
   }
+  if (url.pathname === "/api2/vozila" && req.method === "GET") {
+    return send(res, 200, { error: false, data: { Vozila: [{ Vozila: {
+      id: "5001", stranka_id: "2001", internastevilka: "TST00000000000006",
+      registrskastevilka: mode === "changed" ? "LJ QB2" : "LJ QB1",
+      proizvajalec: "Test", model: "Quibi", disabled: 0,
+    } }] } });
+  }
+  if (url.pathname === "/api2/vozila/view/5001" && req.method === "GET") {
+    return send(res, 200, { error: false, data: { Vozilo: { Vozila: {
+      id: "5001", stranka_id: "2001", internastevilka: "TST00000000000006",
+      registrskastevilka: mode === "changed" ? "LJ QB2" : "LJ QB1",
+      proizvajalec: "Test", model: "Quibi", disabled: 0,
+    } } } });
+  }
   if (["/api2/dn", "/api2/predracuni"].includes(url.pathname) && req.method === "POST") {
     const id = url.pathname === "/api2/dn" ? "3001" : "4001";
     return send(res, 200, { error: false, data: { Dokumenti: [

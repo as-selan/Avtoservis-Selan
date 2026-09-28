@@ -135,6 +135,22 @@ test("manual Quibi confirmation requires an explicit match and prevents duplicat
   await expect(page.getByText("Potrjena povezava: Quibi #2002")).toBeVisible();
 });
 
+test("vehicle ID needs manual confirmation and later drift is visible", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "One shared synthetic vehicle is linked once.");
+  await login(page, seed.owner);
+  await page.goto(`/dashboard/stranke/${seed.linkedCustomer}/quibi`);
+  await expect(page.getByText(/Quibi #5001/).first()).toBeVisible();
+  await expect(page.getByText(/TST00000000000006/).first()).toBeVisible();
+  await page.getByRole("checkbox", { name: "Preveril sem, da gre za isto vozilo." }).check();
+  await page.getByRole("button", { name: "Poveži vozili" }).click();
+  await expect(page.getByText(/Selan LJ QB1 ↔ Quibi #5001/)).toBeVisible();
+  await page.getByRole("button", { name: "Ponovno preveri vozilo" }).click();
+  await expect(page.getByRole("status")).toContainText("Povezava vozila je znova preverjena");
+  await fixtureMode("changed");
+  await page.getByRole("button", { name: "Ponovno preveri vozilo" }).click();
+  await expect(page.getByText(/Podatki vozila so se spremenili/)).toBeVisible();
+});
+
 test("manual estimate ID is linked only after a live Quibi read", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "One verified synthetic estimate is linked once.");
   await login(page, seed.owner);
