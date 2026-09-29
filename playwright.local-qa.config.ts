@@ -19,8 +19,8 @@ export default defineConfig({
     timezoneId: "Europe/Ljubljana",
   },
   projects: [
-    { name: "desktop-chrome-local", use: { ...devices["Desktop Chrome"], channel: "chrome", viewport: { width: 1440, height: 900 } } },
-    { name: "mobile-chrome-local", use: { ...devices["Pixel 7"], channel: "chrome" } },
+    { name: "desktop-chromium", use: { ...devices["Desktop Chrome"], channel: "chrome", viewport: { width: 1440, height: 900 } } },
+    { name: "mobile-chromium", use: { ...devices["Pixel 7"], channel: "chrome" } },
   ],
   webServer: {
     command: "npm run start -- --hostname 127.0.0.1 --port 3001",

@@ -104,7 +104,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
-      fixedPriceStatus: fixedPrice?.status });
+      fixedPriceStatus: fixedPrice?.status,
+      inspectionRepairDecision: inspectionResult.data?.repair_decision });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
 
     return <div className="space-y-5">
@@ -174,7 +175,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       </div>
       {fixedPriceEnabled && (fixedPrice || (request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
         <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} />}
-      {!fixedPrice && <PreliminaryInspection serviceRequestId={serviceRequestId}
+      {!fixedPrice && (inspectionResult.data || ["new", "preparing_offer"].includes(request.status)) &&
+        <PreliminaryInspection serviceRequestId={serviceRequestId} caseStatus={request.status}
         status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}
         findings={inspectionResult.data?.findings ?? null}
         repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} />}

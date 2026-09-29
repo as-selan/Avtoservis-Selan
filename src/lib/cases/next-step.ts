@@ -2,7 +2,7 @@ export type CaseStepKind =
   | "verify_intake" | "request_data" | "link_quibi" | "review_quibi_mismatch" | "prepare_offer"
   | "manual_quibi_estimate" | "review_estimate" | "revise_estimate" | "send_estimate"
   | "await_customer" | "manual_scheduling"
-  | "manual_external_handoff" | "closed";
+  | "manual_external_handoff" | "manual_inspection_billing" | "closed";
 
 export type CaseStep = { kind: CaseStepKind; label: string; externalConfirmed: false };
 
@@ -15,8 +15,13 @@ export function nextCaseStep(input: {
   deliveryStatus?: string;
   customerDecision?: string | null;
   fixedPriceStatus?: string | null;
+  inspectionRepairDecision?: string | null;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
+  if (input.inspectionRepairDecision === "not_ordered") {
+    return step("manual_inspection_billing",
+      "Popravilo ni naročeno: predhodni pregled je plačljiv. Znesek, račun in plačilo preverite ročno v Quibiju; tukaj niso potrjeni.");
+  }
   switch (input.status) {
     case "needs_data": return step("request_data", "Zahtevaj manjkajoče podatke in nadaljuj isti primer.");
     case "new": return step("verify_intake", "Preveri stranko, vozilo in podatke povpraševanja.");

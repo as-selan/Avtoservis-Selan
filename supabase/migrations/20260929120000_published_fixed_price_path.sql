@@ -58,6 +58,7 @@ declare
   v_reference text := btrim(coalesce(p_reference,''));
 begin
   if v_actor is null or v_org is null or p_service_request_id is null
+     or p_action is null
      or p_action not in ('prepare','approve','communicate','accept','reject') then
     return jsonb_build_object('ok',false,'error_code','forbidden_or_invalid');
   end if;
@@ -80,7 +81,8 @@ begin
        or exists (select 1 from public.preliminary_inspections i where i.organization_id=v_org and i.service_request_id=p_service_request_id)
        or char_length(btrim(coalesce(p_service_label,''))) not between 4 and 200
        or p_final_price_eur is null or p_final_price_eur <= 0
-       or p_final_price_eur <> p_final_price_eur::numeric(12,2)
+       or p_final_price_eur >= 10000000000
+       or p_final_price_eur <> trunc(p_final_price_eur,2)
        or p_published_url is null or p_published_url !~ '^https://[^[:space:]]{4,500}$' then
       return jsonb_build_object('ok',false,'error_code','not_eligible');
     end if;
@@ -203,3 +205,40 @@ create trigger quotes_prevent_mixed_price_path before insert on public.quotes
   for each row execute function private.prevent_mixed_price_paths();
 create trigger inspections_prevent_mixed_price_path before insert on public.preliminary_inspections
   for each row execute function private.prevent_mixed_price_paths();
+
+-- Existing inspection RPC locks the request but previously did not check its
+-- lifecycle stage. Guard direct and RPC writes alike so a closed case cannot
+-- acquire a new inspection, while an existing inspection can record the later
+-- actual repair decision after the customer's quote response.
+create or replace function private.guard_preliminary_inspection_case_stage()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare v_status text;
+begin
+  select sr.status into v_status from public.service_requests sr
+    where sr.organization_id = new.organization_id
+      and sr.id = new.service_request_id and sr.archived_at is null
+    for update;
+  if not found then raise exception 'active service case required for inspection'
+    using errcode = '23514'; end if;
+  if tg_op = 'INSERT' then
+    if v_status not in ('new','preparing_offer') then
+      raise exception 'case stage does not allow a new inspection' using errcode = '23514';
+    end if;
+  elsif new.status is distinct from old.status and new.status = 'completed' then
+    if v_status not in ('new','preparing_offer') then
+      raise exception 'case stage does not allow inspection completion' using errcode = '23514';
+    end if;
+  elsif new.repair_decision is distinct from old.repair_decision then
+    if v_status not in ('new','preparing_offer','awaiting_customer_approval',
+                        'awaiting_slot_selection','declined') then
+      raise exception 'case stage does not allow repair decision' using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.guard_preliminary_inspection_case_stage()
+  from public,anon,authenticated;
+create trigger inspections_guard_case_stage before insert or update
+  on public.preliminary_inspections for each row
+  execute function private.guard_preliminary_inspection_case_stage();

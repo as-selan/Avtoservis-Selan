@@ -36,3 +36,10 @@ test("published final price uses a distinct human review and decision path", () 
   assert.equal(nextCaseStep({ status: "declined", offerPrepared: false, quibiLinked: false,
     fixedPriceStatus: "rejected" }).kind, "closed");
 });
+
+test("declined repair after inspection remains visible as a manual billing task", () => {
+  const step = nextCaseStep({ status: "declined", offerPrepared: false, quibiLinked: false,
+    inspectionRepairDecision: "not_ordered" });
+  assert.equal(step.kind, "manual_inspection_billing");
+  assert.equal(step.externalConfirmed, false);
+});
