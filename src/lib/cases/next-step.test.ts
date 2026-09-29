@@ -25,3 +25,14 @@ test("confirmed internal appointment never claims external calendar sync", () =>
   assert.equal(step.kind, "manual_external_handoff");
   assert.equal(step.externalConfirmed, false);
 });
+
+test("published final price uses a distinct human review and decision path", () => {
+  assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: false, quibiLinked: false,
+    fixedPriceStatus: "prepared" }).kind, "review_estimate");
+  assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: false, quibiLinked: false,
+    fixedPriceStatus: "approved" }).kind, "send_estimate");
+  assert.equal(nextCaseStep({ status: "awaiting_customer_approval", offerPrepared: false, quibiLinked: false,
+    fixedPriceStatus: "communicated" }).kind, "await_customer");
+  assert.equal(nextCaseStep({ status: "declined", offerPrepared: false, quibiLinked: false,
+    fixedPriceStatus: "rejected" }).kind, "closed");
+});

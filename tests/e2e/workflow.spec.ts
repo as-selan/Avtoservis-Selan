@@ -11,6 +11,11 @@ if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1" || !path
   throw new Error("Playwright E2E requires disposable CI fixtures");
 }
 const seed = JSON.parse(readFileSync(path, "utf8")) as Seed;
+const fixtureOrigin = process.env.SELAN_E2E_FIXTURE_ORIGIN ?? "http://127.0.0.1:47862";
+const appOrigin = process.env.SELAN_E2E_APP_ORIGIN ?? "http://127.0.0.1:3000";
+for (const origin of [fixtureOrigin, appOrigin]) {
+  if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) throw new Error("E2E origin must be loopback");
+}
 
 async function login(page: Page, email: string) {
   await page.goto("/login");
@@ -20,7 +25,7 @@ async function login(page: Page, email: string) {
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 }
 async function fixtureMode(mode: "normal" | "changed" | "error") {
-  const response = await fetch(`http://127.0.0.1:47862/__control?mode=${mode}`, { method: "POST" });
+  const response = await fetch(`${fixtureOrigin}/__control?mode=${mode}`, { method: "POST" });
   expect(response.ok).toBeTruthy();
 }
 async function noHorizontalOverflow(page: Page) {
@@ -289,7 +294,7 @@ test("missing data link completes the original case without exposing the token i
   await page.goto(`/dashboard/primeri/${caseId}`);
   await page.getByRole("button", { name: "Ustvari povezavo za dopolnitev" }).click();
   const link = await page.getByRole("textbox", { name: "Povezava za dopolnitev" }).inputValue();
-  expect(link).toMatch(/^http:\/\/127\.0\.0\.1:3000\/dopolnitev#token=/);
+  expect(link).toMatch(new RegExp(`^${appOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/dopolnitev#token=`));
 
   await page.goto(link);
   await expect(page).not.toHaveURL(/#token=/);

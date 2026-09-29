@@ -3,6 +3,8 @@ import http from "node:http";
 if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1") {
   throw new Error("Quibi fixture runs only in isolated CI");
 }
+const port = Number(process.env.SELAN_E2E_FIXTURE_PORT ?? "47862");
+if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Invalid fixture port");
 let mode = "normal";
 const customers = [
   { id: "2001", naziv: "Bor Preizkus", telst: "+38640333444", emajl: "bor@example.test" },
@@ -13,7 +15,7 @@ const send = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 http.createServer((req, res) => {
-  const url = new URL(req.url ?? "/", "http://127.0.0.1:47862");
+  const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
   if (url.pathname === "/__control" && req.method === "POST") {
     const next = url.searchParams.get("mode");
     if (!["normal", "changed", "error"].includes(next)) return send(res, 400, { error: true });
@@ -60,4 +62,4 @@ http.createServer((req, res) => {
     }] } });
   }
   return send(res, 404, { error: true });
-}).listen(47862, "127.0.0.1", () => console.log("Isolated Quibi read fixture ready on loopback."));
+}).listen(port, "127.0.0.1", () => console.log("Isolated Quibi read fixture ready on loopback."));

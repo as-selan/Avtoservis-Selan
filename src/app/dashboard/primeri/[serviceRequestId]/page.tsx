@@ -11,8 +11,12 @@ import { ReviewManualEstimate } from "@/components/dashboard/ReviewManualEstimat
 import { ManualEstimateHandoff } from "@/components/dashboard/ManualEstimateHandoff";
 import { PreliminaryInspection } from "@/components/dashboard/PreliminaryInspection";
 import { ManualSlotOffer } from "@/components/dashboard/ManualSlotOffer";
+import { PublishedFinalPrice } from "@/components/dashboard/PublishedFinalPrice";
+import { configuredQuibiReadClient } from "@/lib/quibi/client";
+import { verifiedCasePrice } from "@/lib/quibi/price-suggestion";
 
 export const dynamic = "force-dynamic";
+const fixedPriceEnabled = process.env.SELAN_FIXED_PRICE_V1 === "1";
 
 const unavailable = <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">Primera trenutno ni mogoče prikazati.</div>;
 
@@ -28,7 +32,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       .is("archived_at", null).maybeSingle();
     if (requestError || !request) return unavailable;
 
-    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult] = await Promise.all([
+    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult] = await Promise.all([
       request.customer_id ? db.from("customers").select("id, display_name, phone, email")
         .eq("organization_id", access.organizationId).eq("id", request.customer_id)
         .is("archived_at", null).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -41,7 +45,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         .eq("organization_id", access.organizationId).eq("provider", "quibi")
         .eq("entity_type", "customer").eq("entity_id", request.customer_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      db.from("quotes").select("id, version_no, internal_review_status, evidence_kind, evidence_payload")
+      db.from("quotes").select("id, version_no, internal_review_status, evidence_kind, evidence_payload, content_sha256")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("version_no", { ascending: false }).limit(1),
       db.from("appointments").select("id, status, appointment_type, starts_at, ends_at")
@@ -55,14 +59,23 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       db.from("manual_slot_offers").select("id, appointment_type, status, slot_1, slot_2, slot_3, selected_slot, availability_reference, offer_reference, response_reference, booking_reference")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .neq("status", "cancelled"),
+      fixedPriceEnabled ? db.from("published_fixed_price_cases").select("status, service_label, final_price_eur, published_url, communication_reference, decision_reference")
+        .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      request.vehicle_id ? db.from("quibi_vehicle_links")
+        .select("quibi_customer_id, quibi_vehicle_id, local_fingerprint, external_fingerprint, sync_status")
+        .eq("organization_id", access.organizationId).eq("vehicle_id", request.vehicle_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
-    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult].some((result) => result.error)) return unavailable;
+    if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
     const prep = prepResult.data;
     const link = linkResult.data;
     const quote = quoteResult.data?.[0] ?? null;
+    const fixedPrice = fixedPriceResult.data;
+    const vehicleLink = vehicleLinkResult.data;
     const quoteEvidence = quote?.evidence_payload as { external_id?: unknown } | null;
     const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
@@ -72,9 +85,26 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
     const diagnosisOffer = slotOffersResult.data?.find((item) => item.appointment_type === "diagnosis") ?? null;
     const serviceOffer = slotOffersResult.data?.find((item) => item.appointment_type === "service") ?? null;
+    let proposedPrice: ReturnType<typeof verifiedCasePrice> = null;
+    let priceReadFailed = false;
+    if (quote && link?.sync_status === "ok" && quibiEstimateId && vehicle && vehicleLink) {
+      try {
+        const quibi = configuredQuibiReadClient();
+        const remoteVehicle = await quibi.vehicle(vehicleLink.quibi_vehicle_id, link.external_id);
+        const listed = await quibi.estimates(link.external_id);
+        if (listed.some((document) => document.id === quibiEstimateId)) {
+          proposedPrice = verifiedCasePrice({ quote, customerId: link.external_id,
+            detail: await quibi.estimateDetail(quibiEstimateId, link.external_id),
+            localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
+              make: vehicle.make ?? "", model: vehicle.model ?? "" },
+            remoteVehicle, vehicleLink });
+        }
+      } catch { priceReadFailed = true; }
+    }
     const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
-      deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision });
+      deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
+      fixedPriceStatus: fixedPrice?.status });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
 
     return <div className="space-y-5">
@@ -114,11 +144,18 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Quibi in predračun</h2>
           {customer && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
-          {request.status === "preparing_offer" && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
-          {request.status === "preparing_offer" && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" &&
+          {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
+          {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
+            : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
+          {proposedPrice && <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm">
+            <p className="font-semibold">{proposedPrice.state === "approved" ? "Tadejeva potrjena cena predračuna" : "Predlagana cena iz Quibijevega predračuna"}: {Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}</p>
+            <p>Vir: Quibijev predračun #{proposedPrice.sourceId}, ročno povezan s tem primerom. Stranka in vozilo sta preverjeno povezana; Quibi ne potrjuje, da dokument pripada prav temu delovnemu nalogu. Tadejev pregled je obvezen. Končna cena računa ni potrjena.</p>
+          </div>}
+          {quote && !proposedPrice && <p role="alert" className="text-sm text-amber-800">{priceReadFailed ? "Predloga cene ni mogoče sveže prebrati iz Quibija." : "Cene ni varno predlagati: preverite povezavo stranke, dokument, vozilo in morebitne spremembe."} Povezava dokumenta s konkretnim vozilom in delovnim nalogom zahteva ročno potrditev.</p>}
+          {!quote && link && !fixedPrice && <p className="text-xs text-amber-800">Quibijevi dokumenti stranke so lahko kandidati, vendar API ne potrjuje ujemanja storitve, vozila in delovnega naloga s tem primerom. Cene zato še ni varno samodejno predlagati.</p>}
           {customer && quibiEstimateId && <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi/predracuni/${quibiEstimateId}`}>
             Odpri dejanski Quibijev predračun #{quibiEstimateId} →
           </Link>}
@@ -135,10 +172,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <p className="text-xs text-amber-800">Google Koledar in MyPlanly nista avtomatsko potrjena. Zunanje usklajevanje opravite in preverite ročno.</p>
         </section>
       </div>
-      <PreliminaryInspection serviceRequestId={serviceRequestId}
+      {fixedPriceEnabled && (fixedPrice || (request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
+        <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} />}
+      {!fixedPrice && <PreliminaryInspection serviceRequestId={serviceRequestId}
         status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}
         findings={inspectionResult.data?.findings ?? null}
-        repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} />
+        repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} />}
       {(inspectionResult.data?.status === "requested" || diagnosisOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" offer={diagnosisOffer} />}
       {(request.status === "awaiting_slot_selection" || serviceOffer) &&

@@ -3,6 +3,11 @@ import { createHash, randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 
 const { E2E_API_URL, E2E_SERVICE_ROLE_KEY, E2E_PASSWORD, E2E_FIXTURES_PATH } = process.env;
+const manual = process.env.SELAN_MANUAL_SEED === "1";
+const appOrigin = process.env.SELAN_E2E_APP_ORIGIN ?? "http://127.0.0.1:3000";
+if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(appOrigin)) {
+  throw new Error("E2E app origin must be loopback");
+}
 if (!E2E_API_URL || !E2E_SERVICE_ROLE_KEY || !E2E_PASSWORD || !E2E_FIXTURES_PATH ||
     !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
   throw new Error("E2E local seed configuration is incomplete");
@@ -15,6 +20,9 @@ if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1") {
   throw new Error("Refusing to seed outside isolated CI");
 }
 
+if (manual && (target.port !== "55421" || process.env.SELAN_MANUAL_QA !== "1")) {
+  throw new Error("Manual seed requires the isolated QA API on port 55421");
+}
 const db = createClient(E2E_API_URL, E2E_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -23,7 +31,7 @@ async function insert(table, row) {
   if (error) throw new Error(`${table}: ${error.code ?? "insert_failed"}`);
 }
 async function user(role) {
-  const email = `selan-e2e-${role}@example.test`;
+  const email = `selan-${manual ? "manual" : "e2e"}-${role}@example.test`;
   const { data, error } = await db.auth.admin.createUser({
     email, password: E2E_PASSWORD, email_confirm: true,
   });
@@ -39,19 +47,28 @@ const owner = await user("owner");
 const reception = await user("reception");
 const mechanic = await user("mechanic");
 const foreign = await user("foreign");
-const invitedEmail = "selan-e2e-invited@example.test";
+const invitedEmail = manual ? "selan-manual-invited@example.test" : "selan-e2e-invited@example.test";
 const { data: invited, error: inviteError } = await db.auth.admin.generateLink({
   type: "invite", email: invitedEmail,
-  options: { redirectTo: "http://127.0.0.1:3000/auth/accept-invite" },
+  options: { redirectTo: `${appOrigin}/auth/accept-invite` },
 });
 if (inviteError || !invited.user || !invited.properties?.action_link) {
   throw new Error(`auth invite fixture: ${inviteError?.code ?? "generate_failed"}`);
 }
+if (manual) {
+  const { data: prior, error: lookupError } = await db.from("organizations")
+    .select("id").eq("slug", "avtoservis-selan").single();
+  if (lookupError || !prior) throw new Error("Missing isolated E2E organization before manual seed");
+  const { data: renamed, error: renameError } = await db.from("organizations")
+    .update({ slug: "avtoservis-selan-e2e-finished" })
+    .eq("id", prior.id).eq("slug", "avtoservis-selan").select("id").single();
+  if (renameError || !renamed) throw new Error("Could not transfer local intake slug to fresh manual organization");
+}
 const org = randomUUID();
 const otherOrg = randomUUID();
 await insert("organizations", [
-  { id: org, name: "Selan isolated E2E", slug: "avtoservis-selan" },
-  { id: otherOrg, name: "Other isolated E2E", slug: "other-e2e" },
+  { id: org, name: manual ? "Selan manual QA" : "Selan isolated E2E", slug: "avtoservis-selan" },
+  { id: otherOrg, name: manual ? "Other manual QA" : "Other isolated E2E", slug: manual ? "other-manual" : "other-e2e" },
 ]);
 await insert("organization_memberships", [
   { organization_id: org, profile_id: owner.id, role: "owner" },
@@ -96,6 +113,7 @@ await insert("integration_links", { organization_id: org, provider: "quibi", ent
 
 // The browser must not call the intake RPC directly. Verify the privilege
 // boundary, then seed through the same server credential as the route.
+if (!manual) {
 const anon = createClient(E2E_API_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -112,9 +130,10 @@ if (webError || webProbe?.ok !== true) {
   throw new Error(`public intake RPC: ${webError?.code ?? webProbe?.error_code ?? "unexpected"}`);
 }
 
+}
 await writeFile(E2E_FIXTURES_PATH, JSON.stringify({
   owner: owner.email, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
   invitedEmail, inviteActionLink: invited.properties.action_link,
   customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases,
 }), { mode: 0o600 });
-console.log("Isolated E2E users and synthetic business records seeded on loopback.");
+console.log(manual ? "Fresh manual QA records seeded on isolated loopback." : "Isolated E2E users and synthetic business records seeded on loopback.");
