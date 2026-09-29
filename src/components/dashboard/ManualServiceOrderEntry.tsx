@@ -66,7 +66,6 @@ export function ManualServiceOrderEntry() {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<IntakeCustomerCandidate[]>([]);
   const [selectedCustomer, setSelectedCustomer] =
     useState<IntakeCustomerCandidate | null>(null);
@@ -106,7 +105,6 @@ export function ManualServiceOrderEntry() {
     setForm(INITIAL);
     setErrors({});
     setFormError(null);
-    setSuccessMessage(null);
     setCandidates([]);
     setSelectedCustomer(null);
     setSelectedVehicleId(null);
@@ -196,7 +194,6 @@ export function ManualServiceOrderEntry() {
 
     setErrors({});
     setFormError(null);
-    setSuccessMessage(null);
 
     startSubmitTransition(async () => {
       const result = await createManualServiceRequestIntakeAction({
@@ -247,8 +244,8 @@ export function ManualServiceOrderEntry() {
       }
 
       resetLocalState({ rotateRequestId: true });
-      setSuccessMessage(result.message);
-      router.refresh();
+      setOpen(false);
+      router.push(`/dashboard/primeri/${result.result.serviceRequestId}`);
     });
   }
 
@@ -614,14 +611,6 @@ export function ManualServiceOrderEntry() {
               </div>
             ) : null}
 
-            {successMessage ? (
-              <div
-                role="status"
-                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900"
-              >
-                {successMessage}
-              </div>
-            ) : null}
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-4 py-3 sm:flex-row sm:justify-end sm:px-5">

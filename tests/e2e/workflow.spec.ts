@@ -259,7 +259,8 @@ test("manual phone intake explicitly reuses the selected customer and vehicle", 
   await expect(dialog.getByText(/Izbrana stranka: Ana Preizkus.*izbrano vozilo/)).toBeVisible();
   await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Preizkus telefonskega sprejema");
   await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
-  await expect(dialog.getByRole("status")).toContainText("Povpraševanje je shranjeno");
+  await expect(page).toHaveURL(/\/dashboard\/primeri\/[0-9a-f-]{36}$/);
+  await expect(dialog).not.toBeVisible();
 });
 
 test("manual intake creates a new customer and vehicle for the same case", async ({ page }, testInfo) => {
@@ -278,8 +279,8 @@ test("manual intake creates a new customer and vehicle for the same case", async
   await dialog.getByRole("textbox", { name: "Model" }).fill("Novo");
   await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Pregled vozila v izoliranem testu");
   await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
-  await expect(dialog.getByRole("status")).toContainText("Povpraševanje je shranjeno");
-  await dialog.getByRole("button", { name: "Zapri" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/primeri\/[0-9a-f-]{36}$/);
+  await expect(dialog).not.toBeVisible();
   await page.goto("/dashboard/stranke");
   await page.getByRole("searchbox", { name: /Išči po imenu/ }).fill(phone);
   await page.getByRole("link", { name }).click();
