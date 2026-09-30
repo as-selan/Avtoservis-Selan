@@ -12,6 +12,7 @@ import { ManualEstimateHandoff } from "@/components/dashboard/ManualEstimateHand
 import { PreliminaryInspection } from "@/components/dashboard/PreliminaryInspection";
 import { ManualSlotOffer } from "@/components/dashboard/ManualSlotOffer";
 import { PublishedFinalPrice } from "@/components/dashboard/PublishedFinalPrice";
+import { ReviewIntakeButton } from "@/components/dashboard/ReviewIntakeButton";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { verifiedCasePrice } from "@/lib/quibi/price-suggestion";
 
@@ -105,7 +106,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
-      inspectionRepairDecision: inspectionResult.data?.repair_decision });
+      inspectionRepairDecision: inspectionResult.data?.repair_decision,
+      slotOfferStatus: serviceOffer?.status });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
 
     return <div className="space-y-5">
@@ -117,8 +119,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
         <h2 className="font-semibold text-blue-950">Naslednji korak</h2>
         <p className="mt-1 text-sm text-blue-900">{step.label}</p>
-        {request.next_action && <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
+        {request.next_action && ["new", "needs_data", "preparing_offer"].includes(request.status) &&
+          !inspectionResult.data?.repair_decision &&
+          <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
       </section>
+      {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
+        ["owner", "admin"].includes(access.role) &&
+        <ReviewIntakeButton serviceRequestId={serviceRequestId} />}
       {(request.has_error || request.attention_needed || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>
         {request.has_error && <p>{request.error_reason || "Primer ima zabeleženo napako."}</p>}
@@ -144,7 +151,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Quibi in predračun</h2>
-          {customer && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
+          {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}

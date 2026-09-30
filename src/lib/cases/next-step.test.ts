@@ -26,6 +26,14 @@ test("confirmed internal appointment never claims external calendar sync", () =>
   assert.equal(step.externalConfirmed, false);
 });
 
+test("selected manual slot asks for the real external booking instead of repeating the offer", () => {
+  const step = nextCaseStep({ status: "awaiting_slot_selection", offerPrepared: true,
+    quibiLinked: false, slotOfferStatus: "selected" });
+  assert.equal(step.kind, "manual_scheduling");
+  assert.match(step.label, /rezerviraj/i);
+  assert.equal(step.externalConfirmed, false);
+});
+
 test("published final price uses a distinct human review and decision path", () => {
   assert.equal(nextCaseStep({ status: "preparing_offer", offerPrepared: false, quibiLinked: false,
     fixedPriceStatus: "prepared" }).kind, "review_estimate");
@@ -42,4 +50,11 @@ test("declined repair after inspection remains visible as a manual billing task"
     inspectionRepairDecision: "not_ordered" });
   assert.equal(step.kind, "manual_inspection_billing");
   assert.equal(step.externalConfirmed, false);
+});
+
+test("ordered repair after inspection returns to explicit intake review", () => {
+  const step = nextCaseStep({ status: "new", offerPrepared: false, quibiLinked: false,
+    inspectionRepairDecision: "ordered" });
+  assert.equal(step.kind, "verify_intake");
+  assert.match(step.label, /naročenem popravilu/);
 });

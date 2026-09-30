@@ -16,6 +16,7 @@ export function nextCaseStep(input: {
   customerDecision?: string | null;
   fixedPriceStatus?: string | null;
   inspectionRepairDecision?: string | null;
+  slotOfferStatus?: string | null;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
   if (input.inspectionRepairDecision === "not_ordered") {
@@ -24,7 +25,9 @@ export function nextCaseStep(input: {
   }
   switch (input.status) {
     case "needs_data": return step("request_data", "Zahtevaj manjkajoče podatke in nadaljuj isti primer.");
-    case "new": return step("verify_intake", "Preveri stranko, vozilo in podatke povpraševanja.");
+    case "new": return step("verify_intake", input.inspectionRepairDecision === "ordered"
+      ? "Po naročenem popravilu je pregled brezplačen. Preveri podatke primera in izrecno sprejmi pripravo predračuna."
+      : "Preveri stranko, vozilo in podatke povpraševanja.");
     case "preparing_offer":
       if (input.fixedPriceStatus === "prepared") return step("review_estimate", "Tadej naj preveri objavljeno končno ceno in vir.");
       if (input.fixedPriceStatus === "approved") return step("send_estimate", "Odobreno končno ceno dejansko sporočite stranki in zabeležite dokazilo.");
@@ -43,7 +46,14 @@ export function nextCaseStep(input: {
     case "awaiting_customer_approval": return step("await_customer", input.fixedPriceStatus
       ? "Po dejanskem sporočilu objavljene cene počakajte na odločitev stranke."
       : "Po dejanski dostavi počakaj na odločitev stranke.");
-    case "awaiting_slot_selection": return step("manual_scheduling", "Ročno preveri tri možnosti v MyPlanlyju, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
+    case "awaiting_slot_selection":
+      if (input.slotOfferStatus === "selected") return step("manual_scheduling",
+        "Stranka je izbrala termin. Rezerviraj ga v MyPlanlyju in zabeleži dejansko referenco; rezervacija še ni potrjena.");
+      if (input.slotOfferStatus === "offered") return step("manual_scheduling",
+        "Tri možnosti so bile ročno poslane. Počakaj na dejansko izbiro stranke; termini še niso rezervirani.");
+      if (input.slotOfferStatus === "proposed") return step("manual_scheduling",
+        "Tri možnosti so pripravljene. Po dejanskem pošiljanju stranki zabeleži referenco; termini še niso rezervirani.");
+      return step("manual_scheduling", "Ročno preveri tri možnosti v MyPlanlyju, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
     case "appointment_confirmed": return step("manual_external_handoff", "Interni termin temelji na ročno zabeleženi rezervaciji v MyPlanlyju. Google Koledar ni samodejno usklajen.");
     case "declined": return step("closed", "Stranka je zavrnila storitev. Primer je zaključen brez termina.");
     default: return step("closed", "Preveri stanje primera in morebitne odprte napake.");
