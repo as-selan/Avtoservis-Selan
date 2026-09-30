@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type Action = "prepare" | "approve" | "communicate" | "accept" | "reject";
 type Result = { ok: true; status: string } | { ok: false; message: string };
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const messages: Record<string, string> = {
   not_eligible: "Primer ni pripravljen za izjemo z objavljeno končno ceno. Preverite podatke, pregled in obstoječe predračune.",
   already_prepared: "Za ta primer je že zabeležena druga objavljena cena. Spremembo naj pregleda skrbnik.",

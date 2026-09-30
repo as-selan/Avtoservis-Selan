@@ -27,7 +27,8 @@ function json(body: unknown, status = 200): NextResponse {
 
 export async function POST(request: NextRequest) {
   const origin = trustedPublicRequestOrigin(process.env.PUBLIC_APP_ORIGIN, request.nextUrl.origin,
-    process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1");
+    (process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1") ||
+      process.env.SELAN_LOCAL_REVIEW === "1");
   if (!origin || !isSameOriginRequest(request, origin)) {
     return json(publicCompletionUnavailable(), 400);
   }

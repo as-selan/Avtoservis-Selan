@@ -45,7 +45,8 @@ export async function issueCompletionLinkAction(
 
   const origin = configuredCompletionOrigin(
     process.env.COMPLETION_PUBLIC_ORIGIN,
-    process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1",
+    (process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1") ||
+      process.env.SELAN_LOCAL_REVIEW === "1",
   );
   if (!origin) return { ok: false, message: issueErrorMessage("unexpected") };
 

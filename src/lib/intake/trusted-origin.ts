@@ -4,8 +4,8 @@ import { configuredCompletionOrigin } from "../completion/origin";
 export function trustedPublicRequestOrigin(
   configured: string | undefined,
   nextOrigin: string,
-  isolatedCi: boolean,
+  isolatedLocal: boolean,
 ): string | null {
   if (configured === undefined) return nextOrigin;
-  return configuredCompletionOrigin(configured, isolatedCi);
+  return configuredCompletionOrigin(configured, isolatedLocal);
 }
