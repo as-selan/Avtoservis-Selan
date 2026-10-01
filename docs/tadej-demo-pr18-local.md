@@ -6,7 +6,7 @@ Odprite `http://127.0.0.1:3001/login` in se prijavite s sintetičnim lastnikom. 
 
 1. Na strani za spletno povpraševanje oddajte novo povpraševanje. V nadzorni plošči odprite nov primer. Za telefonski sprejem ustvarite drugi, ločen primer in po potrebi ponovno uporabite obstoječo stranko in vozilo.
 2. Dopolnite manjkajoče podatke na istem primeru. Tadej nato v razdelku **Tadejev pregled sprejema** preveri stranko, vozilo in storitev ter izrecno klikne **Sprejmi primer za pripravo ponudbe**.
-3. Pri običajnem predračunu odprite Quibi stranko, preverite povezavo stranke in vozila ter dokument. Ročno povežite ID predračuna s primerom. Aplikacija pokaže predlagano ceno samo, če se ujemajo ID-ji in sveži odtisi stranke, vozila ter dokumenta. Tadej odpre postavke in potrdi ceno; to še ni končna cena računa.
+3. Pri običajnem predračunu odprite pripravljeni sintetični primer `#90238232`. Pokažite povezavo Quibi stranke, vozila in dokumenta ter predlagano ceno iz predračuna. Tadej odpre postavke in potrdi ceno; to še ni končna cena računa. Isti Quibijev dokument se ne sme povezati z drugim primerom. Za povsem nov primer bo potreben njegov lasten dokument.
 4. Prikažite ročno evidentiranje pošiljanja in odgovora stranke. V predstavitvi uporabite izključno reference `QA-SIM-*`; nič se dejansko ne pošlje. Po sprejemu pokažite tri predlagane termine, evidentiranje izbire in jasno opozorilo, da termin še ni rezerviran v MyPlanlyju.
 
 ## Predhodni pregled

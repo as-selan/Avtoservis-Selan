@@ -5,9 +5,34 @@ import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess
 import { createClient } from "@/lib/supabase/server";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { customerFingerprint } from "@/lib/quibi/contracts";
+import { verifiedVehicleLink } from "@/lib/quibi/price-suggestion";
 
 type Result = { ok: true; quoteId: string; versionNo: number } | { ok: false; message: string };
 const error = (message: string): { ok: false; message: string } => ({ ok: false, message });
+
+async function caseVehicleIsCurrent(
+  db: Awaited<ReturnType<typeof createClient>>,
+  quibi: ReturnType<typeof configuredQuibiReadClient>,
+  organizationId: string, customerId: string, vehicleId: string | null,
+  externalCustomerId: string,
+): Promise<boolean> {
+  if (!vehicleId) return false;
+  const [{ data: vehicle, error: vehicleError }, { data: link, error: linkError }] = await Promise.all([
+    db.from("vehicles").select("vin, registration_current, make, model")
+      .eq("organization_id", organizationId).eq("id", vehicleId)
+      .eq("customer_id", customerId).is("archived_at", null).maybeSingle(),
+    db.from("quibi_vehicle_links")
+      .select("quibi_customer_id, quibi_vehicle_id, sync_status, local_fingerprint, external_fingerprint")
+      .eq("organization_id", organizationId).eq("customer_id", customerId)
+      .eq("vehicle_id", vehicleId).maybeSingle(),
+  ]);
+  if (vehicleError || linkError || !vehicle || !link || link.sync_status !== "ok") return false;
+  const remoteVehicle = await quibi.vehicle(link.quibi_vehicle_id, externalCustomerId);
+  return verifiedVehicleLink({ customerId: externalCustomerId,
+    localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
+      make: vehicle.make ?? "", model: vehicle.model ?? "" },
+    remoteVehicle, vehicleLink: link });
+}
 
 /** Registers a digest and ID only after re-reading the real estimate in Quibi. */
 export async function linkManualQuibiEstimate(serviceRequestId: string, estimateId: string): Promise<Result> {
@@ -17,7 +42,7 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
   }
   const db = await createClient();
   const { data: request, error: requestError } = await db.from("service_requests")
-    .select("customer_id, status").eq("organization_id", access.organizationId)
+    .select("customer_id, vehicle_id, status").eq("organization_id", access.organizationId)
     .eq("id", serviceRequestId).is("archived_at", null).maybeSingle();
   if (requestError || !request || request.status !== "preparing_offer" || !request.customer_id) {
     return error("Primer ni pripravljen za povezavo predračuna.");
@@ -44,6 +69,10 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
     if (customerFingerprint(remote) !== link.external_fingerprint) {
       return error("Podatki stranke v Quibiju so se spremenili. Ponovno preverite povezavo.");
     }
+    if (!await caseVehicleIsCurrent(db, quibi, access.organizationId, request.customer_id,
+      request.vehicle_id, link.external_id)) {
+      return error("Vozilo ni sveže potrjeno povezano s Quibijem. Preverite vozilo pred povezavo predračuna.");
+    }
     const listed = await quibi.estimates(link.external_id);
     if (!listed.some((item) => item.id === estimateId)) {
       return error("Predračun ni na seznamu potrjene Quibijeve stranke.");
@@ -67,7 +96,10 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
     p_content_sha256: digest,
     p_actor_id: access.userId,
   });
-  const payload = (data ?? {}) as { ok?: boolean; quote_id?: string; version_no?: number };
+  const payload = (data ?? {}) as { ok?: boolean; quote_id?: string; version_no?: number; error_code?: string };
+  if (!writeError && payload.error_code === "document_already_linked") {
+    return error("Ta Quibijev predračun je že povezan z drugim servisnim primerom. Preverite ID dokumenta.");
+  }
   if (writeError || payload.ok !== true || !payload.quote_id || !payload.version_no) {
     return error("Preverjenega predračuna ni bilo mogoče povezati. Poskusite znova.");
   }
@@ -93,7 +125,7 @@ export async function reviewManualQuibiEstimate(
     return error("Preverjen predračun ni na voljo.");
   }
   const { data: request } = await db.from("service_requests")
-    .select("customer_id, status").eq("organization_id", access.organizationId)
+    .select("customer_id, vehicle_id, status").eq("organization_id", access.organizationId)
     .eq("id", quote.service_request_id).is("archived_at", null).maybeSingle();
   if (!request || request.status !== "preparing_offer" || !request.customer_id) {
     return error("Primer ni več pripravljen za pregled cene.");
@@ -110,6 +142,10 @@ export async function reviewManualQuibiEstimate(
     const remote = await quibi.customer(link.external_id);
     if (customerFingerprint(remote) !== link.external_fingerprint) {
       return error("Quibijevi podatki stranke so se spremenili.");
+    }
+    if (!await caseVehicleIsCurrent(db, quibi, access.organizationId, request.customer_id,
+      request.vehicle_id, link.external_id)) {
+      return error("Vozilo ni več preverjeno povezano s Quibijem. Pred odobritvijo preverite vozilo.");
     }
     const detail = await quibi.estimateDetail(evidence.external_id, link.external_id);
     if (detail.contentSha256 !== quote.content_sha256 || detail.lines.length === 0) {
@@ -157,7 +193,7 @@ export async function recordManualEstimateDelivery(
     return error("Predračun še ni odobren za pošiljanje.");
   }
   const { data: request } = await db.from("service_requests")
-    .select("customer_id, status").eq("organization_id", access.organizationId)
+    .select("customer_id, vehicle_id, status").eq("organization_id", access.organizationId)
     .eq("id", quote.service_request_id).is("archived_at", null).maybeSingle();
   if (!request || request.status !== "preparing_offer" || !request.customer_id) {
     return error("Primer ni v stanju za prvo evidentiranje dostave.");
@@ -180,6 +216,10 @@ export async function recordManualEstimateDelivery(
     const remote = await quibi.customer(link.external_id);
     if (customerFingerprint(remote) !== link.external_fingerprint) {
       return error("Quibijevi podatki stranke so se spremenili.");
+    }
+    if (!await caseVehicleIsCurrent(db, quibi, access.organizationId, request.customer_id,
+      request.vehicle_id, link.external_id)) {
+      return error("Vozilo ni več preverjeno povezano s Quibijem. Pred dostavo preverite vozilo.");
     }
     const listed = await quibi.estimates(link.external_id);
     if (!listed.some((item) => item.id === evidence.external_id)) {

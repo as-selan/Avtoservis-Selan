@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { verifiedCasePrice, verifiedLinkedEstimatePrice } from "./price-suggestion.ts";
+import { verifiedCasePrice, verifiedLinkedEstimatePrice, verifiedVehicleLink } from "./price-suggestion.ts";
 import { vehicleFingerprint } from "./contracts.ts";
 
 const detail = {
@@ -43,4 +43,7 @@ test("case price requires the exact current customer and vehicle link", () => {
   assert.equal(verifiedCasePrice({ ...input, remoteVehicle: { ...remoteVehicle, id: "3002" } }), null);
   assert.equal(verifiedCasePrice({ ...input, vehicleLink: { ...vehicleLink, sync_status: "conflict" } }), null);
   assert.equal(verifiedCasePrice({ ...input, customerId: "2002" }), null);
+  assert.equal(verifiedVehicleLink(input), true);
+  assert.equal(verifiedVehicleLink({ ...input, remoteVehicle: { ...remoteVehicle, disabled: true } }), false);
+  assert.equal(verifiedVehicleLink({ ...input, vehicleLink: { ...vehicleLink, sync_status: "never_checked" } }), false);
 });

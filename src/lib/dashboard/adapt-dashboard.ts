@@ -57,8 +57,12 @@ function vehicleMakeModel(vehicle: VehicleRow | undefined): string {
 function nextActionLabel(
   nextAction: string | null,
   uiStatus: ServiceOrderDemo["status"],
+  dbStatus: string,
 ): string {
-  const trimmed = nextAction?.trim();
+  // Intake text is persisted before later state changes and must not be
+  // presented as the current action after approval or scheduling begins.
+  const trimmed = ["new", "needs_data", "preparing_offer"].includes(dbStatus)
+    ? nextAction?.trim() : null;
   if (trimmed) return trimmed;
   return WORKFLOW_STATUS_MAP[uiStatus].nextActionDefault;
 }
@@ -81,7 +85,7 @@ export function adaptServiceRequestToOrder(
     registration: vehicle?.registration_current?.trim() || undefined,
     requestSummary: row.summary,
     status: uiStatus,
-    nextActionLabel: nextActionLabel(row.next_action, uiStatus),
+    nextActionLabel: nextActionLabel(row.next_action, uiStatus, row.status),
     offerPreparationReady,
     locationLabel: undefined,
     appointmentTime: null,

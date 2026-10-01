@@ -32,10 +32,23 @@ export function verifiedCasePrice(input: {
     local_fingerprint: string; external_fingerprint: string;
   };
 }) {
+  if (!verifiedVehicleLink(input)) return null;
+  return verifiedLinkedEstimatePrice(input.quote, input.customerId, input.detail);
+}
+
+export function verifiedVehicleLink(input: {
+  customerId: string;
+  localVehicle: Pick<QuibiVehicle, "vin" | "registration" | "make" | "model">;
+  remoteVehicle: QuibiVehicle;
+  vehicleLink: {
+    quibi_customer_id: string; quibi_vehicle_id: string; sync_status: string;
+    local_fingerprint: string; external_fingerprint: string;
+  };
+}): boolean {
   const { customerId, localVehicle, remoteVehicle, vehicleLink } = input;
   if (vehicleLink.sync_status !== "ok" || vehicleLink.quibi_customer_id !== customerId ||
       vehicleLink.quibi_vehicle_id !== remoteVehicle.id || remoteVehicle.customerId !== customerId ||
       vehicleFingerprint(localVehicle) !== vehicleLink.local_fingerprint ||
-      vehicleFingerprint(remoteVehicle) !== vehicleLink.external_fingerprint) return null;
-  return verifiedLinkedEstimatePrice(input.quote, customerId, input.detail);
+      vehicleFingerprint(remoteVehicle) !== vehicleLink.external_fingerprint || remoteVehicle.disabled) return false;
+  return true;
 }
