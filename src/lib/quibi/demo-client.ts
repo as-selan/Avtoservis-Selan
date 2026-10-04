@@ -10,10 +10,12 @@ const vehicles: QuibiVehicle[] = [
   { id: "5001", customerId: "2001", vin: "TST00000000000006", registration: "LJ DEMO1",
     make: "Test", model: "Quibi", disabled: false },
 ];
-const estimate: QuibiEstimateDetail = {
+const estimateContent = {
   id: "4001", customerId: "2001", amount: "285.00", status: "Osnutek",
   lines: [{ description: "Sintetična servisna storitev", quantity: "1", grossPrice: "285.00" }],
-  contentSha256: createHash("sha256").update("selan-demo-estimate-4001-v1").digest("hex"),
+};
+const estimate: QuibiEstimateDetail = { ...estimateContent,
+  contentSha256: createHash("sha256").update(JSON.stringify(estimateContent)).digest("hex"),
 };
 const id = (value: string) => {
   if (!/^\d+$/.test(value)) throw new Error("QUIBI_INVALID_ID");

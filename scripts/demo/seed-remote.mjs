@@ -82,8 +82,9 @@ await insert("offer_preparations", { organization_id: org, service_request_id: q
   created_by_profile_id: owner, status: "ready_for_provider" });
 const { data: registered, error: registerError } = await db.rpc("register_manual_quibi_estimate", {
   p_organization_id: org, p_service_request_id: quibi.caseId, p_quibi_customer_id: "2001",
-  p_external_id: "4001", p_content_sha256: createHash("sha256")
-    .update("selan-demo-estimate-4001-v1").digest("hex"), p_actor_id: owner,
+  p_external_id: "4001", p_content_sha256: digest({ id: "4001", customerId: "2001",
+    amount: "285.00", status: "Osnutek", lines: [{ description: "Sintetična servisna storitev",
+      quantity: "1", grossPrice: "285.00" }] }), p_actor_id: owner,
 });
 if (registerError || registered?.ok !== true) {
   throw new Error(`Demo quote link: ${registerError?.code ?? registered?.error_code ?? "register_failed"}`);
