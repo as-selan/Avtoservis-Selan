@@ -19,6 +19,30 @@ test("local review fails closed when fixture flags are incomplete", () => {
   }
 });
 
+test("local review can opt into DEV reads only with an explicit mode and credentials", () => {
+  const names = ["SELAN_LOCAL_REVIEW", "QUIBI_MODE", "QUIBI_DEV_USERNAME", "QUIBI_DEV_PASSWORD", "CI", "SELAN_ISOLATED_E2E", "QUIBI_E2E_ORIGIN"] as const;
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  try {
+    process.env.SELAN_LOCAL_REVIEW = "1";
+    delete process.env.CI;
+    delete process.env.SELAN_ISOLATED_E2E;
+    delete process.env.QUIBI_E2E_ORIGIN;
+    process.env.QUIBI_DEV_USERNAME = "test";
+    process.env.QUIBI_DEV_PASSWORD = "test";
+    delete process.env.QUIBI_MODE;
+    assert.throws(() => configuredQuibiReadClient(), /QUIBI_LOCAL_FIXTURE_REQUIRED/);
+    process.env.QUIBI_MODE = "dev";
+    assert.ok(configuredQuibiReadClient());
+    delete process.env.QUIBI_DEV_PASSWORD;
+    assert.throws(() => configuredQuibiReadClient(), /QUIBI_NOT_CONFIGURED/);
+  } finally {
+    for (const name of names) {
+      const value = previous[name];
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+});
+
 test("read client uses only approved dev endpoints and filters documents", async () => {
   const calls: Array<{ path: string; method: string }> = [];
   const fake = async (input: string | URL | Request, init?: RequestInit) => {

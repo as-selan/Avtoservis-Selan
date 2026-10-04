@@ -26,3 +26,17 @@ test("reviewed preview opts into real Quibi DEV reads only when explicitly reque
     }
   }
 });
+
+test("local review exposes its synthetic action label to the browser", async () => {
+  const before = process.env.SELAN_LOCAL_REVIEW;
+  try {
+    process.env.SELAN_LOCAL_REVIEW = "1";
+    const configUrl = new URL("./next.config.ts", import.meta.url).href;
+    const local = (await import(`${configUrl}?local-review-test`)).default;
+    assert.equal(local.distDir, ".next-local-review");
+    assert.equal(local.env?.NEXT_PUBLIC_SELAN_LOCAL_REVIEW, "1");
+  } finally {
+    if (before === undefined) delete process.env.SELAN_LOCAL_REVIEW;
+    else process.env.SELAN_LOCAL_REVIEW = before;
+  }
+});

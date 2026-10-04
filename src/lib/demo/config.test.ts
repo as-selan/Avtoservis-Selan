@@ -73,6 +73,23 @@ test("preproduction requires the pinned hosted project and server-only Quibi DEV
   }
 });
 
+test("local review with DEV reads still requires synthetic communication evidence", () => {
+  const before = process.env.SELAN_LOCAL_REVIEW;
+  const remote = process.env.SELAN_REMOTE_DEMO;
+  const app = process.env.APP_ENV;
+  try {
+    process.env.SELAN_LOCAL_REVIEW = "1";
+    delete process.env.SELAN_REMOTE_DEMO;
+    delete process.env.APP_ENV;
+    assert.equal(demoEvidenceAllowed("QA-SIM-LOCAL-01"), true);
+    assert.equal(demoEvidenceAllowed("real-email-123"), false);
+  } finally {
+    if (before === undefined) delete process.env.SELAN_LOCAL_REVIEW; else process.env.SELAN_LOCAL_REVIEW = before;
+    if (remote === undefined) delete process.env.SELAN_REMOTE_DEMO; else process.env.SELAN_REMOTE_DEMO = remote;
+    if (app === undefined) delete process.env.APP_ENV; else process.env.APP_ENV = app;
+  }
+});
+
 test("preproduction Quibi demo is explicit and never uses DEV credentials", async () => {
   const preproduction = { ...demo, APP_ENV: "preproduction", QUIBI_MODE: "demo",
     NEXT_PUBLIC_SUPABASE_URL: "https://verxxsjbewmkgoxwqvxo.supabase.co" };

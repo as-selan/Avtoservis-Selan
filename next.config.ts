@@ -7,7 +7,10 @@ const workshopPreview = process.env.VERCEL_ENV === "preview" &&
 const quibiDevRead = workshopPreview && process.env.QUIBI_MODE === "dev";
 
 const nextConfig: NextConfig = {
-  ...(process.env.SELAN_LOCAL_REVIEW === "1" ? { distDir: ".next-local-review" } : {}),
+  ...(process.env.SELAN_LOCAL_REVIEW === "1" ? {
+    distDir: ".next-local-review",
+    env: { NEXT_PUBLIC_SELAN_LOCAL_REVIEW: "1" },
+  } : {}),
   // Only this reviewed branch can opt into Quibi DEV reads on the hosted project.
   // Credentials remain server-only; without an explicit DEV mode this stays a demo.
   ...(workshopPreview ? { env: {

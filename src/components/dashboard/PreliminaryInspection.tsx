@@ -13,6 +13,7 @@ export function PreliminaryInspection({ serviceRequestId, caseStatus, status, fi
   repairDecision: "pending" | "ordered" | "not_ordered" | null;
 }) {
   const router = useRouter();
+  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.APP_ENV === "preproduction" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
   const [text, setText] = useState("");
   const [attested, setAttested] = useState(false);
   const [message, setMessage] = useState("");
@@ -32,12 +33,12 @@ export function PreliminaryInspection({ serviceRequestId, caseStatus, status, fi
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">Označi potreben predhodni pregled</button></>}
     {status === "requested" && canAdvancePreliminaryInspection(caseStatus, "complete") && <>
       <p className="text-sm text-amber-800">Pregled je potreben. Termin in razpoložljivost je treba potrditi ročno; v aplikaciji še ni zunanje rezervacije.</p>
-      <label className="block text-sm">Dejanske ugotovitve po opravljenem pregledu
+      <label className="block text-sm">{demo ? "Sintetične ugotovitve preizkusnega pregleda" : "Dejanske ugotovitve po opravljenem pregledu"}
         <textarea className="mt-1 block w-full rounded border px-2 py-1" value={text} maxLength={2000}
           onChange={(event) => setText(event.target.value)} />
       </label>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-        Pregled je bil dejansko opravljen; navedene ugotovitve so resnične.</label>
+        {demo ? "Potrjujem simulacijo pregleda na testnem primeru." : "Pregled je bil dejansko opravljen; navedene ugotovitve so resnične."}</label>
       <button type="button" disabled={pending || !attested || text.trim().length < 4} onClick={() => submit("complete")}
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">Zabeleži opravljen pregled</button>
     </>}
@@ -46,7 +47,7 @@ export function PreliminaryInspection({ serviceRequestId, caseStatus, status, fi
       {repairDecision === "pending" && canAdvancePreliminaryInspection(caseStatus, "repair_ordered") && <>
         <p className="text-sm text-amber-800">Obračun pregleda še ni določen: čaka na dejansko odločitev o popravilu. Cene in računa aplikacija ne ustvarja.</p>
         <label className="flex gap-2 text-sm"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-          Potrdil sem dejansko odločitev stranke o naročilu popravila.</label>
+          {demo ? "Potrjujem simulirano odločitev na testnem primeru." : "Potrdil sem dejansko odločitev stranke o naročilu popravila."}</label>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={pending || !attested} onClick={() => submit("repair_ordered")}
             className="rounded border px-3 py-2 text-sm disabled:opacity-50">Popravilo naročeno</button>

@@ -92,9 +92,9 @@ export function configuredQuibiReadClient() {
   // The fixture is available only in disposable CI, and only on loopback.
   const fixture = process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1"
     ? process.env.QUIBI_E2E_ORIGIN : undefined;
-  // A local manual-review session must never silently fall back to dev.quibi.net
-  // when one test flag was omitted during an app restart.
-  if (process.env.SELAN_LOCAL_REVIEW === "1" && !fixture) {
+  // A local review needs either its isolated fixture or an explicit DEV opt-in.
+  // A missing test flag must never silently select dev.quibi.net.
+  if (process.env.SELAN_LOCAL_REVIEW === "1" && !fixture && process.env.QUIBI_MODE !== "dev") {
     throw new Error("QUIBI_LOCAL_FIXTURE_REQUIRED");
   }
   if (fixture && !/^http:\/\/127\.0\.0\.1:\d+$/.test(fixture)) {
