@@ -1,13 +1,17 @@
-/** Permit only the reviewed hosted project and Quibi DEV reads in preproduction. */
+/** Permit only the reviewed hosted project and an explicit Quibi mode in preproduction. */
 export function assertPreproductionQuibiConfiguration(env: Record<string, string | undefined> = process.env): void {
   if (env.APP_ENV !== "preproduction") return;
+  const demo = env.QUIBI_MODE === "demo";
+  const dev = env.QUIBI_MODE === "dev";
   const origin = env.PUBLIC_APP_ORIGIN;
   let parsed: URL;
   try { parsed = new URL(origin ?? ""); } catch { throw new Error("PREPRODUCTION_CONFIGURATION_REQUIRED"); }
-  if (env.VERCEL_ENV !== "preview" || env.QUIBI_MODE !== "dev" ||
-      env.SELAN_REMOTE_DEMO === "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" ||
+  if (env.VERCEL_ENV !== "preview" || (!demo && !dev) ||
+      (demo && (env.SELAN_REMOTE_DEMO !== "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1" ||
+        env.QUIBI_DEV_USERNAME || env.QUIBI_DEV_PASSWORD)) ||
+      (dev && (env.SELAN_REMOTE_DEMO === "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" ||
+        Boolean(env.QUIBI_DEV_USERNAME) !== Boolean(env.QUIBI_DEV_PASSWORD))) ||
       env.SELAN_LOCAL_REVIEW === "1" || env.QUIBI_E2E_ORIGIN ||
-      Boolean(env.QUIBI_DEV_USERNAME) !== Boolean(env.QUIBI_DEV_PASSWORD) ||
       env.NEXT_PUBLIC_SUPABASE_URL !== "https://verxxsjbewmkgoxwqvxo.supabase.co" ||
       !env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || !env.SUPABASE_SERVICE_ROLE_KEY ||
       env.SELAN_FIXED_PRICE_V1 !== "1" || parsed.protocol !== "https:" ||

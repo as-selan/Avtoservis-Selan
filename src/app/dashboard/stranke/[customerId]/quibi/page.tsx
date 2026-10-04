@@ -66,7 +66,9 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
   return <div className="space-y-5">
     <Link href={href} className="text-sm font-medium text-blue-700">← Nazaj na stranko</Link>
     <div><h1 className="text-2xl font-semibold">Quibi · {local.customer.displayName}</h1>
-      <p className="text-sm text-slate-600">Ročno potrjena povezava in bralni pregled testnega okolja.</p></div>
+      <p className="text-sm text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1"
+        ? "Quibi demo – podatki so simulirani. Povezave veljajo samo za sintetične testne primere."
+        : "Ročno potrjena povezava in bralni pregled testnega okolja."}</p></div>
     {query.result === "linked" && <p role="status" className="text-green-700">Povezava je shranjena.</p>}
     {query.result === "changed" && <p role="alert" className="text-amber-800">Podatki v Quibiju so se od prikaza spremenili. Ponovno preverite stranko.</p>}
     {query.result === "already" && <p role="alert" className="text-amber-800">Ta stranka ali Quibijev ID je že povezan.</p>}

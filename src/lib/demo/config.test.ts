@@ -71,6 +71,34 @@ test("preproduction requires the pinned hosted project and server-only Quibi DEV
   }
 });
 
+test("preproduction Quibi demo is explicit, labeled, and has no network or DEV credentials", async () => {
+  const preproduction = { ...demo, APP_ENV: "preproduction", QUIBI_MODE: "demo",
+    NEXT_PUBLIC_SUPABASE_URL: "https://verxxsjbewmkgoxwqvxo.supabase.co" };
+  assert.doesNotThrow(() => assertPreproductionQuibiConfiguration(preproduction));
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_DEV_USERNAME: "user" }),
+    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, NEXT_PUBLIC_SELAN_REMOTE_DEMO: "0" }),
+    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
+  const keys = Object.keys(preproduction);
+  const restoreKeys = [...keys, "QUIBI_DEV_USERNAME", "QUIBI_DEV_PASSWORD"];
+  const prior = Object.fromEntries(restoreKeys.map((key) => [key, process.env[key]]));
+  const fetchBefore = globalThis.fetch;
+  try {
+    Object.assign(process.env, preproduction);
+    delete process.env.QUIBI_DEV_USERNAME;
+    delete process.env.QUIBI_DEV_PASSWORD;
+    globalThis.fetch = (() => { throw new Error("Quibi demo must not call the network"); }) as typeof fetch;
+    assert.equal((await configuredQuibiReadClient().estimateDetail("4001", "2001")).amount, "285.00");
+    assert.equal(demoEvidenceAllowed("QA-SIM-TEST-01"), true);
+    assert.equal(demoEvidenceAllowed("actual-email-01"), false);
+  } finally {
+    globalThis.fetch = fetchBefore;
+    for (const key of restoreKeys) {
+      if (prior[key] === undefined) delete process.env[key]; else process.env[key] = prior[key];
+    }
+  }
+});
+
 test("remote Quibi fixture never returns another customer's vehicle or estimate", async () => {
   const client = createDemoQuibiReadClient();
   assert.equal((await client.searchCustomers("Nina"))[0]?.id, "2001");

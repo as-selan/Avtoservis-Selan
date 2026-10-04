@@ -30,7 +30,7 @@ export default function RootLayout({
     >
       <body className="min-h-full">
         {process.env.SELAN_REMOTE_DEMO === "1" && <div role="note" className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-950">
-          Demo okolje – brez dejanskega pošiljanja in rezervacij · Quibi – demo simulacija
+          Quibi demo – podatki so simulirani. Sporočila niso poslana in termini niso rezervirani v MyPlanlyju.
         </div>}
         {children}
       </body>
