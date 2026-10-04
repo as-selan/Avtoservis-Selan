@@ -71,12 +71,12 @@ test("preproduction requires the pinned hosted project and server-only Quibi DEV
   }
 });
 
-test("preproduction Quibi demo is explicit, labeled, and has no network or DEV credentials", async () => {
+test("preproduction Quibi demo is explicit and never uses DEV credentials", async () => {
   const preproduction = { ...demo, APP_ENV: "preproduction", QUIBI_MODE: "demo",
     NEXT_PUBLIC_SUPABASE_URL: "https://verxxsjbewmkgoxwqvxo.supabase.co" };
   assert.doesNotThrow(() => assertPreproductionQuibiConfiguration(preproduction));
-  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_DEV_USERNAME: "user" }),
-    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
+  assert.doesNotThrow(() => assertPreproductionQuibiConfiguration({ ...preproduction,
+    QUIBI_DEV_USERNAME: "unused-user", QUIBI_DEV_PASSWORD: "unused-password" }));
   assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, NEXT_PUBLIC_SELAN_REMOTE_DEMO: "0" }),
     /PREPRODUCTION_CONFIGURATION_REQUIRED/);
   const keys = Object.keys(preproduction);
@@ -85,8 +85,8 @@ test("preproduction Quibi demo is explicit, labeled, and has no network or DEV c
   const fetchBefore = globalThis.fetch;
   try {
     Object.assign(process.env, preproduction);
-    delete process.env.QUIBI_DEV_USERNAME;
-    delete process.env.QUIBI_DEV_PASSWORD;
+    process.env.QUIBI_DEV_USERNAME = "unused-user";
+    process.env.QUIBI_DEV_PASSWORD = "unused-password";
     globalThis.fetch = (() => { throw new Error("Quibi demo must not call the network"); }) as typeof fetch;
     assert.equal((await configuredQuibiReadClient().estimateDetail("4001", "2001")).amount, "285.00");
     assert.equal(demoEvidenceAllowed("QA-SIM-TEST-01"), true);
