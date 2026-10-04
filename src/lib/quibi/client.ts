@@ -10,13 +10,13 @@ export function createQuibiReadClient(config: Config) {
   const fetcher = config.fetcher ?? fetch;
   const origin = config.origin ?? ORIGIN;
 
-  async function read(path: string, method: "GET" | "POST" = "GET"): Promise<unknown> {
+  async function read(path: string, method: "GET" | "POST" = "GET", customerId?: string): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const response = await fetcher(`${origin}${path}`, {
           method,
           headers: { username: config.username, password: config.password, "Content-Type": "application/json" },
-          body: method === "POST" ? JSON.stringify({ Filtriraj: {} }) : undefined,
+          body: method === "POST" ? JSON.stringify({ Filtriraj: { stranka: Number(customerId) } }) : undefined,
           cache: "no-store",
           signal: AbortSignal.timeout(8000),
         });
@@ -33,7 +33,7 @@ export function createQuibiReadClient(config: Config) {
   }
 
   const validId = (id: string) => {
-    if (!/^\d+$/.test(id)) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
+    if (!/^\d+$/.test(id) || !Number.isSafeInteger(Number(id))) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
     return id;
   };
 
@@ -59,10 +59,16 @@ export function createQuibiReadClient(config: Config) {
       return parseVehicleDetail(await read(`/api2/vozila/view/${vehicleId}`), vehicleId, validId(customerId));
     },
     async workOrders(customerId: string) {
-      return parseDocuments(await read("/api2/dn", "POST"), validId(customerId));
+      const id = validId(customerId);
+      return parseDocuments(await read("/api2/dn", "POST", id), id);
     },
     async estimates(customerId: string) {
-      return parseDocuments(await read("/api2/predracuni", "POST"), validId(customerId));
+      const id = validId(customerId);
+      return parseDocuments(await read("/api2/predracuni", "POST", id), id);
+    },
+    async invoices(customerId: string) {
+      const id = validId(customerId);
+      return parseDocuments(await read("/api2/fakture", "POST", id), id);
     },
     async estimateDetail(id: string, customerId: string) {
       return parseEstimateDetail(await read(`/api2/glavadokumenta/view/${validId(id)}`), id, validId(customerId));
@@ -73,8 +79,10 @@ export function createQuibiReadClient(config: Config) {
 export function configuredQuibiReadClient() {
   if (process.env.APP_ENV === "preproduction") {
     assertPreproductionQuibiConfiguration();
-    assertRemoteDemoConfiguration();
-    return createDemoQuibiReadClient();
+    return createQuibiReadClient({
+      username: process.env.QUIBI_DEV_USERNAME ?? "",
+      password: process.env.QUIBI_DEV_PASSWORD ?? "",
+    });
   }
   if (process.env.SELAN_REMOTE_DEMO === "1") {
     assertRemoteDemoConfiguration();

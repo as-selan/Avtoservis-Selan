@@ -30,26 +30,33 @@ test("remote demo requires its own project and rejects external configuration", 
   assert.throws(() => assertRemoteDemoConfiguration({ ...demo, COMPLETION_PUBLIC_ORIGIN: "https://other.example.test" }), /DEMO_EXTERNAL_CONFIG_FORBIDDEN/);
 });
 
-test("preproduction Quibi requires preview and demo mode without external credentials", async () => {
-  const preproduction = { ...demo, APP_ENV: "preproduction", QUIBI_MODE: "demo" };
+test("preproduction requires the pinned hosted project and server-only Quibi DEV reads", async () => {
+  const preproduction = { ...demo, APP_ENV: "preproduction", QUIBI_MODE: "dev",
+    SELAN_REMOTE_DEMO: "0", NEXT_PUBLIC_SELAN_REMOTE_DEMO: "0",
+    NEXT_PUBLIC_SUPABASE_URL: "https://verxxsjbewmkgoxwqvxo.supabase.co",
+    QUIBI_DEV_USERNAME: "synthetic-user", QUIBI_DEV_PASSWORD: "synthetic-password" };
   assert.doesNotThrow(() => assertPreproductionQuibiConfiguration(preproduction));
-  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_MODE: "live" }),
-    /PREPRODUCTION_QUIBI_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_MODE: "demo" }),
+    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
   assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, VERCEL_ENV: "production" }),
-    /PREPRODUCTION_QUIBI_CONFIGURATION_REQUIRED/);
-  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_DEV_USERNAME: "test" }),
-    /PREPRODUCTION_QUIBI_CONFIGURATION_REQUIRED/);
-  assert.throws(() => assertRemoteDemoConfiguration({ ...preproduction,
-    SELAN_DEMO_SUPABASE_PROJECT_REF: "verxxsjbewmkgoxwqvxo",
-    NEXT_PUBLIC_SUPABASE_URL: "https://verxxsjbewmkgoxwqvxo.supabase.co" }),
-  /DEMO_PROJECT_REF_INVALID/);
+    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_DEV_PASSWORD: "" }),
+    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction,
+    NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co" }),
+    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_E2E_ORIGIN: "http://127.0.0.1:47862" }),
+    /PREPRODUCTION_CONFIGURATION_REQUIRED/);
   const keys = Object.keys(preproduction);
   const prior = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   const fetchBefore = globalThis.fetch;
   try {
     Object.assign(process.env, preproduction);
-    globalThis.fetch = (() => { throw new Error("preproduction Quibi must not call network"); }) as typeof fetch;
-    assert.equal((await configuredQuibiReadClient().estimateDetail("4001", "2001")).amount, "285.00");
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      assert.equal(new URL(String(input)).origin, "https://dev.quibi.net");
+      return new Response(JSON.stringify({ error: false, data: { Stranke: { Stranka: { id: 2001, naziv: "Test" } } } }));
+    }) as typeof fetch;
+    assert.equal((await configuredQuibiReadClient().customer("2001")).id, "2001");
   } finally {
     globalThis.fetch = fetchBefore;
     for (const key of keys) {

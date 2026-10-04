@@ -59,8 +59,11 @@ export function redirectToLoginPreservingAuthState(
 }
 
 export async function updateSession(request: NextRequest) {
-  try { assertPreproductionQuibiConfiguration(); assertRemoteDemoConfiguration(); } catch {
-    return new NextResponse("Demo okolje ni varno konfigurirano.", { status: 503 });
+  try {
+    assertPreproductionQuibiConfiguration();
+    if (process.env.APP_ENV !== "preproduction") assertRemoteDemoConfiguration();
+  } catch {
+    return new NextResponse("Predprodukcijsko okolje ni varno konfigurirano.", { status: 503 });
   }
   let supabaseResponse = NextResponse.next({
     request,

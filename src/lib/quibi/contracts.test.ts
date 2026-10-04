@@ -27,7 +27,7 @@ test("document response keeps only a linked customer's documents", () => {
     { Glavadokumenta: { id: "101", stranka_id: "12", stevilcenje_id: "8" } },
     { Glavadokumenta: { id: "102", stranka_id: "13", stevilcenje_id: "8" } },
   ] } }, "12");
-  assert.deepEqual(result, [{ id: "101", customerId: "12", numberingId: "8" }]);
+  assert.deepEqual(result, [{ id: "101", customerId: "12", numberingId: "8", status: "" }]);
 });
 
 test("estimate detail exposes real review fields only for the linked customer", () => {

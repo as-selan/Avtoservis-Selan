@@ -36,8 +36,10 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
   let remote: QuibiCustomer | null = null;
   let orders: QuibiDocument[] = [];
   let estimates: QuibiDocument[] = [];
+  let invoices: QuibiDocument[] = [];
   let remoteVehicles: QuibiVehicle[] = [];
   let readError = "";
+  let invoiceReadError = false;
   try {
     if (link) {
       const client = configuredQuibiReadClient();
@@ -45,6 +47,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         client.customer(link.external_id), client.workOrders(link.external_id), client.estimates(link.external_id),
         client.vehicles(link.external_id),
       ]);
+      try { invoices = await client.invoices(link.external_id); } catch { invoiceReadError = true; }
     } else if (typeof query.q === "string" && query.q.trim().length >= 2 && query.q.length <= 100) {
       matches = await configuredQuibiReadClient().searchCustomers(query.q);
     }
@@ -143,14 +146,21 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         })}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Delovni nalogi v Quibiju</h2>
-        <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}>Nalog #{doc.id}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}>Nalog #{doc.id}{doc.status && ` · ${doc.status}`}</li>)}</ul>
         {orders.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih nalogov.</p>}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračuni v Quibiju</h2>
         <ul className="mt-2 space-y-1 text-sm">{estimates.map((doc) => <li key={doc.id}>
           <Link className="font-medium text-blue-700" href={`/dashboard/stranke/${customerId}/quibi/predracuni/${doc.id}`}>Predračun #{doc.id} · preveri vsebino</Link>
+          {doc.status && ` · ${doc.status}`}
         </li>)}</ul>
         {estimates.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih predračunov.</p>}
+      </section>
+      <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Računi v Quibiju</h2>
+        <p className="text-sm text-slate-600">Bralni pregled. Končni znesek računa ni Tadejeva odobrena cena predračuna.</p>
+        {invoiceReadError && <p role="alert" className="text-red-700">Računov trenutno ni mogoče prebrati.</p>}
+        <ul className="mt-2 space-y-1 text-sm">{invoices.map((doc) => <li key={doc.id}>Račun #{doc.id}{doc.status && ` · ${doc.status}`}</li>)}</ul>
+        {invoices.length === 0 && !invoiceReadError && !readError && <p className="text-sm text-slate-600">Ni prikazanih računov.</p>}
       </section>
     </> : <section className="rounded-xl border bg-white p-4 space-y-4">
       <h2 className="font-semibold">Poišči obstoječo stranko v Quibiju</h2>

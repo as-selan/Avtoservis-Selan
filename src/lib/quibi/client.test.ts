@@ -34,6 +34,21 @@ test("read client uses only approved dev endpoints and filters documents", async
   assert.deepEqual(calls, [{ path: "/api2/stranka", method: "GET" }, { path: "/api2/dn", method: "POST" }]);
 });
 
+test("invoice reads use the documented list endpoint and keep only the confirmed customer", async () => {
+  const calls: string[] = [];
+  const fake = async (input: string | URL | Request, init?: RequestInit) => {
+    calls.push(`${init?.method}:${new URL(String(input)).pathname}`);
+    assert.deepEqual(JSON.parse(String(init?.body)), { Filtriraj: { stranka: 12 } });
+    return new Response(JSON.stringify({ error: false, data: { Dokumenti: [
+      { Glavadokumenta: { id: 81, stranka_id: 12, statusi_id: 4 }, Statusi: { id: 4, naziv: "Izdano" } },
+      { Glavadokumenta: { id: 82, stranka_id: 13, statusi_id: 4 }, Statusi: { id: 4, naziv: "Izdano" } },
+    ] } }));
+  };
+  const client = createQuibiReadClient({ username: "test", password: "secret", fetcher: fake as typeof fetch });
+  assert.deepEqual((await client.invoices("12")).map((item) => [item.id, item.status]), [["81", "Izdano"]]);
+  assert.deepEqual(calls, ["POST:/api2/fakture"]);
+});
+
 test("read client rejects arbitrary customer IDs", async () => {
   const client = createQuibiReadClient({ username: "test", password: "secret", fetcher: (() => { throw Error("network must not run"); }) as typeof fetch });
   await assert.rejects(client.customer("12/../../x"), /QUIBI_INVALID_CUSTOMER_ID/);

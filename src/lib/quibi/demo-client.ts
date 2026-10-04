@@ -45,10 +45,14 @@ export function createDemoQuibiReadClient() {
       return copy(found);
     },
     async workOrders(customerId: string): Promise<QuibiDocument[]> {
-      return id(customerId) === "2001" ? [{ id: "3001", customerId: "2001", numberingId: "1" }] : [];
+      return id(customerId) === "2001" ? [{ id: "3001", customerId: "2001", numberingId: "1", status: "" }] : [];
     },
     async estimates(customerId: string): Promise<QuibiDocument[]> {
-      return id(customerId) === "2001" ? [{ id: "4001", customerId: "2001", numberingId: "1" }] : [];
+      return id(customerId) === "2001" ? [{ id: "4001", customerId: "2001", numberingId: "1", status: "Osnutek" }] : [];
+    },
+    async invoices(customerId: string): Promise<QuibiDocument[]> {
+      id(customerId);
+      return [];
     },
     async estimateDetail(estimateId: string, customerId: string): Promise<QuibiEstimateDetail> {
       if (id(estimateId) !== estimate.id || id(customerId) !== estimate.customerId) {
