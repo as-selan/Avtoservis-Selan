@@ -16,6 +16,6 @@ Odprite `http://127.0.0.1:3001/login` in se prijavite s sintetičnim lastnikom. 
 
 ## Storitev z objavljeno končno ceno
 
-V tretjem ločenem primeru po Tadejevem pregledu sprejema izberite pot z objavljeno končno ceno. Vnesite dejansko objavljeno storitev, ceno in HTTPS povezavo, nato pokažite Tadejevo odobritev, ročno komunikacijo, odločitev stranke in tri ročne termine. Ta pot ne ustvari Quibijevega predračuna in ne zahteva predhodnega pregleda. V lokalnem QA primeru uporabite samo sintetično objavo in reference `QA-SIM-*`.
+V tretjem ločenem primeru po Tadejevem pregledu sprejema izberite pot z objavljeno končno ceno. Storitev mora biti ista kot v primeru; napačno povezano ceno aplikacija blokira. Vnesite sintetično objavljeno ceno in HTTPS povezavo, nato pokažite Tadejevo odobritev, osnutek sporočila, ročno komunikacijo, odločitev stranke in tri ročne termine. Ta pot ne ustvari Quibijevega predračuna in ne zahteva predhodnega pregleda. V lokalnem QA primeru uporabite samo sintetično objavo in reference `QA-SIM-*`.
 
 Lokalna migracija `20260930120000_review_intake_and_fix_published_url.sql` odpravi napako URL `2201B` in zagotovi izrecen pregled pred prehodom `new → preparing_offer`. Noben korak ne uporablja dejanskega Quibija ali MyPlanly API-ja. Pred uporabo z resničnimi strankami je treba potrditi Quibijevo zapisovalno pogodbo, identiteto dokumenta glede na delo in vozilo, dejansko dostavo ter rezervacijo v MyPlanlyju.

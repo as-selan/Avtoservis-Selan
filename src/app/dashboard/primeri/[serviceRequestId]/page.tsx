@@ -113,7 +113,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = request.status === "needs_data" && missing.length > 0
       ? { title: "Dopolnitev podatkov", body: `Pozdravljeni, ${recipient}. Za nadaljevanje vašega servisnega povpraševanja potrebujemo še: ${missing.join(", ")}. Prosimo, dopolnite podatke prek povezave, ki vam jo bomo poslali posebej. Lep pozdrav, Avtoservis Selan` }
-      : step.kind === "send_estimate" && fixedPrice?.status === "approved"
+      : step.kind === "send_estimate" && fixedPrice?.status === "approved" && !!request.service_wanted &&
+        fixedPrice.service_label.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI") === request.service_wanted.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI")
         ? { title: "Odobrena objavljena cena", body: `Pozdravljeni, ${recipient}. Za storitev ${fixedPrice.service_label} je objavljena končna cena ${Number(fixedPrice.final_price_eur).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}. Vir: ${fixedPrice.published_url}. Prosimo, sporočite, ali storitev naročate. Lep pozdrav, Avtoservis Selan` }
         : step.kind === "send_estimate" && proposedPrice?.state === "approved" && quibiEstimateId
           ? { title: "Odobreni predračun", body: `Pozdravljeni, ${recipient}. Pripravili smo predračun za vaš servisni primer. Odobrena cena predračuna je ${Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}. Predračun Quibi #${quibiEstimateId} priložite po ročnem preverjanju dokumenta. Prosimo, sporočite svojo odločitev. Lep pozdrav, Avtoservis Selan` }
@@ -193,7 +194,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         </section>
       </div>
       {fixedPriceEnabled && (fixedPrice || (request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
-        <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} />}
+        <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} />}
       {!fixedPrice && (inspectionResult.data || ["new", "preparing_offer"].includes(request.status)) &&
         <PreliminaryInspection serviceRequestId={serviceRequestId} caseStatus={request.status}
         status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}

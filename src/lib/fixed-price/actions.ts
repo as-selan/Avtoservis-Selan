@@ -7,6 +7,7 @@ type Action = "prepare" | "approve" | "communicate" | "accept" | "reject";
 type Result = { ok: true; status: string } | { ok: false; message: string };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const messages: Record<string, string> = {
+  service_mismatch: "Objavljena storitev se ne ujema s storitvijo v tem primeru. Preverite primer; te cene ni dovoljeno uporabiti ali poslati.",
   not_eligible: "Primer ni pripravljen za izjemo z objavljeno končno ceno. Preverite podatke, pregled in obstoječe predračune.",
   already_prepared: "Za ta primer je že zabeležena druga objavljena cena. Spremembo naj pregleda skrbnik.",
   owner_required: "Končno ceno lahko potrdi samo lastnik ali skrbnik.",
@@ -38,6 +39,19 @@ export async function advancePublishedFixedPriceCase(
     return { ok: false, message: messages.reference_required };
   }
   const db = await createClient();
+  const { data: request, error: requestError } = await db.from("service_requests")
+    .select("service_wanted").eq("organization_id", access.organizationId)
+    .eq("id", serviceRequestId).is("archived_at", null).maybeSingle();
+  if (requestError || !request) return { ok: false, message: "Primera ni mogoče preveriti." };
+  const { data: existing, error: existingError } = await db.from("published_fixed_price_cases")
+    .select("service_label").eq("organization_id", access.organizationId)
+    .eq("service_request_id", serviceRequestId).maybeSingle();
+  if (existingError) return { ok: false, message: "Objavljene cene ni mogoče preveriti." };
+  const selectedService = action === "prepare" ? label : existing?.service_label;
+  const sameService = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI");
+  if (!request.service_wanted || !selectedService || sameService(request.service_wanted) !== sameService(selectedService)) {
+    return { ok: false, message: messages.service_mismatch };
+  }
   const { data, error } = await db.rpc("advance_published_fixed_price_case", {
     p_service_request_id: serviceRequestId, p_action: action,
     p_service_label: action === "prepare" ? label : null,
