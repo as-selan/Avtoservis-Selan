@@ -1,5 +1,5 @@
 import { parseCustomerDetail, parseCustomers, parseDocuments, parseEstimateDetail, parseVehicleDetail, parseVehicles } from "./contracts.ts";
-import { assertRemoteDemoConfiguration } from "../demo/config.ts";
+import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } from "../demo/config.ts";
 import { createDemoQuibiReadClient } from "./demo-client.ts";
 
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string };
@@ -71,6 +71,11 @@ export function createQuibiReadClient(config: Config) {
 }
 
 export function configuredQuibiReadClient() {
+  if (process.env.APP_ENV === "preproduction") {
+    assertPreproductionQuibiConfiguration();
+    assertRemoteDemoConfiguration();
+    return createDemoQuibiReadClient();
+  }
   if (process.env.SELAN_REMOTE_DEMO === "1") {
     assertRemoteDemoConfiguration();
     return createDemoQuibiReadClient();

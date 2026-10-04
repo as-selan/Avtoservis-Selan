@@ -1,4 +1,12 @@
 /** Remote demo is an opt-in deployment, never a fallback for preview or production. */
+export function assertPreproductionQuibiConfiguration(env: Record<string, string | undefined> = process.env): void {
+  if (env.APP_ENV !== "preproduction") return;
+  if (env.VERCEL_ENV !== "preview" || env.QUIBI_MODE !== "demo" ||
+      env.QUIBI_DEV_USERNAME || env.QUIBI_DEV_PASSWORD || env.QUIBI_E2E_ORIGIN) {
+    throw new Error("PREPRODUCTION_QUIBI_CONFIGURATION_REQUIRED");
+  }
+}
+
 export function assertRemoteDemoConfiguration(env: Record<string, string | undefined> = process.env): void {
   // Existing previews have previously pointed at production data. Any preview
   // built from this branch must explicitly opt into the isolated demo.

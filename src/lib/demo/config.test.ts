@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assertRemoteDemoConfiguration } from "./config.ts";
+import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } from "./config.ts";
 import { createDemoQuibiReadClient } from "../quibi/demo-client.ts";
 import { configuredQuibiReadClient } from "../quibi/client.ts";
 import { demoEvidenceAllowed } from "./evidence.ts";
@@ -28,6 +28,35 @@ test("remote demo requires its own project and rejects external configuration", 
   assert.throws(() => assertRemoteDemoConfiguration({ ...demo, QUIBI_DEV_USERNAME: "any" }), /DEMO_EXTERNAL_CONFIG_FORBIDDEN/);
   assert.throws(() => assertRemoteDemoConfiguration({ ...demo, QUIBI_E2E_ORIGIN: "http://127.0.0.1:47862" }), /DEMO_EXTERNAL_CONFIG_FORBIDDEN/);
   assert.throws(() => assertRemoteDemoConfiguration({ ...demo, COMPLETION_PUBLIC_ORIGIN: "https://other.example.test" }), /DEMO_EXTERNAL_CONFIG_FORBIDDEN/);
+});
+
+test("preproduction Quibi requires preview and demo mode without external credentials", async () => {
+  const preproduction = { ...demo, APP_ENV: "preproduction", QUIBI_MODE: "demo" };
+  assert.doesNotThrow(() => assertPreproductionQuibiConfiguration(preproduction));
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_MODE: "live" }),
+    /PREPRODUCTION_QUIBI_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, VERCEL_ENV: "production" }),
+    /PREPRODUCTION_QUIBI_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_DEV_USERNAME: "test" }),
+    /PREPRODUCTION_QUIBI_CONFIGURATION_REQUIRED/);
+  assert.throws(() => assertRemoteDemoConfiguration({ ...preproduction,
+    SELAN_DEMO_SUPABASE_PROJECT_REF: "verxxsjbewmkgoxwqvxo",
+    NEXT_PUBLIC_SUPABASE_URL: "https://verxxsjbewmkgoxwqvxo.supabase.co" }),
+  /DEMO_PROJECT_REF_INVALID/);
+  const keys = Object.keys(preproduction);
+  const prior = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const fetchBefore = globalThis.fetch;
+  try {
+    Object.assign(process.env, preproduction);
+    globalThis.fetch = (() => { throw new Error("preproduction Quibi must not call network"); }) as typeof fetch;
+    assert.equal((await configuredQuibiReadClient().estimateDetail("4001", "2001")).amount, "285.00");
+  } finally {
+    globalThis.fetch = fetchBefore;
+    for (const key of keys) {
+      if (prior[key] === undefined) delete process.env[key];
+      else process.env[key] = prior[key];
+    }
+  }
 });
 
 test("remote Quibi fixture never returns another customer's vehicle or estimate", async () => {
