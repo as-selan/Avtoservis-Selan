@@ -13,6 +13,7 @@ import { PreliminaryInspection } from "@/components/dashboard/PreliminaryInspect
 import { ManualSlotOffer } from "@/components/dashboard/ManualSlotOffer";
 import { PublishedFinalPrice } from "@/components/dashboard/PublishedFinalPrice";
 import { ReviewIntakeButton } from "@/components/dashboard/ReviewIntakeButton";
+import { CommunicationDraft } from "@/components/dashboard/CommunicationDraft";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { verifiedCasePrice } from "@/lib/quibi/price-suggestion";
 
@@ -109,6 +110,16 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       inspectionRepairDecision: inspectionResult.data?.repair_decision,
       slotOfferStatus: serviceOffer?.status });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
+    const recipient = customer?.display_name || "stranka";
+    const communicationDraft = request.status === "needs_data" && missing.length > 0
+      ? { title: "Dopolnitev podatkov", body: `Pozdravljeni, ${recipient}. Za nadaljevanje vašega servisnega povpraševanja potrebujemo še: ${missing.join(", ")}. Prosimo, dopolnite podatke prek povezave, ki vam jo bomo poslali posebej. Lep pozdrav, Avtoservis Selan` }
+      : step.kind === "send_estimate" && fixedPrice?.status === "approved"
+        ? { title: "Odobrena objavljena cena", body: `Pozdravljeni, ${recipient}. Za storitev ${fixedPrice.service_label} je objavljena končna cena ${Number(fixedPrice.final_price_eur).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}. Vir: ${fixedPrice.published_url}. Prosimo, sporočite, ali storitev naročate. Lep pozdrav, Avtoservis Selan` }
+        : step.kind === "send_estimate" && proposedPrice?.state === "approved" && quibiEstimateId
+          ? { title: "Odobreni predračun", body: `Pozdravljeni, ${recipient}. Pripravili smo predračun za vaš servisni primer. Odobrena cena predračuna je ${Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}. Predračun Quibi #${quibiEstimateId} priložite po ročnem preverjanju dokumenta. Prosimo, sporočite svojo odločitev. Lep pozdrav, Avtoservis Selan` }
+          : step.kind === "manual_scheduling" && serviceOffer?.status === "proposed"
+            ? { title: "Trije predlagani termini", body: `Pozdravljeni, ${recipient}. Za servis vam predlagamo naslednje termine:\n1. ${new Date(serviceOffer.slot_1).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}\n2. ${new Date(serviceOffer.slot_2).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}\n3. ${new Date(serviceOffer.slot_3).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}\nProsimo, sporočite svojo izbiro. Termini do dejanske potrditve rezervacije niso zagotovljeni. Lep pozdrav, Avtoservis Selan` }
+            : null;
 
     return <div className="space-y-5">
       <Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link>
@@ -123,6 +134,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           !inspectionResult.data?.repair_decision &&
           <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
       </section>
+      {communicationDraft && <CommunicationDraft title={communicationDraft.title} body={communicationDraft.body} />}
       {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
         ["owner", "admin"].includes(access.role) &&
         <ReviewIntakeButton serviceRequestId={serviceRequestId} />}

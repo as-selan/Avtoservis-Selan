@@ -4,10 +4,10 @@ Odprite `http://127.0.0.1:3001/login` in se prijavite s sintetičnim lastnikom. 
 
 ## Običajen servis
 
-1. Na strani za spletno povpraševanje oddajte novo povpraševanje. V nadzorni plošči odprite nov primer. Za telefonski sprejem ustvarite drugi, ločen primer in po potrebi ponovno uporabite obstoječo stranko in vozilo.
-2. Dopolnite manjkajoče podatke na istem primeru. Tadej nato v razdelku **Tadejev pregled sprejema** preveri stranko, vozilo in storitev ter izrecno klikne **Sprejmi primer za pripravo ponudbe**.
+1. Na strani za spletno povpraševanje vnesite ime, telefon, e-pošto, VIN s 17 znaki, znamko, model in storitev ali opis težave. Pokažite, da obrazca ni mogoče poslati brez teh podatkov. Za starejše vozilo označite izjemo in vnesite njegovo dejansko nestandardno številko šasije; prazna ni dovoljena. V nadzorni plošči odprite nov primer. Za telefonski sprejem ustvarite drugi, ločen primer in po potrebi ponovno uporabite obstoječo stranko in vozilo.
+2. Telefonski primer po potrebi dopolnite na istem primeru. Tadej nato v razdelku **Tadejev pregled sprejema** preveri stranko, vozilo in storitev ter izrecno klikne **Sprejmi primer za pripravo ponudbe**. Sistem po sprejemu sam pripravi podatke za ponudbo; če ta korak ne uspe, ga je mogoče ponoviti na primeru.
 3. Pri običajnem predračunu odprite pripravljeni sintetični primer `#90238232`. Pokažite povezavo Quibi stranke, vozila in dokumenta ter predlagano ceno iz predračuna. Tadej odpre postavke in potrdi ceno; to še ni končna cena računa. Isti Quibijev dokument se ne sme povezati z drugim primerom. Za povsem nov primer bo potreben njegov lasten dokument.
-4. Prikažite ročno evidentiranje pošiljanja in odgovora stranke. V predstavitvi uporabite izključno reference `QA-SIM-*`; nič se dejansko ne pošlje. Po sprejemu pokažite tri predlagane termine, evidentiranje izbire in jasno opozorilo, da termin še ni rezerviran v MyPlanlyju.
+4. Prikažite pripravljen osnutek sporočila in ročno evidentiranje dejanskega pošiljanja ter odgovora stranke. V predstavitvi uporabite izključno reference `QA-SIM-*`; nič se dejansko ne pošlje. Po sprejemu pokažite tri predlagane termine, osnutek sporočila z možnostmi, evidentiranje izbire in jasno opozorilo, da termin še ni rezerviran v MyPlanlyju.
 
 ## Predhodni pregled
 

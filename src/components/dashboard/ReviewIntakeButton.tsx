@@ -14,7 +14,7 @@ export function ReviewIntakeButton({ serviceRequestId }: { serviceRequestId: str
     if (pending || !confirmed) return;
     startTransition(async () => {
       const result = await reviewServiceRequestIntake(serviceRequestId);
-      setMessage(result.ok ? "Primer je sprejet za pripravo ponudbe." : result.message);
+      setMessage(result.message);
       if (result.ok) router.refresh();
     });
   }

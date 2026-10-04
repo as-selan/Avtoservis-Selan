@@ -225,6 +225,7 @@ export function parseWebIntakeBody(text: string): ParsedWebIntakeBody {
       phone: asString(picked.phone),
       email: asString(picked.email),
       vin: asString(picked.vin),
+      nonstandardVin: picked.nonstandardVin === true,
       registration: asString(picked.registration),
       make: asString(picked.make),
       model: asString(picked.model),

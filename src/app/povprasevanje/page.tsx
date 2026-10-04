@@ -26,8 +26,8 @@ export default function PovprasevanjePage() {
         </div>
         <div className="px-5 py-6 sm:px-6">
           <p className="mb-6 text-sm leading-relaxed text-slate-600">
-            Izpolnite obrazec. VIN in ostali podatki o vozilu niso obvezni —
-            manjkajoče podatke lahko dopolnimo kasneje.
+            Vnesite kontakt, VIN oziroma številko šasije, znamko, model in razlog obiska.
+            Če vozilo nima standardnega VIN, označite izjemo v obrazcu.
           </p>
           <WebInquiryForm />
         </div>

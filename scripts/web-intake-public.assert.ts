@@ -37,10 +37,11 @@ function validRaw(overrides: Record<string, unknown> = {}) {
     displayName: "Ana Novak",
     phone: "041 123 456",
     email: "ana@example.com",
-    vin: "",
+    vin: "WVWZZZ1JZXW000001",
+    nonstandardVin: false,
     registration: "",
-    make: "",
-    model: "",
+    make: "Test",
+    model: "Vozilo",
     year: "",
     powerKw: "",
     engine: "",
@@ -68,12 +69,17 @@ function validRaw(overrides: Record<string, unknown> = {}) {
 
 {
   const noContact = validateWebIntakeForm(validRaw({ phone: "", email: "" }));
-  assert(!noContact.ok, "phone or email required");
+  assert(!noContact.ok, "phone and email required");
 }
 
 {
   const emailOnly = validateWebIntakeForm(validRaw({ phone: "", email: "ana@example.com" }));
-  assert(emailOnly.ok, "email-only contact is enough");
+  assert(!emailOnly.ok, "email-only contact is not enough for website intake");
+}
+
+{
+  const invalidPhone = validateWebIntakeForm(validRaw({ phone: "abc041123456" }));
+  assert(!invalidPhone.ok, "phone cannot hide letters in normalization");
 }
 
 {
@@ -94,7 +100,7 @@ function validRaw(overrides: Record<string, unknown> = {}) {
   const incompleteVehicle = validateWebIntakeForm(
     validRaw({ vin: "", make: "", model: "", registration: "" }),
   );
-  assert(incompleteVehicle.ok, "incomplete vehicle must still submit");
+  assert(!incompleteVehicle.ok, "incomplete vehicle cannot submit publicly");
 }
 
 {
@@ -138,7 +144,18 @@ function validRaw(overrides: Record<string, unknown> = {}) {
 
 {
   const vinOk = validateWebIntakeForm(validRaw({ vin: "WVWZZZ1JZXW000001" }));
-  assert(vinOk.ok, "non-17 VIN length is allowed when provided");
+  assert(vinOk.ok, "standard 17-character VIN is accepted");
+}
+
+{
+  const shortVin = validateWebIntakeForm(validRaw({ vin: "OLD-123" }));
+  assert(!shortVin.ok, "nonstandard chassis number requires explicit exception");
+  const exception = validateWebIntakeForm(validRaw({ vin: "OLD-123", nonstandardVin: true }));
+  assert(exception.ok, "explicit exception accepts a nonempty nonstandard chassis number");
+  if (exception.ok) assert(exception.input.problemDescription?.includes("Nestandardna številka šasije"),
+    "exception is visible in the case description");
+  const blankException = validateWebIntakeForm(validRaw({ vin: "", nonstandardVin: true }));
+  assert(!blankException.ok, "exception never permits an empty chassis number");
 }
 
 {
@@ -148,7 +165,7 @@ function validRaw(overrides: Record<string, unknown> = {}) {
 
 {
   const phoneAndBlankEmail = validateWebIntakeForm(validRaw({ email: "  " }));
-  assert(phoneAndBlankEmail.ok, "blank email allowed when phone exists");
+  assert(!phoneAndBlankEmail.ok, "blank email is not allowed for website intake");
 }
 
 {

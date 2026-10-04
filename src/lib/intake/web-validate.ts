@@ -13,6 +13,9 @@ const UUID_RE =
 
 /** Pragmatic email shape; SQL RPC uses the same rule (not a full RFC parser). */
 export const WEB_INTAKE_EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STANDARD_VIN = /^[A-HJ-NPR-Z0-9]{17}$/;
+const NONSTANDARD_CHASSIS = /^[A-Z0-9][A-Z0-9/-]{0,31}$/;
+const NONSTANDARD_VIN_NOTE = "Nestandardna številka šasije: stranka je označila izjemo za vozilo brez standardnega 17-mestnega VIN.";
 
 export type WebIntakeInput = {
   displayName: string;
@@ -75,6 +78,7 @@ export function validateWebIntakeForm(raw: {
   phone: string;
   email: string;
   vin: string;
+  nonstandardVin: boolean;
   registration: string;
   make: string;
   model: string;
@@ -141,18 +145,33 @@ export function validateWebIntakeForm(raw: {
     fieldErrors.problemDescription = "Predolgo";
   }
 
+  const phoneRaw = blankToNull(raw.phone);
   const phone = normalizeIntakePhone(raw.phone);
   const emailRaw = blankToNull(raw.email);
   const email = normalizeIntakeEmail(raw.email);
 
-  if (!phone && !email) {
-    fieldErrors.phone = fieldErrors.phone ?? "Vnesite telefon ali e-pošto";
-    fieldErrors.email = fieldErrors.email ?? "Vnesite telefon ali e-pošto";
-  } else if (emailRaw && !email) {
+  if (!phone) {
+    fieldErrors.phone = fieldErrors.phone ?? "Vnesite telefonsko številko";
+  } else if (!phoneRaw || !/^\+?[\d\s().-]+$/.test(phoneRaw) || !/^\+?\d{6,15}$/.test(phone)) {
+    fieldErrors.phone = "Vnesite veljavno telefonsko številko";
+  }
+  if (!emailRaw) {
+    fieldErrors.email = fieldErrors.email ?? "Vnesite e-poštni naslov";
+  } else if (!email) {
     fieldErrors.email = "Neveljavna e-pošta";
-  } else if (emailRaw && !WEB_INTAKE_EMAIL_SHAPE.test(emailRaw)) {
+  } else if (!WEB_INTAKE_EMAIL_SHAPE.test(emailRaw)) {
     fieldErrors.email = "Neveljavna e-pošta";
   }
+
+  const vin = blankToNull(raw.vin)?.toUpperCase() ?? null;
+  if (!vin) fieldErrors.vin = fieldErrors.vin ?? "Vnesite VIN ali številko šasije";
+  else if (raw.nonstandardVin && !NONSTANDARD_CHASSIS.test(vin)) {
+    fieldErrors.vin = "Nestandardna številka šasije sme vsebovati črke, številke, / in -";
+  } else if (!raw.nonstandardVin && !STANDARD_VIN.test(vin)) {
+    fieldErrors.vin = "Standardni VIN mora imeti 17 znakov brez I, O in Q; za izjemo označite možnost spodaj";
+  }
+  if (!blankToNull(raw.make)) fieldErrors.make = fieldErrors.make ?? "Vnesite znamko vozila";
+  if (!blankToNull(raw.model)) fieldErrors.model = fieldErrors.model ?? "Vnesite model vozila";
 
   const serviceWanted = blankToNull(raw.serviceWanted);
   const problemDescription = blankToNull(raw.problemDescription);
@@ -161,6 +180,12 @@ export function validateWebIntakeForm(raw: {
       fieldErrors.serviceWanted ?? "Vnesite storitev ali opis težave";
     fieldErrors.problemDescription =
       fieldErrors.problemDescription ?? "Vnesite storitev ali opis težave";
+  }
+  const recordedProblem = raw.nonstandardVin
+    ? [problemDescription, NONSTANDARD_VIN_NOTE].filter(Boolean).join("\n\n")
+    : problemDescription;
+  if (tooLong(recordedProblem, WEB_INTAKE_MAX_LENGTH.problemDescription)) {
+    fieldErrors.problemDescription = "Opis je predolg za shranjevanje označene izjeme";
   }
 
   let yearValue: number | null = null;
@@ -191,7 +216,7 @@ export function validateWebIntakeForm(raw: {
       displayName: displayName!,
       phone: blankToNull(raw.phone),
       email,
-      vin: blankToNull(raw.vin),
+      vin,
       registration: blankToNull(raw.registration),
       make: blankToNull(raw.make),
       model: blankToNull(raw.model),
@@ -202,7 +227,7 @@ export function validateWebIntakeForm(raw: {
       fuel: fuelParsed === "invalid" ? null : fuelParsed,
       mileageReportedKm: mileageValue,
       serviceWanted,
-      problemDescription,
+      problemDescription: recordedProblem,
       bringsOwnMaterial: raw.bringsOwnMaterial === true,
       clientRequestId: raw.clientRequestId.trim(),
     },

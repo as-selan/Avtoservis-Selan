@@ -22,6 +22,7 @@ export const WEB_INTAKE_ALLOWED_BODY_KEYS = [
   "phone",
   "email",
   "vin",
+  "nonstandardVin",
   "registration",
   "make",
   "model",
