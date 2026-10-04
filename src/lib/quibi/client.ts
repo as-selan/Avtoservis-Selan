@@ -52,7 +52,7 @@ export function createQuibiReadClient(config: Config) {
     },
     async vehicles(customerId: string) {
       const id = validId(customerId);
-      return parseVehicles(await read("/api2/vozila")).filter((vehicle) => vehicle.customerId === id);
+      return parseVehicles(await read(`/api2/vozila/index/${id}`)).filter((vehicle) => vehicle.customerId === id);
     },
     async vehicle(id: string, customerId: string) {
       const vehicleId = validId(id);

@@ -46,12 +46,12 @@ test("vehicle adapter reads only the confirmed customer's Quibi vehicles and val
     calls.push(path);
     const one = { Vozila: { id: 972, stranka_id: 12, internastevilka: "VIN-A", disabled: 0 } };
     const other = { Vozila: { id: 973, stranka_id: 13, internastevilka: "VIN-A", disabled: 0 } };
-    const data = path === "/api2/vozila" ? { Vozila: [one, other] } : { Vozilo: one };
+    const data = path === "/api2/vozila/index/12" ? { Vozila: [one, other] } : { Vozilo: one };
     return new Response(JSON.stringify({ error: false, data }), { status: 200 });
   };
   const client = createQuibiReadClient({ username: "test", password: "secret", fetcher: fake as typeof fetch });
   assert.deepEqual((await client.vehicles("12")).map((vehicle) => vehicle.id), ["972"]);
   assert.equal((await client.vehicle("972", "12")).vin, "VIN-A");
   await assert.rejects(client.vehicle("972", "13"), /QUIBI_CUSTOMER_ID_MISMATCH/);
-  assert.deepEqual(calls, ["/api2/vozila", "/api2/vozila/view/972", "/api2/vozila/view/972"]);
+  assert.deepEqual(calls, ["/api2/vozila/index/12", "/api2/vozila/view/972", "/api2/vozila/view/972"]);
 });
