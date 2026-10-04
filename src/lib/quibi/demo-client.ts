@@ -3,8 +3,8 @@ import type { QuibiCustomer, QuibiDocument, QuibiEstimateDetail, QuibiVehicle } 
 
 // Synthetic, server-side READ fixture. There is deliberately no HTTP transport.
 const customers: QuibiCustomer[] = [
-  { id: "2001", name: "Nina Demo", phone: "+38640555101", email: "nina.demo@example.test" },
-  { id: "2002", name: "Luka Demo", phone: "+38640555102", email: "luka.demo@example.test" },
+  { id: "2001", name: "TEST – Nina Demo", phone: "+38640555101", email: "nina.demo@example.test" },
+  { id: "2002", name: "TEST – Luka Demo", phone: "+38640555102", email: "luka.demo@example.test" },
 ];
 const vehicles: QuibiVehicle[] = [
   { id: "5001", customerId: "2001", vin: "TST00000000000006", registration: "LJ DEMO1",
