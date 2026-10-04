@@ -59,6 +59,8 @@ test("preproduction requires the pinned hosted project and server-only Quibi DEV
       return new Response(JSON.stringify({ error: false, data: { Stranke: { Stranka: { id: 2001, naziv: "Test" } } } }));
     }) as typeof fetch;
     assert.equal((await configuredQuibiReadClient().customer("2001")).id, "2001");
+    assert.equal(demoEvidenceAllowed("QA-SIM-DEV-01"), true);
+    assert.equal(demoEvidenceAllowed("real-message-123"), false);
     process.env.QUIBI_DEV_USERNAME = "";
     process.env.QUIBI_DEV_PASSWORD = "";
     assert.throws(() => configuredQuibiReadClient(), /QUIBI_NOT_CONFIGURED/);

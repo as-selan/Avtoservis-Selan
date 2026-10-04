@@ -189,7 +189,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             <ReviewManualEstimate quoteId={quote.id} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId &&
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} />}
-          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1" ? "Demo – ni poslano" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
+          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1" || process.env.APP_ENV === "preproduction" ? "Demo – ni poslano" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Termini</h2>

@@ -52,7 +52,7 @@ export async function advanceManualSlotOffer(
   reference: string, selectedSlot?: number,
 ): Promise<Result> {
   await requirePhase1OperationalAccess();
-  if (process.env.SELAN_REMOTE_DEMO === "1" && action === "confirm") {
+  if ((process.env.SELAN_REMOTE_DEMO === "1" || process.env.APP_ENV === "preproduction") && action === "confirm") {
     return invalid("Demo ne more potrditi dejanske rezervacije v MyPlanlyju.");
   }
   if (!demoEvidenceAllowed(reference)) return invalid("V demo okolju uporabite sintetično referenco QA-SIM-.");
