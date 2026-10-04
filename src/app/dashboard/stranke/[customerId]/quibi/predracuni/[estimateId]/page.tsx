@@ -3,7 +3,7 @@ import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess
 import { canQueryCustomerId } from "@/lib/customers/present";
 import { createClient } from "@/lib/supabase/server";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
-import type { QuibiEstimateDetail } from "@/lib/quibi/contracts";
+import { quibiDocumentStatusLabel, type QuibiEstimateDetail } from "@/lib/quibi/contracts";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +46,7 @@ export default async function QuibiEstimatePage({ params }: {
     </p>}
     <section className="rounded-xl border bg-white p-4 space-y-2">
       <h2 className="font-semibold">Dejanska vsebina dokumenta</h2>
-      <p className="text-sm">Status v Quibiju: {estimate.status || "ni naveden"}</p>
+      <p className="text-sm">Status: {quibiDocumentStatusLabel(estimate.status)}</p>
       <p className="text-sm">Znesek, kot ga vrne Quibi: {estimate.amount}</p>
       <ul className="space-y-2 text-sm">{estimate.lines.map((line, index) => <li key={index} className="border-t pt-2">
         {line.description || "Postavka brez opisa"} · količina {line.quantity || "ni navedena"} · cena z DDV {line.grossPrice || "ni navedena"}

@@ -168,7 +168,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : <p className="text-sm text-amber-800">Vozilo še ni povezano s primerom.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
-          <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi in predračun"}</h2>
+          <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi DEV in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" &&

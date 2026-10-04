@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseCustomers, parseDocuments, parseEstimateDetail, parseVehicles, parseVehicleDetail, customerFingerprint, vehicleFingerprint } from "./contracts.ts";
+import { parseCustomers, parseDocuments, parseEstimateDetail, parseVehicles, parseVehicleDetail, customerFingerprint, vehicleFingerprint, quibiDocumentStatusLabel } from "./contracts.ts";
+
+test("missing DEV document status is explicit rather than invented", () => {
+  assert.equal(quibiDocumentStatusLabel(""), "Status v Quibi DEV ni na voljo");
+  assert.equal(quibiDocumentStatusLabel("Osnutek"), "Osnutek");
+});
+
+test("document lists project their own Quibi amount without treating it as a case price", () => {
+  const rows = parseDocuments({ error: false, data: { Dokumenti: [
+    { Glavadokumenta: { id: 81, stranka_id: 12, znesek: "195.50" }, Statusi: null },
+  ] } }, "12");
+  assert.equal(rows[0].amount, "195.50");
+  assert.equal(rows[0].status, "");
+});
 
 test("vehicle reads use Quibi id and internastevilka without assuming VIN uniqueness", () => {
   const list = { error: false, data: { Vozila: [

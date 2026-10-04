@@ -15,7 +15,7 @@ export function LinkManualEstimateForm({ serviceRequestId }: { serviceRequestId:
     event.preventDefault();
     if (!confirmed || pending) return;
     startTransition(async () => {
-      const result = await linkManualQuibiEstimate(serviceRequestId, estimateId.trim());
+      const result = await linkManualQuibiEstimate(serviceRequestId, estimateId.trim(), confirmed);
       setMessage(result.ok ? `Quibijev predračun je povezan kot različica #${result.versionNo}.` : result.message);
       if (result.ok) { setConfirmed(false); router.refresh(); }
     });

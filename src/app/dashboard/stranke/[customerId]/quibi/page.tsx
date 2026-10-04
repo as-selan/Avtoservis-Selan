@@ -4,7 +4,7 @@ import { loadCustomerDetail } from "@/lib/customers/load-customer-detail";
 import { createClient } from "@/lib/supabase/server";
 import { confirmQuibiCustomerLink, refreshQuibiCustomerLink, confirmQuibiVehicleLink, refreshQuibiVehicleLink } from "@/lib/quibi/actions";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
-import { customerFingerprint, vehicleFingerprint, type QuibiCustomer, type QuibiDocument, type QuibiVehicle } from "@/lib/quibi/contracts";
+import { customerFingerprint, vehicleFingerprint, quibiDocumentStatusLabel, type QuibiCustomer, type QuibiDocument, type QuibiVehicle } from "@/lib/quibi/contracts";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +68,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
     <div><h1 className="text-2xl font-semibold">Quibi · {local.customer.displayName}</h1>
       <p className="text-sm text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1"
         ? "Quibi demo – podatki so simulirani. Povezave veljajo samo za sintetične testne primere."
-        : "Ročno potrjena povezava in bralni pregled testnega okolja."}</p></div>
+        : "Quibi DEV – dejanski podatki iz testnega okolja. Povezava je ročno potrjena; zapisovanje in pošiljanje v Quibi nista avtomatska."}</p></div>
     {query.result === "linked" && <p role="status" className="text-green-700">Povezava je shranjena.</p>}
     {query.result === "changed" && <p role="alert" className="text-amber-800">Podatki v Quibiju so se od prikaza spremenili. Ponovno preverite stranko.</p>}
     {query.result === "already" && <p role="alert" className="text-amber-800">Ta stranka ali Quibijev ID je že povezan.</p>}
@@ -148,20 +148,20 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         })}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Delovni nalogi v Quibiju</h2>
-        <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}>Nalog #{doc.id}{doc.status && ` · ${doc.status}`}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}>Nalog #{doc.id} · {quibiDocumentStatusLabel(doc.status)}</li>)}</ul>
         {orders.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih nalogov.</p>}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračuni v Quibiju</h2>
         <ul className="mt-2 space-y-1 text-sm">{estimates.map((doc) => <li key={doc.id}>
           <Link className="font-medium text-blue-700" href={`/dashboard/stranke/${customerId}/quibi/predracuni/${doc.id}`}>Predračun #{doc.id} · preveri vsebino</Link>
-          {doc.status && ` · ${doc.status}`}
+          {` · ${quibiDocumentStatusLabel(doc.status)}`}
         </li>)}</ul>
         {estimates.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih predračunov.</p>}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Računi v Quibiju</h2>
         <p className="text-sm text-slate-600">Bralni pregled. Končni znesek računa ni Tadejeva odobrena cena predračuna.</p>
         {invoiceReadError && <p role="alert" className="text-red-700">Računov trenutno ni mogoče prebrati.</p>}
-        <ul className="mt-2 space-y-1 text-sm">{invoices.map((doc) => <li key={doc.id}>Račun #{doc.id}{doc.status && ` · ${doc.status}`}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-sm">{invoices.map((doc) => <li key={doc.id}>Račun #{doc.id} · {quibiDocumentStatusLabel(doc.status)}{doc.amount ? ` · znesek v Quibiju: ${doc.amount}` : ""}</li>)}</ul>
         {invoices.length === 0 && !invoiceReadError && !readError && <p className="text-sm text-slate-600">Ni prikazanih računov.</p>}
       </section>
     </> : <section className="rounded-xl border bg-white p-4 space-y-4">

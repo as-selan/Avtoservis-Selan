@@ -36,16 +36,20 @@ async function caseVehicleIsCurrent(
 }
 
 /** Registers a digest and ID only after re-reading the real estimate in Quibi. */
-export async function linkManualQuibiEstimate(serviceRequestId: string, estimateId: string): Promise<Result> {
+export async function linkManualQuibiEstimate(serviceRequestId: string, estimateId: string, manualMatchConfirmed: boolean): Promise<Result> {
   const access = await requirePhase1OperationalAccess();
+  if (manualMatchConfirmed !== true) {
+    return error("Pred povezavo ročno potrdite ujemanje stranke, vozila, storitve in delovnega naloga.");
+  }
   if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(serviceRequestId) || !/^\d+$/.test(estimateId)) {
     return error("Neveljaven primer ali ID predračuna.");
   }
   const db = await createClient();
   const { data: request, error: requestError } = await db.from("service_requests")
-    .select("customer_id, vehicle_id, status").eq("organization_id", access.organizationId)
+    .select("customer_id, vehicle_id, status, service_wanted").eq("organization_id", access.organizationId)
     .eq("id", serviceRequestId).is("archived_at", null).maybeSingle();
-  if (requestError || !request || request.status !== "preparing_offer" || !request.customer_id) {
+  if (requestError || !request || request.status !== "preparing_offer" || !request.customer_id ||
+      !request.service_wanted?.trim()) {
     return error("Primer ni pripravljen za povezavo predračuna.");
   }
   const [{ data: customer, error: customerError }, { data: link, error: linkError }] = await Promise.all([

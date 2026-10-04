@@ -5,12 +5,16 @@ export type QuibiVehicle = {
   id: string; customerId: string; vin: string; registration: string;
   make: string; model: string; disabled: boolean;
 };
-export type QuibiDocument = { id: string; customerId: string; numberingId: string; status: string };
+export type QuibiDocument = { id: string; customerId: string; numberingId: string; status: string; amount?: string };
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
   lines: { description: string; quantity: string; grossPrice: string }[];
   contentSha256: string;
 };
+
+export function quibiDocumentStatusLabel(status: string): string {
+  return status.trim() || "Status v Quibi DEV ni na voljo";
+}
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
@@ -93,7 +97,8 @@ export function parseDocuments(value: unknown, customerId: string): QuibiDocumen
     if (!/^\d+$/.test(id) || !/^\d+$/.test(owner)) throw new Error("QUIBI_INVALID_DOCUMENT_ID");
     const status = object(entry).Statusi;
     return { id, customerId: owner, numberingId: field(doc.stevilcenje_id),
-      status: status ? field(object(status).naziv) : "" };
+      status: status ? field(object(status).naziv) : "",
+      ...(doc.znesek !== undefined && doc.znesek !== null ? { amount: field(doc.znesek) } : {}) };
   }).filter((doc) => doc.customerId === customerId);
 }
 
