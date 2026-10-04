@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { customerFingerprint } from "@/lib/quibi/contracts";
 import { verifiedVehicleLink } from "@/lib/quibi/price-suggestion";
+import { demoEvidenceAllowed } from "@/lib/demo/evidence";
 
 type Result = { ok: true; quoteId: string; versionNo: number } | { ok: false; message: string };
 const error = (message: string): { ok: false; message: string } => ({ ok: false, message });
@@ -176,6 +177,7 @@ export async function recordManualEstimateDelivery(
   quoteId: string, channel: string, reference: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const access = await requirePhase1OperationalAccess();
+  if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
       || !["email", "sms", "in_person", "other"].includes(channel)
       || reference.trim().length < 4 || reference.trim().length > 200) {
@@ -251,6 +253,7 @@ export async function recordManualEstimateDecision(
   quoteId: string, decision: "approved" | "rejected", reference: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const access = await requirePhase1OperationalAccess();
+  if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
       || !["approved", "rejected"].includes(decision)
       || reference.trim().length < 4 || reference.trim().length > 200) {

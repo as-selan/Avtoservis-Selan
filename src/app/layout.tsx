@@ -28,7 +28,12 @@ export default function RootLayout({
       lang="sl"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {process.env.SELAN_REMOTE_DEMO === "1" && <div role="note" className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-950">
+          Demo okolje – brez dejanskega pošiljanja in rezervacij · Quibi – demo simulacija
+        </div>}
+        {children}
+      </body>
     </html>
   );
 }

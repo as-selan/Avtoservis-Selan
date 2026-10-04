@@ -1,4 +1,6 @@
 import { parseCustomerDetail, parseCustomers, parseDocuments, parseEstimateDetail, parseVehicleDetail, parseVehicles } from "./contracts.ts";
+import { assertRemoteDemoConfiguration } from "../demo/config.ts";
+import { createDemoQuibiReadClient } from "./demo-client.ts";
 
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string };
 const ORIGIN = "https://dev.quibi.net";
@@ -69,6 +71,10 @@ export function createQuibiReadClient(config: Config) {
 }
 
 export function configuredQuibiReadClient() {
+  if (process.env.SELAN_REMOTE_DEMO === "1") {
+    assertRemoteDemoConfiguration();
+    return createDemoQuibiReadClient();
+  }
   // The fixture is available only in disposable CI, and only on loopback.
   const fixture = process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1"
     ? process.env.QUIBI_E2E_ORIGIN : undefined;

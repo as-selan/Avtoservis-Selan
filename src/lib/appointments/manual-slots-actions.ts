@@ -2,6 +2,7 @@
 
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
+import { demoEvidenceAllowed } from "@/lib/demo/evidence";
 
 type Result = { ok: true } | { ok: false; message: string };
 const invalid = (message: string): Result => ({ ok: false, message });
@@ -27,6 +28,7 @@ export async function proposeManualSlots(
   slots: string[], availabilityReference: string,
 ): Promise<Result> {
   await requirePhase1OperationalAccess();
+  if (!demoEvidenceAllowed(availabilityReference)) return invalid("V demo okolju uporabite sintetično referenco QA-SIM-.");
   if (!uuid(serviceRequestId) || !["diagnosis", "service"].includes(appointmentType)
       || !Array.isArray(slots) || slots.length !== 3 || slots.some((slot) => typeof slot !== "string")
       || new Set(slots).size !== 3
@@ -50,6 +52,10 @@ export async function advanceManualSlotOffer(
   reference: string, selectedSlot?: number,
 ): Promise<Result> {
   await requirePhase1OperationalAccess();
+  if (process.env.SELAN_REMOTE_DEMO === "1" && action === "confirm") {
+    return invalid("Demo ne more potrditi dejanske rezervacije v MyPlanlyju.");
+  }
+  if (!demoEvidenceAllowed(reference)) return invalid("V demo okolju uporabite sintetično referenco QA-SIM-.");
   if (!uuid(offerId) || !["send", "select", "confirm", "cancel"].includes(action)
       || typeof reference !== "string"
       || reference.trim().length < 4 || reference.trim().length > 200

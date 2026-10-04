@@ -14,6 +14,7 @@ export function PublishedFinalPrice({ serviceRequestId, path, canApprove, servic
   serviceRequestId: string; path: Path | null; canApprove: boolean; serviceWanted: string | null;
 }) {
   const router = useRouter();
+  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1";
   const label = serviceWanted?.trim() ?? "";
   const [price, setPrice] = useState("");
   const [url, setUrl] = useState("");
@@ -45,21 +46,21 @@ export function PublishedFinalPrice({ serviceRequestId, path, canApprove, servic
       {mismatch && <p role="alert" className="font-medium text-red-800">Objavljena storitev se ne ujema s storitvijo tega primera. Cene ni dovoljeno odobriti ali poslati. Primer potrebuje popravek in nov pregled.</p>}
       <p>{path.service_label} · {Number(path.final_price_eur).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}</p>
       {/^https:\/\//.test(path.published_url) && <a href={path.published_url} target="_blank" rel="noopener noreferrer" className="break-all text-blue-700 underline">Odpri objavljeno ceno</a>}
-      <p>Stanje: {path.status}. Ročno sporočanje cene in odgovor stranke zahtevata sledljivo referenco.</p>
+      <p>Stanje: {path.status}. {demo ? "Komunikacija in odgovor sta v demu simulirana; uporabite QA-SIM referenco." : "Ročno sporočanje cene in odgovor stranke zahtevata sledljivo referenco."}</p>
       {path.status === "prepared" && canApprove && <>
         <label className="flex gap-2"><input type="checkbox" checked={attested} onChange={e => setAttested(e.target.checked)} />Pregledal sem objavljeno storitev in končno ceno.</label>
         <button type="button" disabled={pending || !attested || mismatch} onClick={() => submit("approve")} className="rounded border px-3 py-2 disabled:opacity-50">Tadejeva odobritev cene</button>
       </>}
       {(["approved", "communicated"] as string[]).includes(path.status) && <>
-        <label className="block">{path.status === "approved" ? "Referenca dejanskega sporočila stranki" : "Referenca dejanskega odgovora stranke"}
+        <label className="block">{demo ? "Sintetična referenca QA-SIM" : path.status === "approved" ? "Referenca dejanskega sporočila stranki" : "Referenca dejanskega odgovora stranke"}
           <input className="mt-1 block w-full rounded border p-2" value={reference} maxLength={200} onChange={e => setReference(e.target.value)} /></label>
         <label className="flex gap-2"><input type="checkbox" checked={attested} onChange={e => setAttested(e.target.checked)} />
-          {path.status === "approved" ? "Ceno sem dejansko sporočil stranki." : "Prejel sem dejansko odločitev stranke."}</label>
+          {demo ? "Potrjujem simulacijo brez dejanske komunikacije." : path.status === "approved" ? "Ceno sem dejansko sporočil stranki." : "Prejel sem dejansko odločitev stranke."}</label>
         {path.status === "approved" ? <button type="button" disabled={pending || !attested || mismatch || reference.trim().length < 4} onClick={() => submit("communicate")} className="rounded border px-3 py-2 disabled:opacity-50">Zabeleži sporočeno ceno</button>
           : <div className="flex flex-wrap gap-2"><button type="button" disabled={pending || !attested || mismatch || reference.trim().length < 4} onClick={() => submit("accept")} className="rounded border px-3 py-2 disabled:opacity-50">Stranka naroči storitev</button>
             <button type="button" disabled={pending || !attested || mismatch || reference.trim().length < 4} onClick={() => submit("reject")} className="rounded border px-3 py-2 disabled:opacity-50">Stranka zavrne storitev</button></div>}
       </>}
-      {path.communication_reference && <p>Sporočeno ročno; referenca: {path.communication_reference}. Ni samodejne dostave.</p>}
+      {path.communication_reference && <p>{demo ? "Demo – ni poslano" : "Sporočeno ročno"}; referenca: {path.communication_reference}. Ni samodejne dostave.</p>}
       {path.decision_reference && <p>Odločitev zabeležena ročno; referenca: {path.decision_reference}.</p>}
       {path.status === "accepted" && <p>Naslednji korak: ročno preverite tri termine v MyPlanlyju.</p>}
       {path.status === "rejected" && <p>Storitev ni naročena; termina ne ponujajte brez nove potrditve.</p>}

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { assertRemoteDemoConfiguration } from "@/lib/demo/config";
 
 /**
  * Refresh the Auth session and gate on identity only.
@@ -58,6 +59,9 @@ export function redirectToLoginPreservingAuthState(
 }
 
 export async function updateSession(request: NextRequest) {
+  try { assertRemoteDemoConfiguration(); } catch {
+    return new NextResponse("Demo okolje ni varno konfigurirano.", { status: 503 });
+  }
   let supabaseResponse = NextResponse.next({
     request,
   });

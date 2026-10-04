@@ -3,6 +3,8 @@ import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess
 import { createClient } from "@/lib/supabase/server";
 import { canQueryCustomerId } from "@/lib/customers/present";
 import { toPresentationRef } from "@/lib/dashboard/adapt-dashboard";
+import { mapDbStatusToUiStatus } from "@/lib/dashboard/db-status";
+import { getStatusLabel } from "@/lib/dashboard/statuses";
 import { nextCaseStep } from "@/lib/cases/next-step";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
@@ -129,7 +131,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       <Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link>
       <header><h1 className="text-2xl font-semibold text-slate-900">Primer #{toPresentationRef(request.id)}</h1>
         <p className="mt-1 text-sm text-slate-600">{request.summary}</p>
-        <p className="mt-1 text-xs text-slate-500">Vir: {request.source} · Status: {request.status}</p></header>
+        <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Stanje: {getStatusLabel(mapDbStatusToUiStatus(request.status))}</p></header>
 
       <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
         <h2 className="font-semibold text-blue-950">Naslednji korak</h2>
@@ -166,7 +168,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : <p className="text-sm text-amber-800">Vozilo še ni povezano s primerom.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
-          <h2 className="font-semibold">Quibi in predračun</h2>
+          <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" &&
@@ -181,13 +183,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {quote && !proposedPrice && <p role="alert" className="text-sm text-amber-800">{priceReadFailed ? "Predloga cene ni mogoče sveže prebrati iz Quibija." : "Cene ni varno predlagati: preverite povezavo stranke, dokument, vozilo in morebitne spremembe."} Povezava dokumenta s konkretnim vozilom in delovnim nalogom zahteva ročno potrditev.</p>}
           {!quote && link && !fixedPrice && <p className="text-xs text-amber-800">Quibijevi dokumenti stranke so lahko kandidati, vendar API ne potrjuje ujemanja storitve, vozila in delovnega naloga s tem primerom. Cene zato še ni varno samodejno predlagati.</p>}
           {customer && quibiEstimateId && <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi/predracuni/${quibiEstimateId}`}>
-            Odpri dejanski Quibijev predračun #{quibiEstimateId} →
+            {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri demo predračun" : "Odpri dejanski Quibijev predračun"} #{quibiEstimateId} →
           </Link>}
           {quote?.internal_review_status === "unreviewed" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             <ReviewManualEstimate quoteId={quote.id} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId &&
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} />}
-          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">Ročno poslano prek {approval.delivery_channel}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
+          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1" ? "Demo – ni poslano" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Termini</h2>

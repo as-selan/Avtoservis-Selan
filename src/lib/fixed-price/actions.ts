@@ -2,6 +2,7 @@
 
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
+import { demoEvidenceAllowed } from "@/lib/demo/evidence";
 
 type Action = "prepare" | "approve" | "communicate" | "accept" | "reject";
 type Result = { ok: true; status: string } | { ok: false; message: string };
@@ -31,6 +32,9 @@ export async function advancePublishedFixedPriceCase(
   const price = input?.finalPrice?.trim() ?? "";
   const url = input?.publishedUrl?.trim() ?? "";
   const reference = input?.reference?.trim() ?? "";
+  if (["communicate", "accept", "reject"].includes(action) && !demoEvidenceAllowed(reference)) {
+    return { ok: false, message: "V demo okolju uporabite sintetično referenco QA-SIM-." };
+  }
   if (action === "prepare" && (
     label.length < 4 || label.length > 200 || !/^\d{1,10}(?:[.,]\d{1,2})?$/.test(price) ||
     !/^https:\/\/[^\s]{4,500}$/.test(url)
