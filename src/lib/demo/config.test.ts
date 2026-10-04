@@ -40,6 +40,8 @@ test("preproduction requires the pinned hosted project and server-only Quibi DEV
     /PREPRODUCTION_CONFIGURATION_REQUIRED/);
   assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, VERCEL_ENV: "production" }),
     /PREPRODUCTION_CONFIGURATION_REQUIRED/);
+  assert.doesNotThrow(() => assertPreproductionQuibiConfiguration({ ...preproduction,
+    QUIBI_DEV_USERNAME: "", QUIBI_DEV_PASSWORD: "" }));
   assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction, QUIBI_DEV_PASSWORD: "" }),
     /PREPRODUCTION_CONFIGURATION_REQUIRED/);
   assert.throws(() => assertPreproductionQuibiConfiguration({ ...preproduction,
@@ -57,6 +59,9 @@ test("preproduction requires the pinned hosted project and server-only Quibi DEV
       return new Response(JSON.stringify({ error: false, data: { Stranke: { Stranka: { id: 2001, naziv: "Test" } } } }));
     }) as typeof fetch;
     assert.equal((await configuredQuibiReadClient().customer("2001")).id, "2001");
+    process.env.QUIBI_DEV_USERNAME = "";
+    process.env.QUIBI_DEV_PASSWORD = "";
+    assert.throws(() => configuredQuibiReadClient(), /QUIBI_NOT_CONFIGURED/);
   } finally {
     globalThis.fetch = fetchBefore;
     for (const key of keys) {
