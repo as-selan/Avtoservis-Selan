@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createQuibiReadClient } from "./client.ts";
+import { configuredQuibiReadClient, createQuibiReadClient } from "./client.ts";
+
+test("local review fails closed when fixture flags are incomplete", () => {
+  const previous = { review: process.env.SELAN_LOCAL_REVIEW, ci: process.env.CI,
+    isolated: process.env.SELAN_ISOLATED_E2E, origin: process.env.QUIBI_E2E_ORIGIN };
+  try {
+    process.env.SELAN_LOCAL_REVIEW = "1";
+    delete process.env.CI;
+    process.env.SELAN_ISOLATED_E2E = "1";
+    process.env.QUIBI_E2E_ORIGIN = "http://127.0.0.1:47862";
+    assert.throws(() => configuredQuibiReadClient(), /QUIBI_LOCAL_FIXTURE_REQUIRED/);
+  } finally {
+    for (const [key, value] of Object.entries({ SELAN_LOCAL_REVIEW: previous.review, CI: previous.ci,
+      SELAN_ISOLATED_E2E: previous.isolated, QUIBI_E2E_ORIGIN: previous.origin })) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
 
 test("read client uses only approved dev endpoints and filters documents", async () => {
   const calls: Array<{ path: string; method: string }> = [];

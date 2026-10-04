@@ -123,6 +123,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : null;
 
     return <div className="space-y-5">
+      {process.env.SELAN_LOCAL_REVIEW === "1" && <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+        Lokalni QA: reference QA-SIM pomenijo simuliran preizkus. Nobeno sporočilo ni dejansko poslano, noben termin ni rezerviran v MyPlanlyju in Quibi je lokalna simulacija.
+      </p>}
       <Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link>
       <header><h1 className="text-2xl font-semibold text-slate-900">Primer #{toPresentationRef(request.id)}</h1>
         <p className="mt-1 text-sm text-slate-600">{request.summary}</p>
