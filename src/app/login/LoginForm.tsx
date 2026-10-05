@@ -1,12 +1,22 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { loginAction, type LoginState } from "./actions";
+import { authLinkRedirectTarget } from "./recovery-link";
 
 const initialState: LoginState = { error: null };
 
-export function LoginForm() {
+export function LoginForm({ signedIn }: { signedIn: boolean }) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
+
+  useEffect(() => {
+    const target = authLinkRedirectTarget(window.location.hash);
+    if (target) {
+      window.location.replace(target);
+    } else if (signedIn) {
+      window.location.replace("/dashboard");
+    }
+  }, [signedIn]);
 
   return (
     <form action={formAction} className="space-y-4">

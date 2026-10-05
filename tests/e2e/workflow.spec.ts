@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 type Seed = { owner: string; reception: string; mechanic: string; foreign: string;
   invitedEmail: string; inviteActionLink: string;
@@ -84,6 +85,32 @@ test("default Supabase invite link establishes a cookie session and allows passw
   await page.getByLabel("Novo geslo").fill(process.env.E2E_PASSWORD!);
   await page.getByLabel("Ponovi geslo").fill(process.env.E2E_PASSWORD!);
   await page.getByRole("button", { name: "Shrani geslo" }).click();
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
+});
+
+test("recovery email returning to /login exchanges its session and permits password setup", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Single-use isolated recovery token.");
+  const apiUrl = process.env.E2E_API_URL ?? "";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  if (!serviceKey || !/^http:\/\/127\.0\.0\.1:\d+$/.test(apiUrl)) {
+    throw new Error("Recovery test requires isolated loopback Auth admin");
+  }
+  const admin = createSupabaseClient(apiUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  // generateLink does not send an email; it creates one token for the synthetic owner.
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery", email: seed.owner, options: { redirectTo: `${appOrigin}/login` },
+  });
+  if (error || !data.properties?.action_link) throw new Error("Isolated recovery link generation failed");
+  await page.goto(data.properties.action_link);
+  await expect(page).toHaveURL(/\/nastavi-geslo$/);
+  await page.getByLabel("Novo geslo").fill(process.env.E2E_PASSWORD!);
+  await page.getByLabel("Ponovi geslo").fill(process.env.E2E_PASSWORD!);
+  await page.getByRole("button", { name: "Shrani geslo" }).click();
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
+  await page.context().clearCookies();
+  await login(page, seed.owner);
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
 });
 

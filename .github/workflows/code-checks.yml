@@ -13,6 +13,7 @@ on:
       - codex/selan-v1-workflow
       - codex/selan-v1-test-release
       - codex/selan-manual-estimate-v1
+      - codex/selan-pr18-manual-qa
   pull_request:
     branches:
       - main
@@ -70,7 +71,7 @@ jobs:
       - name: Workflow and Quibi V1 contract tests
         run: |
           shopt -s nullglob
-          tests=(src/lib/quibi/*.test.ts src/lib/cases/*.test.ts src/lib/completion/*.test.ts src/lib/appointments/*.test.ts src/lib/intake/trusted-origin.test.ts)
+          tests=(src/app/login/recovery-link.test.ts src/lib/quibi/*.test.ts src/lib/cases/*.test.ts src/lib/completion/*.test.ts src/lib/appointments/*.test.ts src/lib/intake/trusted-origin.test.ts)
           if (( ${#tests[@]} > 0 )); then
             node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
           fi

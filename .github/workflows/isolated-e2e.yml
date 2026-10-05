@@ -5,6 +5,7 @@ on:
     branches:
       - codex/selan-v1-test-release
       - codex/selan-manual-estimate-v1
+      - codex/selan-pr18-manual-qa
   pull_request:
     branches:
       - codex/selan-v1-workflow

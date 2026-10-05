@@ -1,5 +1,4 @@
 import { Car } from "lucide-react";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./LoginForm";
 
@@ -10,10 +9,6 @@ export default async function LoginPage({
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-
-  if (data?.claims) {
-    redirect("/dashboard");
-  }
 
   const params = await searchParams;
   const linkError =
@@ -52,7 +47,7 @@ export default async function LoginPage({
             </p>
           ) : null}
 
-          <LoginForm />
+          <LoginForm signedIn={Boolean(data?.claims)} />
         </div>
       </div>
     </main>
