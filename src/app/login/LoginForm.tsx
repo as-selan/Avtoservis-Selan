@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, type FormEvent } from "react";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { createImplicitRecoveryClient } from "@/lib/supabase/client";
 import { loginAction, type LoginState } from "./actions";
 import { authLinkRedirectTarget, recoveryCodeRedirectTarget } from "./recovery-link";
 
@@ -29,7 +29,7 @@ export function LoginForm({ signedIn }: { signedIn: boolean }) {
     if (recoveryPending) return;
     setRecoveryPending(true);
     setRecoveryUnavailable(false);
-    const supabase = createBrowserSupabaseClient();
+    const supabase = createImplicitRecoveryClient();
     if (!supabase) {
       setRecoveryUnavailable(true);
       setRecoveryPending(false);

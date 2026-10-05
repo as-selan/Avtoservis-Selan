@@ -155,15 +155,20 @@ test("forgot-password requests recovery for invited and admin accounts without a
       if (!verificationUrl || !verificationUrl.startsWith(`${process.env.E2E_API_URL}/auth/v1/verify?`)) {
         throw new Error("Isolated recovery email has no local verification URL");
       }
-      let sawCode = false;
-      page.on("request", (request) => {
-        const url = new URL(request.url());
-        if (url.origin === appOrigin && url.pathname === "/auth/recovery" && url.searchParams.has("code")) sawCode = true;
+      let sawImplicitRecovery = false;
+      page.on("framenavigated", (frame) => {
+        if (frame !== page.mainFrame()) return;
+        const url = new URL(frame.url());
+        const fragment = new URLSearchParams(url.hash.slice(1));
+        if (url.origin === appOrigin && url.pathname === "/auth/recovery" &&
+            fragment.get("type") === "recovery" && fragment.has("access_token") && fragment.has("refresh_token")) {
+          sawImplicitRecovery = true;
+        }
       });
       await page.goto(verificationUrl);
       await expect(page).toHaveURL(/\/nastavi-geslo$/);
-      expect(sawCode).toBe(true);
-      const changedPassword = `${process.env.E2E_PASSWORD!}-pkce`;
+      expect(sawImplicitRecovery).toBe(true);
+      const changedPassword = `${process.env.E2E_PASSWORD!}-implicit`;
       await page.getByLabel("Novo geslo").fill(changedPassword);
       await page.getByLabel("Ponovi geslo").fill(changedPassword);
       await page.getByRole("button", { name: "Shrani geslo" }).click();
