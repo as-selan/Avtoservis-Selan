@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseCustomers, parseDocuments, parseEstimateDetail, parseVehicles, parseVehicleDetail, customerFingerprint, vehicleFingerprint, quibiDocumentStatusLabel } from "./contracts.ts";
+import { parseCustomers, parseDocuments, parseEstimateDetail, parseDocumentStatus, parseVehicles, parseVehicleDetail, customerFingerprint, vehicleFingerprint, quibiDocumentStatusLabel } from "./contracts.ts";
 
 test("missing DEV document status is explicit rather than invented", () => {
   assert.equal(quibiDocumentStatusLabel(""), "Status v Quibi DEV ni na voljo");
@@ -57,6 +57,32 @@ test("estimate detail exposes real review fields only for the linked customer", 
   });
   assert.throws(() => parseEstimateDetail(response, "101", "13"), /QUIBI_CUSTOMER_ID_MISMATCH/);
   assert.throws(() => parseEstimateDetail(response, "102", "12"), /QUIBI_DOCUMENT_ID_MISMATCH/);
+});
+
+test("api2_view status belongs to the exact document and customer", () => {
+  const view = { error: false, data: { Dokumenti: [{
+    Glavadokumenta: { id: 81, stranka_id: 12, statusi_id: 4 },
+    Statusi: { id: 4, naziv: "Izdano" },
+  }] } };
+  assert.equal(parseDocumentStatus(view, "81", "12"), "Izdano");
+  assert.throws(() => parseDocumentStatus(view, "82", "12"), /QUIBI_DOCUMENT_ID_MISMATCH/);
+  assert.throws(() => parseDocumentStatus(view, "81", "13"), /QUIBI_CUSTOMER_ID_MISMATCH/);
+  assert.equal(parseDocumentStatus({ error: false, data: { Dokumenti: [{
+    Glavadokumenta: { id: 81, stranka_id: 12, statusi_id: 5 },
+    Statusi: { id: 4, naziv: "Izdano" },
+  }] } }, "81", "12"), "");
+  const inconsistentEstimate = { error: false, data: { Dokumenti: [{
+    Glavadokumenta: { id: 81, stranka_id: 12, statusi_id: 5, znesek: "122.00" },
+    Statusi: { id: 4, naziv: "Izdano" },
+    Postavkedokumenta: [{ opis: "TEST", kolicina: 1, cenaZDDV: "100.00" }],
+  }] } };
+  const detail = parseEstimateDetail(inconsistentEstimate, "81", "12");
+  assert.equal(detail.status, "");
+  assert.equal(detail.amount, "122.00");
+  assert.equal(parseDocumentStatus({ error: false, data: { Dokumenti: [{
+    Glavadokumenta: { id: 81, stranka_id: 12, statusi_id: null },
+    Statusi: { id: null, naziv: null },
+  }] } }, "81", "12"), "");
 });
 
 test("fingerprint is stable across superficial formatting but detects changes", () => {

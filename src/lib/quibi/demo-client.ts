@@ -54,6 +54,11 @@ export function createDemoQuibiReadClient() {
       id(customerId);
       return [];
     },
+    async documentStatus(documentId: string, customerId: string): Promise<string> {
+      if (id(documentId) === estimate.id && id(customerId) === estimate.customerId) return estimate.status;
+      if (id(documentId) === "3001" && id(customerId) === "2001") return "";
+      throw new Error("QUIBI_DOCUMENT_NOT_FOUND");
+    },
     async estimateDetail(estimateId: string, customerId: string): Promise<QuibiEstimateDetail> {
       if (id(estimateId) !== estimate.id || id(customerId) !== estimate.customerId) {
         throw new Error("QUIBI_DOCUMENT_NOT_FOUND");

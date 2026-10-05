@@ -89,15 +89,39 @@ export function parseVehicleDetail(value: unknown, expectedId: string, customerI
   return projected;
 }
 
+function statusFromDocument(entry: Record<string, unknown>): string {
+  const header = object(entry.Glavadokumenta);
+  const headerStatusId = field(header.statusi_id);
+  const status = entry.Statusi == null ? null : object(entry.Statusi);
+  const statusId = status ? field(status.id) : "";
+  const label = status ? field(status.naziv) : "";
+  if (!headerStatusId && !statusId && !label) return "";
+  if (!headerStatusId || !statusId || !label || headerStatusId !== statusId) {
+    return "";
+  }
+  return label;
+}
+
+/** Current status comes from the exact api2_view document, never /api2/statusi. */
+export function parseDocumentStatus(value: unknown, expectedId: string, customerId: string): string {
+  const documents = rows(value, "Dokumenti");
+  if (documents.length !== 1) throw new Error("QUIBI_INVALID_RESPONSE");
+  const entry = object(documents[0]);
+  const header = object(entry.Glavadokumenta);
+  if (field(header.id) !== expectedId) throw new Error("QUIBI_DOCUMENT_ID_MISMATCH");
+  if (field(header.stranka_id) !== customerId) throw new Error("QUIBI_CUSTOMER_ID_MISMATCH");
+  return statusFromDocument(entry);
+}
+
 export function parseDocuments(value: unknown, customerId: string): QuibiDocument[] {
   return rows(value, "Dokumenti").map((entry) => {
     const doc = object(object(entry).Glavadokumenta);
     const id = field(doc.id);
     const owner = field(doc.stranka_id);
     if (!/^\d+$/.test(id) || !/^\d+$/.test(owner)) throw new Error("QUIBI_INVALID_DOCUMENT_ID");
-    const status = object(entry).Statusi;
+    const status = statusFromDocument(object(entry));
     return { id, customerId: owner, numberingId: field(doc.stevilcenje_id),
-      status: status ? field(object(status).naziv) : "",
+      status,
       ...(doc.znesek !== undefined && doc.znesek !== null ? { amount: field(doc.znesek) } : {}) };
   }).filter((doc) => doc.customerId === customerId);
 }
@@ -117,7 +141,7 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
   if (!amount || !Array.isArray(lines) || lines.length > 200) throw new Error("QUIBI_INVALID_RESPONSE");
   return {
     id, customerId: owner, amount,
-    status: entry.Statusi ? field(object(entry.Statusi).naziv) : "",
+    status: statusFromDocument(entry),
     contentSha256: createHash("sha256").update(JSON.stringify(canonical(entry))).digest("hex"),
     lines: lines.map((row) => {
       const item = object(row);

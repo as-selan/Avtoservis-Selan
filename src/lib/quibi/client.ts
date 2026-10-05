@@ -1,4 +1,4 @@
-import { parseCustomerDetail, parseCustomers, parseDocuments, parseEstimateDetail, parseVehicleDetail, parseVehicles } from "./contracts.ts";
+import { parseCustomerDetail, parseCustomers, parseDocuments, parseDocumentStatus, parseEstimateDetail, parseVehicleDetail, parseVehicles } from "./contracts.ts";
 import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } from "../demo/config.ts";
 import { createDemoQuibiReadClient } from "./demo-client.ts";
 
@@ -69,6 +69,9 @@ export function createQuibiReadClient(config: Config) {
     async invoices(customerId: string) {
       const id = validId(customerId);
       return parseDocuments(await read("/api2/fakture", "POST", id), id);
+    },
+    async documentStatus(id: string, customerId: string) {
+      return parseDocumentStatus(await read(`/api2/glavadokumenta/view/${validId(id)}`), id, validId(customerId));
     },
     async estimateDetail(id: string, customerId: string) {
       return parseEstimateDetail(await read(`/api2/glavadokumenta/view/${validId(id)}`), id, validId(customerId));

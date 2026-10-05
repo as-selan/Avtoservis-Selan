@@ -47,7 +47,13 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         client.customer(link.external_id), client.workOrders(link.external_id), client.estimates(link.external_id),
         client.vehicles(link.external_id),
       ]);
-      try { invoices = await client.invoices(link.external_id); } catch { invoiceReadError = true; }
+      try {
+        const listedInvoices = await client.invoices(link.external_id);
+        invoices = await Promise.all(listedInvoices.map(async (invoice) => ({
+          ...invoice,
+          status: await client.documentStatus(invoice.id, link.external_id),
+        })));
+      } catch { invoiceReadError = true; }
     } else if (typeof query.q === "string" && query.q.trim().length >= 2 && query.q.length <= 100) {
       matches = await configuredQuibiReadClient().searchCustomers(query.q);
     }
