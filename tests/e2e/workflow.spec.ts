@@ -18,10 +18,10 @@ for (const origin of [fixtureOrigin, appOrigin]) {
   if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) throw new Error("E2E origin must be loopback");
 }
 
-async function login(page: Page, email: string) {
+async function login(page: Page, email: string, password = process.env.E2E_PASSWORD!) {
   await page.goto("/login");
   await page.getByLabel("E-pošta").fill(email);
-  await page.getByLabel("Geslo").fill(process.env.E2E_PASSWORD!);
+  await page.getByLabel("Geslo").fill(password);
   await page.getByRole("button", { name: "Prijava" }).click();
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 }
@@ -98,19 +98,20 @@ test("recovery email returning to /login exchanges its session and permits passw
   const admin = createSupabaseClient(apiUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  // generateLink does not send an email; it creates one token for the synthetic owner.
+  // generateLink does not send an email; this uses only the synthetic invited user.
   const { data, error } = await admin.auth.admin.generateLink({
-    type: "recovery", email: seed.owner, options: { redirectTo: `${appOrigin}/login` },
+    type: "recovery", email: seed.invitedEmail, options: { redirectTo: `${appOrigin}/login` },
   });
   if (error || !data.properties?.action_link) throw new Error("Isolated recovery link generation failed");
   await page.goto(data.properties.action_link);
   await expect(page).toHaveURL(/\/nastavi-geslo$/);
-  await page.getByLabel("Novo geslo").fill(process.env.E2E_PASSWORD!);
-  await page.getByLabel("Ponovi geslo").fill(process.env.E2E_PASSWORD!);
+  const recoveredPassword = `${process.env.E2E_PASSWORD!}-recovered`;
+  await page.getByLabel("Novo geslo").fill(recoveredPassword);
+  await page.getByLabel("Ponovi geslo").fill(recoveredPassword);
   await page.getByRole("button", { name: "Shrani geslo" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
   await page.context().clearCookies();
-  await login(page, seed.owner);
+  await login(page, seed.invitedEmail, recoveredPassword);
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
 });
 
