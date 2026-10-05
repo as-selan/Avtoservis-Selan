@@ -115,6 +115,21 @@ test("recovery email returning to /login exchanges its session and permits passw
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
 });
 
+test("dedicated recovery callback accepts a Supabase recovery session fragment", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Single-use isolated recovery token.");
+  const apiUrl = process.env.E2E_API_URL ?? "";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  if (!serviceKey || !/^http:\/\/127\.0\.0\.1:\d+$/.test(apiUrl)) throw new Error("Isolated Auth required");
+  const admin = createSupabaseClient(apiUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery", email: seed.reception, options: { redirectTo: `${appOrigin}/auth/recovery` },
+  });
+  if (error || !data.properties?.action_link) throw new Error("Isolated recovery link generation failed");
+  await page.goto(data.properties.action_link);
+  await expect(page).toHaveURL(/\/nastavi-geslo$/);
+  await expect(page.getByLabel("Novo geslo")).toBeVisible();
+});
+
 test("forgot-password requests recovery for invited and admin accounts without account disclosure", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "Single isolated Auth email quota.");
   for (const email of [seed.invitedEmail, seed.owner]) {
@@ -130,6 +145,34 @@ test("forgot-password requests recovery for invited and admin accounts without a
     );
     await page.getByRole("button", { name: "Nazaj na prijavo" }).click();
     await expect(page.getByRole("button", { name: "Prijava" })).toBeVisible();
+    if (email === seed.invitedEmail) {
+      // Follow the real message in Mailpit from the same browser that initiated PKCE.
+      const messageResponse = await fetch("http://127.0.0.1:54324/api/v1/message/latest");
+      if (!messageResponse.ok) throw new Error("Isolated recovery email was not captured");
+      const message = await messageResponse.json() as { Text?: string; HTML?: string };
+      const body = `${message.Text ?? ""} ${message.HTML ?? ""}`.replaceAll("&amp;", "&");
+      const verificationUrl = body.match(/https?:\/\/[^\s<>"']+\/auth\/v1\/verify\?[^\s<>"']+/)?.[0];
+      if (!verificationUrl || !verificationUrl.startsWith(`${process.env.E2E_API_URL}/auth/v1/verify?`)) {
+        throw new Error("Isolated recovery email has no local verification URL");
+      }
+      let sawCode = false;
+      page.on("request", (request) => {
+        const url = new URL(request.url());
+        if (url.origin === appOrigin && url.pathname === "/auth/recovery" && url.searchParams.has("code")) sawCode = true;
+      });
+      await page.goto(verificationUrl);
+      await expect(page).toHaveURL(/\/nastavi-geslo$/);
+      expect(sawCode).toBe(true);
+      const changedPassword = `${process.env.E2E_PASSWORD!}-pkce`;
+      await page.getByLabel("Novo geslo").fill(changedPassword);
+      await page.getByLabel("Ponovi geslo").fill(changedPassword);
+      await page.getByRole("button", { name: "Shrani geslo" }).click();
+      await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
+      await page.context().clearCookies();
+      await login(page, seed.invitedEmail, changedPassword);
+      await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
+      await page.context().clearCookies();
+    }
   }
 });
 

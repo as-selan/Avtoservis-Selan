@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, type FormEvent } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { loginAction, type LoginState } from "./actions";
-import { authLinkRedirectTarget } from "./recovery-link";
+import { authLinkRedirectTarget, recoveryCodeRedirectTarget } from "./recovery-link";
 
 const initialState: LoginState = { error: null };
 
@@ -16,7 +16,7 @@ export function LoginForm({ signedIn }: { signedIn: boolean }) {
   const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
 
   useEffect(() => {
-    const target = authLinkRedirectTarget(window.location.hash);
+    const target = authLinkRedirectTarget(window.location.hash) ?? recoveryCodeRedirectTarget(window.location.search);
     if (target) {
       window.location.replace(target);
     } else if (signedIn) {
@@ -36,10 +36,10 @@ export function LoginForm({ signedIn }: { signedIn: boolean }) {
       return;
     }
     try {
-      // The existing /login recovery callback exchanges the short-lived session.
+      // The dedicated callback exchanges either a session fragment or PKCE code.
       // Supabase's redirect allowlist must include this exact application URL.
       await supabase.auth.resetPasswordForEmail(recoveryEmail.trim(), {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/auth/recovery`,
       });
       // The response must not disclose whether the address has an account.
       setRecoveryRequested(true);
