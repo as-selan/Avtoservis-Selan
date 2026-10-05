@@ -23,7 +23,7 @@ for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PRODUCTION_DB_PASSWORD DA
 done
 
 bash "${REPO_ROOT}/.github/ci/prepare-ci-workdir.sh" full
-(cd "${CI_WORKDIR}" && supabase start --exclude studio --exclude logflare --exclude vector --exclude imgproxy --exclude mailpit)
+(cd "${CI_WORKDIR}" && supabase start --exclude studio --exclude logflare --exclude vector --exclude imgproxy)
 pwsh -NoProfile -File "${REPO_ROOT}/supabase/tests/verify_isolated_docker_target.ps1" \
   -ExpectedContainerName "${EXPECTED_CONTAINER_NAME}" -ExpectedHostPort "${EXPECTED_HOST_PORT}"
 (cd "${CI_WORKDIR}" && supabase migration up)
