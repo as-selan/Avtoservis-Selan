@@ -22,15 +22,13 @@ function preproductionEnvironment(): Record<string, string | undefined> {
 
 export function assertPreproductionQuibiConfiguration(env: Record<string, string | undefined> = preproductionEnvironment()): void {
   if (env.APP_ENV !== "preproduction") return;
-  const demo = env.QUIBI_MODE === "demo";
   const dev = env.QUIBI_MODE === "dev";
   const origin = env.PUBLIC_APP_ORIGIN;
   let parsed: URL;
   try { parsed = new URL(origin ?? ""); } catch { throw new Error("PREPRODUCTION_CONFIGURATION_REQUIRED"); }
-  if (env.VERCEL_ENV !== "preview" || (!demo && !dev) ||
-      (demo && (env.SELAN_REMOTE_DEMO !== "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1")) ||
-      (dev && (env.SELAN_REMOTE_DEMO === "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" ||
-        Boolean(env.QUIBI_DEV_USERNAME) !== Boolean(env.QUIBI_DEV_PASSWORD))) ||
+  if (env.VERCEL_ENV !== "preview" || !dev ||
+      env.SELAN_REMOTE_DEMO === "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" ||
+      !env.QUIBI_DEV_USERNAME || !env.QUIBI_DEV_PASSWORD ||
       env.SELAN_LOCAL_REVIEW === "1" || env.QUIBI_E2E_ORIGIN ||
       env.NEXT_PUBLIC_SUPABASE_URL !== "https://verxxsjbewmkgoxwqvxo.supabase.co" ||
       !env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || !env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -42,8 +40,8 @@ export function assertPreproductionQuibiConfiguration(env: Record<string, string
 }
 
 export function assertRemoteDemoConfiguration(env: Record<string, string | undefined> = process.env): void {
-  // Existing previews have previously pointed at production data. Any preview
-  // built from this branch must explicitly opt into the isolated demo.
+  // Explicit demo previews require an isolated project. The reviewed DEV
+  // Preview uses assertPreproductionQuibiConfiguration instead.
   if (env.VERCEL_ENV === "preview" && env.SELAN_REMOTE_DEMO !== "1") {
     throw new Error("PREVIEW_DEMO_CONFIGURATION_REQUIRED");
   }

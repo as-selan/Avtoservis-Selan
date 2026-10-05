@@ -82,7 +82,6 @@ export function createQuibiReadClient(config: Config) {
 export function configuredQuibiReadClient() {
   if (process.env.APP_ENV === "preproduction") {
     assertPreproductionQuibiConfiguration();
-    if (process.env.QUIBI_MODE === "demo") return createDemoQuibiReadClient();
     return createQuibiReadClient({
       username: process.env.QUIBI_DEV_USERNAME ?? "",
       password: process.env.QUIBI_DEV_PASSWORD ?? "",

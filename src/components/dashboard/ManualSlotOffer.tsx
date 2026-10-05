@@ -16,7 +16,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer }: {
   serviceRequestId: string; appointmentType: "diagnosis" | "service"; offer: Offer | null;
 }) {
   const router = useRouter();
-  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.APP_ENV === "preproduction" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
+  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
   const [slots, setSlots] = useState(["", "", ""]);
   const [reference, setReference] = useState("");
   const [selected, setSelected] = useState(1);

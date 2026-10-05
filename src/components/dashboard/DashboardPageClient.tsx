@@ -101,6 +101,12 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
       <WorkflowStatusSummary
         items={workflowCounts}
         attentionCount={attention.length}
+        activeStatus={statusFilter}
+        onSelectStatus={(status) => setStatusFilter(statusFilter === status ? "all" : status)}
+        onSelectAttention={() => {
+          document.getElementById("dashboard-attention")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          document.getElementById("dashboard-attention")?.focus({ preventScroll: true });
+        }}
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -116,7 +122,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
 
         <aside className="min-w-0 space-y-4">
           <AppointmentList appointments={appointments} />
-          <AttentionList items={attention} />
+          <div id="dashboard-attention" tabIndex={-1}><AttentionList items={attention} /></div>
           <RecentActivity items={activity} />
         </aside>
       </div>

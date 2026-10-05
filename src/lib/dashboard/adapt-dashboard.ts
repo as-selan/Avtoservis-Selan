@@ -1,4 +1,4 @@
-import { WORKFLOW_STATUS_MAP } from "./statuses";
+import { nextCaseStep } from "@/lib/cases/next-step";
 import { mapDbStatusToUiStatus } from "./db-status";
 import { formatRelativeUpdatedLabel } from "./relative-time";
 import type {
@@ -54,44 +54,12 @@ function vehicleMakeModel(vehicle: VehicleRow | undefined): string {
   return parts.length > 0 ? parts.join(" ") : FALLBACK_VEHICLE;
 }
 
-function nextActionLabel(
-  nextAction: string | null,
-  uiStatus: ServiceOrderDemo["status"],
-  dbStatus: string,
-  offerPreparationReady: boolean,
-  fixedPriceStatus?: string,
-  slotOfferStatus?: string,
-): string {
-  if (dbStatus === "preparing_offer" && fixedPriceStatus) {
-    if (fixedPriceStatus === "prepared") return "Preglej objavljeno končno ceno.";
-    if (fixedPriceStatus === "approved") return "Sporočite odobreno ceno stranki in zabeležite dokazilo.";
-    return "Preverite odločitev stranke o objavljeni ceni.";
-  }
-  if (dbStatus === "preparing_offer" && offerPreparationReady) {
-    return "Povežite Quibijev predračun ali preverite pot z objavljeno ceno.";
-  }
-  if (dbStatus === "awaiting_slot_selection") {
-    if (slotOfferStatus === "selected") return "Rezervirajte izbrani termin v MyPlanlyju; rezervacija še ni potrjena.";
-    if (slotOfferStatus === "offered") return "Čakajte na izbiro stranke; termini niso rezervirani.";
-    if (slotOfferStatus === "proposed") return "Pošljite tri ročno preverjene možnosti stranki.";
-    return "Ročno preverite in predlagajte tri proste termine.";
-  }
-  // Intake text is persisted before later state changes and must not be
-  // presented as the current action after approval or scheduling begins.
-  const trimmed = ["new", "needs_data", "preparing_offer"].includes(dbStatus)
-    ? nextAction?.trim() : null;
-  if (trimmed) return trimmed;
-  return WORKFLOW_STATUS_MAP[uiStatus].nextActionDefault;
-}
-
 export function adaptServiceRequestToOrder(
   row: ServiceRequestRow,
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  offerPreparationReady = false,
-  fixedPriceStatus?: string,
-  slotOfferStatus?: string,
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status">,
 ): ServiceOrderDemo {
   const uiStatus = mapDbStatusToUiStatus(row.status);
 
@@ -104,9 +72,8 @@ export function adaptServiceRequestToOrder(
     registration: vehicle?.registration_current?.trim() || undefined,
     requestSummary: row.summary,
     status: uiStatus,
-    nextActionLabel: nextActionLabel(row.next_action, uiStatus, row.status,
-      offerPreparationReady, fixedPriceStatus, slotOfferStatus),
-    offerPreparationReady,
+    nextActionLabel: nextCaseStep({ ...stepInput, status: row.status }).label,
+    offerPreparationReady: stepInput.offerPrepared,
     locationLabel: undefined,
     appointmentTime: null,
     updatedAt: row.updated_at,

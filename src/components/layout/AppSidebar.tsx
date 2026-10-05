@@ -18,7 +18,7 @@ export function AppSidebar({ user, mobileOpen, onMobileClose }: AppSidebarProps)
 
   const nav = (
     <>
-      <div className="flex h-14 items-center gap-2.5 border-b border-white/10 px-4">
+      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-white/10 px-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
           <Car className="h-4 w-4" aria-hidden />
         </div>
@@ -38,7 +38,7 @@ export function AppSidebar({ user, mobileOpen, onMobileClose }: AppSidebarProps)
         </button>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3" aria-label="Glavna navigacija">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-3" aria-label="Glavna navigacija">
         {APP_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isAvailableNavActive(pathname, item);
@@ -78,7 +78,7 @@ export function AppSidebar({ user, mobileOpen, onMobileClose }: AppSidebarProps)
         })}
       </nav>
 
-      <div className="border-t border-white/10 p-3">
+      <div className="shrink-0 border-t border-white/10 p-3">
         <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-semibold text-white">
             {user.initials}
@@ -107,7 +107,7 @@ export function AppSidebar({ user, mobileOpen, onMobileClose }: AppSidebarProps)
 
   return (
     <>
-      <aside className="hidden w-[240px] shrink-0 flex-col bg-slate-900 lg:flex">
+      <aside className="hidden w-[240px] shrink-0 flex-col bg-slate-900 lg:sticky lg:top-0 lg:flex lg:h-screen">
         {nav}
       </aside>
 

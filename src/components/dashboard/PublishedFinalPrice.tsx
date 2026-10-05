@@ -14,7 +14,7 @@ export function PublishedFinalPrice({ serviceRequestId, path, canApprove, servic
   serviceRequestId: string; path: Path | null; canApprove: boolean; serviceWanted: string | null;
 }) {
   const router = useRouter();
-  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.APP_ENV === "preproduction" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
+  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
   const label = serviceWanted?.trim() ?? "";
   const [price, setPrice] = useState("");
   const [url, setUrl] = useState("");

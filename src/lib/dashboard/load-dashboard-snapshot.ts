@@ -126,6 +126,35 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     );
     const fixedPriceByRequest = new Map<string, string>();
     const slotByRequest = new Map<string, string>();
+    const linkByCustomer = new Map<string, { sync_status: string }>();
+    const quoteByRequest = new Map<string, { id: string; internal_review_status: string }>();
+    const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null }>();
+    const inspectionByRequest = new Map<string, string | null>();
+    const requestIds = requests.map((row) => row.id);
+    if (customerIds.length > 0) {
+      const { data, error } = await supabase.from("integration_links")
+        .select("entity_id, sync_status").eq("organization_id", access.organizationId)
+        .eq("provider", "quibi").eq("entity_type", "customer").in("entity_id", customerIds);
+      if (error) return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
+      for (const row of data ?? []) linkByCustomer.set(row.entity_id, { sync_status: row.sync_status });
+    }
+    if (requestIds.length > 0) {
+      const [quotes, approvals, inspections] = await Promise.all([
+        supabase.from("quotes").select("id, service_request_id, internal_review_status, version_no")
+          .eq("organization_id", access.organizationId).in("service_request_id", requestIds)
+          .order("version_no", { ascending: false }),
+        supabase.from("customer_approvals").select("service_request_id, quote_id, delivery_status, customer_decision, created_at")
+          .eq("organization_id", access.organizationId).in("service_request_id", requestIds)
+          .order("created_at", { ascending: false }),
+        supabase.from("preliminary_inspections").select("service_request_id, repair_decision")
+          .eq("organization_id", access.organizationId).in("service_request_id", requestIds),
+      ]);
+      if (quotes.error || approvals.error || inspections.error)
+        return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
+      for (const row of quotes.data ?? []) if (!quoteByRequest.has(row.service_request_id)) quoteByRequest.set(row.service_request_id, row);
+      for (const row of approvals.data ?? []) if (!approvalByRequest.has(row.service_request_id)) approvalByRequest.set(row.service_request_id, row);
+      for (const row of inspections.data ?? []) inspectionByRequest.set(row.service_request_id, row.repair_decision);
+    }
     const priceRequestIds = requests.filter((row) => row.status === "preparing_offer").map((row) => row.id);
     const slotRequestIds = requests.filter((row) => row.status === "awaiting_slot_selection").map((row) => row.id);
     if (process.env.SELAN_FIXED_PRICE_V1 === "1" && priceRequestIds.length > 0) {
@@ -161,9 +190,19 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           customer,
           vehicle,
           now,
-          preparedRequestIds.has(row.id),
-          fixedPriceByRequest.get(row.id),
-          slotByRequest.get(row.id),
+          {
+            offerPrepared: preparedRequestIds.has(row.id),
+            quibiLinked: !!(row.customer_id && linkByCustomer.has(row.customer_id)),
+            quibiSyncStatus: row.customer_id ? linkByCustomer.get(row.customer_id)?.sync_status : undefined,
+            quoteReviewStatus: quoteByRequest.get(row.id)?.internal_review_status,
+            deliveryStatus: approvalByRequest.get(row.id)?.quote_id === quoteByRequest.get(row.id)?.id
+              ? approvalByRequest.get(row.id)?.delivery_status : undefined,
+            customerDecision: approvalByRequest.get(row.id)?.quote_id === quoteByRequest.get(row.id)?.id
+              ? approvalByRequest.get(row.id)?.customer_decision : undefined,
+            fixedPriceStatus: fixedPriceByRequest.get(row.id),
+            inspectionRepairDecision: inspectionByRequest.get(row.id),
+            slotOfferStatus: slotByRequest.get(row.id),
+          },
         ),
       );
 

@@ -11,3 +11,17 @@ test("invalid and untrusted configured origins fail closed", () => {
   assert.equal(trustedPublicRequestOrigin("http://127.0.0.1:3000", "http://localhost:3000", false), null);
   assert.equal(trustedPublicRequestOrigin("https://evil.test/path", "https://app.example.test", false), null);
 });
+
+test("Vercel Preview accepts only its declared deployment and branch hosts", () => {
+  const deployment = "build-team.vercel.app";
+  const branch = "branch-team.vercel.app";
+  const aliases = [deployment, branch];
+  assert.equal(trustedPublicRequestOrigin(`https://${deployment}`, `https://${deployment}`, false,
+    branch, aliases), `https://${branch}`);
+  assert.equal(trustedPublicRequestOrigin(`https://${deployment}`, `https://${deployment}`, false,
+    deployment, aliases), `https://${deployment}`);
+  assert.equal(trustedPublicRequestOrigin(`https://${deployment}`, `https://${deployment}`, false,
+    "attacker.vercel.app", aliases), null);
+  assert.equal(trustedPublicRequestOrigin(`https://${deployment}`, `https://${deployment}`, false,
+    "evil.test", aliases), null);
+});

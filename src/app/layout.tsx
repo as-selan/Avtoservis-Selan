@@ -32,6 +32,9 @@ export default function RootLayout({
         {process.env.SELAN_REMOTE_DEMO === "1" && <div role="note" className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-950">
           Quibi demo – podatki so simulirani. Sporočila niso poslana in termini niso rezervirani v MyPlanlyju.
         </div>}
+        {process.env.APP_ENV === "preproduction" && process.env.QUIBI_MODE === "dev" && <div role="note" className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-950">
+          Quibi DEV – podatki iz testnega okolja. Zapisovanje in pošiljanje v Quibi nista avtomatska. MyPlanly je trenutno ročen.
+        </div>}
         {children}
       </body>
     </html>

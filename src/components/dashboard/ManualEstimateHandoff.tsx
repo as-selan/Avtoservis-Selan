@@ -10,7 +10,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision }: {
   decision: string | null;
 }) {
   const router = useRouter();
-  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.APP_ENV === "preproduction" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
+  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
   const [channel, setChannel] = useState("email");
   const [reference, setReference] = useState("");
   const [attested, setAttested] = useState(false);
