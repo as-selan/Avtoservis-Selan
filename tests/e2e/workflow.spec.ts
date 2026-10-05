@@ -115,6 +115,24 @@ test("recovery email returning to /login exchanges its session and permits passw
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
 });
 
+test("forgot-password requests recovery for invited and admin accounts without account disclosure", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Single isolated Auth email quota.");
+  for (const email of [seed.invitedEmail, seed.owner]) {
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Pozabljeno geslo" }).click();
+    await page.getByLabel("E-pošta").fill(email);
+    const recoveryResponse = page.waitForResponse((response) =>
+      response.url().includes("/auth/v1/recover") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Pošlji navodila" }).click();
+    expect((await recoveryResponse).status()).toBe(200);
+    await expect(page.getByRole("status")).toHaveText(
+      "Če račun obstaja, smo poslali navodila za ponastavitev gesla.",
+    );
+    await page.getByRole("button", { name: "Nazaj na prijavo" }).click();
+    await expect(page.getByRole("button", { name: "Prijava" })).toBeVisible();
+  }
+});
+
 test("real owner login opens dashboard and canonical case", async ({ page }) => {
   await login(page, seed.owner);
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
