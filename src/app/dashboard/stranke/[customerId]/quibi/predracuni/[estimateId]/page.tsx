@@ -49,7 +49,7 @@ export default async function QuibiEstimatePage({ params }: {
       <p className="text-sm">Status: {quibiDocumentStatusLabel(estimate.status)}</p>
       <p className="text-sm">Znesek, kot ga vrne Quibi: {estimate.amount}</p>
       <ul className="space-y-2 text-sm">{estimate.lines.map((line, index) => <li key={index} className="border-t pt-2">
-        {line.description || "Postavka brez opisa"} · količina {line.quantity || "ni navedena"} · cena z DDV {line.grossPrice || "ni navedena"}
+        {line.description || "Postavka brez opisa"} · količina {line.quantity || "ni navedena"} · cena postavke po Quibiju {line.grossPrice || "ni navedena"}
       </li>)}</ul>
       {estimate.lines.length === 0 && <p className="text-sm text-amber-800">Quibi ne vrača postavk; predračuna ni mogoče vsebinsko preveriti.</p>}
     </section>
