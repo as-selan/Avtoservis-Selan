@@ -206,7 +206,9 @@ export function CompletionClient() {
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
       <p className="text-sm leading-relaxed text-slate-600">
-        Izpolnite manjkajoča polja. Servis bo nato lahko pripravil ponudbo.
+        {ui.missing.length === 0
+          ? "Podatki so že vpisani. Potrdite nadaljevanje istega primera."
+          : "Izpolnite manjkajoča polja. Servis bo nato lahko pripravil ponudbo."}
       </p>
       {ui.notice ? (
         <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800" role="status">
@@ -276,7 +278,7 @@ export function CompletionClient() {
         disabled={pending}
         className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
       >
-        {pending ? "Shranjujem…" : "Pošlji podatke"}
+        {pending ? "Shranjujem…" : ui.missing.length === 0 ? "Potrdi dopolnjene podatke" : "Pošlji podatke"}
       </button>
     </form>
   );

@@ -151,6 +151,11 @@ const allNew = [
     assert(JSON.stringify(clean.missing_fields) === JSON.stringify(["email", "vin"]), "fields only");
     assert(clean.completed === false, "not completed");
   }
+  const readyButUnsubmitted = sanitizeCompletionPublicResponse({
+    ok: true, completed: false, missing_fields: [],
+  });
+  assert(readyButUnsubmitted.ok && readyButUnsubmitted.completed === false,
+    "complete data still need the existing submit RPC to advance the same case");
   const leaked = JSON.stringify(clean);
   assert(!leaked.includes("organization_id"), "no org id");
   assert(!leaked.includes("service_request_id"), "no request id");

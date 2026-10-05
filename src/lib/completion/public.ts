@@ -64,7 +64,7 @@ export function publicCompletionResolve(opts: {
     missing_fields: opts.missing_fields,
     message:
       opts.missing_fields.length === 0
-        ? COMPLETION_COMPLETED_MESSAGE
+        ? "Podatki so že vpisani. Potrdite nadaljevanje istega primera."
         : COMPLETION_PARTIAL_MESSAGE,
   };
 }
@@ -97,7 +97,7 @@ export function sanitizeCompletionPublicResponse(
     const completed = record.completed === true;
     const missing = completed ? [] : asMissingFields(record.missing_fields);
     return publicCompletionResolve({
-      completed: completed || missing.length === 0,
+      completed,
       missing_fields: missing,
     });
   }
