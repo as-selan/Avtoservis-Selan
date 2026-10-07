@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { reviewManualQuibiEstimate } from "@/lib/quibi/manual-estimate-action";
 
-export function ReviewManualEstimate({ quoteId }: { quoteId: string }) {
+export function ReviewManualEstimate({ quoteId, realDevWrite = false }: { quoteId: string; realDevWrite?: boolean }) {
   const router = useRouter();
   const [attested, setAttested] = useState(false);
   const [message, setMessage] = useState("");
@@ -13,7 +13,7 @@ export function ReviewManualEstimate({ quoteId }: { quoteId: string }) {
     if (!attested || pending) return;
     startTransition(async () => {
       const result = await reviewManualQuibiEstimate(quoteId, decision);
-      setMessage(result.ok ? (decision === "approve" ? "Cena je odobrena za ročno pošiljanje." : "Različica je zavrnjena za popravek.") : result.message);
+      setMessage(result.ok ? (decision === "approve" ? realDevWrite ? "Cena je odobrena za preverjeno pošiljanje." : "Cena je odobrena za ročno pošiljanje." : "Različica je zavrnjena za popravek.") : result.message);
       if (result.ok) router.refresh();
     });
   }

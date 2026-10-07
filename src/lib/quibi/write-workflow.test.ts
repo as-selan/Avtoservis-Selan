@@ -23,7 +23,7 @@ function fixture() {
       const old = records.get(key);
       if (old) return old;
       events.push("persist");
-      const row: Operation = { ...entry, id: key, state: "prepared", quibiId: null,
+      const row: Operation = { ...entry, id: key, state: "prepared", quibiId: null, quibiContentSha256: null,
         documentNumber: null, sendId: null, sendStatus: null };
       records.set(key, row);
       return row;
@@ -62,7 +62,9 @@ function fixture() {
       return { id, number: "TEST-1" };
     },
     async sendDocument() { events.push("send"); sends++; return { sendId: "test-send-1", status: "queued" as const }; },
-    async getSendStatus() { events.push("send_status"); return { status: "sent" as const }; },
+    async getSendStatus(): Promise<{ status: "queued" | "sent" | "failed" }> {
+      events.push("send_status"); return { status: "sent" };
+    },
   };
   return { journal, read, write, records, events, getRemote: () => remote, getSends: () => sends };
 }
@@ -71,6 +73,7 @@ test("create persists exact payload first, re-reads owner/vehicle/document, then
   const f = fixture();
   const first = await createAndVerifyEstimate({ ...f, input });
   assert.equal(first.state, "verified");
+  assert.equal(first.quibiContentSha256, "a".repeat(64));
   assert.deepEqual(f.events, ["persist", "claim", "create"]);
   const second = await createAndVerifyEstimate({ ...f, input });
   assert.equal(second.quibiId, first.quibiId);
@@ -118,6 +121,12 @@ test("update uses explicit revision and changed-document guard; send polls store
     externalId: `selan-service-request:${caseId}`, numberingId: "2061",
     expectedContentSha256: "a".repeat(64), replacement });
   assert.equal(updated.state, "verified");
+  const updatesBeforeRetry = f.events.filter((event) => event === "update").length;
+  assert.equal((await updateAndVerifyEstimate({ ...f, serviceRequestId: caseId, revisionId,
+    customerId: "405956", vehicleId: "2387", documentId: "2176888",
+    externalId: `selan-service-request:${caseId}`, numberingId: "2061",
+    expectedContentSha256: "a".repeat(64), replacement })).state, "verified");
+  assert.equal(f.events.filter((event) => event === "update").length, updatesBeforeRetry);
   await assert.rejects(updateAndVerifyEstimate({ ...f, serviceRequestId: caseId, revisionId: quoteId,
     customerId: "405956", vehicleId: "2387", documentId: "2176888",
     externalId: `selan-service-request:${caseId}`, numberingId: "2061",
@@ -127,6 +136,9 @@ test("update uses explicit revision and changed-document guard; send polls store
     customerId: "405956", vehicleId: "2387", externalId: `selan-service-request:${caseId}`,
     numberingId: "2061", approvedContentSha256: "b".repeat(64), approvedForSend: true };
   assert.equal((await sendAndTrackEstimate(send)).sendId, "test-send-1");
+  f.write.getSendStatus = async () => ({ status: "queued" as const });
+  assert.equal((await sendAndTrackEstimate(send)).sendStatus, "queued");
+  f.write.getSendStatus = async () => ({ status: "sent" as const });
   assert.equal((await sendAndTrackEstimate(send)).sendStatus, "sent");
   assert.equal(f.getSends(), 1);
   await assert.rejects(sendAndTrackEstimate({ ...send, recipient: "other@example.invalid" }),
@@ -158,4 +170,31 @@ test("concurrent create attempts cannot both dispatch", async () => {
   assert.ok(results.some((result) => result.status === "fulfilled"));
   assert.ok(results.some((result) => result.status === "rejected" &&
     /QUIBI_OPERATION_CONCURRENT/.test(String(result.reason))));
+});
+
+test("a replayed create result verifies the same Quibi document", async () => {
+  const f = fixture();
+  f.write.createEstimate = async (body) => {
+    f.events.push("create-replayed");
+    f.read.estimates = async () => [{ id: "2176888" }];
+    f.read.estimateDetail = async () => ({ id: "2176888", customerId: "405956",
+      vehicleId: "2387", externalId: body.Glavadokumenta.external_id, number: "TEST-1",
+      numberingId: "2061", lines, contentSha256: "a".repeat(64) });
+    return { id: "2176888", number: "TEST-1", replayed: true };
+  };
+  assert.equal((await createAndVerifyEstimate({ ...f, input })).quibiId, "2176888");
+  assert.equal(f.events.filter((item) => item === "create-replayed").length, 1);
+});
+
+test("re-read refuses a document under another customer or document ID", async () => {
+  for (const mismatch of ["customer", "document"] as const) {
+    const f = fixture();
+    f.read.estimates = async () => [{ id: "2176888" }];
+    f.read.estimateDetail = async () => ({ id: mismatch === "document" ? "999" : "2176888",
+      customerId: mismatch === "customer" ? "999" : "405956", vehicleId: "2387",
+      externalId: `selan-service-request:${caseId}`, number: "TEST-1", numberingId: "2061",
+      lines, contentSha256: "a".repeat(64) });
+    await assert.rejects(createAndVerifyEstimate({ ...f, input }), /QUIBI_DOCUMENT_REREAD_MISMATCH/);
+    assert.equal(f.records.get(`estimate:${caseId}`)?.state, "uncertain");
+  }
 });

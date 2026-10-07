@@ -5,15 +5,16 @@ import { useRouter } from "next/navigation";
 import { recordPreliminaryInspection } from "@/lib/inspections/actions";
 import { canAdvancePreliminaryInspection } from "@/lib/inspections/eligibility";
 
-export function PreliminaryInspection({ serviceRequestId, caseStatus, status, findings, repairDecision }: {
+export function PreliminaryInspection({ serviceRequestId, caseStatus, status, findings, repairDecision, realDevWrite = false }: {
   serviceRequestId: string;
   caseStatus: string;
   status: "requested" | "completed" | null;
   findings: string | null;
   repairDecision: "pending" | "ordered" | "not_ordered" | null;
+  realDevWrite?: boolean;
 }) {
   const router = useRouter();
-  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
+  const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
   const [text, setText] = useState("");
   const [attested, setAttested] = useState(false);
   const [message, setMessage] = useState("");

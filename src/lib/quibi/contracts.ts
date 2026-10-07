@@ -142,8 +142,10 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
   if (!amount || !Array.isArray(lines) || lines.length > 200) throw new Error("QUIBI_INVALID_RESPONSE");
   return {
     id, customerId: owner, amount,
-    vehicleId: field(header.vozila_id), externalId: field(header.external_id),
-    number: field(header.ZapSt), numberingId: field(header.stevilcenje_id),
+    ...(field(header.vozila_id) ? { vehicleId: field(header.vozila_id) } : {}),
+    ...(field(header.external_id) ? { externalId: field(header.external_id) } : {}),
+    ...(field(header.ZapSt) ? { number: field(header.ZapSt) } : {}),
+    ...(field(header.stevilcenje_id) ? { numberingId: field(header.stevilcenje_id) } : {}),
     status: statusFromDocument(entry),
     contentSha256: createHash("sha256").update(JSON.stringify(canonical(entry))).digest("hex"),
     lines: lines.map((row) => {

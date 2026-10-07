@@ -5,7 +5,7 @@
 create table public.quibi_dev_operation_journal (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete restrict,
-  service_request_id uuid,
+  service_request_id uuid not null,
   local_entity_id uuid not null,
   kind text not null check (kind in ('customer','vehicle','estimate','estimate_update','send')),
   external_id text check (external_id is null or char_length(external_id) between 1 and 128),
@@ -14,8 +14,9 @@ create table public.quibi_dev_operation_journal (
   state text not null default 'prepared'
     check (state in ('prepared','dispatching','uncertain','verified','failed')),
   quibi_id text check (quibi_id is null or quibi_id ~ '^[0-9]+$'),
-  document_number text,
-  send_id text,
+  quibi_content_sha256 text check (quibi_content_sha256 is null or quibi_content_sha256 ~ '^[0-9a-f]{64}$'),
+  document_number text check (document_number is null or char_length(document_number) between 1 and 128),
+  send_id text check (send_id is null or char_length(send_id) between 1 and 128),
   send_status text check (send_status is null or send_status in ('queued','sent','failed')),
   send_status_checked_at timestamptz,
   attempted_at timestamptz,
@@ -35,6 +36,12 @@ create table public.quibi_dev_operation_journal (
 create unique index quibi_dev_operation_external_id_unique
   on public.quibi_dev_operation_journal(organization_id,external_id)
   where external_id is not null;
+create unique index quibi_dev_operation_send_id_unique
+  on public.quibi_dev_operation_journal(organization_id,send_id)
+  where send_id is not null;
+create unique index quibi_dev_operation_created_document_unique
+  on public.quibi_dev_operation_journal(organization_id,quibi_id)
+  where kind = 'estimate' and quibi_id is not null;
 create index quibi_dev_operation_request_idx
   on public.quibi_dev_operation_journal(organization_id,service_request_id);
 
@@ -60,6 +67,12 @@ begin
   end if;
   if old.send_id is not null and new.send_id is distinct from old.send_id then
     raise exception 'Quibi send ID is immutable' using errcode = '23514';
+  end if;
+  if old.state = 'verified' and (
+    old.quibi_content_sha256 is distinct from new.quibi_content_sha256
+    or old.document_number is distinct from new.document_number
+  ) then
+    raise exception 'Verified Quibi document evidence is immutable' using errcode = '23514';
   end if;
   if old.state = 'dispatching' and new.state not in ('dispatching','uncertain')
     or old.state = 'prepared' and new.state not in ('prepared','dispatching')

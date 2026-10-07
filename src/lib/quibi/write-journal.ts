@@ -5,7 +5,7 @@ import type { NewOperation, Operation, OperationJournal, OperationPatch, Operati
 type Row = {
   id: string; kind: Operation["kind"]; local_entity_id: string; service_request_id: string;
   external_id: string | null; request_body: string; request_sha256: string;
-  state: OperationState; quibi_id: string | null; document_number: string | null;
+  state: OperationState; quibi_id: string | null; quibi_content_sha256: string | null; document_number: string | null;
   send_id: string | null; send_status: Operation["sendStatus"];
 };
 
@@ -13,7 +13,8 @@ function project(row: Row): Operation {
   return { id: row.id, kind: row.kind, localEntityId: row.local_entity_id,
     serviceRequestId: row.service_request_id, externalId: row.external_id,
     requestBody: row.request_body, requestSha256: row.request_sha256,
-    state: row.state, quibiId: row.quibi_id, documentNumber: row.document_number,
+    state: row.state, quibiId: row.quibi_id, quibiContentSha256: row.quibi_content_sha256,
+    documentNumber: row.document_number,
     sendId: row.send_id, sendStatus: row.send_status };
 }
 
@@ -63,6 +64,7 @@ export function quibiDevOperationJournal(organizationId: string, actorId: string
       const update: Record<string, unknown> = {};
       if (changes.state) update.state = changes.state;
       if (changes.quibiId !== undefined) update.quibi_id = changes.quibiId;
+      if (changes.quibiContentSha256 !== undefined) update.quibi_content_sha256 = changes.quibiContentSha256;
       if (changes.documentNumber !== undefined) update.document_number = changes.documentNumber;
       if (changes.sendId !== undefined) update.send_id = changes.sendId;
       if (changes.sendStatus !== undefined) {

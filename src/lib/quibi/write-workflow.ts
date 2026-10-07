@@ -7,11 +7,11 @@ export type OperationState = "prepared" | "dispatching" | "uncertain" | "verifie
 export type Operation = {
   id: string; kind: OperationKind; localEntityId: string; serviceRequestId: string;
   externalId: string | null; requestBody: string; requestSha256: string;
-  state: OperationState; quibiId: string | null; documentNumber: string | null;
+  state: OperationState; quibiId: string | null; quibiContentSha256: string | null; documentNumber: string | null;
   sendId: string | null; sendStatus: "queued" | "sent" | "failed" | null;
 };
-export type NewOperation = Omit<Operation, "id" | "state" | "quibiId" | "documentNumber" | "sendId" | "sendStatus">;
-export type OperationPatch = Partial<Pick<Operation, "state" | "quibiId" | "documentNumber" | "sendId" | "sendStatus">>;
+export type NewOperation = Omit<Operation, "id" | "state" | "quibiId" | "quibiContentSha256" | "documentNumber" | "sendId" | "sendStatus">;
+export type OperationPatch = Partial<Pick<Operation, "state" | "quibiId" | "quibiContentSha256" | "documentNumber" | "sendId" | "sendStatus">>;
 
 /** Implementations must atomically claim a prepared/uncertain operation. */
 export interface OperationJournal {
@@ -51,12 +51,14 @@ export async function discoverEstimateNumbering(write: Pick<EstimateWrite, "getN
 }
 
 async function verifyDocument(read: EstimateRead, customerId: string, vehicleId: string,
-  externalId: string, id: string, numberingId: string) {
+  externalId: string, id: string, numberingId: string, expectedNumber?: string | null) {
   const listed = await read.estimates(customerId);
   if (!listed.some((item) => item.id === id)) throw new Error("QUIBI_DOCUMENT_NOT_LISTED_FOR_CUSTOMER");
   const detail = await read.estimateDetail(id, customerId);
   if (detail.id !== id || detail.customerId !== customerId || detail.vehicleId !== vehicleId ||
-      detail.externalId !== externalId || detail.numberingId !== numberingId || !detail.lines.length)
+      detail.externalId !== externalId || detail.numberingId !== numberingId || !detail.lines.length ||
+      !/^[0-9a-f]{64}$/.test(detail.contentSha256) ||
+      (expectedNumber != null && detail.number !== expectedNumber))
     throw new Error("QUIBI_DOCUMENT_REREAD_MISMATCH");
   return detail;
 }
@@ -85,8 +87,9 @@ export async function createAndVerifyEstimate(args: {
   if (op.state === "verified") return op;
   if (op.state === "dispatching" || op.state === "failed") throw new Error("QUIBI_OPERATION_REQUIRES_RECONCILIATION");
   if (op.quibiId) {
-    await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, op.quibiId, numberingId);
-    return journal.patch(op.id, op.state, { state: "verified" });
+    const detail = await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, op.quibiId, numberingId,
+      op.documentNumber);
+    return journal.patch(op.id, op.state, { state: "verified", quibiContentSha256: detail.contentSha256 });
   }
   if (!await journal.claim(op.id, op.state)) throw new Error("QUIBI_OPERATION_CONCURRENT");
   try {
@@ -97,8 +100,9 @@ export async function createAndVerifyEstimate(args: {
     const dispatched = await journal.patch(op.id, "dispatching", {
       state: "uncertain", quibiId: result.id, documentNumber: result.number,
     });
-    await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, result.id, numberingId);
-    return journal.patch(dispatched.id, "uncertain", { state: "verified" });
+    const detail = await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, result.id, numberingId,
+      result.number);
+    return journal.patch(dispatched.id, "uncertain", { state: "verified", quibiContentSha256: detail.contentSha256 });
   } catch (cause) {
     // A timeout may mean Quibi committed the document. Preserve uncertain state.
     await journal.patch(op.id, "dispatching", { state: "uncertain" }).catch(() => undefined);
@@ -116,9 +120,6 @@ export async function updateAndVerifyEstimate(args: {
   const { journal, read, write } = args;
   if (!uuid.test(args.revisionId) || !uuid.test(args.serviceRequestId) || !/^[0-9a-f]{64}$/.test(args.expectedContentSha256))
     throw new Error("QUIBI_INVALID_UPDATE_INPUT");
-  const current = await verifyDocument(read, args.customerId, args.vehicleId,
-    args.externalId, args.documentId, args.numberingId);
-  if (current.contentSha256 !== args.expectedContentSha256) throw new Error("QUIBI_DOCUMENT_CHANGED");
   const body = withDocumentId(args.replacement, args.documentId);
   if (body.Glavadokumenta.external_id !== args.externalId ||
       String(body.Glavadokumenta.stranka_id) !== args.customerId ||
@@ -126,21 +127,31 @@ export async function updateAndVerifyEstimate(args: {
       String(body.Glavadokumenta.stevilcenje_id) !== args.numberingId)
     throw new Error("QUIBI_UPDATE_OWNERSHIP_MISMATCH");
   const { json, sha256 } = stableEstimatePayload(body);
-  const op = await journal.get("estimate_update", args.revisionId) ?? await journal.insertOnce({
+  const existing = await journal.get("estimate_update", args.revisionId);
+  if (existing) samePayload(existing, json, sha256);
+  if (existing?.state === "verified") {
+    const current = await verifyDocument(read, args.customerId, args.vehicleId,
+      args.externalId, args.documentId, args.numberingId, existing.documentNumber);
+    if (current.contentSha256 !== existing.quibiContentSha256) throw new Error("QUIBI_DOCUMENT_CHANGED");
+    return existing;
+  }
+  const current = await verifyDocument(read, args.customerId, args.vehicleId,
+    args.externalId, args.documentId, args.numberingId);
+  if (current.contentSha256 !== args.expectedContentSha256) throw new Error("QUIBI_DOCUMENT_CHANGED");
+  const op = existing ?? await journal.insertOnce({
     kind: "estimate_update", localEntityId: args.revisionId, serviceRequestId: args.serviceRequestId,
     externalId: null, requestBody: json, requestSha256: sha256,
   });
   samePayload(op, json, sha256);
-  if (op.state === "verified") return op;
   if (op.state !== "prepared") throw new Error("QUIBI_UPDATE_REQUIRES_RECONCILIATION");
   if (!await journal.claim(op.id, "prepared")) throw new Error("QUIBI_OPERATION_CONCURRENT");
   try {
     const result = await write.updateEstimate(args.documentId, JSON.parse(op.requestBody) as EstimateBody);
     await journal.patch(op.id, "dispatching", { state: "uncertain", quibiId: result.id,
       documentNumber: result.number });
-    await verifyDocument(read, args.customerId, args.vehicleId, args.externalId,
-      result.id, args.numberingId);
-    return journal.patch(op.id, "uncertain", { state: "verified" });
+    const detail = await verifyDocument(read, args.customerId, args.vehicleId, args.externalId,
+      result.id, args.numberingId, result.number);
+    return journal.patch(op.id, "uncertain", { state: "verified", quibiContentSha256: detail.contentSha256 });
   } catch (cause) {
     await journal.patch(op.id, "dispatching", { state: "uncertain" }).catch(() => undefined);
     throw cause;

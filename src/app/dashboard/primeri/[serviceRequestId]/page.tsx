@@ -18,6 +18,11 @@ import { ReviewIntakeButton } from "@/components/dashboard/ReviewIntakeButton";
 import { CommunicationDraft } from "@/components/dashboard/CommunicationDraft";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { verifiedCasePrice } from "@/lib/quibi/price-suggestion";
+import { quibiDevEstimateChoices, type QuibiChoice } from "@/lib/quibi/write-options";
+import { quibiDevOperationJournal } from "@/lib/quibi/write-journal";
+import { QuibiDevWritePanel } from "@/components/dashboard/QuibiDevWritePanel";
+import { configuredQuibiDevWriteClient } from "@/lib/quibi/write-client";
+import type { Operation } from "@/lib/quibi/write-workflow";
 
 export const dynamic = "force-dynamic";
 const fixedPriceEnabled = process.env.SELAN_FIXED_PRICE_V1 === "1";
@@ -89,6 +94,25 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
     const diagnosisOffer = slotOffersResult.data?.find((item) => item.appointment_type === "diagnosis") ?? null;
     const serviceOffer = slotOffersResult.data?.find((item) => item.appointment_type === "service") ?? null;
+    const writeRequested = process.env.QUIBI_DEV_WRITE_ENABLED === "1" &&
+      process.env.APP_ENV === "preproduction" && process.env.QUIBI_MODE === "dev";
+    const realDevMode = writeRequested && process.env.SELAN_REMOTE_DEMO !== "1" &&
+      process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1";
+    let writeReady = false;
+    let writeChoices: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] } | null = null;
+    let createdOperation: Operation | null = null;
+    let sendOperation: Operation | null = null;
+    if (writeRequested && link?.sync_status === "ok" && vehicleLink?.sync_status === "ok" &&
+        request.status === "preparing_offer" && !fixedPrice) {
+      try {
+        configuredQuibiDevWriteClient();
+        const journal = quibiDevOperationJournal(access.organizationId, access.userId);
+        createdOperation = await journal.get("estimate", serviceRequestId);
+        if (quote) sendOperation = await journal.get("send", quote.id);
+        if (!quote && prep?.status === "ready_for_provider") writeChoices = await quibiDevEstimateChoices();
+        writeReady = true;
+      } catch { writeReady = false; }
+    }
     let proposedPrice: ReturnType<typeof verifiedCasePrice> = null;
     let priceReadFailed = false;
     if (quote && link?.sync_status === "ok" && quibiEstimateId && vehicle && vehicleLink) {
@@ -110,7 +134,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
       inspectionRepairDecision: inspectionResult.data?.repair_decision,
-      slotOfferStatus: serviceOffer?.status });
+      slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = request.status === "needs_data" && missing.length > 0
@@ -125,7 +149,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : null;
 
     return <div className="space-y-5">
-      {process.env.SELAN_LOCAL_REVIEW === "1" && <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      {process.env.SELAN_LOCAL_REVIEW === "1" && !realDevMode && <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
         Lokalni QA: reference QA-SIM pomenijo simuliran preizkus. Nobeno sporočilo ni dejansko poslano in noben termin ni rezerviran v MyPlanlyju. {process.env.QUIBI_MODE === "dev" ? "Quibi DEV: podatki so prebrani iz testnega okolja." : "Quibi je lokalna simulacija."}
       </p>}
       <Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link>
@@ -171,14 +195,17 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi DEV in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
-          {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" &&
+          {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi DEV zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
+          {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" && !writeReady && !writeRequested &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
+          {writeReady && !quote && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) &&
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="create" choices={writeChoices ?? undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
           {proposedPrice && <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm">
             <p className="font-semibold">{proposedPrice.state === "approved" ? "Tadejeva potrjena cena predračuna" : "Predlagana cena iz Quibijevega predračuna"}: {Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}</p>
-            <p>Vir: Quibijev predračun #{proposedPrice.sourceId}, ročno povezan s tem primerom. Stranka in vozilo sta preverjeno povezana; Quibi ne potrjuje, da dokument pripada prav temu delovnemu nalogu. Tadejev pregled je obvezen. Končna cena računa ni potrjena.</p>
+            <p>Vir: Quibijev predračun #{proposedPrice.sourceId}, {createdOperation?.quibiId === proposedPrice.sourceId ? "ustvarjen prek DEV API-ja in potrjeno povezan" : "ročno povezan"} s tem primerom. Stranka in vozilo sta preverjeno povezana; ujemanje storitve potrdi Tadej. Končna cena računa ni potrjena.</p>
           </div>}
           {quote && !proposedPrice && <p role="alert" className="text-sm text-amber-800">{priceReadFailed ? "Predloga cene ni mogoče sveže prebrati iz Quibija." : "Cene ni varno predlagati: preverite povezavo stranke, dokument, vozilo in morebitne spremembe."} Povezava dokumenta s konkretnim vozilom in delovnim nalogom zahteva ročno potrditev.</p>}
           {!quote && link && !fixedPrice && <p className="text-xs text-amber-800">Quibijevi dokumenti stranke so lahko kandidati, vendar API ne potrjuje ujemanja storitve, vozila in delovnega naloga s tem primerom. Cene zato še ni varno samodejno predlagati.</p>}
@@ -186,10 +213,17 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri demo predračun" : "Odpri dejanski Quibijev predračun"} #{quibiEstimateId} →
           </Link>}
           {quote?.internal_review_status === "unreviewed" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
-            <ReviewManualEstimate quoteId={quote.id} />}
+            <ReviewManualEstimate quoteId={quote.id} realDevWrite={realDevMode} />}
+          {writeReady && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
+            quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} />}
+          {writeReady && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
+            quote?.internal_review_status === "approved_for_send" && ["owner", "admin"].includes(access.role) &&
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="send" quoteId={quote.id}
+              sendStatus={sendOperation?.sendStatus} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId &&
-            <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} />}
-          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1" ? "Demo – ni poslano" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
+            <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} realDevWrite={realDevMode} />}
+          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Termini</h2>
@@ -199,15 +233,15 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         </section>
       </div>
       {fixedPriceEnabled && (fixedPrice || (request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
-        <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} />}
+        <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} realDevWrite={realDevMode} />}
       {!fixedPrice && (inspectionResult.data || ["new", "preparing_offer"].includes(request.status)) &&
         <PreliminaryInspection serviceRequestId={serviceRequestId} caseStatus={request.status}
         status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}
         findings={inspectionResult.data?.findings ?? null}
-        repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} />}
+        repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} realDevWrite={realDevMode} />}
       {(inspectionResult.data?.status === "requested" || diagnosisOffer) &&
-        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" offer={diagnosisOffer} />}
+        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" offer={diagnosisOffer} realDevWrite={realDevMode} />}
       {(request.status === "awaiting_slot_selection" || serviceOffer) &&
-        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" offer={serviceOffer} />}
+        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" offer={serviceOffer} realDevWrite={realDevMode} />}
     </div>;
 }

@@ -18,6 +18,18 @@ test("DEV write guard rejects production, demo, and missing explicit enablement"
   assert.throws(() => assertQuibiDevWriteAllowed({ ...env, QUIBI_MODE: "demo" }), /QUIBI_DEV_WRITE_DISABLED/);
   assert.throws(() => assertQuibiDevWriteAllowed({ ...env, QUIBI_DEV_WRITE_ENABLED: "0" }), /QUIBI_DEV_WRITE_DISABLED/);
   assert.throws(() => assertQuibiDevWriteAllowed({ ...env, VERCEL_ENV: "production" }), /QUIBI_DEV_WRITE_DISABLED/);
+  assert.throws(() => assertQuibiDevWriteAllowed(env, "https://www.quibi.net"), /QUIBI_DEV_WRITE_DISABLED/);
+});
+
+test("Quibi external_id conflict fails without choosing a new document ID", async () => {
+  let posts = 0;
+  const client = createQuibiDevWriteClient({ username: env.QUIBI_DEV_USERNAME,
+    password: env.QUIBI_DEV_PASSWORD, environment: env, fetcher: async () => {
+      posts++;
+      return new Response(JSON.stringify({ error: true }), { status: 409 });
+    } });
+  await assert.rejects(client.createEstimate(buildEstimateBody(input)), /QUIBI_HTTP_409/);
+  assert.equal(posts, 1);
 });
 
 test("create body and external_id stay byte identical for retry", () => {

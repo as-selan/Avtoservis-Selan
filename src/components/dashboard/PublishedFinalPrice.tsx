@@ -10,11 +10,11 @@ type Path = {
   decision_reference: string | null;
 };
 
-export function PublishedFinalPrice({ serviceRequestId, path, canApprove, serviceWanted }: {
-  serviceRequestId: string; path: Path | null; canApprove: boolean; serviceWanted: string | null;
+export function PublishedFinalPrice({ serviceRequestId, path, canApprove, serviceWanted, realDevWrite = false }: {
+  serviceRequestId: string; path: Path | null; canApprove: boolean; serviceWanted: string | null; realDevWrite?: boolean;
 }) {
   const router = useRouter();
-  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
+  const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
   const label = serviceWanted?.trim() ?? "";
   const [price, setPrice] = useState("");
   const [url, setUrl] = useState("");

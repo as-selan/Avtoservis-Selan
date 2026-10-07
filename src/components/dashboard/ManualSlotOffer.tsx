@@ -12,11 +12,11 @@ type Offer = {
   booking_reference: string | null;
 };
 
-export function ManualSlotOffer({ serviceRequestId, appointmentType, offer }: {
-  serviceRequestId: string; appointmentType: "diagnosis" | "service"; offer: Offer | null;
+export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, realDevWrite = false }: {
+  serviceRequestId: string; appointmentType: "diagnosis" | "service"; offer: Offer | null; realDevWrite?: boolean;
 }) {
   const router = useRouter();
-  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
+  const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
   const [slots, setSlots] = useState(["", "", ""]);
   const [reference, setReference] = useState("");
   const [selected, setSelected] = useState(1);

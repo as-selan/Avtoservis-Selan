@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordManualEstimateDelivery, recordManualEstimateDecision } from "@/lib/quibi/manual-estimate-action";
 
-export function ManualEstimateHandoff({ quoteId, delivered, decision }: {
+export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false }: {
   quoteId: string;
   delivered: boolean;
   decision: string | null;
+  realDevWrite?: boolean;
 }) {
   const router = useRouter();
-  const demo = process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1";
+  const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
   const [channel, setChannel] = useState("email");
   const [reference, setReference] = useState("");
   const [attested, setAttested] = useState(false);
