@@ -8,6 +8,7 @@ export type QuibiVehicle = {
 export type QuibiDocument = { id: string; customerId: string; numberingId: string; status: string; amount?: string };
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
+  vehicleId?: string; externalId?: string; number?: string; numberingId?: string;
   lines: { description: string; quantity: string; grossPrice: string }[];
   contentSha256: string;
 };
@@ -141,6 +142,8 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
   if (!amount || !Array.isArray(lines) || lines.length > 200) throw new Error("QUIBI_INVALID_RESPONSE");
   return {
     id, customerId: owner, amount,
+    vehicleId: field(header.vozila_id), externalId: field(header.external_id),
+    number: field(header.ZapSt), numberingId: field(header.stevilcenje_id),
     status: statusFromDocument(entry),
     contentSha256: createHash("sha256").update(JSON.stringify(canonical(entry))).digest("hex"),
     lines: lines.map((row) => {
