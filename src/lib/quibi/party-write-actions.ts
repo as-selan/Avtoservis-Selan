@@ -6,12 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createQuibiReadClient } from "./client";
 import { customerFingerprint, vehicleFingerprint } from "./contracts";
 import { createOrReconcileCustomer, createOrReconcileVehicle } from "./party-write-workflow";
+import { customerCreateInput, vehicleCreateInput } from "./party-write-input";
 import { configuredQuibiDevWriteClient } from "./write-client";
 import { quibiDevOperationJournal } from "./write-journal";
 
 type Result = { ok: true; detail: string } | { ok: false; message: string };
 const fail = (message: string): Result => ({ ok: false, message });
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function context() {
   const access = await requirePhase1OperationalAccess();
@@ -32,8 +32,8 @@ async function context() {
 }
 
 export async function createQuibiDevCustomer(form: FormData): Promise<Result> {
-  const customerId = form.get("customerId");
-  if (typeof customerId !== "string" || !uuid.test(customerId) || form.get("confirmed") !== "yes")
+  const customerId = customerCreateInput(form);
+  if (!customerId)
     return fail("Potrdite ustvarjanje nove stranke po preverjanju obstoječih Quibijevih zapisov.");
   try {
     const ctx = await context();
@@ -74,11 +74,10 @@ export async function createQuibiDevCustomer(form: FormData): Promise<Result> {
 }
 
 export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
-  const customerId = form.get("customerId");
-  const vehicleId = form.get("vehicleId");
-  if (typeof customerId !== "string" || typeof vehicleId !== "string" || !uuid.test(customerId) ||
-      !uuid.test(vehicleId) || form.get("confirmed") !== "yes")
+  const inputIds = vehicleCreateInput(form);
+  if (!inputIds)
     return fail("Potrdite ustvarjanje vozila za preverjeno Quibijevo stranko.");
+  const { customerId, vehicleId } = inputIds;
   try {
     const ctx = await context();
     const [{ data: customer }, { data: link }, { data: vehicle }, { data: existingLink },
