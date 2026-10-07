@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { buildEstimateBody, stableEstimatePayload, withDocumentId,
   type CreateEstimateInput, type EstimateBody } from "./write-contract.ts";
 
-export type OperationKind = "estimate" | "estimate_update" | "send";
+export type OperationKind = "customer" | "vehicle" | "estimate" | "estimate_update" | "send";
 export type OperationState = "prepared" | "dispatching" | "uncertain" | "verified" | "failed";
 export type Operation = {
   id: string; kind: OperationKind; localEntityId: string; serviceRequestId: string;

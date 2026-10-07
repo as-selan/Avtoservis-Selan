@@ -33,6 +33,9 @@ test("customer response projects only documented fields and rejects malformed en
   ]);
   assert.throws(() => parseCustomers({ error: true, data: { Stranke: [] } }));
   assert.throws(() => parseCustomers({ error: false, data: { Stranke: [{ Stranka: { naziv: "No ID" } }] } }));
+  assert.equal(parseCustomers({ error: false, data: { Stranke: [{ Stranka: {
+    id: 13, naziv: "TEST", remote_id: "00000000-0000-4000-8000-000000000011",
+  } }] } })[0].remoteId, "00000000-0000-4000-8000-000000000011");
 });
 
 test("document response keeps only a linked customer's documents", () => {

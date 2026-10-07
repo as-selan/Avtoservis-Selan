@@ -38,10 +38,11 @@ export function createQuibiReadClient(config: Config) {
   };
 
   return {
+    async customers() { return parseCustomers(await read("/api2/stranka")); },
     async searchCustomers(query: string) {
       const needle = query.trim().toLocaleLowerCase("sl-SI");
       if (needle.length < 2 || needle.length > 100) return [];
-      const customers = parseCustomers(await read("/api2/stranka"));
+      const customers = await this.customers();
       return customers.filter((customer) => [customer.id, customer.name, customer.phone, customer.email]
         .some((value) => value.toLocaleLowerCase("sl-SI").includes(needle))).slice(0, 30);
     },

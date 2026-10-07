@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { confirmQuibiCustomerLink, refreshQuibiCustomerLink, confirmQuibiVehicleLink, refreshQuibiVehicleLink } from "@/lib/quibi/actions";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { customerFingerprint, vehicleFingerprint, quibiDocumentStatusLabel, type QuibiCustomer, type QuibiDocument, type QuibiVehicle } from "@/lib/quibi/contracts";
+import { configuredQuibiDevWriteClient } from "@/lib/quibi/write-client";
+import { quibiDevOperationJournal } from "@/lib/quibi/write-journal";
+import { QuibiDevPartyCreate } from "@/components/dashboard/QuibiDevPartyCreate";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +67,16 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
   }
 
   const localFingerprint = customerFingerprint({ name: local.customer.displayName, phone: local.customer.phone ?? "", email: local.customer.email ?? "" });
+  let writeReady = false;
+  if (["owner", "admin"].includes(access.role) && process.env.QUIBI_DEV_WRITE_ENABLED === "1" &&
+      process.env.APP_ENV === "preproduction" && process.env.QUIBI_MODE === "dev" &&
+      process.env.SELAN_REMOTE_DEMO !== "1") {
+    try {
+      configuredQuibiDevWriteClient();
+      await quibiDevOperationJournal(access.organizationId, access.userId).get("customer", customerId);
+      writeReady = true;
+    } catch { writeReady = false; }
+  }
   const localChanged = !!link && localFingerprint !== link.local_fingerprint;
   const remoteChanged = !!link && !!remote && customerFingerprint(remote) !== link.external_fingerprint;
   const fieldsDiffer = !!remote && localFingerprint !== customerFingerprint(remote);
@@ -154,6 +167,21 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
             </form>
           </div>;
         })}
+        {writeReady && link.sync_status === "ok" && !readError && local.customer.vehicles
+          .filter((vehicle) => !(vehicleLinks ?? []).some((row) => row.vehicle_id === vehicle.id))
+          .map((vehicle) => {
+            const registration = vehicle.registration?.trim() ?? "";
+            const vin = vehicle.vin?.trim() ?? "";
+            const matching = remoteVehicles.some((item) => !item.disabled && (
+              (registration && item.registration.trim().toLocaleUpperCase("sl-SI") === registration.toLocaleUpperCase("sl-SI")) ||
+              (vin && item.vin.trim().toLocaleUpperCase("sl-SI") === vin.toLocaleUpperCase("sl-SI"))));
+            return <div key={vehicle.id} className="space-y-2 rounded border p-3 text-sm">
+              <p>Selanovo vozilo: {registration || "brez registracije"} · VIN/šasija {vin || "ni navedena"}</p>
+              {!registration || !vin ? <p role="alert">Za ustvarjanje v Quibiju sta potrebni registracija in številka šasije.</p>
+                : matching ? <p>Možno ujemanje že obstaja; najprej preverite in povežite prikazano vozilo.</p>
+                  : <QuibiDevPartyCreate customerId={customerId} vehicleId={vehicle.id} />}
+            </div>;
+          })}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Delovni nalogi v Quibiju</h2>
         <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}>Nalog #{doc.id} · {quibiDocumentStatusLabel(doc.status)}</li>)}</ul>
@@ -190,6 +218,8 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         </form>
       </div>)}
       {query.q && matches.length === 0 && !readError && <p className="text-sm text-slate-600">Ni ujemanj.</p>}
+      {writeReady && query.q && matches.length === 0 && !readError && local.customer.serviceRequests.length > 0 &&
+        <QuibiDevPartyCreate customerId={customerId} />}
     </section>}
   </div>;
 }

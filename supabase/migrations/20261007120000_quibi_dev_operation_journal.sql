@@ -30,7 +30,8 @@ create table public.quibi_dev_operation_journal (
     references public.organization_memberships(organization_id,profile_id) on delete restrict,
   unique (organization_id,kind,local_entity_id),
   check ((kind = 'estimate' and service_request_id = local_entity_id and external_id is not null)
-    or (kind <> 'estimate'))
+    or (kind = 'customer' and external_id = local_entity_id::text)
+    or (kind in ('vehicle','estimate_update','send') and external_id is null))
 );
 
 create unique index quibi_dev_operation_external_id_unique
@@ -39,9 +40,9 @@ create unique index quibi_dev_operation_external_id_unique
 create unique index quibi_dev_operation_send_id_unique
   on public.quibi_dev_operation_journal(organization_id,send_id)
   where send_id is not null;
-create unique index quibi_dev_operation_created_document_unique
-  on public.quibi_dev_operation_journal(organization_id,quibi_id)
-  where kind = 'estimate' and quibi_id is not null;
+create unique index quibi_dev_operation_created_entity_unique
+  on public.quibi_dev_operation_journal(organization_id,kind,quibi_id)
+  where kind in ('customer','vehicle','estimate') and quibi_id is not null;
 create index quibi_dev_operation_request_idx
   on public.quibi_dev_operation_journal(organization_id,service_request_id);
 

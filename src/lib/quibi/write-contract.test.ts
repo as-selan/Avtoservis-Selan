@@ -43,6 +43,27 @@ test("create body and external_id stay byte identical for retry", () => {
   assert.throws(() => buildEstimateBody({ ...input, lines: [] }), /QUIBI_INVALID_ESTIMATE_INPUT/);
 });
 
+test("customer and vehicle create use documented DEV forms and stable identifiers", async () => {
+  const calls: Array<{ path: string; body: Record<string, unknown> }> = [];
+  const fake = async (target: string | URL | Request, options?: RequestInit) => {
+    const url = new URL(String(target));
+    assert.equal(url.origin, "https://dev.quibi.net");
+    calls.push({ path: url.pathname, body: JSON.parse(String(options?.body)) });
+    return new Response(JSON.stringify(url.pathname.endsWith("vozila/form")
+      ? { error: false, data: { Vozila: { Vozilo: "7001" } } }
+      : { error: false, data: { Stranka: { id: "9001" } } }), { status: 200 });
+  };
+  const client = createQuibiDevWriteClient({ username: env.QUIBI_DEV_USERNAME,
+    password: env.QUIBI_DEV_PASSWORD, environment: env, fetcher: fake as typeof fetch });
+  const customerUuid = "00000000-0000-4000-8000-000000000011";
+  await client.createCustomer({ remote_id: customerUuid, naziv: "TEST Stranka" });
+  assert.equal(await client.createVehicle({ stranka_id: "9001", registrskastevilka: "TEST-01",
+    internastevilka: "TESTVIN1234567890", proizvajalec: "Test", model: "A" }), "7001");
+  assert.deepEqual(calls.map((item) => item.path), ["/api2/stranka/form", "/api2/vozila/form"]);
+  assert.equal((calls[0].body.Stranka as { remote_id: string }).remote_id, customerUuid);
+  assert.equal((calls[1].body.Vozila as { internastevilka: string }).internastevilka, "TESTVIN1234567890");
+});
+
 test("write client uses exact DEV endpoints, complete update lines, and test recipient only", async () => {
   const calls: Array<{ path: string; method: string; body: unknown }> = [];
   const fake = async (target: string | URL | Request, options?: RequestInit) => {

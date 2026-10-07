@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export type QuibiCustomer = { id: string; name: string; phone: string; email: string };
+export type QuibiCustomer = { id: string; name: string; phone: string; email: string; remoteId?: string };
 export type QuibiVehicle = {
   id: string; customerId: string; vin: string; registration: string;
   make: string; model: string; disabled: boolean;
@@ -47,7 +47,8 @@ export function parseCustomers(value: unknown): QuibiCustomer[] {
     const customer = object(object(entry).Stranka);
     const id = field(customer.id);
     if (!/^\d+$/.test(id)) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
-    return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl) };
+    return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl),
+      ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}) };
   });
 }
 
@@ -57,7 +58,8 @@ export function parseCustomerDetail(value: unknown): QuibiCustomer {
   const customer = object(object(object(envelope.data).Stranke).Stranka);
   const id = field(customer.id);
   if (!/^\d+$/.test(id)) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
-  return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl) };
+  return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl),
+    ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}) };
 }
 
 function projectVehicle(value: unknown): QuibiVehicle {
