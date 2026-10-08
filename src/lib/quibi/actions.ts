@@ -2,6 +2,7 @@
 
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
 import { canQueryCustomerId } from "@/lib/customers/present";
@@ -36,7 +37,7 @@ export async function confirmQuibiCustomerLink(form: FormData): Promise<void> {
       .is("archived_at", null).maybeSingle();
     if (!customerError && customer) {
       const { data: existing, error: existingError } = await db.from("integration_links")
-        .select("id").eq("organization_id", access.organizationId)
+        .select("id, external_id").eq("organization_id", access.organizationId)
         .eq("provider", "quibi").eq("entity_type", "customer")
         .eq("entity_id", customerId).maybeSingle();
       if (!existingError && !existing) {
@@ -51,13 +52,19 @@ export async function confirmQuibiCustomerLink(form: FormData): Promise<void> {
             local_fingerprint: localFingerprint, external_fingerprint: actualFingerprint,
             confirmed_by: access.userId,
           });
-          outcome = error?.code === "23505" ? "already" : error ? "error" : "linked";
+          if (error?.code === "23505") {
+            const { data: stored } = await db.from("integration_links")
+              .select("external_id").eq("organization_id", access.organizationId)
+              .eq("provider", "quibi").eq("entity_type", "customer").eq("entity_id", customerId).maybeSingle();
+            outcome = stored?.external_id === externalId ? "linked" : "already";
+          } else outcome = error ? "error" : "linked";
         }
-      } else outcome = existing ? "already" : "error";
+      } else outcome = existing ? (existing.external_id === externalId ? "linked" : "already") : "error";
     } else outcome = "missing";
   } catch {
     outcome = "error";
   }
+  revalidatePath("/dashboard", "layout");
   redirect(`${back}?result=${outcome}`);
 }
 
@@ -155,11 +162,17 @@ export async function confirmQuibiVehicleLink(form: FormData): Promise<void> {
             }),
             external_fingerprint: expectedFingerprint, confirmed_by: access.userId,
           });
-          outcome = error?.code === "23505" ? "already" : error ? "error" : "linked";
+          if (error?.code === "23505") {
+            const { data: stored } = await db.from("quibi_vehicle_links")
+              .select("quibi_customer_id, quibi_vehicle_id").eq("organization_id", access.organizationId)
+              .eq("customer_id", customerId).eq("vehicle_id", vehicleId).maybeSingle();
+            outcome = stored?.quibi_customer_id === link.external_id && stored?.quibi_vehicle_id === externalId ? "linked" : "already";
+          } else outcome = error ? "error" : "linked";
         }
       }
     }
   } catch { outcome = "error"; }
+  revalidatePath("/dashboard", "layout");
   redirect(`${back}?vehicleResult=${outcome}`);
 }
 

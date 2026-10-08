@@ -30,7 +30,7 @@ export function LinkManualEstimateForm({ serviceRequestId }: { serviceRequestId:
       Ročno sem preveril, da gre za predračun te stranke, vozila in storitve v tem primeru.
     </label>
     <button type="submit" disabled={!confirmed || pending} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
-      {pending ? "Preverjam…" : "Preveri in poveži predračun"}
+      {pending ? "Povezujem..." : "Preveri in poveži predračun"}
     </button>
     {message && <p role={message.startsWith("Quibijev predračun je povezan") ? "status" : "alert"} className="text-sm">{message}</p>}
   </form>;

@@ -23,7 +23,7 @@ export const COMPLETION_ALLOWED_BODY_KEYS = [
   "model",
 ] as const;
 
-export const COMPLETION_OFFER_NEXT_ACTION = "Pripravi ponudbo za pregled.";
+export const COMPLETION_OFFER_NEXT_ACTION = "Tadej naj preveri podatke pred pripravo ponudbe.";
 
 export const COMPLETION_NEEDS_DATA_NEXT_ACTION =
   "Pridobi manjkajoče podatke stranke ali vozila.";
@@ -35,7 +35,7 @@ export const COMPLETION_UNAVAILABLE_MESSAGE =
   "Povezava ni veljavna ali je potekla.";
 
 export const COMPLETION_COMPLETED_MESSAGE =
-  "Hvala. Podatki so dopolnjeni in servis lahko pripravi ponudbo.";
+  "Hvala. Podatki so dopolnjeni. Tadej jih mora pregledati pred pripravo ponudbe.";
 
 export const COMPLETION_PARTIAL_MESSAGE =
   "Hvala. Podatki so shranjeni. Servis še potrebuje manjkajoče podatke.";

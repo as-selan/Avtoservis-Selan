@@ -47,3 +47,14 @@ test("case price requires the exact current customer and vehicle link", () => {
   assert.equal(verifiedVehicleLink({ ...input, remoteVehicle: { ...remoteVehicle, disabled: true } }), false);
   assert.equal(verifiedVehicleLink({ ...input, vehicleLink: { ...vehicleLink, sync_status: "never_checked" } }), false);
 });
+
+test("document vehicle mismatch rejects proposed case price", () => {
+  const localVehicle = { vin: "TEST153D7E1AA2026", registration: "TEST153D7", make: "TEST", model: "QA" };
+  const remoteVehicle = { ...localVehicle, id: "2387", customerId: "405956", disabled: false };
+  const vehicleLink = { quibi_customer_id: "405956", quibi_vehicle_id: "2387", sync_status: "ok", local_fingerprint: vehicleFingerprint(localVehicle), external_fingerprint: vehicleFingerprint(remoteVehicle) };
+  const document = { ...detail, id: "2176888", customerId: "405956", vehicleId: "WRONG", amount: "122" };
+  const evidence = { ...quote, evidence_payload: { external_id: "2176888", customer_external_id: "405956" } };
+  const input = { quote: evidence, customerId: "405956", detail: document, localVehicle, remoteVehicle, vehicleLink };
+  assert.equal(verifiedCasePrice(input), null);
+  assert.deepEqual(verifiedCasePrice({ ...input, detail: { ...document, vehicleId: "2387" } }), { amount: "122", state: "proposed", sourceId: "2176888" });
+});

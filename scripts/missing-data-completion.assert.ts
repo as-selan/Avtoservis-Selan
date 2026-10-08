@@ -31,9 +31,16 @@ function read(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), "utf8").replace(/\r\n/g, "\n");
 }
 
-const sql = read(
-  "supabase/migrations/20260928175317_20260914033000_create_service_request_completion_links.sql",
+const forwardSql = read("supabase/migrations/20261008160005_contact_policy_and_completion_review.sql");
+const completionSql = forwardSql.slice(
+  forwardSql.indexOf("create or replace function public.resolve_service_request_completion"),
+  forwardSql.indexOf("create or replace function public.review_service_request_intake"),
 );
+const sql = read("supabase/migrations/20260928175317_20260914033000_create_service_request_completion_links.sql")
+  .split("create or replace function public.resolve_service_request_completion")[0]
+  + completionSql
+  + (read("supabase/migrations/20260928175317_20260914033000_create_service_request_completion_links.sql")
+    .match(/(?:revoke all|grant execute) on function[\s\S]*?;/g) ?? []).join("\n");
 const tokenSrc = read("src/lib/completion/token.ts");
 const urlSrc = read("src/lib/completion/url.ts");
 const actionsSrc = read("src/lib/completion/actions.ts");
@@ -246,10 +253,10 @@ const allNew = [
 // O. partial completion remains needs_data
 {
   assert(sql.includes("v_status := 'needs_data'"), "partial stays needs_data");
-  assert(sql.includes("private.compute_intake_completeness"), "recomputes completeness");
+  assert(sql.includes("private.compute_request_intake_completeness"), "recomputes persisted channel-aware completeness");
 }
 
-// P. complete → preparing_offer, empty missing, link completed
+// P. complete → new, empty missing, link completed; staff review remains required
 {
   const complete = computeCompletionLifecycle({
     phone: "041123456",
@@ -258,11 +265,11 @@ const allNew = [
     make: "VW",
     model: "Golf",
   });
-  assert(complete.status === "preparing_offer", "TS maps complete to preparing_offer");
+  assert(complete.status === "new", "TS maps complete to explicit intake review");
   assert(complete.missing_fields.length === 0, "TS empty missing");
   assert(complete.next_action === COMPLETION_OFFER_NEXT_ACTION, "offer next action");
-  assert(sql.includes("v_status := 'preparing_offer'"), "SQL preparing_offer");
-  assert(sql.includes("Pripravi ponudbo za pregled."), "SQL next action");
+  assert(sql.includes("v_status := 'new'"), "SQL review state");
+  assert(sql.includes("Tadej naj preveri podatke pred pripravo ponudbe."), "SQL review next action");
   assert(sql.includes("completed_at = pg_catalog.now()"), "marks link completed");
 }
 

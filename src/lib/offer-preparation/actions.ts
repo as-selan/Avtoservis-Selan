@@ -24,6 +24,8 @@ function prepareErrorMessage(code: string | undefined): string {
   switch (code) {
     case "forbidden":
       return "Nimate dovoljenja za pripravo ponudbe.";
+    case "intake_review_required":
+      return "Tadej mora najprej pregledati podatke primera.";
     case "not_preparing_offer":
     case "archived":
     case "not_found":

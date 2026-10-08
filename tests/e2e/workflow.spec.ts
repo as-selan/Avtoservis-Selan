@@ -400,5 +400,9 @@ test("missing data link completes the original case without exposing the token i
   await expect(page.getByRole("status")).toContainText("Podatki so dopolnjeni");
 
   await page.goto(`/dashboard/primeri/${caseId}`);
-  await expect(page.getByText("Status: preparing_offer")).toBeVisible();
+  await expect(page.getByText("Status: new", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tadejev pregled sprejema")).toBeVisible();
+  await page.getByRole("checkbox", { name: "Preveril sem podatke tega primera in ga sprejemam za pripravo ponudbe." }).check();
+  await page.getByRole("button", { name: "Sprejmi primer za pripravo ponudbe" }).click();
+  await expect(page.getByText("Status: preparing_offer", { exact: true })).toBeVisible();
 });

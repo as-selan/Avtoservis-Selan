@@ -256,7 +256,7 @@ async function assertProviderUnconfigured() {
     "prep query failure fails snapshot",
   );
   assert(
-    adaptSrc.includes("offerPreparationReady = false"),
+    adaptSrc.includes("offerPreparationReady: stepInput.offerPrepared"),
     "adapt receives explicit readiness boolean",
   );
   assert(

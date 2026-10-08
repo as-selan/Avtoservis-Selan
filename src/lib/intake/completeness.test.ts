@@ -23,5 +23,5 @@ test("completeness lists missing fields for needs_data", () => {
     model: null,
   });
   assert.equal(partial.status, "needs_data");
-  assert.deepEqual(partial.missing_fields, ["email", "vin", "model"]);
+  assert.deepEqual(partial.missing_fields, ["vin", "model"]);
 });

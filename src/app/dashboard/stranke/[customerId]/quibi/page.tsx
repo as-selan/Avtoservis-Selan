@@ -1,3 +1,4 @@
+import { QuibiLinkSubmit } from "@/components/quibi-link-submit";
 import Link from "next/link";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { loadCustomerDetail } from "@/lib/customers/load-customer-detail";
@@ -92,7 +93,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
           : "Quibi DEV – dejanski podatki iz testnega okolja. Povezava je ročno potrjena; zapisovanje in pošiljanje v Quibi nista avtomatska."}</p></div>
     {query.result === "linked" && <p role="status" className="text-green-700">Povezava je shranjena.</p>}
     {query.result === "changed" && <p role="alert" className="text-amber-800">Podatki v Quibiju so se od prikaza spremenili. Ponovno preverite stranko.</p>}
-    {query.result === "already" && <p role="alert" className="text-amber-800">Ta stranka ali Quibijev ID je že povezan.</p>}
+    {query.result === "already" && <p role="alert" className="text-amber-800">Povezava je v konfliktu: stranka ali Quibijev ID je povezan z drugim zapisom.</p>}
     {query.refresh === "ok" && <p role="status" className="text-green-700">Quibijeva povezava je znova preverjena.</p>}
     {query.refresh === "remote_changed" && <p role="alert" className="text-amber-800">Quibijevi podatki so se spremenili; preverite jih ročno.</p>}
     {query.refresh === "local_changed" && <p role="alert" className="text-amber-800">Selanovi podatki so se spremenili; preverite jih ročno.</p>}
@@ -103,7 +104,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
     {query.vehicleResult === "changed" && <p role="alert" className="text-amber-800">Vozilo v Quibiju se je med pregledom spremenilo. Preverite ga znova.</p>}
     {query.vehicleResult === "customer_changed" && <p role="alert" className="text-amber-800">Povezava stranke se je spremenila. Najprej preverite stranko.</p>}
     {query.vehicleResult === "disabled" && <p role="alert" className="text-amber-800">Quibijevo vozilo je onemogočeno; povezava ni bila ustvarjena.</p>}
-    {query.vehicleResult === "already" && <p role="alert" className="text-amber-800">Eno od teh vozil je že povezano.</p>}
+    {query.vehicleResult === "already" && <p role="alert" className="text-amber-800">Povezava je v konfliktu: eno od vozil je povezano z drugim zapisom.</p>}
     {query.vehicleResult && ["error", "invalid", "missing"].includes(query.vehicleResult) && <p role="alert" className="text-red-700">Povezave vozila ni bilo mogoče shraniti.</p>}
     {query.vehicleRefresh === "ok" && <p role="status" className="text-green-700">Povezava vozila je znova preverjena.</p>}
     {query.vehicleRefresh && ["local_changed", "remote_changed", "both_changed"].includes(query.vehicleRefresh) && <p role="alert" className="text-amber-800">Podatki vozila so se spremenili ({query.vehicleRefresh}); preverite oba zapisa.</p>}
@@ -145,7 +146,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
                     <input type="hidden" name="externalId" value={item.id} />
                     <input type="hidden" name="remoteFingerprint" value={vehicleFingerprint(item)} />
                     <label className="flex gap-2"><input type="checkbox" name="confirmed" value="yes" required />Preveril sem, da gre za isto vozilo.</label>
-                    <button className="rounded border border-blue-700 px-3 py-2 text-blue-700">Poveži vozili</button>
+                    <QuibiLinkSubmit>Poveži vozili</QuibiLinkSubmit>
                   </form>)}
               </div>}
           </div>;
@@ -214,7 +215,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
           <input type="hidden" name="externalId" value={candidate.id} />
           <input type="hidden" name="remoteFingerprint" value={customerFingerprint(candidate)} />
           <label className="flex gap-2 text-sm"><input type="checkbox" name="confirmed" value="yes" required />Ročno sem preveril, da gre za isto stranko.</label>
-          <button className="rounded border border-blue-700 px-3 py-2 text-sm text-blue-700">Potrdi povezavo</button>
+          <QuibiLinkSubmit>Potrdi povezavo</QuibiLinkSubmit>
         </form>
       </div>)}
       {query.q && matches.length === 0 && !readError && <p className="text-sm text-slate-600">Ni ujemanj.</p>}

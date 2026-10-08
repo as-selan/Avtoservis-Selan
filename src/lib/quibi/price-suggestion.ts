@@ -32,7 +32,8 @@ export function verifiedCasePrice(input: {
     local_fingerprint: string; external_fingerprint: string;
   };
 }) {
-  if (!verifiedVehicleLink(input)) return null;
+  if (!verifiedVehicleLink(input) ||
+      (input.detail.vehicleId && input.detail.vehicleId !== input.vehicleLink.quibi_vehicle_id)) return null;
   return verifiedLinkedEstimatePrice(input.quote, input.customerId, input.detail);
 }
 

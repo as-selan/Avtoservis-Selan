@@ -6,8 +6,8 @@ import { blankToNull } from "./normalize";
  * RPC remains authoritative at write time. Adjust here + SQL together when
  * Quibi required fields are known.
  *
- * status = new only when phone, email, vin, make, and model are all present.
- * Website intake uses the same contract via computeIntakeCompleteness.
+ * Manual intake requires phone OR email, plus VIN, make and model.
+ * Website intake keeps phone AND email via computeIntakeCompleteness.
  */
 export function computeManualIntakeCompleteness(input: {
   phone: string | null;
@@ -15,10 +15,11 @@ export function computeManualIntakeCompleteness(input: {
   vin: string | null;
   make: string | null;
   model: string | null;
-}): IntakeCompleteness {
+}, contactPolicy: "manual" | "web" = "manual"): IntakeCompleteness {
   const missing: IntakeMissingField[] = [];
-  if (!blankToNull(input.phone)) missing.push("phone");
-  if (!blankToNull(input.email)) missing.push("email");
+  const noContact = !blankToNull(input.phone) && !blankToNull(input.email);
+  if ((contactPolicy === "web" || noContact) && !blankToNull(input.phone)) missing.push("phone");
+  if ((contactPolicy === "web" || noContact) && !blankToNull(input.email)) missing.push("email");
   if (!blankToNull(input.vin)) missing.push("vin");
   if (!blankToNull(input.make)) missing.push("make");
   if (!blankToNull(input.model)) missing.push("model");
@@ -38,5 +39,7 @@ export function computeManualIntakeCompleteness(input: {
   };
 }
 
-/** Alias — website and manual intake share the V1 completeness contract. */
-export const computeIntakeCompleteness = computeManualIntakeCompleteness;
+/** Website callers cannot supply a weaker policy. */
+export function computeIntakeCompleteness(input: Parameters<typeof computeManualIntakeCompleteness>[0]): IntakeCompleteness {
+  return computeManualIntakeCompleteness(input, "web");
+}

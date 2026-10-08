@@ -86,3 +86,9 @@ test("validate requires clientRequestId", () => {
   });
   assert.equal(result.ok, false);
 });
+
+test("manual permits email only for all operator channels", () => {
+  for (const channel of ["manual", "phone", "sms"]) {
+    assert.equal(validateManualIntakeForm({ ...base, channel, phone: "", email: "qa@example.test" }).ok, true);
+  }
+});

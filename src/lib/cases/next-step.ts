@@ -28,7 +28,7 @@ export function nextCaseStep(input: {
     case "needs_data": return step("request_data", "Zahtevaj manjkajoče podatke in nadaljuj isti primer.");
     case "new": return step("verify_intake", input.inspectionRepairDecision === "ordered"
       ? "Po naročenem popravilu je pregled brezplačen. Preveri podatke primera in izrecno sprejmi pripravo predračuna."
-      : "Preveri stranko, vozilo in podatke povpraševanja.");
+      : "Tadej naj preveri stranko, vozilo in podatke povpraševanja pred pripravo ponudbe.");
     case "preparing_offer":
       if (input.fixedPriceStatus === "prepared") return step("review_estimate", "Tadej naj preveri objavljeno končno ceno in vir.");
       if (input.fixedPriceStatus === "approved") return step("send_estimate", "Odobreno končno ceno dejansko sporočite stranki in zabeležite dokazilo.");
