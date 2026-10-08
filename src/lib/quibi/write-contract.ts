@@ -86,3 +86,20 @@ export function parseQuibiWriteResponse(value: unknown): { id: string; number: s
 }
 
 export { numericId as validQuibiId };
+
+/** Sending is permitted only on Vercel Preview; the local write exception never applies. */
+export function assertQuibiDevTestSendAllowed(env: Record<string, string | undefined>, origin = QUIBI_DEV_ORIGIN): void {
+  try { assertQuibiDevWriteAllowed(env, origin); }
+  catch { throw new Error("QUIBI_DEV_TEST_SEND_DISABLED"); }
+  if (env.VERCEL_ENV !== "preview") throw new Error("QUIBI_DEV_TEST_SEND_DISABLED");
+}
+
+export function quibiDevTestRecipient(env: Record<string, string | undefined>, customerEmail?: string | null): string {
+  const email = env.QUIBI_DEV_TEST_RECIPIENT ?? "";
+  const domain = email.split("@")[1]?.toLowerCase() ?? "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      /(^|\.)(example\.(test|com|org|net)|test|localhost)$/.test(domain) ||
+      domain.includes("example.test") || email.toLowerCase() === customerEmail?.trim().toLowerCase())
+    throw new Error("QUIBI_TEST_RECIPIENT");
+  return email;
+}

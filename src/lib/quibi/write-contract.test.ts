@@ -94,3 +94,13 @@ test("write client uses exact DEV endpoints, complete update lines, and test rec
     "/api2/glavadokumenta/send_status/2176888?send_id=test-send-1",
   ]);
 });
+
+test("send's HTTP guard rejects the approved-local exception without any network request", async () => {
+  let requests = 0;
+  const client = createQuibiDevWriteClient({ username: env.QUIBI_DEV_USERNAME, password: env.QUIBI_DEV_PASSWORD,
+    environment: { ...env, VERCEL_ENV: undefined, SELAN_APPROVED_LOCAL_DEV: "1" },
+    fetcher: async () => { requests++; throw new Error("UNEXPECTED_NETWORK"); } });
+  await assert.rejects(client.sendDocument("2176888", env.QUIBI_DEV_TEST_RECIPIENT), /QUIBI_DEV_TEST_SEND_DISABLED/);
+  await assert.rejects(client.getSendStatus("2176888", "stored-id"), /QUIBI_DEV_TEST_SEND_DISABLED/);
+  assert.equal(requests, 0);
+});

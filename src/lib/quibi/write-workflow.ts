@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { buildEstimateBody, stableEstimatePayload, withDocumentId,
+import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient, validQuibiId, buildEstimateBody, stableEstimatePayload, withDocumentId,
   type CreateEstimateInput, type EstimateBody } from "./write-contract.ts";
 
 export type OperationKind = "customer" | "vehicle" | "estimate" | "estimate_update" | "send";
@@ -163,7 +163,7 @@ export async function sendAndTrackEstimate(args: {
   journal: OperationJournal; read: EstimateRead; write: EstimateWrite; quoteRevisionId: string;
   serviceRequestId: string; documentId: string; recipient: string; subject: string;
   customerId: string; vehicleId: string; externalId: string; numberingId: string;
-  approvedContentSha256: string; approvedForSend: boolean;
+  approvedContentSha256: string; approvedForSend: boolean; beforeDispatch?: () => Promise<void>;
 }) {
   const { journal, read, write } = args;
   if (!uuid.test(args.quoteRevisionId) || !uuid.test(args.serviceRequestId)) throw new Error("QUIBI_INVALID_SEND_INPUT");
@@ -177,22 +177,111 @@ export async function sendAndTrackEstimate(args: {
     externalId: null, requestBody: json, requestSha256: sha256,
   });
   samePayload(op, json, sha256);
-  if (op.sendId) {
-    const status = await write.getSendStatus(args.documentId, op.sendId);
-    return journal.patch(op.id, op.state, { state: status.status === "sent" ? "verified" : "uncertain",
-      sendStatus: status.status });
-  }
+  if (op.sendId) return checkTrackedEstimateStatus({ journal, write, operation: op, documentId: args.documentId });
   const current = await verifyDocument(read, args.customerId, args.vehicleId,
     args.externalId, args.documentId, args.numberingId);
   if (current.contentSha256 !== args.approvedContentSha256) throw new Error("QUIBI_DOCUMENT_CHANGED");
   if (op.state !== "prepared") throw new Error("QUIBI_SEND_AMBIGUOUS_NO_RETRY");
   if (!await journal.claim(op.id, "prepared")) throw new Error("QUIBI_OPERATION_CONCURRENT");
   try {
+    await args.beforeDispatch?.();
+    const fresh = await verifyDocument(read, args.customerId, args.vehicleId, args.externalId, args.documentId, args.numberingId);
+    if (fresh.contentSha256 !== args.approvedContentSha256) throw new Error("QUIBI_DOCUMENT_CHANGED");
     const result = await write.sendDocument(args.documentId, args.recipient, args.subject);
     return journal.patch(op.id, "dispatching", { state: "uncertain", quibiId: args.documentId,
       sendId: result.sendId, sendStatus: result.status });
   } catch (cause) {
     await journal.patch(op.id, "dispatching", { state: "uncertain" }).catch(() => undefined);
+    throw cause;
+  }
+}
+
+export type ManualSendAuthorization = {
+  actorId: string; organizationId: string; role: string; serviceRequestId: string; caseStatus: string;
+  quoteRevisionId: string; quoteServiceRequestId: string; latestQuoteId: string; quoteReviewStatus: string;
+  evidenceKind: string; documentId: string; customerId: string; evidenceCustomerId: string; vehicleId: string;
+  serviceWanted: string; approvedContentSha256: string; customerEmail: string | null;
+};
+function validateManualAuthorization(a: ManualSendAuthorization, caseId: string, quoteId: string) {
+  if (![a.actorId, a.organizationId, caseId, quoteId].every(v => uuid.test(v)) ||
+      !["owner", "admin"].includes(a.role) || a.serviceRequestId !== caseId || a.caseStatus !== "preparing_offer" ||
+      a.quoteRevisionId !== quoteId || a.quoteServiceRequestId !== caseId || a.latestQuoteId !== quoteId ||
+      a.quoteReviewStatus !== "approved_for_send" || a.evidenceKind !== "quibi_manual_estimate" ||
+      a.evidenceCustomerId !== a.customerId || !a.serviceWanted.trim() ||
+      !/^[0-9a-f]{64}$/.test(a.approvedContentSha256)) throw new Error("QUIBI_SEND_AUTHORIZATION");
+  try { [a.documentId, a.customerId, a.vehicleId].forEach(validQuibiId); }
+  catch { throw new Error("QUIBI_SEND_AUTHORIZATION"); }
+}
+async function verifyManualDocument(read: EstimateRead, a: ManualSendAuthorization) {
+  if (!(await read.estimates(a.customerId)).some(d => d.id === a.documentId))
+    throw new Error("QUIBI_DOCUMENT_NOT_LISTED_FOR_CUSTOMER");
+  const d = await read.estimateDetail(a.documentId, a.customerId);
+  if (d.id !== a.documentId || d.customerId !== a.customerId ||
+      (d.vehicleId !== undefined && d.vehicleId !== a.vehicleId) || !d.lines.length ||
+      d.contentSha256 !== a.approvedContentSha256 ||
+      (d.externalId?.startsWith("selan-service-request:") && d.externalId !== "selan-service-request:" + a.serviceRequestId))
+    throw new Error("QUIBI_DOCUMENT_REREAD_MISMATCH");
+}
+/** Status-only operation: never calls sendDocument, including after a timeout. */
+export async function checkTrackedEstimateStatus(args: {
+  journal: OperationJournal; write: Pick<EstimateWrite, "getSendStatus">; operation: Operation; documentId: string;
+}) {
+  const op = args.operation;
+  if (!op.sendId || op.quibiId !== args.documentId || op.kind !== "send") throw new Error("QUIBI_SEND_STATUS_UNAVAILABLE");
+  if (op.state === "verified" || op.state === "failed") return op;
+  const result = await args.write.getSendStatus(args.documentId, op.sendId);
+  return args.journal.patch(op.id, op.state, { state: result.status === "sent" ? "verified" :
+    result.status === "failed" ? "failed" : "uncertain", sendStatus: result.status });
+}
+/** Existing documents never use create/update. The shared quote journal is the dispatch lock. */
+export async function sendManualLinkedEstimate(args: {
+  journal: OperationJournal; read: EstimateRead; write: Pick<EstimateWrite, "sendDocument" | "getSendStatus">;
+  authorize: () => Promise<ManualSendAuthorization>; environment: Record<string, string | undefined>; origin?: string;
+  serviceRequestId: string; quoteRevisionId: string; manualMatchConfirmed: boolean; manualMatchReference: string;
+  testSendConfirmed: boolean; requestedRecipient?: string;
+}) {
+  assertQuibiDevTestSendAllowed(args.environment, args.origin);
+  if (!args.testSendConfirmed) throw new Error("QUIBI_TEST_SEND_CONFIRMATION");
+  const reference = args.manualMatchReference.trim();
+  if (!args.manualMatchConfirmed || reference.length < 12 || reference.length > 1000)
+    throw new Error("QUIBI_MANUAL_CONFIRMATION");
+  const a = await args.authorize();
+  validateManualAuthorization(a, args.serviceRequestId, args.quoteRevisionId);
+  const recipient = quibiDevTestRecipient(args.environment, a.customerEmail);
+  if (args.requestedRecipient !== undefined && args.requestedRecipient !== recipient) throw new Error("QUIBI_TEST_RECIPIENT");
+  const old = await args.journal.get("send", args.quoteRevisionId);
+  const stored = old ? JSON.parse(old.requestBody) : null;
+  const body = { path: "manual_linked_estimate", documentId: a.documentId, recipient,
+    subject: "[TEST] Predračun Quibi DEV #" + a.documentId, authorization: a,
+    manualConfirmation: { actorId: a.actorId, vehicleId: a.vehicleId, serviceRequestId: a.serviceRequestId,
+      serviceWanted: a.serviceWanted, reference, confirmedAt: stored?.manualConfirmation?.confirmedAt ?? new Date().toISOString() } };
+  // A retry retains the original actor and evidence. Any changed authority/content fails closed.
+  const json = JSON.stringify(body), sha256 = createHash("sha256").update(json).digest("hex");
+  const op = old ?? await args.journal.insertOnce({ kind: "send", localEntityId: args.quoteRevisionId,
+    serviceRequestId: args.serviceRequestId, externalId: null, requestBody: json, requestSha256: sha256 });
+  if (op.requestBody !== json || op.requestSha256 !== sha256 || op.serviceRequestId !== args.serviceRequestId)
+    throw new Error("QUIBI_SEND_AUTHORIZATION_CHANGED");
+  if (op.sendId) return checkTrackedEstimateStatus({ ...args, operation: op, documentId: a.documentId });
+  if (op.state !== "prepared") throw new Error("QUIBI_SEND_AMBIGUOUS_NO_RETRY");
+  await verifyManualDocument(args.read, a);
+  if (!await args.journal.claim(op.id, "prepared")) throw new Error("QUIBI_OPERATION_CONCURRENT");
+  try {
+    const fresh = await args.authorize(); validateManualAuthorization(fresh, args.serviceRequestId, args.quoteRevisionId);
+    if (JSON.stringify(fresh) !== JSON.stringify(a)) throw new Error("QUIBI_SEND_AUTHORIZATION_CHANGED");
+    assertQuibiDevTestSendAllowed(args.environment, args.origin);
+    quibiDevTestRecipient(args.environment, fresh.customerEmail);
+    await verifyManualDocument(args.read, fresh);
+  } catch (cause) {
+    await args.journal.patch(op.id, "dispatching", { state: "uncertain" });
+    await args.journal.patch(op.id, "uncertain", { state: "failed" });
+    throw cause;
+  }
+  try {
+    const sent = await args.write.sendDocument(a.documentId, recipient, body.subject);
+    return await args.journal.patch(op.id, "dispatching", { state: "uncertain", quibiId: a.documentId,
+      sendId: sent.sendId, sendStatus: sent.status });
+  } catch (cause) {
+    await args.journal.patch(op.id, "dispatching", { state: "uncertain" }).catch(() => undefined);
     throw cause;
   }
 }

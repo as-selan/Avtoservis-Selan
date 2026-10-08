@@ -22,6 +22,8 @@ import { quibiDevEstimateChoices, type QuibiChoice } from "@/lib/quibi/write-opt
 import { quibiDevOperationJournal } from "@/lib/quibi/write-journal";
 import { QuibiDevWritePanel } from "@/components/dashboard/QuibiDevWritePanel";
 import { configuredQuibiDevWriteClient } from "@/lib/quibi/write-client";
+import { QuibiManualTestSendPanel } from "@/components/dashboard/QuibiManualTestSendPanel";
+import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient } from "@/lib/quibi/write-contract";
 import type { Operation } from "@/lib/quibi/write-workflow";
 
 export const dynamic = "force-dynamic";
@@ -98,6 +100,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       process.env.APP_ENV === "preproduction" && process.env.QUIBI_MODE === "dev";
     const realDevMode = writeRequested && process.env.SELAN_REMOTE_DEMO !== "1" &&
       process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1";
+    let testRecipient: string | null = null;
+    try { assertQuibiDevTestSendAllowed(process.env); testRecipient = quibiDevTestRecipient(process.env, customer?.email); } catch { /* fail closed */ }
     let writeReady = false;
     let writeChoices: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] } | null = null;
     let createdOperation: Operation | null = null;
@@ -217,10 +221,15 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {writeReady && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
             <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} />}
-          {writeReady && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
+          {writeReady && testRecipient && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "approved_for_send" && ["owner", "admin"].includes(access.role) &&
             <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="send" quoteId={quote.id}
-              sendStatus={sendOperation?.sendStatus} />}
+              sendStatus={sendOperation?.sendStatus} sendId={sendOperation?.sendId} operationState={sendOperation?.state} />}
+          {writeReady && testRecipient && quibiEstimateId && createdOperation?.quibiId !== quibiEstimateId &&
+            quote?.internal_review_status === "approved_for_send" && ["owner", "admin"].includes(access.role) &&
+            <QuibiManualTestSendPanel serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
+              recipient={testRecipient} version={quote.version_no} operationState={sendOperation?.state}
+              sendId={sendOperation?.sendId} sendStatus={sendOperation?.sendStatus} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId &&
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} realDevWrite={realDevMode} />}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}

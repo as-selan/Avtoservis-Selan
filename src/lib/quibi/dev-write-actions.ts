@@ -9,8 +9,8 @@ import { verifiedVehicleLink } from "./price-suggestion";
 import { configuredQuibiDevWriteClient } from "./write-client";
 import { quibiDevOperationJournal } from "./write-journal";
 import { quibiDevEstimateChoices } from "./write-options";
-import { createAndVerifyEstimate, sendAndTrackEstimate, updateAndVerifyEstimate } from "./write-workflow";
-import { type EstimateBody } from "./write-contract";
+import { checkTrackedEstimateStatus, sendManualLinkedEstimate, type ManualSendAuthorization, createAndVerifyEstimate, sendAndTrackEstimate, updateAndVerifyEstimate } from "./write-workflow";
+import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient, type EstimateBody } from "./write-contract";
 
 type Result = { ok: true; detail: string } | { ok: false; message: string };
 const fail = (message: string): Result => ({ ok: false, message });
@@ -70,7 +70,7 @@ async function context(serviceRequestId: string) {
         localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
           make: vehicle.make ?? "", model: vehicle.model ?? "" }, remoteVehicle, vehicleLink }))
     throw new Error("QUIBI_LINK_CHANGED");
-  return { access, db, request, customer, link, vehicleLink, read, write,
+  return { access, db, request, customer, remoteCustomer, link, vehicleLink, read, write,
     journal: quibiDevOperationJournal(access.organizationId, access.userId) };
 }
 
@@ -171,7 +171,9 @@ export async function sendQuibiDevTestEstimate(form: FormData): Promise<Result> 
       .order("version_no", { ascending: false }).limit(1).maybeSingle();
     const evidence = quote?.evidence_payload as { external_id?: unknown; customer_external_id?: unknown } | null;
     const created = await ctx.journal.get("estimate", serviceRequestId);
-    const recipient = process.env.QUIBI_DEV_TEST_RECIPIENT;
+    assertQuibiDevTestSendAllowed(process.env);
+    const recipient = quibiDevTestRecipient(process.env, ctx.customer.email);
+    quibiDevTestRecipient(process.env, ctx.remoteCustomer.email);
     if (!quote || !created || latest?.id !== quoteId || quote.internal_review_status !== "approved_for_send" ||
         quote.evidence_kind !== "quibi_manual_estimate" ||
         evidence?.external_id !== created.quibiId || evidence?.customer_external_id !== ctx.link.external_id ||
@@ -184,11 +186,97 @@ export async function sendQuibiDevTestEstimate(form: FormData): Promise<Result> 
       customerId: ctx.link.external_id, vehicleId: ctx.vehicleLink.quibi_vehicle_id,
       externalId: created.externalId, numberingId: String(base.Glavadokumenta.stevilcenje_id),
       approvedContentSha256: quote.content_sha256, approvedForSend: true,
-      recipient, subject: `[TEST] Predračun Quibi DEV #${created.quibiId}` });
+      recipient, subject: `[TEST] Predračun Quibi DEV #${created.quibiId}`,
+      beforeDispatch: async () => {
+        assertQuibiDevTestSendAllowed(process.env);
+        const fresh = await context(serviceRequestId);
+        const [q, last] = await Promise.all([
+          fresh.db.from("quotes").select("content_sha256,evidence_payload,internal_review_status")
+            .eq("organization_id", fresh.access.organizationId).eq("service_request_id", serviceRequestId).eq("id", quoteId).maybeSingle(),
+          fresh.db.from("quotes").select("id").eq("organization_id", fresh.access.organizationId)
+            .eq("service_request_id", serviceRequestId).order("version_no", { ascending: false }).limit(1).maybeSingle(),
+        ]);
+        const e = q.data?.evidence_payload as { external_id?: unknown; customer_external_id?: unknown } | null;
+        if (q.error || last.error || last.data?.id !== quoteId || q.data?.internal_review_status !== "approved_for_send" ||
+            q.data.content_sha256 !== quote.content_sha256 || e?.external_id !== created.quibiId ||
+            e?.customer_external_id !== fresh.link.external_id || fresh.link.external_id !== ctx.link.external_id ||
+            fresh.vehicleLink.quibi_vehicle_id !== ctx.vehicleLink.quibi_vehicle_id ||
+            fresh.request.service_wanted !== ctx.request.service_wanted ||
+            quibiDevTestRecipient(process.env, fresh.remoteCustomer.email) !== recipient ||
+            quibiDevTestRecipient(process.env, fresh.customer.email) !== recipient) throw new Error("QUIBI_SEND_AUTHORIZATION_CHANGED");
+      } });
     if (op.sendStatus === "failed") return fail("Quibi je testno pošiljanje zavrnil. Preverite send_status; ne ponavljajte samodejno.");
     return { ok: true, detail: op.sendStatus === "sent" ? "Quibi je testno sporočilo predal poštnemu strežniku. To ne potrjuje prejema pri stranki."
       : "Quibi testno pošiljanje je v čakalni vrsti. Osvežite stanje z istim send_id." };
   } catch {
     return fail("Stanje testnega pošiljanja ni potrjeno. Ne ponavljajte pošiljanja; preverite dnevnik in send_status.");
   }
+}
+
+async function manualAuthorization(serviceRequestId: string, quoteId: string) {
+  assertQuibiDevTestSendAllowed(process.env);
+  const ctx = await context(serviceRequestId);
+  quibiDevTestRecipient(process.env, ctx.remoteCustomer.email);
+  const [quoteResult, latestResult, created] = await Promise.all([
+    ctx.db.from("quotes").select("id,service_request_id,content_sha256,evidence_kind,evidence_payload,internal_review_status")
+      .eq("organization_id", ctx.access.organizationId).eq("service_request_id", serviceRequestId).eq("id", quoteId).maybeSingle(),
+    ctx.db.from("quotes").select("id").eq("organization_id", ctx.access.organizationId)
+      .eq("service_request_id", serviceRequestId).order("version_no", { ascending: false }).limit(1).maybeSingle(),
+    ctx.journal.get("estimate", serviceRequestId),
+  ]);
+  const q = quoteResult.data;
+  const e = q?.evidence_payload as { external_id?: unknown; customer_external_id?: unknown } | null;
+  if (quoteResult.error || latestResult.error || !q || typeof e?.external_id !== "string" ||
+      typeof e.customer_external_id !== "string" || created?.quibiId === e.external_id)
+    throw new Error("QUIBI_SEND_AUTHORIZATION");
+  const authorization: ManualSendAuthorization = {
+    actorId: ctx.access.userId, organizationId: ctx.access.organizationId, role: ctx.access.role,
+    serviceRequestId, caseStatus: ctx.request.status, quoteRevisionId: q.id, quoteServiceRequestId: q.service_request_id,
+    latestQuoteId: latestResult.data?.id ?? "", quoteReviewStatus: q.internal_review_status,
+    evidenceKind: q.evidence_kind, documentId: e.external_id, customerId: ctx.link.external_id,
+    evidenceCustomerId: e.customer_external_id, vehicleId: ctx.vehicleLink.quibi_vehicle_id,
+    serviceWanted: ctx.request.service_wanted, approvedContentSha256: q.content_sha256, customerEmail: ctx.customer.email,
+  };
+  return { ctx, authorization };
+}
+export async function sendManualQuibiDevTestEstimate(form: FormData): Promise<Result> {
+  const serviceRequestId = form.get("serviceRequestId"), quoteId = form.get("quoteId");
+  const reference = form.get("manualMatchReference");
+  if (typeof serviceRequestId !== "string" || !uuid.test(serviceRequestId) || typeof quoteId !== "string" ||
+      !uuid.test(quoteId) || typeof reference !== "string") return fail("Neveljaven servisni primer ali potrditev.");
+  try {
+    const { ctx } = await manualAuthorization(serviceRequestId, quoteId);
+    const op = await sendManualLinkedEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write,
+      environment: process.env, serviceRequestId, quoteRevisionId: quoteId,
+      authorize: async () => (await manualAuthorization(serviceRequestId, quoteId)).authorization,
+      manualMatchConfirmed: form.get("manualMatchConfirmed") === "yes", manualMatchReference: reference,
+      testSendConfirmed: form.get("testSendConfirmed") === "yes" });
+    return sendResult(op.sendStatus);
+  } catch {
+    return fail("Pošiljanje ni potrjeno. Preverite odobritev, ujemanje in dnevnik. Ob neznanem izidu ne ponavljajte pošiljanja.");
+  }
+}
+function sendResult(status: string | null): Result {
+  if (status === "failed") return fail("Quibi poroča failed. Ta različica predračuna ne bo ponovno poslana.");
+  return { ok: true, detail: status === "sent" ? "Quibi poroča sent: predano poštnemu strežniku, prejem ni potrjen."
+    : "Quibi poroča queued. Preverite stanje z istim shranjenim send_id." };
+}
+/** Explicit read-only status action; it cannot create a journal entry or dispatch. */
+export async function checkQuibiDevTestEstimateStatus(form: FormData): Promise<Result> {
+  const caseId = form.get("serviceRequestId"), quoteId = form.get("quoteId");
+  if (typeof caseId !== "string" || !uuid.test(caseId) || typeof quoteId !== "string" || !uuid.test(quoteId))
+    return fail("Neveljaven primer ali predračun.");
+  try {
+    assertQuibiDevTestSendAllowed(process.env);
+    const ctx = await context(caseId);
+    const { data: quote, error } = await ctx.db.from("quotes").select("evidence_payload")
+      .eq("organization_id", ctx.access.organizationId).eq("service_request_id", caseId).eq("id", quoteId).maybeSingle();
+    const evidence = quote?.evidence_payload as { external_id?: unknown } | null;
+    const op = await ctx.journal.get("send", quoteId);
+    if (error || !op || op.serviceRequestId !== caseId || typeof evidence?.external_id !== "string")
+      throw new Error("QUIBI_SEND_STATUS_UNAVAILABLE");
+    const result = await checkTrackedEstimateStatus({ journal: ctx.journal, write: ctx.write,
+      operation: op, documentId: evidence.external_id });
+    return sendResult(result.sendStatus);
+  } catch { return fail("Status ni preverljiv. Brez novega pošiljanja preverite shranjeni send_id in dnevnik."); }
 }

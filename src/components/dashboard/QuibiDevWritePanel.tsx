@@ -2,13 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
+import { checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
 import type { QuibiChoice } from "@/lib/quibi/write-options";
 
-export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus }: {
+export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState }: {
   serviceRequestId: string; mode: "create" | "update" | "send"; quoteId?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] };
-  sendStatus?: string | null;
+  sendStatus?: string | null; sendId?: string | null; operationState?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -17,15 +17,15 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
   return <form className="space-y-3 border-t pt-3" onSubmit={(event) => {
     event.preventDefault();
-    if (pending) return;
+    if (pending || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
     const form = new FormData(event.currentTarget);
     form.set("serviceRequestId", serviceRequestId);
     if (quoteId) form.set("quoteId", quoteId);
     startTransition(async () => {
       const result = mode === "create" ? await createQuibiDevEstimate(form)
-        : mode === "update" ? await updateQuibiDevEstimate(form) : await sendQuibiDevTestEstimate(form);
+        : mode === "update" ? await updateQuibiDevEstimate(form) : sendId ? await checkQuibiDevTestEstimateStatus(form) : await sendQuibiDevTestEstimate(form);
       setMessage(result.ok ? result.detail : result.message);
-      if (result.ok) router.refresh();
+      router.refresh();
     });
   }}>
     <h3 className="font-medium">{mode === "create" ? "Ustvari predračun v Quibi DEV" :
@@ -62,12 +62,12 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     {mode === "send" && <>
       <p className="text-xs text-amber-800">Prejemnik je izključno dovoljen testni naslov. To ni dostava stranki. Status »sent« pomeni predajo poštnemu strežniku, ne prejema ali branja.</p>
       {sendStatus && <p className="text-sm">Zadnji status testnega pošiljanja: {sendStatus}</p>}
-      <label className="flex gap-2 text-sm"><input name="testSendConfirmed" type="checkbox" value="yes" required />
+      <label className="flex gap-2 text-sm"><input name="testSendConfirmed" type="checkbox" value="yes" required={!sendId} />
         Potrjujem pošiljanje samo na konfiguriran testni naslov.
       </label>
     </>}
-    <button disabled={pending} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
-      {pending ? "Preverjam…" : mode === "create" ? "Ustvari in preveri" : mode === "update" ? "Popravi in preveri" : "Pošlji testno / preveri status"}
+    <button disabled={pending || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
+      {pending ? "Preverjam…" : mode === "create" ? "Ustvari in preveri" : mode === "update" ? "Popravi in preveri" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
     </button>
     {message && <p role={message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="text-sm">{message}</p>}
   </form>;

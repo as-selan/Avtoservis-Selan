@@ -1,5 +1,5 @@
 import {
-  assertQuibiDevWriteAllowed, parseQuibiWriteResponse, QUIBI_DEV_ORIGIN,
+  assertQuibiDevTestSendAllowed, quibiDevTestRecipient, assertQuibiDevWriteAllowed, parseQuibiWriteResponse, QUIBI_DEV_ORIGIN,
   validQuibiId, type EstimateBody,
 } from "./write-contract.ts";
 
@@ -77,6 +77,8 @@ export function createQuibiDevWriteClient(config: Config) {
       return parseQuibiWriteResponse(await call(`/api2/glavadokumenta/form/${id}`, "POST", body));
     },
     async sendDocument(id: string, email: string, subject?: string, content?: string) {
+      assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
+      if (email !== quibiDevTestRecipient(env)) throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email !== env.QUIBI_DEV_TEST_RECIPIENT)
         throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");
       const value = await call(`/api2/glavadokumenta/send/${validQuibiId(id)}`, "POST", {
@@ -84,10 +86,11 @@ export function createQuibiDevWriteClient(config: Config) {
       });
       const data = responseData(value);
       const sendId = String(data.send_id ?? "");
-      if (!sendId || data.status !== "queued") throw new Error("QUIBI_INVALID_RESPONSE");
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(sendId) || data.status !== "queued") throw new Error("QUIBI_INVALID_RESPONSE");
       return { sendId, status: "queued" as const };
     },
     async getSendStatus(id: string, sendId: string) {
+      assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(sendId)) throw new Error("QUIBI_INVALID_SEND_ID");
       const data = responseData(await call(`/api2/glavadokumenta/send_status/${validQuibiId(id)}?send_id=${encodeURIComponent(sendId)}`, "GET"));
       if (!["queued", "sent", "failed"].includes(String(data.status))) throw new Error("QUIBI_INVALID_RESPONSE");
