@@ -1,3 +1,4 @@
+import {documentReferenceState} from '@/lib/quibi/document-reference-state';
 import {DocumentCommunicationDraft} from "@/components/dashboard/DocumentCommunicationDraft";
 import Link from 'next/link';
 import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
@@ -17,9 +18,14 @@ export default async function QuibiDocument({params,searchParams}:{params:Promis
  if(error||!link||link.quibi_environment!==environment)return <p role="alert">Potrjena povezava stranke s tem okoljem Quibi manjka.</p>;
  let doc;try{doc=await loadQuibiDocument(configuredQuibiReadClient(),kind as QuibiDocumentKind,documentId,link.external_id)}catch{return <p role="alert">Dokumenta ni mogoče preverjeno prebrati za to stranko in vrsto dokumenta. Podatki niso bili spremenjeni.</p>}
  const {data:order}=orderId&&/^[a-f0-9-]{36}$/i.test(orderId)?await db.from('work_orders').select('id,status,vehicle_id').eq('organization_id',access.organizationId).eq('customer_id',customerId).eq('id',orderId).maybeSingle():{data:null};
+ const {data:reference,error:referenceError}=order?await db.from('work_order_quibi_documents').select('content_sha256,confirmed_at').eq('organization_id',access.organizationId).eq('work_order_id',order.id).eq('document_kind',kind).eq('quibi_document_id',documentId).eq('quibi_environment',environment).maybeSingle():{data:null,error:null};
+ const referenceState=reference?documentReferenceState(reference.content_sha256,doc.contentSha256):null;
  return <div className="space-y-5"><Link className="text-blue-700" href={order?`/dashboard/nalogi/${order.id}`:`/dashboard/stranke/${customerId}/quibi`}>← Nazaj</Link>
  <header><h1 className="text-2xl font-semibold">Quibi · {documentKindLabels[kind as QuibiDocumentKind]} #{doc.id}</h1><p className="text-sm">Svež bralni prikaz iz okolja {environment==='dev'?'DEV':'produkcija'}. Dokument ostaja v Quibiju.</p></header>
  {link.sync_status!=='ok'&&<p role="alert">Povezava stranke zahteva ponoven pregled; povezovanje in druge spremembe niso potrjene.</p>}
+ {referenceError&&<p role="alert">Potrjene povezave v tej bazi ni mogoče preveriti.</p>}
+ {referenceState==='changed'&&<p role="alert" className="rounded border border-amber-300 bg-amber-50 p-4">Vsebina Quibi dokumenta se je po potrditvi povezave spremenila. Prejšnja potrditev ne velja kot pregled trenutne vsebine. Ponovno preglejte dokument; zgodovinska povezava ostaja ohranjena.</p>}
+ {referenceState==='unchanged'&&<p className="text-sm text-green-800">SHA trenutne vsebine se ujema z vsebino ob potrditvi povezave tega naloga.</p>}
  <a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/${kind}/${documentId}/pdf`}>Odpri dejanski PDF iz Quibija</a>
  <section className="space-y-2 rounded-xl border bg-white p-4"><p>Številka: {doc.number??'API je ne vrača'}</p><p>Status: {quibiDocumentStatusLabel(doc.status)}</p><p>Znesek po Quibiju: {doc.amount}</p><p>Quibi stranka: {doc.customerId}</p><p>Quibi vozilo: {doc.vehicleId??'API ga ne vrača; povezava z vozilom ni neodvisno dokazana.'}</p><p className="break-all text-xs">SHA-256 vsebine: {doc.contentSha256}</p>
  <h2 className="font-semibold">Postavke dokumenta</h2><ul className="space-y-2 text-sm">{doc.lines.map((line,i)=><li key={i} className="border-t pt-2">{line.description||'Postavka brez opisa'} · količina {line.quantity||'ni navedena'} · cena po Quibiju {line.grossPrice||'ni navedena'}</li>)}</ul>{!doc.lines.length&&<p>API ne vrača postavk.</p>}</section>
