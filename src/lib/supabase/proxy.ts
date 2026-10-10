@@ -1,3 +1,4 @@
+import { assertLocalQuibiRequest } from "@/lib/quibi/local-send-policy";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } from "@/lib/demo/config";
@@ -61,6 +62,7 @@ export function redirectToLoginPreservingAuthState(
 export async function updateSession(request: NextRequest) {
   try {
     assertPreproductionQuibiConfiguration();
+    assertLocalQuibiRequest(process.env, request.headers, request.method === "POST");
     if (process.env.APP_ENV !== "preproduction") assertRemoteDemoConfiguration();
   } catch {
     return new NextResponse("Predprodukcijsko okolje ni varno konfigurirano.", { status: 503 });

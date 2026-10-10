@@ -36,6 +36,8 @@ function createTransport(config: Config, workflow: boolean) {
     // Writes are never retried at the HTTP layer. Callers retry only the exact
     // persisted document body with Quibi's external_id contract.
     guard(path.includes("/send") ? "send" : "write");
+    if (workflow && env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1" && method === "POST" &&
+        path !== "/api2/glavadokumenta/send/2176888") throw new Error("QUIBI_LOCAL_SEND_ONLY");
     const response = await fetcher(`${origin}${path}`, {
       method, headers: { username: config.username, password: config.password,
         "Content-Type": "application/json" },

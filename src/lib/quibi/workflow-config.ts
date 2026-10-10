@@ -1,3 +1,4 @@
+import { assertApprovedLocalDevSendConfiguration } from "./local-send-policy.ts";
 import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient } from "./write-contract.ts";
 export type WorkflowConfig = {
     mode: "dev" | "production";
@@ -14,7 +15,8 @@ export function quibiWorkflowConfig(env: Record<string, string | undefined>, cap
         return { mode: "production", origin: "https://si.quibi.net", username: env.QUIBI_PRODUCTION_USERNAME, password: env.QUIBI_PRODUCTION_PASSWORD };
     if (env.APP_ENV === "preproduction" && env.QUIBI_MODE === "dev" && !demo) {
         try {
-            assertQuibiDevTestSendAllowed(env);
+            if (env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1") assertApprovedLocalDevSendConfiguration(env);
+            else assertQuibiDevTestSendAllowed(env);
         }
         catch {
             throw Error("QUIBI_WORKFLOW_DISABLED");

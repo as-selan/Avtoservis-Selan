@@ -1,3 +1,4 @@
+import { assertLocalQuibiSendTarget } from "./local-send-policy.ts";
 import { createHash } from "node:crypto";
 import type { Operation, OperationJournal, EstimateWrite } from "./write-workflow.ts";
 import { checkTrackedEstimateStatus } from "./write-workflow.ts";
@@ -65,6 +66,7 @@ export async function approveAndSendEstimate(args: Dependencies & {
         throw Error("QUIBI_SEND_ALREADY_ATTEMPTED");
     const s = await args.authorize();
     validateSendSnapshot(s, args.caseId, args.quoteId);
+    assertLocalQuibiSendTarget(args.environment, s);
     const recipient = workflowRecipient(args.environment, s.customerEmail, s.remoteEmail);
     if (!args.reviewConfirmed || args.displayedSha256 !== s.sha256 || Number(args.displayedAmount) !== Number(s.detail.amount))
         throw Error("QUIBI_REVIEW_REQUIRED");

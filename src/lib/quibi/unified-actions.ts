@@ -1,4 +1,6 @@
 "use server";
+import { headers } from "next/headers";
+import { assertLocalQuibiRequest } from "./local-send-policy";
 import { createClient as privileged } from "@supabase/supabase-js";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
@@ -64,6 +66,7 @@ function success(status: string | null, dev: boolean): Result {
 }
 export async function approveAndSendQuibiEstimate(form: FormData): Promise<Result> {
     try {
+        assertLocalQuibiRequest(process.env, await headers(), true);
         const config = quibiWorkflowConfig(process.env, "send"), { caseId, quoteId } = ids(form);
         const access = await requirePhase1OperationalAccess();
         if (!["owner", "admin"].includes(access.role))
@@ -82,6 +85,7 @@ export async function approveAndSendQuibiEstimate(form: FormData): Promise<Resul
 }
 export async function pollQuibiEstimateSend(form: FormData): Promise<Result> {
     try {
+        assertLocalQuibiRequest(process.env, await headers());
         const config = quibiWorkflowConfig(process.env, "send"), { caseId, quoteId } = ids(form), access = await requirePhase1OperationalAccess();
         if (!["owner", "admin"].includes(access.role))
             throw Error("FORBIDDEN");

@@ -72,3 +72,11 @@ test("production synthetic matching customer email remains rejected before appro
  const f=fixture();f.set({customerEmail:"qa@example.test",remoteEmail:"qa@example.test"});await assert.rejects(send(f,production),/QUIBI_CUSTOMER_EMAIL_UNVERIFIED/);
  assert.equal(f.events.includes("approve"),false);assert.equal(f.events.some(e=>e.startsWith("send:")),false);assert.equal(f.state(),null);
 });
+
+test("approved local permission sends this existing quote once to the exact authorized mailbox",async()=>{
+ const local={...dev,VERCEL_ENV:undefined,SELAN_APPROVED_LOCAL_DEV:"1",QUIBI_DEV_LOCAL_SEND_ENABLED:"1",QUIBI_DEV_TEST_RECIPIENT:"online.gold100@gmail.com",PUBLIC_APP_ORIGIN:"http://127.0.0.1:3002",COMPLETION_PUBLIC_ORIGIN:"http://127.0.0.1:3002"};
+ const f=fixture("approved_for_send");await send(f,local);assert.equal(f.events.includes("send:online.gold100@gmail.com"),true);assert.equal(f.events.includes("approve"),false);
+ await assert.rejects(send(f,local),/QUIBI_SEND_ALREADY_ATTEMPTED/);assert.equal(f.events.filter(e=>e.startsWith("send:")).length,1);
+ const wrong=fixture("approved_for_send");wrong.set({documentId:"99"});await assert.rejects(send(wrong,local));assert.equal(wrong.events.some(e=>e.startsWith("send:")),false);
+ const unreviewed=fixture();await assert.rejects(send(unreviewed,local),/QUIBI_LOCAL_SEND_SCOPE_MISMATCH/);assert.equal(unreviewed.events.includes("approve"),false);
+});

@@ -1,8 +1,14 @@
+import { assertApprovedLocalDevSendConfiguration } from "../quibi/local-send-policy.ts";
 /** Permit only the reviewed hosted project and an explicit Quibi mode in preproduction. */
 function preproductionEnvironment(): Record<string, string | undefined> {
   // Direct accesses let Next.js inline the public branch flags from next.config.
   return {
     APP_ENV: process.env.APP_ENV,
+    QUIBI_DEV_LOCAL_SEND_ENABLED: process.env.QUIBI_DEV_LOCAL_SEND_ENABLED,
+    SELAN_APPROVED_LOCAL_DEV: process.env.SELAN_APPROVED_LOCAL_DEV,
+    QUIBI_DEV_WRITE_ENABLED: process.env.QUIBI_DEV_WRITE_ENABLED,
+    QUIBI_DEV_TEST_RECIPIENT: process.env.QUIBI_DEV_TEST_RECIPIENT,
+    VERCEL: process.env.VERCEL,
     QUIBI_MODE: process.env.QUIBI_MODE,
     SELAN_REMOTE_DEMO: process.env.SELAN_REMOTE_DEMO,
     NEXT_PUBLIC_SELAN_REMOTE_DEMO: process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO,
@@ -22,6 +28,13 @@ function preproductionEnvironment(): Record<string, string | undefined> {
 
 export function assertPreproductionQuibiConfiguration(env: Record<string, string | undefined> = preproductionEnvironment()): void {
   if (env.APP_ENV !== "preproduction") return;
+  if (env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1") {
+    assertApprovedLocalDevSendConfiguration(env);
+    if (env.NEXT_PUBLIC_SUPABASE_URL !== "https://verxxsjbewmkgoxwqvxo.supabase.co" ||
+        !env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || !env.SUPABASE_SERVICE_ROLE_KEY || env.SELAN_FIXED_PRICE_V1 !== "1")
+      throw Error("PREPRODUCTION_CONFIGURATION_REQUIRED");
+    return;
+  }
   const dev = env.QUIBI_MODE === "dev";
   const origin = env.PUBLIC_APP_ORIGIN;
   let parsed: URL;
