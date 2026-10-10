@@ -43,3 +43,12 @@ test("DEV transport rejects customer address even when synthetically matched",as
  await client.sendDocument("2176888",workflowRecipient(dev,"qa@example.test","qa@example.test"));
  assert.deepEqual(requests,[{url:"https://dev.quibi.net/api2/glavadokumenta/send/2176888",email:dev.QUIBI_DEV_TEST_RECIPIENT}]);
 });
+test('DEV status-only transport remains readable with write and send disabled',async()=>{
+ const readEnv={...dev,VERCEL_ENV:undefined,QUIBI_DEV_WRITE_ENABLED:'0',QUIBI_DEV_LOCAL_SEND_ENABLED:'0'};
+ const requests:string[]=[];
+ const client=createQuibiWorkflowWriteClient({username:dev.QUIBI_DEV_USERNAME,password:dev.QUIBI_DEV_PASSWORD,environment:readEnv,statusOnly:true,fetcher:async(url)=>{requests.push(String(url));return new Response(JSON.stringify({error:false,data:{status:'queued'}}))}});
+ await client.getSendStatus('42','fixture-id');
+ await assert.rejects(client.sendDocument('42',dev.QUIBI_DEV_TEST_RECIPIENT));
+ assert.deepEqual(requests,['https://dev.quibi.net/api2/glavadokumenta/send_status/42?send_id=fixture-id']);
+ assert.throws(()=>createQuibiWorkflowWriteClient({username:dev.QUIBI_DEV_USERNAME,password:dev.QUIBI_DEV_PASSWORD,environment:readEnv}));
+});

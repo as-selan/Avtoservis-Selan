@@ -1,3 +1,4 @@
+import {assertLocalPartyWriteTarget} from './local-write-policy.ts';
 import {
   assertQuibiDevTestSendAllowed, quibiDevTestRecipient, assertQuibiDevWriteAllowed, parseQuibiWriteResponse, QUIBI_DEV_ORIGIN,
   validQuibiId, type EstimateBody,
@@ -40,6 +41,7 @@ function createTransport(config: Config, workflow: boolean) {
     guard(path.includes("/send") ? "send" : "write");
     if (workflow && env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1" && method === "POST" &&
         path !== "/api2/glavadokumenta/send/2176888") throw new Error("QUIBI_LOCAL_SEND_ONLY");
+    assertLocalPartyWriteTarget(env,path,method,body);
     const response = await fetcher(`${origin}${path}`, {
       method, headers: { username: config.username, password: config.password,
         "Content-Type": "application/json" },

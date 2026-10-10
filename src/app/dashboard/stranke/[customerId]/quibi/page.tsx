@@ -1,3 +1,4 @@
+import {QuibiPartyUpdate} from '@/components/dashboard/QuibiPartyUpdate';
 import { QuibiLinkSubmit } from "@/components/quibi-link-submit";
 import Link from "next/link";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
@@ -71,11 +72,13 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
 
   const localFingerprint = customerFingerprint({ name: local.customer.displayName, phone: local.customer.phone ?? "", email: local.customer.email ?? "" });
   let writeReady = false;
+  let updateReady = false;
   if (["owner", "admin"].includes(access.role)) {
     try {
       configuredQuibiWorkflowWriteClient();
       await quibiWorkflowJournal(access.organizationId, access.userId).get("customer", customerId);
-      writeReady = true;
+      updateReady = true;
+      writeReady = process.env.QUIBI_DEV_LOCAL_WRITE_ENABLED !== "1" && process.env.QUIBI_DEV_LOCAL_SEND_ENABLED !== "1";
     } catch { writeReady = false; }
   }
   const localChanged = !!link && localFingerprint !== link.local_fingerprint;
@@ -123,6 +126,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
           <button className="rounded border border-blue-700 px-3 py-2 text-sm text-blue-700">Ponovno preveri Quibi</button>
         </form>
         {remote && <p className="text-sm">Quibi: {remote.name} · {remote.phone || "brez telefona"} · {remote.email || "brez e-pošte"}</p>}
+        {remote&&['owner','admin'].includes(access.role)&&<QuibiPartyUpdate key={localFingerprint} customerId={customerId} baseline={customerFingerprint(remote)} enabled={updateReady&&(process.env.QUIBI_DEV_LOCAL_WRITE_ENABLED!=="1"||link.external_id===process.env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID)&&process.env.QUIBI_DEV_LOCAL_SEND_ENABLED!=="1"}/>}
         {localChanged && <p role="alert" className="text-amber-800">Selanovi podatki so se po povezavi spremenili.</p>}
         {remoteChanged && <p role="alert" className="text-amber-800">Quibijevi podatki so se po povezavi spremenili.</p>}
         {fieldsDiffer && <p role="alert" className="text-amber-800">Podatki stranke v obeh sistemih se razlikujejo. Potrebno je ročno preverjanje.</p>}
@@ -158,6 +162,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
           const remoteDrift = !!remoteVehicle && vehicleFingerprint(remoteVehicle) !== row.external_fingerprint;
           return <div key={row.vehicle_id} className="rounded border border-blue-200 p-3 space-y-1 text-sm">
             <p className="font-medium">Selan {localVehicle?.registration || row.vehicle_id} ↔ Quibi #{row.quibi_vehicle_id}</p>
+            {localVehicle&&remoteVehicle&&!remoteVehicle.disabled&&['owner','admin'].includes(access.role)&&<><p>Selan: {localVehicle.registration} · {localVehicle.make} {localVehicle.model} · VIN {localVehicle.vin}</p><QuibiPartyUpdate key={vehicleFingerprint({vin:localVehicle.vin??"",registration:localVehicle.registration??"",make:localVehicle.make??"",model:localVehicle.model??""})} customerId={customerId} vehicleId={row.vehicle_id} baseline={vehicleFingerprint(remoteVehicle)} enabled={writeReady}/></>}
             {!localVehicle && <p role="alert" className="text-red-700">Vozilo ni več pri tej stranki. Preverite povezavo.</p>}
             {row.sync_status === "error" && <p role="alert" className="text-red-700">Zadnji pregled ni uspel ({row.last_error_code ?? "QUIBI_READ_FAILED"}).</p>}
             {row.sync_status !== "error" && !["never_checked", "ok"].includes(row.sync_status) && <p role="alert" className="text-amber-800">Zaznana sprememba: {row.sync_status}.</p>}

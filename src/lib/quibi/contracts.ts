@@ -9,7 +9,7 @@ export type QuibiDocument = { id: string; customerId: string; numberingId: strin
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
   vehicleId?: string; externalId?: string; number?: string; numberingId?: string;
-  lines: { description: string; quantity: string; grossPrice: string }[];
+  lines: { description: string; quantity: string; grossPrice: string; unitId?: string; vatId?: string; discount?: string }[];
   contentSha256: string;
 };
 
@@ -152,7 +152,7 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
     contentSha256: createHash("sha256").update(JSON.stringify(canonical(entry))).digest("hex"),
     lines: lines.map((row) => {
       const item = object(row);
-      return { description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV) };
+      return { description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV), ...(field(item.enota_id) ? {unitId:field(item.enota_id)} : {}), ...(field(item.ddv_id) ? {vatId:field(item.ddv_id)} : {}), ...(field(item.popust) ? {discount:field(item.popust)} : {}) };
     }),
   };
 }

@@ -34,7 +34,7 @@ export type CreateEstimateInput = {
 export type EstimateBody = {
   Glavadokumenta: {
     stevilcenje_id: number; vrstaprodaje: number; stranka_id: number;
-    vozila_id: number; external_id: string; opomba?: string; id?: number;
+    vozila_id: number; external_id: string; opomba?: string; id?: number; datstod?: string;
   };
   Postavkedokumenta: Record<string, DocumentLine>;
 };

@@ -1,3 +1,4 @@
+import {assertLocalPartyWriteConfiguration} from './local-write-policy.ts';
 import { assertApprovedLocalDevSendConfiguration } from "./local-send-policy.ts";
 import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient } from "./write-contract.ts";
 export type WorkflowConfig = {
@@ -13,6 +14,14 @@ export function quibiWorkflowConfig(env: Record<string, string | undefined>, cap
         (capability === "read" || env.QUIBI_PRODUCTION_WRITE_ENABLED === "1") &&
         (capability !== "send" || env.QUIBI_PRODUCTION_SEND_ENABLED === "1"))
         return { mode: "production", origin: "https://si.quibi.net", username: env.QUIBI_PRODUCTION_USERNAME, password: env.QUIBI_PRODUCTION_PASSWORD };
+    // Status reconciliation is read-only and must survive disabling dispatch.
+    if(capability==='read'&&env.APP_ENV==='preproduction'&&env.QUIBI_MODE==='dev'&&!demo&&env.QUIBI_DEV_USERNAME&&env.QUIBI_DEV_PASSWORD)
+        return {mode:'dev',origin:'https://dev.quibi.net',username:env.QUIBI_DEV_USERNAME,password:env.QUIBI_DEV_PASSWORD};
+    if(env.QUIBI_DEV_LOCAL_WRITE_ENABLED==='1'){
+        assertLocalPartyWriteConfiguration(env);
+        if(capability==='send')throw Error('QUIBI_WORKFLOW_DISABLED');
+        return {mode:'dev',origin:'https://dev.quibi.net',username:env.QUIBI_DEV_USERNAME!,password:env.QUIBI_DEV_PASSWORD!};
+    }
     if (env.APP_ENV === "preproduction" && env.QUIBI_MODE === "dev" && !demo) {
         try {
             if (env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1") assertApprovedLocalDevSendConfiguration(env, "https://dev.quibi.net", capability !== "read");

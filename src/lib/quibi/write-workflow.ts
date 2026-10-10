@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient, validQuibiId, buildEstimateBody, stableEstimatePayload, withDocumentId,
   type CreateEstimateInput, type EstimateBody } from "./write-contract.ts";
 
-export type OperationKind = "customer" | "vehicle" | "estimate" | "estimate_update" | "send";
+export type OperationKind = "customer" | "vehicle" | "estimate" | "estimate_update" | "send" | "work_order" | "invoice" | "customer_update" | "vehicle_update";
 export type OperationState = "prepared" | "dispatching" | "uncertain" | "verified" | "failed";
 export type Operation = {
   id: string; kind: OperationKind; localEntityId: string; serviceRequestId: string;
