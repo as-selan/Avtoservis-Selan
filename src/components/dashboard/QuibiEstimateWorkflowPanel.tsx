@@ -5,7 +5,7 @@ import {approveAndSendQuibiEstimate,pollQuibiEstimateSend} from "@/lib/quibi/uni
 import {reviewManualQuibiEstimate} from "@/lib/quibi/manual-estimate-action";
 type Props={serviceRequestId:string;quoteId:string;documentId:string;reviewStatus:string;sha256:string;
  amount?:string;lines:{description:string;quantity:string;grossPrice:string}[];recipient:string|null;dev:boolean;
- operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;alreadyDelivered:boolean};
+ operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;qaIdentityExceptionAvailable?:boolean;alreadyDelivered:boolean};
 export function QuibiEstimateWorkflowPanel(p:Props){
  const router=useRouter(),lock=useRef(false),polling=useRef(false);
  const [pending,startTransition]=useTransition(),[attempted,setAttempted]=useState(false),[message,setMessage]=useState("");
@@ -38,8 +38,11 @@ export function QuibiEstimateWorkflowPanel(p:Props){
    startTransition(async()=>{try{const r=await approveAndSendQuibiEstimate(f);setMessage(r.ok?r.detail:r.message);if(r.ok)setStatus(r.status)}
     catch{setMessage("Izid ni znan. Ne ponavljajte pošiljanja; preverite dnevnik.")}finally{lock.current=false;router.refresh()}})
   }}>
-   {p.manualIdentityRequired&&<label className="block text-sm">Dokaz ujemanja vozila in storitve s tem primerom
+   {p.manualIdentityRequired&&!p.qaIdentityExceptionAvailable&&<label className="block text-sm">Dokaz ujemanja vozila in storitve s tem primerom
     <textarea name="manualReference" required minLength={12} maxLength={1000} className="mt-1 block w-full rounded border px-3 py-2" />
+   </label>}
+   {p.manualIdentityRequired&&p.qaIdentityExceptionAvailable&&<label className="flex gap-2 text-sm text-amber-800"><input name="qaIdentityLimitationConfirmed" type="checkbox" value="yes" required />
+    Izrecna QA izjema samo za sintetični lokalni DEV primer #9D40C42F, predračun #2176888, 122 EUR in online.gold100@gmail.com: API ne vrača ID-ja vozila. Povezava dokumenta z vozilom in storitvijo ni neodvisno dokazana. Potrjujem to omejitev; zapis ni dokaz ujemanja.
    </label>}
    <label className="flex gap-2 text-sm"><input name="reviewConfirmed" type="checkbox" value="yes" required />
     Pregledal sem postavke, znesek, stranko, vozilo in storitev. Potrjujem enkratno pošiljanje na prikazani naslov.

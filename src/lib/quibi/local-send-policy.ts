@@ -31,3 +31,8 @@ export function assertLocalQuibiSendTarget(env: Environment, s: {caseId: string;
         s.reviewStatus !== "approved_for_send" || Number(s.detail.amount) !== 122)
         throw Error("QUIBI_LOCAL_SEND_SCOPE_MISMATCH");
 }
+
+export function localQaIdentityExceptionAvailable(env: Environment, caseId: string, quoteId: string, documentId: string, amount: string): boolean {
+ try { assertApprovedLocalDevSendConfiguration(env); } catch { return false; }
+ return caseId === "9d40c42f-b6a8-473b-983f-f9620df97d10" && quoteId === "ab9f75b2-e6f3-45c7-82de-e36c82faab7b" && documentId === "2176888" && Number(amount) === 122;
+}

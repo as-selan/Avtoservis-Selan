@@ -1,4 +1,4 @@
-import { assertLocalQuibiSendTarget } from "./local-send-policy.ts";
+import { assertLocalQuibiSendTarget, localQaIdentityExceptionAvailable } from "./local-send-policy.ts";
 import { createHash } from "node:crypto";
 import type { Operation, OperationJournal, EstimateWrite } from "./write-workflow.ts";
 import { checkTrackedEstimateStatus } from "./write-workflow.ts";
@@ -60,6 +60,7 @@ export async function approveAndSendEstimate(args: Dependencies & {
     displayedSha256: string;
     displayedAmount: string;
     manualReference: string;
+    qaIdentityLimitationConfirmed?: boolean;
 }) {
     const config = quibiWorkflowConfig(args.environment, "send");
     if (await args.journal.get("send", args.quoteId))
@@ -72,7 +73,12 @@ export async function approveAndSendEstimate(args: Dependencies & {
         throw Error("QUIBI_REVIEW_REQUIRED");
     const explicitIdentity = s.detail.vehicleId === s.vehicleId && s.detail.externalId === "selan-service-request:" + args.caseId;
     const reference = args.manualReference.trim();
-    if (!explicitIdentity && (reference.length < 12 || reference.length > 1000))
+    const qaException = args.qaIdentityLimitationConfirmed === true;
+    if (qaException && (!localQaIdentityExceptionAvailable(args.environment, s.caseId, s.quoteId, s.documentId, s.detail.amount) ||
+        s.reviewStatus !== "approved_for_send" || s.customerId !== "405956" || s.vehicleId !== "2387" ||
+        !s.customerEmail?.toLowerCase().endsWith("@example.test") || s.customerEmail !== s.remoteEmail || s.detail.vehicleId !== undefined))
+        throw Error("QUIBI_QA_EXCEPTION_FORBIDDEN");
+    if (!explicitIdentity && !qaException && (reference.length < 12 || reference.length > 1000))
         throw Error("QUIBI_MANUAL_IDENTITY_PROOF_REQUIRED");
     if (s.reviewStatus === "unreviewed")
         await args.approve();
@@ -81,7 +87,7 @@ export async function approveAndSendEstimate(args: Dependencies & {
     if (approved.reviewStatus !== "approved_for_send" || JSON.stringify(identity(approved)) !== JSON.stringify(identity(s)))
         throw Error("QUIBI_APPROVAL_CHANGED");
     const body = { path: "unified_quibi_send", mode: config.mode, ...identity(s), recipient, subject: "Predračun #" + s.documentId,
-        confirmation: { actorId: s.actorId, confirmedAt: new Date().toISOString(), reference: explicitIdentity ? "API identity and explicit reviewed service confirmation" : reference } };
+        confirmation: { kind: qaException ? "local_synthetic_qa_exception" : explicitIdentity ? "api_identity" : "manual_identity_confirmation", identityVerified: !qaException, actorId: s.actorId, confirmedAt: new Date().toISOString(), reference: qaException ? "User acknowledged synthetic local DEV QA exception: document vehicle and service association not independently verified; API does not return vehicle ID. Single dispatch only to online.gold100@gmail.com." : explicitIdentity ? "API identity and explicit reviewed service confirmation" : reference } };
     const json = JSON.stringify(body), sha = createHash("sha256").update(json).digest("hex");
     const op = await args.journal.insertOnce({ kind: "send", localEntityId: args.quoteId, serviceRequestId: args.caseId, externalId: null, requestBody: json, requestSha256: sha });
     if (op.requestBody !== json || op.requestSha256 !== sha || op.state !== "prepared")

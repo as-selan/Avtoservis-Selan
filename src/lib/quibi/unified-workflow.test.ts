@@ -80,3 +80,11 @@ test("approved local permission sends this existing quote once to the exact auth
  const wrong=fixture("approved_for_send");wrong.set({documentId:"99"});await assert.rejects(send(wrong,local));assert.equal(wrong.events.some(e=>e.startsWith("send:")),false);
  const unreviewed=fixture();await assert.rejects(send(unreviewed,local),/QUIBI_LOCAL_SEND_SCOPE_MISMATCH/);assert.equal(unreviewed.events.includes("approve"),false);
 });
+test("QA exception records unverified identity only for the approved local synthetic case",async()=>{
+ const local={...dev,VERCEL_ENV:undefined,SELAN_APPROVED_LOCAL_DEV:"1",QUIBI_DEV_LOCAL_SEND_ENABLED:"1",QUIBI_DEV_TEST_RECIPIENT:"online.gold100@gmail.com",PUBLIC_APP_ORIGIN:"http://127.0.0.1:3002",COMPLETION_PUBLIC_ORIGIN:"http://127.0.0.1:3002"};
+ const missing=async()=>{const f=fixture("approved_for_send"),s=await f.authorize();f.set({customerEmail:"qa@example.test",remoteEmail:"qa@example.test",detail:{...s.detail,vehicleId:undefined,externalId:undefined}});return f};
+ const f=await missing();const op=await send(f,local,{manualReference:"",qaIdentityLimitationConfirmed:true});
+ const c=JSON.parse(op.requestBody).confirmation;assert.equal(c.identityVerified,false);assert.equal(c.kind,"local_synthetic_qa_exception");assert.match(c.reference,/not independently verified/);
+ for(const env of [dev,production]){const rejected=await missing();await assert.rejects(send(rejected,env,{manualReference:"",qaIdentityLimitationConfirmed:true}));assert.equal(rejected.state(),null)}
+ const absent=await missing();await assert.rejects(send(absent,local,{manualReference:""}),/QUIBI_MANUAL_IDENTITY_PROOF_REQUIRED/);
+});

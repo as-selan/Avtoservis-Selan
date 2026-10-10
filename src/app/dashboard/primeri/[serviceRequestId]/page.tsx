@@ -1,3 +1,4 @@
+import { localQaIdentityExceptionAvailable } from "@/lib/quibi/local-send-policy";
 import Link from "next/link";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
@@ -250,6 +251,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
               lines={reviewDetail?.lines ?? []} recipient={testRecipient} dev={process.env.QUIBI_MODE === "dev"}
               operationState={sendOperation?.state} sendId={sendOperation?.sendId} sendStatus={sendOperation?.sendStatus}
               alreadyDelivered={approval?.delivery_status === "delivered"}
+              qaIdentityExceptionAvailable={localQaIdentityExceptionAvailable(process.env, serviceRequestId, quote.id, quibiEstimateId, proposedPrice?.amount ?? "")}
               manualIdentityRequired={reviewDetail?.vehicleId !== vehicleLink?.quibi_vehicle_id ||
                 reviewDetail?.externalId !== "selan-service-request:" + serviceRequestId} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status === "delivered" &&

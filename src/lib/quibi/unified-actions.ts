@@ -76,7 +76,7 @@ export async function approveAndSendQuibiEstimate(form: FormData): Promise<Resul
             approve: async () => { const r = await reviewManualQuibiEstimate(quoteId, "approve"); if (!r.ok)
                 throw Error("APPROVAL_FAILED"); },
             recordAcceptance: op => recordAcceptance(access.organizationId, quoteId, op), reviewConfirmed: form.get("reviewConfirmed") === "yes",
-            displayedSha256: String(form.get("displayedSha256") ?? ""), displayedAmount: String(form.get("displayedAmount") ?? ""), manualReference: String(form.get("manualReference") ?? "") });
+            displayedSha256: String(form.get("displayedSha256") ?? ""), displayedAmount: String(form.get("displayedAmount") ?? ""), manualReference: String(form.get("manualReference") ?? ""), qaIdentityLimitationConfirmed: form.get("qaIdentityLimitationConfirmed") === "yes" });
         return success(op.sendStatus, config.mode === "dev");
     }
     catch {
