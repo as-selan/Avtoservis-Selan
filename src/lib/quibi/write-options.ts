@@ -1,5 +1,5 @@
 import "server-only";
-import { configuredQuibiDevWriteClient } from "./write-client";
+import { configuredQuibiWorkflowWriteClient } from "./write-client";
 
 export type QuibiChoice = { id: string; label: string };
 
@@ -17,7 +17,7 @@ function nestedChoices(data: Record<string, unknown>, key: string, inner: string
   });
 }
 
-export async function quibiDevEstimateChoices(write = configuredQuibiDevWriteClient()): Promise<{
+export async function quibiDevEstimateChoices(write = configuredQuibiWorkflowWriteClient()): Promise<{
   saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[];
 }> {
   const [saleTypesRaw, unitsRaw, vatRaw] = await Promise.all([

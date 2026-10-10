@@ -9,7 +9,6 @@ import { nextCaseStep } from "@/lib/cases/next-step";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimateForm";
-import { ReviewManualEstimate } from "@/components/dashboard/ReviewManualEstimate";
 import { ManualEstimateHandoff } from "@/components/dashboard/ManualEstimateHandoff";
 import { PreliminaryInspection } from "@/components/dashboard/PreliminaryInspection";
 import { ManualSlotOffer } from "@/components/dashboard/ManualSlotOffer";
@@ -19,11 +18,13 @@ import { CommunicationDraft } from "@/components/dashboard/CommunicationDraft";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { verifiedCasePrice } from "@/lib/quibi/price-suggestion";
 import { quibiDevEstimateChoices, type QuibiChoice } from "@/lib/quibi/write-options";
-import { quibiDevOperationJournal } from "@/lib/quibi/write-journal";
+import { quibiWorkflowJournal } from "@/lib/quibi/write-journal";
 import { QuibiDevWritePanel } from "@/components/dashboard/QuibiDevWritePanel";
-import { configuredQuibiDevWriteClient } from "@/lib/quibi/write-client";
-import { QuibiManualTestSendPanel } from "@/components/dashboard/QuibiManualTestSendPanel";
-import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient } from "@/lib/quibi/write-contract";
+import { configuredQuibiWorkflowWriteClient } from "@/lib/quibi/write-client";
+import { QuibiEstimateWorkflowPanel } from "@/components/dashboard/QuibiEstimateWorkflowPanel";
+import { quibiLinkEnvironment, quibiWorkflowConfig, workflowRecipient } from "@/lib/quibi/workflow-config";
+import type { QuibiEstimateDetail } from "@/lib/quibi/contracts";
+import { pollQuibiEstimateSend } from "@/lib/quibi/unified-actions";
 import type { Operation } from "@/lib/quibi/write-workflow";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         .is("archived_at", null).maybeSingle() : Promise.resolve({ data: null, error: null }),
       db.from("offer_preparations").select("id, status")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId).maybeSingle(),
-      request.customer_id ? db.from("integration_links").select("external_id, sync_status, last_error_code")
+      request.customer_id ? db.from("integration_links").select("external_id, sync_status, last_error_code,quibi_environment")
         .eq("organization_id", access.organizationId).eq("provider", "quibi")
         .eq("entity_type", "customer").eq("entity_id", request.customer_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -62,7 +63,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       db.from("appointments").select("id, status, appointment_type, starts_at, ends_at")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("starts_at", { ascending: true }),
-      db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, customer_decision, decided_at, decision_evidence_reference")
+      db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, delivery_proof_kind, customer_decision, decided_at, decision_evidence_reference")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("created_at", { ascending: false }).limit(1),
       db.from("preliminary_inspections").select("status, findings, repair_decision")
@@ -74,7 +75,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       request.vehicle_id ? db.from("quibi_vehicle_links")
-        .select("quibi_customer_id, quibi_vehicle_id, local_fingerprint, external_fingerprint, sync_status")
+        .select("quibi_customer_id, quibi_vehicle_id, local_fingerprint, external_fingerprint, sync_status,quibi_environment")
         .eq("organization_id", access.organizationId).eq("vehicle_id", request.vehicle_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
@@ -93,26 +94,43 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       ? quoteEvidence.external_id : null;
     const appointments = appointmentResult.data ?? [];
     const latestApproval = approvalResult.data?.[0] ?? null;
-    const approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
+    let approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
     const diagnosisOffer = slotOffersResult.data?.find((item) => item.appointment_type === "diagnosis") ?? null;
     const serviceOffer = slotOffersResult.data?.find((item) => item.appointment_type === "service") ?? null;
-    const writeRequested = process.env.QUIBI_DEV_WRITE_ENABLED === "1" &&
-      process.env.APP_ENV === "preproduction" && process.env.QUIBI_MODE === "dev";
+    let writeRequested = false;
+    try { quibiWorkflowConfig(process.env, "write"); writeRequested = true; } catch { /* disabled */ }
     const realDevMode = writeRequested && process.env.SELAN_REMOTE_DEMO !== "1" &&
       process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1";
     let testRecipient: string | null = null;
-    try { assertQuibiDevTestSendAllowed(process.env); testRecipient = quibiDevTestRecipient(process.env, customer?.email); } catch { /* fail closed */ }
+    let reviewDetail: QuibiEstimateDetail | null = null;
     let writeReady = false;
     let writeChoices: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] } | null = null;
     let createdOperation: Operation | null = null;
     let sendOperation: Operation | null = null;
     if (writeRequested && link?.sync_status === "ok" && vehicleLink?.sync_status === "ok" &&
-        request.status === "preparing_offer" && !fixedPrice) {
+        !fixedPrice) {
       try {
-        configuredQuibiDevWriteClient();
-        const journal = quibiDevOperationJournal(access.organizationId, access.userId);
+        configuredQuibiWorkflowWriteClient();
+        const journal = quibiWorkflowJournal(access.organizationId, access.userId);
         createdOperation = await journal.get("estimate", serviceRequestId);
-        if (quote) sendOperation = await journal.get("send", quote.id);
+        if (quote) {
+          sendOperation = await journal.get("send", quote.id);
+          // Reopening a case reconciles status/evidence without any send operation.
+          if (["owner", "admin"].includes(access.role) && sendOperation?.sendId &&
+              (sendOperation.sendStatus === "queued" || (process.env.QUIBI_MODE === "production" &&
+                sendOperation.sendStatus === "sent" && approval?.delivery_status !== "delivered"))) {
+            const statusForm = new FormData(); statusForm.set("serviceRequestId", serviceRequestId); statusForm.set("quoteId", quote.id);
+            await pollQuibiEstimateSend(statusForm);
+            sendOperation = await journal.get("send", quote.id);
+            const [freshApproval, freshCase] = await Promise.all([
+              db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, delivery_proof_kind, customer_decision, decided_at, decision_evidence_reference")
+                .eq("organization_id", access.organizationId).eq("quote_id", quote.id).is("revoked_at", null).maybeSingle(),
+              db.from("service_requests").select("status").eq("organization_id", access.organizationId).eq("id", serviceRequestId).maybeSingle(),
+            ]);
+            if (!freshApproval.error && freshApproval.data) approval = freshApproval.data;
+            if (!freshCase.error && freshCase.data) request.status = freshCase.data.status;
+          }
+        }
         if (!quote && prep?.status === "ready_for_provider") writeChoices = await quibiDevEstimateChoices();
         writeReady = true;
       } catch { writeReady = false; }
@@ -121,12 +139,18 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     let priceReadFailed = false;
     if (quote && link?.sync_status === "ok" && quibiEstimateId && vehicle && vehicleLink) {
       try {
+        if (link.quibi_environment !== quibiLinkEnvironment(process.env) || vehicleLink.quibi_environment !== quibiLinkEnvironment(process.env)) throw Error("QUIBI_ENVIRONMENT_MISMATCH");
         const quibi = configuredQuibiReadClient();
         const remoteVehicle = await quibi.vehicle(vehicleLink.quibi_vehicle_id, link.external_id);
         const listed = await quibi.estimates(link.external_id);
         if (listed.some((document) => document.id === quibiEstimateId)) {
+          const detail = await quibi.estimateDetail(quibiEstimateId, link.external_id);
+          reviewDetail = detail;
+          try { const remoteCustomer = await quibi.customer(link.external_id);
+            testRecipient = workflowRecipient(process.env, customer?.email ?? null, remoteCustomer.email);
+          } catch { /* sending remains closed */ }
           proposedPrice = verifiedCasePrice({ quote, customerId: link.external_id,
-            detail: await quibi.estimateDetail(quibiEstimateId, link.external_id),
+            detail,
             localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
               make: vehicle.make ?? "", model: vehicle.model ?? "" },
             remoteVehicle, vehicleLink });
@@ -138,7 +162,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
       inspectionRepairDecision: inspectionResult.data?.repair_decision,
-      slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady });
+      slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady, quibiSendStatus: sendOperation?.sendStatus, quibiSendAttempted: !!sendOperation });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = request.status === "needs_data" && missing.length > 0
@@ -168,7 +192,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           !inspectionResult.data?.repair_decision &&
           <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
       </section>
-      {communicationDraft && <CommunicationDraft title={communicationDraft.title} body={communicationDraft.body} />}
+      {communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
       {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
         ["owner", "admin"].includes(access.role) &&
         <ReviewIntakeButton serviceRequestId={serviceRequestId} />}
@@ -196,10 +220,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : <p className="text-sm text-amber-800">Vozilo še ni povezano s primerom.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
-          <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi DEV in predračun"}</h2>
+          <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
-          {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi DEV zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
+          {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" && !writeReady && !writeRequested &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
           {writeReady && !quote && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) &&
@@ -209,30 +233,33 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
           {proposedPrice && <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm">
             <p className="font-semibold">{proposedPrice.state === "approved" ? "Tadejeva potrjena cena predračuna" : "Predlagana cena iz Quibijevega predračuna"}: {Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}</p>
-            <p>Vir: Quibijev predračun #{proposedPrice.sourceId}, {createdOperation?.quibiId === proposedPrice.sourceId ? "ustvarjen prek DEV API-ja in potrjeno povezan" : "ročno povezan"} s tem primerom. Stranka in vozilo sta preverjeno povezana; ujemanje storitve potrdi Tadej. Končna cena računa ni potrjena.</p>
+            <p>Vir: Quibijev predračun #{proposedPrice.sourceId}, {createdOperation?.quibiId === proposedPrice.sourceId ? "ustvarjen prek Quibi API-ja in potrjeno povezan" : "ročno povezan"} s tem primerom. Stranka in vozilo sta preverjeno povezana; ujemanje storitve potrdi Tadej. Končna cena računa ni potrjena.</p>
           </div>}
           {quote && !proposedPrice && <p role="alert" className="text-sm text-amber-800">{priceReadFailed ? "Predloga cene ni mogoče sveže prebrati iz Quibija." : "Cene ni varno predlagati: preverite povezavo stranke, dokument, vozilo in morebitne spremembe."} Povezava dokumenta s konkretnim vozilom in delovnim nalogom zahteva ročno potrditev.</p>}
           {!quote && link && !fixedPrice && <p className="text-xs text-amber-800">Quibijevi dokumenti stranke so lahko kandidati, vendar API ne potrjuje ujemanja storitve, vozila in delovnega naloga s tem primerom. Cene zato še ni varno samodejno predlagati.</p>}
           {customer && quibiEstimateId && <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi/predracuni/${quibiEstimateId}`}>
-            {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri demo predračun" : "Odpri dejanski Quibijev predračun"} #{quibiEstimateId} →
+            {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri demo predračun" : "Podrobnosti predračuna v Selanu"} #{quibiEstimateId} →
           </Link>}
-          {quote?.internal_review_status === "unreviewed" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
-            <ReviewManualEstimate quoteId={quote.id} realDevWrite={realDevMode} />}
           {writeReady && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
             <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} />}
-          {writeReady && testRecipient && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
-            quote?.internal_review_status === "approved_for_send" && ["owner", "admin"].includes(access.role) &&
-            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="send" quoteId={quote.id}
-              sendStatus={sendOperation?.sendStatus} sendId={sendOperation?.sendId} operationState={sendOperation?.state} />}
-          {writeReady && testRecipient && quibiEstimateId && createdOperation?.quibiId !== quibiEstimateId &&
-            quote?.internal_review_status === "approved_for_send" && ["owner", "admin"].includes(access.role) &&
-            <QuibiManualTestSendPanel serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
-              recipient={testRecipient} version={quote.version_no} operationState={sendOperation?.state}
-              sendId={sendOperation?.sendId} sendStatus={sendOperation?.sendStatus} />}
-          {quote?.internal_review_status === "approved_for_send" && quibiEstimateId &&
-            <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} realDevWrite={realDevMode} />}
-          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
+          {quote && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
+            (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
+            <QuibiEstimateWorkflowPanel key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
+              reviewStatus={quote.internal_review_status} sha256={quote.content_sha256} amount={proposedPrice?.amount}
+              lines={reviewDetail?.lines ?? []} recipient={testRecipient} dev={process.env.QUIBI_MODE === "dev"}
+              operationState={sendOperation?.state} sendId={sendOperation?.sendId} sendStatus={sendOperation?.sendStatus}
+              alreadyDelivered={approval?.delivery_status === "delivered"}
+              manualIdentityRequired={reviewDetail?.vehicleId !== vehicleLink?.quibi_vehicle_id ||
+                reviewDetail?.externalId !== "selan-service-request:" + serviceRequestId} />}
+          {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status === "delivered" &&
+            <ManualEstimateHandoff quoteId={quote.id} delivered decision={approval.customer_decision ?? null} realDevWrite={realDevMode} apiDispatch={approval.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
+          {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status !== "delivered" &&
+            (!sendOperation || sendOperation.sendStatus === "failed") && <details className="border-t pt-3">
+              <summary className="cursor-pointer text-sm">Zunanja ročna dostava — samo za dejansko pošiljanje izven Quibi API-ja</summary>
+              <ManualEstimateHandoff quoteId={quote.id} delivered={false} decision={null} realDevWrite={realDevMode} />
+            </details>}
+          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Termini</h2>

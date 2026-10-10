@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
+import { quibiWorkflowConfig } from "./workflow-config";
 import type { NewOperation, Operation, OperationJournal, OperationPatch, OperationState } from "./write-workflow";
 
 type Row = {
@@ -20,11 +21,19 @@ function project(row: Row): Operation {
 
 /** Server-only storage. The caller must verify active workshop membership first. */
 export function quibiDevOperationJournal(organizationId: string, actorId: string): OperationJournal {
+  return operationJournal(organizationId, actorId, "quibi_dev_operation_journal");
+}
+
+export function quibiWorkflowJournal(organizationId: string, actorId: string): OperationJournal {
+  const mode = quibiWorkflowConfig(process.env, "write").mode;
+  return operationJournal(organizationId, actorId, mode === "dev" ? "quibi_dev_operation_journal" : "quibi_production_operation_journal");
+}
+function operationJournal(organizationId: string, actorId: string, tableName: "quibi_dev_operation_journal" | "quibi_production_operation_journal"): OperationJournal {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !secret) throw new Error("QUIBI_JOURNAL_UNAVAILABLE");
   const db = createPrivilegedClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
-  const table = () => db.from("quibi_dev_operation_journal");
+  const table = () => db.from(tableName);
   async function byId(id: string): Promise<Operation> {
     const { data, error } = await table().select("*").eq("organization_id", organizationId)
       .eq("id", id).single();

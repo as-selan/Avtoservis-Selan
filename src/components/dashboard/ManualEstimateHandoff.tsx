@@ -4,11 +4,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordManualEstimateDelivery, recordManualEstimateDecision } from "@/lib/quibi/manual-estimate-action";
 
-export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false }: {
+export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false, apiDispatch = false }: {
   quoteId: string;
   delivered: boolean;
   decision: string | null;
-  realDevWrite?: boolean;
+  realDevWrite?: boolean; apiDispatch?: boolean;
 }) {
   const router = useRouter();
   const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
@@ -33,7 +33,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
   if (decision) return <p className="text-sm">Strankina odločitev: {decision}. Evidentirano za to različico predračuna.</p>;
   return <div className="space-y-2 border-t pt-3">
     <h3 className="font-medium">{delivered ? "Odgovor stranke" : demo ? "Simulirano pošiljanje" : "Dejansko ročno pošiljanje"}</h3>
-    <p className="text-xs text-amber-800">{demo ? "Demo – ni poslano. Uporabite samo sintetično referenco QA-SIM-." : "Ta zapis je ročno dokazilo zaposlenega; aplikacija sporočila ne pošlje sama."}</p>
+    <p className="text-xs text-amber-800">{demo ? "Demo – ni poslano. Uporabite samo sintetično referenco QA-SIM-." : delivered && apiDispatch ? "Quibi API je predal sporočilo poštnemu strežniku; prejem ni potrjen. Tukaj zabeležite samo dejanski odgovor stranke." : "Ta zapis je ročno dokazilo zaposlenega za zunanjo dostavo."}</p>
     {!delivered && <label className="block text-sm">Uporabljen kanal
       <select className="mt-1 block rounded border px-2 py-1" value={channel} onChange={(event) => setChannel(event.target.value)}>
         <option value="email">E-pošta</option><option value="sms">SMS</option>

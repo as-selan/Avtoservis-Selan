@@ -4,10 +4,11 @@ import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess
 import { loadCustomerDetail } from "@/lib/customers/load-customer-detail";
 import { createClient } from "@/lib/supabase/server";
 import { confirmQuibiCustomerLink, refreshQuibiCustomerLink, confirmQuibiVehicleLink, refreshQuibiVehicleLink } from "@/lib/quibi/actions";
+import { quibiLinkEnvironment } from "@/lib/quibi/workflow-config";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
 import { customerFingerprint, vehicleFingerprint, quibiDocumentStatusLabel, type QuibiCustomer, type QuibiDocument, type QuibiVehicle } from "@/lib/quibi/contracts";
-import { configuredQuibiDevWriteClient } from "@/lib/quibi/write-client";
-import { quibiDevOperationJournal } from "@/lib/quibi/write-journal";
+import { configuredQuibiWorkflowWriteClient } from "@/lib/quibi/write-client";
+import { quibiWorkflowJournal } from "@/lib/quibi/write-journal";
 import { QuibiDevPartyCreate } from "@/components/dashboard/QuibiDevPartyCreate";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
 
   const db = await createClient();
   const { data: link, error: linkError } = await db.from("integration_links")
-    .select("external_id, local_fingerprint, external_fingerprint, confirmed_at, sync_status, last_checked_at, last_error_code")
+    .select("external_id, local_fingerprint, external_fingerprint, confirmed_at, quibi_environment, sync_status, last_checked_at, last_error_code")
     .eq("organization_id", access.organizationId).eq("entity_type", "customer")
     .eq("provider", "quibi").eq("entity_id", customerId).maybeSingle();
   if (linkError) return <p role="alert">Povezav Quibi trenutno ni mogoče prebrati.</p>;
@@ -46,6 +47,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
   let invoiceReadError = false;
   try {
     if (link) {
+      if (link.quibi_environment !== quibiLinkEnvironment(process.env)) throw Error("QUIBI_ENVIRONMENT_MISMATCH");
       const client = configuredQuibiReadClient();
       [remote, orders, estimates, remoteVehicles] = await Promise.all([
         client.customer(link.external_id), client.workOrders(link.external_id), client.estimates(link.external_id),
@@ -69,12 +71,10 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
 
   const localFingerprint = customerFingerprint({ name: local.customer.displayName, phone: local.customer.phone ?? "", email: local.customer.email ?? "" });
   let writeReady = false;
-  if (["owner", "admin"].includes(access.role) && process.env.QUIBI_DEV_WRITE_ENABLED === "1" &&
-      process.env.APP_ENV === "preproduction" && process.env.QUIBI_MODE === "dev" &&
-      process.env.SELAN_REMOTE_DEMO !== "1") {
+  if (["owner", "admin"].includes(access.role)) {
     try {
-      configuredQuibiDevWriteClient();
-      await quibiDevOperationJournal(access.organizationId, access.userId).get("customer", customerId);
+      configuredQuibiWorkflowWriteClient();
+      await quibiWorkflowJournal(access.organizationId, access.userId).get("customer", customerId);
       writeReady = true;
     } catch { writeReady = false; }
   }
@@ -88,7 +88,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
     <div><h1 className="text-2xl font-semibold">Quibi · {local.customer.displayName}</h1>
       <p className="text-sm text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1"
         ? "Quibi demo – podatki so simulirani. Povezave veljajo samo za sintetične testne primere."
-        : process.env.QUIBI_DEV_WRITE_ENABLED === "1"
+        : process.env.QUIBI_MODE === "production" ? "Quibi: dokumenti in pošiljanje se upravljajo iz Selana. Produkcijski zapisi zahtevajo izrecno konfiguracijo." : process.env.QUIBI_DEV_WRITE_ENABLED === "1"
           ? "Quibi DEV – dejanski podatki iz testnega okolja. Ujemanje stranke in vozila ostaja ročno potrjeno; predračun je mogoče pripraviti v servisnem primeru, testna dostava gre samo na dovoljen naslov."
           : "Quibi DEV – dejanski podatki iz testnega okolja. Povezava je ročno potrjena; zapisovanje in pošiljanje v Quibi nista avtomatska."}</p></div>
     {query.result === "linked" && <p role="status" className="text-green-700">Povezava je shranjena.</p>}

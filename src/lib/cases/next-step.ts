@@ -17,7 +17,7 @@ export function nextCaseStep(input: {
   fixedPriceStatus?: string | null;
   inspectionRepairDecision?: string | null;
   slotOfferStatus?: string | null;
-  quibiDevWriteEnabled?: boolean;
+  quibiDevWriteEnabled?: boolean; quibiSendStatus?: string | null; quibiSendAttempted?: boolean;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
   if (input.inspectionRepairDecision === "not_ordered") {
@@ -39,13 +39,17 @@ export function nextCaseStep(input: {
       if (!input.offerPrepared) return step("prepare_offer", "Pripravi podatke za predračun.");
       if (input.customerDecision === "rejected" || input.quoteReviewStatus === "rejected_for_revision")
         return step("revise_estimate", "Po zavrnitvi se s stranko dogovori o nadaljevanju in po potrebi pripravi novo različico v Quibiju.");
+      if (input.quibiSendAttempted) return step("await_customer", input.quibiSendStatus === "sent"
+        ? "Quibi je predal predračun poštnemu strežniku. Prejem ni dokazan; počakajte na dejanski odgovor stranke."
+        : input.quibiSendStatus === "failed" ? "Quibi pošiljanje ni uspelo. Preverite napako; samodejne ponovitve ni."
+        : "Quibi pošiljanje čaka ali je izid neznan. Selan spremlja status; ne pošiljajte ponovno.");
       if (input.quoteReviewStatus === "unreviewed")
-        return step("review_estimate", "Tadej naj pregleda dejanski Quibijev dokument in odloči o ceni.");
+        return step("review_estimate", "Tadej naj pregleda postavke in znesek v Selanu ter odobri in pošlje predračun.");
       if (input.quoteReviewStatus === "approved_for_send" && input.deliveryStatus !== "delivered")
-        return step("send_estimate", "Odobreni predračun dejansko pošlji stranki in zabeleži dokazilo o pošiljanju.");
+        return step("send_estimate", "Pošlji odobreni predračun iz Selana prek Quibi API-ja; stanje se shrani samodejno.");
       return step("manual_quibi_estimate", input.quibiDevWriteEnabled
-        ? "Pripravi in preveri predračun prek Quibi DEV. Tadej mora pred pošiljanjem odobriti dejansko ceno."
-        : "Predračun ustvari ročno v Quibiju, nato preveri in poveži dejanski dokument.");
+        ? "Pripravi in preveri predračun prek Quibi API-ja. Tadej mora pred pošiljanjem odobriti dejansko ceno."
+        : "Poveži obstoječi predračun ali konfiguriraj preverjeno ustvarjanje prek Quibi API-ja.");
     case "awaiting_customer_approval": return step("await_customer", input.fixedPriceStatus
       ? "Po dejanskem sporočilu objavljene cene počakajte na odločitev stranke."
       : "Po dejanski dostavi počakaj na odločitev stranke.");

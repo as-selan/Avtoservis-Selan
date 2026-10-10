@@ -3,12 +3,13 @@
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
+import { quibiWorkflowConfig } from "./workflow-config";
 import { createQuibiReadClient } from "./client";
 import { customerFingerprint, vehicleFingerprint } from "./contracts";
 import { createOrReconcileCustomer, createOrReconcileVehicle } from "./party-write-workflow";
 import { customerCreateInput, vehicleCreateInput } from "./party-write-input";
-import { configuredQuibiDevWriteClient } from "./write-client";
-import { quibiDevOperationJournal } from "./write-journal";
+import { configuredQuibiWorkflowWriteClient } from "./write-client";
+import { quibiWorkflowJournal } from "./write-journal";
 
 type Result = { ok: true; detail: string } | { ok: false; message: string };
 const fail = (message: string): Result => ({ ok: false, message });
@@ -16,10 +17,9 @@ const fail = (message: string): Result => ({ ok: false, message });
 async function context() {
   const access = await requirePhase1OperationalAccess();
   if (!["owner", "admin"].includes(access.role)) throw new Error("QUIBI_WRITE_FORBIDDEN");
-  // This checks the exact DEV origin, environment, credentials and explicit flag.
-  const write = configuredQuibiDevWriteClient();
-  const read = createQuibiReadClient({ username: process.env.QUIBI_DEV_USERNAME ?? "",
-    password: process.env.QUIBI_DEV_PASSWORD ?? "" });
+  // Checks the selected exact origin, environment, separate credentials and explicit opt-ins.
+  const write = configuredQuibiWorkflowWriteClient();
+  const read = createQuibiReadClient(quibiWorkflowConfig(process.env,"write"));
   const db = await createClient();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,7 +28,7 @@ async function context() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return { access, db, trusted, write, read,
-    journal: quibiDevOperationJournal(access.organizationId, access.userId) };
+    journal: quibiWorkflowJournal(access.organizationId, access.userId) };
 }
 
 export async function createQuibiDevCustomer(form: FormData): Promise<Result> {
@@ -58,14 +58,14 @@ export async function createQuibiDevCustomer(form: FormData): Promise<Result> {
       name: input.name, phone: input.phone, email: input.email,
     })) return fail("Nova stranka v Quibiju se ne ujema s Selanovimi podatki.");
     const { error } = await ctx.trusted.from("integration_links").insert({
-      organization_id: ctx.access.organizationId, provider: "quibi", entity_type: "customer",
+      quibi_environment: quibiWorkflowConfig(process.env,"write").mode, organization_id: ctx.access.organizationId, provider: "quibi", entity_type: "customer",
       entity_id: customerId, external_id: op.quibiId,
       local_fingerprint: customerFingerprint({ name: input.name, phone: input.phone, email: input.email }),
       external_fingerprint: customerFingerprint(remote), confirmed_by: ctx.access.userId,
       sync_status: "ok", last_checked_at: new Date().toISOString(),
     });
     if (error) return fail("Stranka je preverjeno ustvarjena v Quibiju, povezava pa zahteva pregled; ne ustvarjajte je znova.");
-    return { ok: true, detail: `Quibi DEV stranka #${op.quibiId} je ponovno prebrana in povezana.` };
+    return { ok: true, detail: `Quibi stranka #${op.quibiId} je ponovno prebrana in povezana.` };
   } catch (error) {
     if (error instanceof Error && error.message === "QUIBI_CUSTOMER_MATCH_REVIEW_REQUIRED")
       return fail("V Quibiju je možno ujemanje. Najprej ročno preglejte in povežite obstoječo stranko.");
@@ -84,7 +84,7 @@ export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
       { data: serviceCase }] = await Promise.all([
       ctx.db.from("customers").select("display_name,phone,email").eq("organization_id", ctx.access.organizationId)
         .eq("id", customerId).is("archived_at", null).maybeSingle(),
-      ctx.db.from("integration_links").select("external_id,local_fingerprint,external_fingerprint,sync_status")
+      ctx.db.from("integration_links").select("external_id,local_fingerprint,external_fingerprint,sync_status,quibi_environment")
         .eq("organization_id", ctx.access.organizationId).eq("provider", "quibi")
         .eq("entity_type", "customer").eq("entity_id", customerId).maybeSingle(),
       ctx.db.from("vehicles").select("customer_id,vin,registration_current,make,model")
@@ -96,6 +96,7 @@ export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
         .eq("customer_id", customerId).eq("vehicle_id", vehicleId).is("archived_at", null)
         .order("created_at", { ascending: true }).limit(1).maybeSingle(),
     ]);
+    if (link?.quibi_environment !== quibiWorkflowConfig(process.env,"write").mode) throw Error("QUIBI_ENVIRONMENT_MISMATCH");
     if (!customer || !link || !vehicle || !serviceCase || existingLink || link.sync_status !== "ok" ||
         !vehicle.registration_current?.trim() || !vehicle.vin?.trim())
       return fail("Vozilo je že povezano ali manjka preverjena stranka, registracija oziroma številka šasije.");
@@ -114,13 +115,13 @@ export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
     if (remote.disabled || remote.customerId !== link.external_id || vehicleFingerprint(remote) !== fingerprint)
       return fail("Novo Quibijevo vozilo se ne ujema s tem primerom.");
     const { error } = await ctx.trusted.from("quibi_vehicle_links").insert({
-      organization_id: ctx.access.organizationId, customer_id: customerId, vehicle_id: vehicleId,
+      quibi_environment: quibiWorkflowConfig(process.env,"write").mode, organization_id: ctx.access.organizationId, customer_id: customerId, vehicle_id: vehicleId,
       quibi_customer_id: link.external_id, quibi_vehicle_id: op.quibiId,
       local_fingerprint: fingerprint, external_fingerprint: vehicleFingerprint(remote),
       confirmed_by: ctx.access.userId, sync_status: "ok", last_checked_at: new Date().toISOString(),
     });
     if (error) return fail("Vozilo je preverjeno ustvarjeno v Quibiju, povezava pa zahteva pregled; ne ustvarjajte ga znova.");
-    return { ok: true, detail: `Quibi DEV vozilo #${op.quibiId} je ponovno prebrano in povezano.` };
+    return { ok: true, detail: `Quibi vozilo #${op.quibiId} je ponovno prebrano in povezano.` };
   } catch (error) {
     if (error instanceof Error && error.message === "QUIBI_VEHICLE_MATCH_REVIEW_REQUIRED")
       return fail("V Quibiju je možno ujemanje vozila. Najprej ročno preglejte obstoječi zapis.");

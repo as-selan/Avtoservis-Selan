@@ -4,6 +4,7 @@ import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
 import { configuredQuibiReadClient } from "@/lib/quibi/client";
+import { quibiLinkEnvironment } from "./workflow-config";
 import { customerFingerprint } from "@/lib/quibi/contracts";
 import { verifiedVehicleLink } from "@/lib/quibi/price-suggestion";
 import { demoEvidenceAllowed } from "@/lib/demo/evidence";
@@ -23,11 +24,11 @@ async function caseVehicleIsCurrent(
       .eq("organization_id", organizationId).eq("id", vehicleId)
       .eq("customer_id", customerId).is("archived_at", null).maybeSingle(),
     db.from("quibi_vehicle_links")
-      .select("quibi_customer_id, quibi_vehicle_id, sync_status, local_fingerprint, external_fingerprint")
+      .select("quibi_customer_id, quibi_vehicle_id, sync_status, local_fingerprint, external_fingerprint,quibi_environment")
       .eq("organization_id", organizationId).eq("customer_id", customerId)
       .eq("vehicle_id", vehicleId).maybeSingle(),
   ]);
-  if (vehicleError || linkError || !vehicle || !link || link.sync_status !== "ok") return null;
+  if (vehicleError || linkError || !vehicle || !link || link.sync_status !== "ok" || link.quibi_environment !== quibiLinkEnvironment(process.env)) return null;
   const remoteVehicle = await quibi.vehicle(link.quibi_vehicle_id, externalCustomerId);
   return verifiedVehicleLink({ customerId: externalCustomerId,
     localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
@@ -56,11 +57,11 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
     db.from("customers").select("display_name, phone, email")
       .eq("organization_id", access.organizationId).eq("id", request.customer_id)
       .is("archived_at", null).maybeSingle(),
-    db.from("integration_links").select("external_id, local_fingerprint, external_fingerprint, sync_status")
+    db.from("integration_links").select("external_id, local_fingerprint, external_fingerprint, sync_status,quibi_environment")
       .eq("organization_id", access.organizationId).eq("provider", "quibi")
       .eq("entity_type", "customer").eq("entity_id", request.customer_id).maybeSingle(),
   ]);
-  if (customerError || linkError || !customer || !link || !["ok", "never_checked"].includes(link.sync_status)) {
+  if (customerError || linkError || !customer || !link || link.quibi_environment !== quibiLinkEnvironment(process.env) || !["ok", "never_checked"].includes(link.sync_status)) {
     return error("Najprej preverite povezavo stranke s Quibijem.");
   }
   if (customerFingerprint({ name: customer.display_name, phone: customer.phone ?? "", email: customer.email ?? "" }) !== link.local_fingerprint) {
@@ -140,10 +141,10 @@ export async function reviewManualQuibiEstimate(
     return error("Primer ni več pripravljen za pregled cene.");
   }
   const { data: link } = await db.from("integration_links")
-    .select("external_id, external_fingerprint, sync_status")
+    .select("external_id, external_fingerprint, sync_status,quibi_environment")
     .eq("organization_id", access.organizationId).eq("provider", "quibi")
     .eq("entity_type", "customer").eq("entity_id", request.customer_id).maybeSingle();
-  if (!link || link.external_id !== evidence.customer_external_id || !["ok", "never_checked"].includes(link.sync_status)) {
+  if (!link || link.quibi_environment !== quibiLinkEnvironment(process.env) || link.external_id !== evidence.customer_external_id || !["ok", "never_checked"].includes(link.sync_status)) {
     return error("Povezavo Quibijeve stranke je treba znova preveriti.");
   }
   try {

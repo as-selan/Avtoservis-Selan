@@ -3,6 +3,8 @@ import {
   validQuibiId, type EstimateBody,
 } from "./write-contract.ts";
 
+import { quibiWorkflowConfig, actualCustomerEmail } from "./workflow-config.ts";
+
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string;
   environment?: Record<string, string | undefined> };
 
@@ -13,17 +15,27 @@ function responseData(value: unknown): Record<string, unknown> {
   if (!envelope.data || typeof envelope.data !== "object") throw new Error("QUIBI_INVALID_RESPONSE");
   return envelope.data as Record<string, unknown>;
 }
-export function createQuibiDevWriteClient(config: Config) {
+export function createQuibiDevWriteClient(config: Config) { return createTransport(config, false); }
+export function createQuibiWorkflowWriteClient(config: Config) { return createTransport(config, true); }
+function createTransport(config: Config, workflow: boolean) {
   if (typeof window !== "undefined") throw new Error("QUIBI_SERVER_ONLY");
-  const origin = config.origin ?? QUIBI_DEV_ORIGIN;
   const env = config.environment ?? process.env;
-  assertQuibiDevWriteAllowed({ ...env, QUIBI_DEV_USERNAME: config.username,
-    QUIBI_DEV_PASSWORD: config.password }, origin);
+  const selected = workflow ? quibiWorkflowConfig(env, "write") : null;
+  const origin = config.origin ?? selected?.origin ?? QUIBI_DEV_ORIGIN;
+  function guard(capability: "write" | "send") {
+    if (workflow) {
+      const current = quibiWorkflowConfig(env, capability);
+      if (origin !== current.origin || config.username !== current.username || config.password !== current.password)
+        throw new Error("QUIBI_WORKFLOW_DISABLED");
+    } else assertQuibiDevWriteAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
+  }
+  guard("write");
   const fetcher = config.fetcher ?? fetch;
 
   async function call(path: string, method: "GET" | "POST", body?: object): Promise<unknown> {
     // Writes are never retried at the HTTP layer. Callers retry only the exact
     // persisted document body with Quibi's external_id contract.
+    guard(path.includes("/send") ? "send" : "write");
     const response = await fetcher(`${origin}${path}`, {
       method, headers: { username: config.username, password: config.password,
         "Content-Type": "application/json" },
@@ -77,9 +89,13 @@ export function createQuibiDevWriteClient(config: Config) {
       return parseQuibiWriteResponse(await call(`/api2/glavadokumenta/form/${id}`, "POST", body));
     },
     async sendDocument(id: string, email: string, subject?: string, content?: string) {
-      assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
-      if (email !== quibiDevTestRecipient(env)) throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email !== env.QUIBI_DEV_TEST_RECIPIENT)
+      if (workflow) {
+        guard("send");
+        if (selected?.mode === "production") actualCustomerEmail(email, email);
+        else if (email !== quibiDevTestRecipient(env)) throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");
+      } else assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+          (selected?.mode !== "production" && email !== env.QUIBI_DEV_TEST_RECIPIENT))
         throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");
       const value = await call(`/api2/glavadokumenta/send/${validQuibiId(id)}`, "POST", {
         email, ...(subject ? { zadeva: subject } : {}), ...(content ? { vsebina: content } : {}),
@@ -90,7 +106,8 @@ export function createQuibiDevWriteClient(config: Config) {
       return { sendId, status: "queued" as const };
     },
     async getSendStatus(id: string, sendId: string) {
-      assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
+      if (workflow) guard("send");
+      else assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(sendId)) throw new Error("QUIBI_INVALID_SEND_ID");
       const data = responseData(await call(`/api2/glavadokumenta/send_status/${validQuibiId(id)}?send_id=${encodeURIComponent(sendId)}`, "GET"));
       if (!["queued", "sent", "failed"].includes(String(data.status))) throw new Error("QUIBI_INVALID_RESPONSE");

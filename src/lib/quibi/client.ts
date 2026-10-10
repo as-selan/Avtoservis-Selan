@@ -3,6 +3,7 @@ import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } 
 import { createDemoQuibiReadClient } from "./demo-client.ts";
 
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string };
+import { quibiWorkflowConfig } from "./workflow-config.ts";
 const ORIGIN = "https://dev.quibi.net";
 
 export function createQuibiReadClient(config: Config) {
@@ -17,7 +18,7 @@ export function createQuibiReadClient(config: Config) {
           method,
           headers: { username: config.username, password: config.password, "Content-Type": "application/json" },
           body: method === "POST" ? JSON.stringify({ Filtriraj: { stranka: Number(customerId) } }) : undefined,
-          cache: "no-store",
+          redirect: "error", cache: "no-store",
           signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) {
@@ -81,6 +82,10 @@ export function createQuibiReadClient(config: Config) {
 }
 
 export function configuredQuibiReadClient() {
+  if (process.env.APP_ENV === "production" || process.env.QUIBI_MODE === "production") {
+    const config = quibiWorkflowConfig(process.env, "read");
+    return createQuibiReadClient(config);
+  }
   if (process.env.APP_ENV === "preproduction") {
     assertPreproductionQuibiConfiguration();
     return createQuibiReadClient({

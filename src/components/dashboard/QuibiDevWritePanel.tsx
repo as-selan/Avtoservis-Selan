@@ -28,10 +28,10 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       router.refresh();
     });
   }}>
-    <h3 className="font-medium">{mode === "create" ? "Ustvari predračun v Quibi DEV" :
-      mode === "update" ? "Popravi zavrnjeni Quibi DEV predračun" : "Pošlji predračun samo na testni naslov"}</h3>
+    <h3 className="font-medium">{mode === "create" ? "Ustvari predračun v Quibiju" :
+      mode === "update" ? "Popravi zavrnjeni Quibi predračun" : "Pošlji predračun samo na testni naslov"}</h3>
     {mode === "create" && <>
-      <p className="text-xs text-amber-800">To ustvari dejanski dokument v Quibi DEV. Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej.</p>
+      <p className="text-xs text-amber-800">To ustvari dejanski dokument v konfiguriranem Quibi okolju. Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej.</p>
       <label className="block text-sm">Vrsta prodaje
         <select name="saleTypeId" required className="mt-1 block w-full rounded border px-3 py-2">
           {choices?.saleTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
