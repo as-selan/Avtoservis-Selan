@@ -1,3 +1,4 @@
+import { CreateWorkOrder } from "@/components/dashboard/WorkOrderEditor";
 import { localQaIdentityExceptionAvailable } from "@/lib/quibi/local-send-policy";
 import Link from "next/link";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
@@ -136,6 +137,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         writeReady = true;
       } catch { writeReady = false; }
     }
+    // Journal evidence remains visible with all external writes disabled.
+    if (quote && !sendOperation) {
+      try { sendOperation = await quibiWorkflowJournal(access.organizationId, access.userId).get("send", quote.id); }
+      catch { /* journal unavailable: sending still remains closed */ }
+    }
+    let operationRecipient: string | null = null;
+    if (sendOperation) { try { operationRecipient = JSON.parse(sendOperation.requestBody).recipient ?? null; } catch { /* immutable journal integrity handled by status action */ } }
     let proposedPrice: ReturnType<typeof verifiedCasePrice> = null;
     let priceReadFailed = false;
     if (quote && link?.sync_status === "ok" && quibiEstimateId && vehicle && vehicleLink) {
@@ -158,7 +166,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         }
       } catch { priceReadFailed = true; }
     }
-    const step = nextCaseStep({ status: request.status, offerPrepared: prep?.status === "ready_for_provider",
+    const {data:workOrder}=await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle();
+    const step = nextCaseStep({ status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
@@ -248,12 +257,14 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
             <QuibiEstimateWorkflowPanel key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
               reviewStatus={quote.internal_review_status} sha256={quote.content_sha256} amount={proposedPrice?.amount}
-              lines={reviewDetail?.lines ?? []} recipient={testRecipient} dev={process.env.QUIBI_MODE === "dev"}
+              lines={reviewDetail?.lines ?? []} recipient={operationRecipient ?? testRecipient} dev={process.env.QUIBI_MODE === "dev"}
+              operationId={sendOperation?.id} attemptedAt={sendOperation?.attemptedAt}
               operationState={sendOperation?.state} sendId={sendOperation?.sendId} sendStatus={sendOperation?.sendStatus}
               alreadyDelivered={approval?.delivery_status === "delivered"}
               qaIdentityExceptionAvailable={localQaIdentityExceptionAvailable(process.env, serviceRequestId, quote.id, quibiEstimateId, proposedPrice?.amount ?? "")}
               manualIdentityRequired={reviewDetail?.vehicleId !== vehicleLink?.quibi_vehicle_id ||
                 reviewDetail?.externalId !== "selan-service-request:" + serviceRequestId} />}
+          {request.status === "appointment_confirmed" && <CreateWorkOrder caseId={serviceRequestId} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status === "delivered" &&
             <ManualEstimateHandoff quoteId={quote.id} delivered decision={approval.customer_decision ?? null} realDevWrite={realDevMode} apiDispatch={approval.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status !== "delivered" &&
@@ -270,6 +281,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <p className="text-xs text-amber-800">Google Koledar in MyPlanly nista avtomatsko potrjena. Zunanje usklajevanje opravite in preverite ročno.</p>
         </section>
       </div>
+      {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
       {fixedPriceEnabled && (fixedPrice || (request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
         <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} realDevWrite={realDevMode} />}
       {!fixedPrice && (inspectionResult.data || ["new", "preparing_offer"].includes(request.status)) &&

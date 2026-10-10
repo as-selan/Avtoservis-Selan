@@ -1,11 +1,12 @@
 "use client";
+import {sendPresentation} from "@/lib/quibi/send-outcome";
 import {useEffect,useRef,useState,useTransition} from "react";
 import {useRouter} from "next/navigation";
 import {approveAndSendQuibiEstimate,pollQuibiEstimateSend} from "@/lib/quibi/unified-actions";
 import {reviewManualQuibiEstimate} from "@/lib/quibi/manual-estimate-action";
 type Props={serviceRequestId:string;quoteId:string;documentId:string;reviewStatus:string;sha256:string;
  amount?:string;lines:{description:string;quantity:string;grossPrice:string}[];recipient:string|null;dev:boolean;
- operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;qaIdentityExceptionAvailable?:boolean;alreadyDelivered:boolean};
+ operationId?:string;attemptedAt?:string|null;operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;qaIdentityExceptionAvailable?:boolean;alreadyDelivered:boolean};
 export function QuibiEstimateWorkflowPanel(p:Props){
  const router=useRouter(),lock=useRef(false),polling=useRef(false);
  const [pending,startTransition]=useTransition(),[attempted,setAttempted]=useState(false),[message,setMessage]=useState("");
@@ -24,6 +25,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  // poll uses immutable scope props; counter provides bounded polling without a resend effect.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[p.sendId,status,pollCount,p.serviceRequestId,p.quoteId]);
+ const outcome=sendPresentation(p.operationState?{state:p.operationState,sendId:p.sendId??null,sendStatus:status??null}:null);
  const sendAllowed=!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
  return <section className="space-y-3 border-t pt-3">
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
@@ -53,8 +55,11 @@ export function QuibiEstimateWorkflowPanel(p:Props){
   </form>}
   {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<p className="text-sm text-amber-800">Za pošiljanje sta potrebna potrjena vsebina in varna konfiguracija. Ob neznanem izidu preverite dnevnik.</p>}
   {p.reviewStatus==="unreviewed"&&!p.operationState&&<button type="button" disabled={pending} className="rounded border px-3 py-2 text-sm" onClick={()=>startTransition(async()=>{const r=await reviewManualQuibiEstimate(p.quoteId,"reject");setMessage(r.ok?"Predračun je zavrnjen za popravek.":r.message);router.refresh()})}>Zavrni za popravek</button>}
-  {status&&<p className="text-sm">Quibi status: {status}. {status==="sent"?"Predano poštnemu strežniku; prejem ni dokazan.":status==="failed"?"Pošiljanje ni uspelo; avtomatske ponovitve ni.":"Čaka na obdelavo."}</p>}
-  {p.operationState&&!p.sendId&&<p role="alert" className="text-sm">Izid zahteva pregled dnevnika. Ponovno pošiljanje te različice je ustavljeno.</p>}
+  {p.operationState&&<div role="status" className="space-y-2 text-sm"><p>{outcome.outcome}: {outcome.message}</p>
+   <p>Čas poskusa (UTC): {p.attemptedAt??"ni zabeležen"}</p><p>Referenca dnevnika: {p.operationId}</p>
+   {p.sendId&&<p>Quibi send_id: {p.sendId}</p>}
+   <button type="button" disabled className="rounded border px-3 py-2">Ponovno pošiljanje ustavljeno</button>
+  </div>}
   {p.sendId&&<button type="button" disabled={pending} onClick={()=>{void poll()}} className="rounded border px-3 py-2 text-sm">Preveri status</button>}
   {message&&<p role="status" className="text-sm">{message}</p>}
  </section>

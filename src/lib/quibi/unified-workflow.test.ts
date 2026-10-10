@@ -88,3 +88,8 @@ test("QA exception records unverified identity only for the approved local synth
  for(const env of [dev,production]){const rejected=await missing();await assert.rejects(send(rejected,env,{manualReference:"",qaIdentityLimitationConfirmed:true}));assert.equal(rejected.state(),null)}
  const absent=await missing();await assert.rejects(send(absent,local,{manualReference:""}),/QUIBI_MANUAL_IDENTITY_PROOF_REQUIRED/);
 });
+test("explicit provider rejection is persisted as failed and cannot dispatch again",async()=>{
+ const f=fixture("approved_for_send");f.write.sendDocument=async()=>{f.events.push("send:rejected");throw Error("QUIBI_API_REJECTED")};
+ await assert.rejects(send(f));assert.equal(f.state()?.state,"failed");assert.equal(f.state()?.sendStatus,"failed");
+ await assert.rejects(send(f),/QUIBI_SEND_ALREADY_ATTEMPTED/);assert.equal(f.events.filter(e=>e.startsWith("send:")).length,1);
+});

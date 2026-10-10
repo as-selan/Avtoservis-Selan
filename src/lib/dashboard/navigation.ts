@@ -32,8 +32,9 @@ export const APP_NAV_ITEMS: NavItem[] = [
   {
     id: "service-orders",
     label: "Servisni nalogi",
+    href: "/dashboard/nalogi",
     icon: ClipboardList,
-    available: false,
+    available: true,
   },
   {
     id: "inquiries",

@@ -7,7 +7,7 @@ type Row = {
   id: string; kind: Operation["kind"]; local_entity_id: string; service_request_id: string;
   external_id: string | null; request_body: string; request_sha256: string;
   state: OperationState; quibi_id: string | null; quibi_content_sha256: string | null; document_number: string | null;
-  send_id: string | null; send_status: Operation["sendStatus"];
+  attempted_at: string | null; send_id: string | null; send_status: Operation["sendStatus"];
 };
 
 function project(row: Row): Operation {
@@ -16,7 +16,7 @@ function project(row: Row): Operation {
     requestBody: row.request_body, requestSha256: row.request_sha256,
     state: row.state, quibiId: row.quibi_id, quibiContentSha256: row.quibi_content_sha256,
     documentNumber: row.document_number,
-    sendId: row.send_id, sendStatus: row.send_status };
+    attemptedAt: row.attempted_at, sendId: row.send_id, sendStatus: row.send_status };
 }
 
 /** Server-only storage. The caller must verify active workshop membership first. */
@@ -25,7 +25,7 @@ export function quibiDevOperationJournal(organizationId: string, actorId: string
 }
 
 export function quibiWorkflowJournal(organizationId: string, actorId: string): OperationJournal {
-  const mode = quibiWorkflowConfig(process.env, "write").mode;
+  const mode = quibiWorkflowConfig(process.env, "read").mode;
   return operationJournal(organizationId, actorId, mode === "dev" ? "quibi_dev_operation_journal" : "quibi_production_operation_journal");
 }
 function operationJournal(organizationId: string, actorId: string, tableName: "quibi_dev_operation_journal" | "quibi_production_operation_journal"): OperationJournal {

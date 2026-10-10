@@ -1,3 +1,4 @@
+import { isDefinitiveQuibiRejection } from "./send-outcome.ts";
 import { assertLocalQuibiSendTarget, localQaIdentityExceptionAvailable } from "./local-send-policy.ts";
 import { createHash } from "node:crypto";
 import type { Operation, OperationJournal, EstimateWrite } from "./write-workflow.ts";
@@ -108,16 +109,19 @@ export async function approveAndSendEstimate(args: Dependencies & {
     }
     try {
         const result = await args.write.sendDocument(s.documentId, recipient, config.mode === "dev" ? "[TEST] " + body.subject : body.subject);
-        return await args.journal.patch(op.id, "dispatching", { state: "uncertain", quibiId: s.documentId, quibiContentSha256: s.sha256, sendId: result.sendId, sendStatus: "queued" });
+        console.info("QUIBI_SEND_ACCEPTED", { operationId: op.id, sendId: result.sendId, status: result.status });
+        return await args.journal.patch(op.id, "dispatching", { state: "uncertain", quibiId: s.documentId, quibiContentSha256: s.sha256, sendId: result.sendId, sendStatus: result.status });
     }
     catch (e) {
         await args.journal.patch(op.id, "dispatching", { state: "uncertain" }).catch(() => undefined);
+        if (isDefinitiveQuibiRejection(e)) await args.journal.patch(op.id, "uncertain", { state: "failed", sendStatus: "failed" });
+        console.warn("QUIBI_SEND_OUTCOME", { operationId: op.id, outcome: isDefinitiveQuibiRejection(e) ? "REJECTED" : "UNKNOWN", code: e instanceof Error && /^QUIBI_HTTP_\d{3}$/.test(e.message) ? e.message : isDefinitiveQuibiRejection(e) ? "QUIBI_API_REJECTED" : "QUIBI_SEND_UNCONFIRMED" });
         throw e;
     }
 }
 /** No send operation is available in the polling branch. Replays only repair local evidence. */
-export async function pollEstimateSend(args: Omit<Dependencies, "authorize">) {
-    const config = quibiWorkflowConfig(args.environment, "send");
+export async function pollEstimateSend(args: Omit<Dependencies, "authorize" | "write"> & {write: Pick<EstimateWrite, "getSendStatus">}) {
+    const config = quibiWorkflowConfig(args.environment, "read");
     const op = await args.journal.get("send", args.quoteId);
     if (!op || op.serviceRequestId !== args.caseId || op.localEntityId !== args.quoteId || !op.quibiId)
         throw Error("QUIBI_SEND_STATUS_UNAVAILABLE");

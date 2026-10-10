@@ -1,10 +1,10 @@
 type Environment = Record<string, string | undefined>;
 /** Explicit, narrowly scoped permission. It never applies to a hosted deployment. */
-export function assertApprovedLocalDevSendConfiguration(env: Environment, origin = "https://dev.quibi.net"): void {
+export function assertApprovedLocalDevSendConfiguration(env: Environment, origin = "https://dev.quibi.net", requireWrite = true): void {
     let app: URL;
     try { app = new URL(env.PUBLIC_APP_ORIGIN ?? ""); } catch { throw Error("QUIBI_LOCAL_SEND_DISABLED"); }
     if (origin !== "https://dev.quibi.net" || env.APP_ENV !== "preproduction" || env.QUIBI_MODE !== "dev" ||
-        env.QUIBI_DEV_LOCAL_SEND_ENABLED !== "1" || env.SELAN_APPROVED_LOCAL_DEV !== "1" || env.QUIBI_DEV_WRITE_ENABLED !== "1" ||
+        env.QUIBI_DEV_LOCAL_SEND_ENABLED !== "1" || env.SELAN_APPROVED_LOCAL_DEV !== "1" || (requireWrite && env.QUIBI_DEV_WRITE_ENABLED !== "1") ||
         (env.VERCEL_ENV !== undefined && env.VERCEL_ENV !== "development") || env.VERCEL === "1" ||
         env.SELAN_REMOTE_DEMO === "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || env.SELAN_LOCAL_REVIEW === "1" || env.QUIBI_E2E_ORIGIN ||
         !env.QUIBI_DEV_USERNAME || !env.QUIBI_DEV_PASSWORD || env.QUIBI_DEV_TEST_RECIPIENT !== "online.gold100@gmail.com" ||
@@ -14,7 +14,8 @@ export function assertApprovedLocalDevSendConfiguration(env: Environment, origin
 }
 export function assertLocalQuibiRequest(env: Environment, requestHeaders: Pick<Headers, "get">, sending = false): void {
     if (env.QUIBI_DEV_LOCAL_SEND_ENABLED !== "1") return;
-    assertApprovedLocalDevSendConfiguration(env);
+    // Request origin checks also protect read-only actions and login; dispatch checks its write capability separately.
+    assertApprovedLocalDevSendConfiguration(env, "https://dev.quibi.net", false);
     const app = new URL(env.PUBLIC_APP_ORIGIN!);
     const forwardedHost = requestHeaders.get("x-forwarded-host"), forwardedFor = requestHeaders.get("x-forwarded-for"), forwardedProto = requestHeaders.get("x-forwarded-proto");
     const requestOrigin = requestHeaders.get("origin");

@@ -1,11 +1,12 @@
 "use server";
+import { isDefinitiveQuibiRejection } from "./send-outcome";
 import { headers } from "next/headers";
 import { assertLocalQuibiRequest } from "./local-send-policy";
 import { createClient as privileged } from "@supabase/supabase-js";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
 import { quibiWorkflowContext } from "./workflow-context";
-import { configuredQuibiWorkflowWriteClient } from "./write-client";
+import { configuredQuibiWorkflowWriteClient, configuredQuibiWorkflowStatusClient } from "./write-client";
 import { quibiWorkflowJournal } from "./write-journal";
 import { quibiWorkflowConfig } from "./workflow-config";
 import { approveAndSendEstimate, pollEstimateSend, type SendSnapshot } from "./unified-workflow";
@@ -79,14 +80,15 @@ export async function approveAndSendQuibiEstimate(form: FormData): Promise<Resul
             displayedSha256: String(form.get("displayedSha256") ?? ""), displayedAmount: String(form.get("displayedAmount") ?? ""), manualReference: String(form.get("manualReference") ?? ""), qaIdentityLimitationConfirmed: form.get("qaIdentityLimitationConfirmed") === "yes" });
         return success(op.sendStatus, config.mode === "dev");
     }
-    catch {
+    catch (error) {
+        if (isDefinitiveQuibiRejection(error)) return { ok: false, message: "Quibi je dokončno zavrnil pošiljanje (" + (error as Error).message + "). Ponovnega dispatcha te različice ni." };
         return { ok: false, message: "Pošiljanje ni potrjeno. Preverite konfiguracijo, odobritev in ujemanje. Ob neznanem izidu ne pošiljajte ponovno; uporabite preverjanje statusa." };
     }
 }
 export async function pollQuibiEstimateSend(form: FormData): Promise<Result> {
     try {
         assertLocalQuibiRequest(process.env, await headers());
-        const config = quibiWorkflowConfig(process.env, "send"), { caseId, quoteId } = ids(form), access = await requirePhase1OperationalAccess();
+        const config = quibiWorkflowConfig(process.env, "read"), { caseId, quoteId } = ids(form), access = await requirePhase1OperationalAccess();
         if (!["owner", "admin"].includes(access.role))
             throw Error("FORBIDDEN");
         const db = await createClient();
@@ -98,7 +100,7 @@ export async function pollQuibiEstimateSend(form: FormData): Promise<Result> {
         } | null;
         if (error || !q || !stored || stored.quibiId !== e?.external_id || stored.serviceRequestId !== caseId)
             throw Error("FORBIDDEN");
-        const op = await pollEstimateSend({ environment: process.env, caseId, quoteId, journal, write: configuredQuibiWorkflowWriteClient(),
+        const op = await pollEstimateSend({ environment: process.env, caseId, quoteId, journal, write: configuredQuibiWorkflowStatusClient(),
             recordAcceptance: op => recordAcceptance(access.organizationId, quoteId, op) });
         return success(op.sendStatus, config.mode === "dev");
     }

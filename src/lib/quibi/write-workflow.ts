@@ -9,6 +9,7 @@ export type Operation = {
   externalId: string | null; requestBody: string; requestSha256: string;
   state: OperationState; quibiId: string | null; quibiContentSha256: string | null; documentNumber: string | null;
   sendId: string | null; sendStatus: "queued" | "sent" | "failed" | null;
+  attemptedAt?: string | null;
 };
 export type NewOperation = Omit<Operation, "id" | "state" | "quibiId" | "quibiContentSha256" | "documentNumber" | "sendId" | "sendStatus">;
 export type OperationPatch = Partial<Pick<Operation, "state" | "quibiId" | "quibiContentSha256" | "documentNumber" | "sendId" | "sendStatus">>;
@@ -32,7 +33,7 @@ export interface EstimateWrite {
   getNumberings(): Promise<Array<{ Stevilcenje: { id: string; naziv: string; glava_id: string } }>>;
   createEstimate(body: EstimateBody): Promise<{ id: string; number: string }>;
   updateEstimate(id: string, body: EstimateBody): Promise<{ id: string; number: string }>;
-  sendDocument(id: string, email: string, subject?: string): Promise<{ sendId: string; status: "queued" }>;
+  sendDocument(id: string, email: string, subject?: string): Promise<{ sendId: string; status: "queued" | "sent" }>;
   getSendStatus(id: string, sendId: string): Promise<{ status: "queued" | "sent" | "failed" }>;
 }
 

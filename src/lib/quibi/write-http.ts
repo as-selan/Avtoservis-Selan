@@ -6,12 +6,13 @@ import {
 import { quibiWorkflowConfig, actualCustomerEmail } from "./workflow-config.ts";
 
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string;
-  environment?: Record<string, string | undefined> };
+  statusOnly?: boolean; environment?: Record<string, string | undefined> };
 
 function responseData(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object") throw new Error("QUIBI_INVALID_RESPONSE");
   const envelope = value as Record<string, unknown>;
-  if (envelope.error !== false) throw new Error("QUIBI_API_REJECTED");
+  if (envelope.error === true) throw new Error("QUIBI_API_REJECTED");
+  if (envelope.error !== false) throw new Error("QUIBI_INVALID_RESPONSE");
   if (!envelope.data || typeof envelope.data !== "object") throw new Error("QUIBI_INVALID_RESPONSE");
   return envelope.data as Record<string, unknown>;
 }
@@ -20,11 +21,11 @@ export function createQuibiWorkflowWriteClient(config: Config) { return createTr
 function createTransport(config: Config, workflow: boolean) {
   if (typeof window !== "undefined") throw new Error("QUIBI_SERVER_ONLY");
   const env = config.environment ?? process.env;
-  const selected = workflow ? quibiWorkflowConfig(env, "write") : null;
+  const selected = workflow ? quibiWorkflowConfig(env, config.statusOnly ? "read" : "write") : null;
   const origin = config.origin ?? selected?.origin ?? QUIBI_DEV_ORIGIN;
   function guard(capability: "write" | "send") {
     if (workflow) {
-      const current = quibiWorkflowConfig(env, capability);
+      const current = quibiWorkflowConfig(env, config.statusOnly ? "read" : capability);
       if (origin !== current.origin || config.username !== current.username || config.password !== current.password)
         throw new Error("QUIBI_WORKFLOW_DISABLED");
     } else assertQuibiDevWriteAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
@@ -35,6 +36,7 @@ function createTransport(config: Config, workflow: boolean) {
   async function call(path: string, method: "GET" | "POST", body?: object): Promise<unknown> {
     // Writes are never retried at the HTTP layer. Callers retry only the exact
     // persisted document body with Quibi's external_id contract.
+    if (config.statusOnly && (method !== "GET" || !path.startsWith("/api2/glavadokumenta/send_status/"))) throw Error("QUIBI_STATUS_ONLY");
     guard(path.includes("/send") ? "send" : "write");
     if (workflow && env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1" && method === "POST" &&
         path !== "/api2/glavadokumenta/send/2176888") throw new Error("QUIBI_LOCAL_SEND_ONLY");
@@ -104,8 +106,8 @@ function createTransport(config: Config, workflow: boolean) {
       });
       const data = responseData(value);
       const sendId = String(data.send_id ?? "");
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(sendId) || data.status !== "queued") throw new Error("QUIBI_INVALID_RESPONSE");
-      return { sendId, status: "queued" as const };
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(sendId) || !["queued", "sent"].includes(String(data.status))) throw new Error("QUIBI_INVALID_RESPONSE");
+      return { sendId, status: data.status as "queued" | "sent" };
     },
     async getSendStatus(id: string, sendId: string) {
       if (workflow) guard("send");

@@ -29,7 +29,7 @@ function preproductionEnvironment(): Record<string, string | undefined> {
 export function assertPreproductionQuibiConfiguration(env: Record<string, string | undefined> = preproductionEnvironment()): void {
   if (env.APP_ENV !== "preproduction") return;
   if (env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1") {
-    assertApprovedLocalDevSendConfiguration(env);
+    assertApprovedLocalDevSendConfiguration(env, "https://dev.quibi.net", false);
     if (env.NEXT_PUBLIC_SUPABASE_URL !== "https://verxxsjbewmkgoxwqvxo.supabase.co" ||
         !env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || !env.SUPABASE_SERVICE_ROLE_KEY || env.SELAN_FIXED_PRICE_V1 !== "1")
       throw Error("PREPRODUCTION_CONFIGURATION_REQUIRED");

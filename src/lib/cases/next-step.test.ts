@@ -58,3 +58,11 @@ test("ordered repair after inspection returns to explicit intake review", () => 
   assert.equal(step.kind, "verify_intake");
   assert.match(step.label, /naročenem popravilu/);
 });
+
+test("converted cases direct work execution, parts and invoice closure", () => {
+ const base={status:"converted",offerPrepared:true,quibiLinked:true};
+ assert.match(nextCaseStep(base).label,/delovni nalog/);
+ assert.match(nextCaseStep({...base,workOrderStatus:"awaiting_parts"}).label,/dele/);
+ assert.match(nextCaseStep({...base,workOrderStatus:"ready_for_collection"}).label,/račun.*prevzem/);
+ assert.equal(nextCaseStep({...base,status:"closed"}).kind,"closed");
+});

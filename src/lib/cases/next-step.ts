@@ -7,7 +7,7 @@ export type CaseStepKind =
 export type CaseStep = { kind: CaseStepKind; label: string; externalConfirmed: false };
 
 export function nextCaseStep(input: {
-  status: string;
+  status: string; workOrderStatus?:string;
   offerPrepared: boolean;
   quibiLinked: boolean;
   quibiSyncStatus?: string;
@@ -61,6 +61,8 @@ export function nextCaseStep(input: {
       if (input.slotOfferStatus === "proposed") return step("manual_scheduling",
         "Tri možnosti so pripravljene. Po dejanskem pošiljanju stranki zabeleži referenco; termini še niso rezervirani.");
       return step("manual_scheduling", "Ročno preveri tri možnosti v MyPlanlyju, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
+    case "converted": return step("manual_external_handoff", input.workOrderStatus==="awaiting_parts" ? "Pridobi potrebne dele in nadaljuj delo v nalogu." : input.workOrderStatus==="ready_for_collection" ? "Preveri dejanski račun v Quibiju ter uredi prevzem in plačilo pred zaključkom naloga." : "Odpri delovni nalog in zabeleži potek popravila. Račun ostaja v Quibiju; zaključek zahteva dejansko preverjen račun in prevzem.");
+    case "closed": return step("closed", "Primer in delovni nalog sta zaključena.");
     case "appointment_confirmed": return step("manual_external_handoff", "Interni termin temelji na ročno zabeleženi rezervaciji v MyPlanlyju. Google Koledar ni samodejno usklajen.");
     case "declined": return step("closed", "Stranka je zavrnila storitev. Primer je zaključen brez termina.");
     default: return step("closed", "Preveri stanje primera in morebitne odprte napake.");
