@@ -22,3 +22,24 @@ test("transport fails closed if send opt-in is removed after client construction
  await assert.rejects(client.sendDocument("2176888","customer@fixture.mail"),/QUIBI_WORKFLOW_DISABLED/);assert.equal(calls,0);
  assert.equal(quibiWorkflowConfig({...env,QUIBI_PRODUCTION_SEND_ENABLED:"0",QUIBI_PRODUCTION_WRITE_ENABLED:"0"},"read").mode,"production");
 });
+
+const dev={APP_ENV:"preproduction",QUIBI_MODE:"dev",VERCEL_ENV:"preview",QUIBI_DEV_WRITE_ENABLED:"1",QUIBI_DEV_USERNAME:"fixture-dev",QUIBI_DEV_PASSWORD:"fixture-dev",QUIBI_DEV_TEST_RECIPIENT:"online.gold100@gmail.com"};
+test("DEV synthetic matching customer email selects only configured test recipient",()=>{
+ assert.equal(workflowRecipient(dev," QA@example.test ","qa@EXAMPLE.TEST"),dev.QUIBI_DEV_TEST_RECIPIENT);
+ assert.throws(()=>workflowRecipient(dev,"qa@example.test","other@example.test"));
+ for(const email of [null,"","broken","qa@","qa@example.test\nBcc:other@mail.test"])assert.throws(()=>workflowRecipient(dev,email,email??""));
+});
+test("DEV rejects missing/reserved test recipient and any customer mailbox as recipient",()=>{
+ for(const recipient of ["","qa@example.test","qa@example.com","customer@fixture.mail","CUSTOMER@fixture.mail"]){
+  assert.throws(()=>workflowRecipient({...dev,QUIBI_DEV_TEST_RECIPIENT:recipient},"customer@fixture.mail","customer@fixture.mail"));
+ }
+});
+test("DEV transport rejects customer address even when synthetically matched",async()=>{
+ const requests:{url:string;email:string}[]=[];
+ const client=createQuibiWorkflowWriteClient({username:dev.QUIBI_DEV_USERNAME,password:dev.QUIBI_DEV_PASSWORD,environment:dev,
+ fetcher:async(url,init)=>{requests.push({url:String(url),email:JSON.parse(String(init?.body)).email});return new Response(JSON.stringify({error:false,data:{send_id:"fixture-synthetic",status:"queued"}}),{status:200})}});
+ await assert.rejects(client.sendDocument("2176888","qa@example.test"));
+ await assert.rejects(client.sendDocument("2176888","customer@fixture.mail"));
+ await client.sendDocument("2176888",workflowRecipient(dev,"qa@example.test","qa@example.test"));
+ assert.deepEqual(requests,[{url:"https://dev.quibi.net/api2/glavadokumenta/send/2176888",email:dev.QUIBI_DEV_TEST_RECIPIENT}]);
+});

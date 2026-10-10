@@ -53,3 +53,22 @@ test("local acceptance failure reconciles without sending twice",async()=>{
  assert.equal(f.state()?.sendStatus,"sent");await w.pollEstimateSend({...f,environment:production,caseId,quoteId});
  assert.ok(f.events.includes("acceptance"));assert.equal(f.events.filter(e=>e.startsWith("send:")).length,1);
 });
+
+test("case #9D40C42F synthetic DEV customer: document 2176888, approved 122 EUR, test mailbox only",async()=>{
+ const f=fixture("approved_for_send");f.set({customerEmail:"qa@example.test",remoteEmail:"qa@example.test"});
+ const op=await send(f);const body=JSON.parse(op.requestBody);
+ assert.equal(body.caseId,caseId);assert.equal(body.documentId,"2176888");assert.equal(body.customerId,"405956");assert.equal(body.vehicleId,"2387");assert.equal(body.amount,122);
+ assert.equal(body.customerEmail,"qa@example.test");assert.equal(body.recipient,dev.QUIBI_DEV_TEST_RECIPIENT);
+ assert.equal(f.events.includes("approve"),false);assert.equal(f.events.includes("send:qa@example.test"),false);
+ await w.pollEstimateSend({...f,environment:dev,caseId,quoteId});assert.equal(f.events.includes("acceptance"),false);
+ await assert.rejects(send(f),/QUIBI_SEND_ALREADY_ATTEMPTED/);assert.equal(f.events.filter(e=>e.startsWith("send:")).length,1);
+});
+test("synthetic email does not bypass DEV remote identity or document mismatch",async()=>{
+ for(const change of [{remoteEmail:"other@example.test"},{customerId:"99"},{vehicleId:"99"}]){
+  const f=fixture();f.set({customerEmail:"qa@example.test",remoteEmail:"qa@example.test",...change});await assert.rejects(send(f));assert.equal(f.events.some(e=>e.startsWith("send:")),false);
+ }
+});
+test("production synthetic matching customer email remains rejected before approval or dispatch",async()=>{
+ const f=fixture();f.set({customerEmail:"qa@example.test",remoteEmail:"qa@example.test"});await assert.rejects(send(f,production),/QUIBI_CUSTOMER_EMAIL_UNVERIFIED/);
+ assert.equal(f.events.includes("approve"),false);assert.equal(f.events.some(e=>e.startsWith("send:")),false);assert.equal(f.state(),null);
+});

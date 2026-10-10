@@ -23,20 +23,26 @@ export function quibiWorkflowConfig(env: Record<string, string | undefined>, cap
     }
     throw Error("QUIBI_WORKFLOW_DISABLED");
 }
+/** Email equality is part of identity verification, even for synthetic DEV customers. */
+function matchingCustomerEmail(local: string | null, remote: string): string {
+    const email = local?.trim() ?? "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.toLowerCase() !== remote.trim().toLowerCase())
+        throw Error("QUIBI_CUSTOMER_EMAIL_UNVERIFIED");
+    return email;
+}
 export function actualCustomerEmail(local: string | null, remote: string): string {
-    const email = local?.trim() ?? "", domain = email.split("@")[1]?.toLowerCase() ?? "";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.toLowerCase() !== remote.trim().toLowerCase() ||
-        /(^|\.)(test|invalid|localhost|example\.(com|org|net))$/.test(domain) || domain.includes("example.test"))
+    const email = matchingCustomerEmail(local, remote), domain = email.split("@")[1].toLowerCase();
+    if (/(^|\.)(test|invalid|localhost|example\.(com|org|net))$/.test(domain) || domain.includes("example.test"))
         throw Error("QUIBI_CUSTOMER_EMAIL_UNVERIFIED");
     return email;
 }
 export function workflowRecipient(env: Record<string, string | undefined>, local: string | null, remote: string): string {
     const config = quibiWorkflowConfig(env, "send");
-    // Verify the customer's real address even in DEV, then redirect without exposing it to transport.
-    const actual = actualCustomerEmail(local, remote);
     if (config.mode === "production")
-        return actual;
-    const test = quibiDevTestRecipient(env, actual);
+        return actualCustomerEmail(local, remote);
+    // DEV may identify a synthetic customer, but never transports to that address.
+    const customerEmail = matchingCustomerEmail(local, remote);
+    const test = quibiDevTestRecipient(env, customerEmail);
     quibiDevTestRecipient(env, remote);
     return test;
 }
