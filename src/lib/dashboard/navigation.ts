@@ -75,9 +75,10 @@ export const APP_NAV_ITEMS: NavItem[] = [
   },
   {
     id: "integrations",
-    label: "Integracije",
+    label: "Quibi",
+    href: "/dashboard/quibi",
     icon: Plug,
-    available: false,
+    available: true,
   },
   {
     id: "settings",

@@ -1,3 +1,5 @@
+import {quibiCatalogs,parseQuibiCatalog,type QuibiCatalogKind} from "./catalog-read.ts";
+import {readQuibiPdf} from "./pdf-read.ts";
 import { parseCustomerDetail, parseCustomers, parseDocuments, parseDocumentStatus, parseEstimateDetail, parseVehicleDetail, parseVehicles } from "./contracts.ts";
 import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } from "../demo/config.ts";
 import { createDemoQuibiReadClient } from "./demo-client.ts";
@@ -74,6 +76,16 @@ export function createQuibiReadClient(config: Config) {
     },
     async documentStatus(id: string, customerId: string) {
       return parseDocumentStatus(await read(`/api2/glavadokumenta/view/${validId(id)}`), id, validId(customerId));
+    },
+    async catalog(kind: QuibiCatalogKind) {
+      if(!Object.hasOwn(quibiCatalogs,kind))throw Error("QUIBI_INVALID_CATALOG");
+      return parseQuibiCatalog(await read(quibiCatalogs[kind].path),kind);
+    },
+    async documentPdf(id: string) {
+      return readQuibiPdf(fetcher, origin+"/api2/glavadokumenta/pdf", {username:config.username,password:config.password,"Content-Type":"application/json"}, validId(id));
+    },
+    async documentDetail(id: string, customerId: string) {
+      return parseEstimateDetail(await read(`/api2/glavadokumenta/view/${validId(id)}`), id, validId(customerId));
     },
     async estimateDetail(id: string, customerId: string) {
       return parseEstimateDetail(await read(`/api2/glavadokumenta/view/${validId(id)}`), id, validId(customerId));

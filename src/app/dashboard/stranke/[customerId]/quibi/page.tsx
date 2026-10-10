@@ -185,7 +185,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
           })}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Delovni nalogi v Quibiju</h2>
-        <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}>Nalog #{doc.id} · {quibiDocumentStatusLabel(doc.status)}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-sm">{orders.map((doc) => <li key={doc.id}><Link className="text-blue-700" href={`/dashboard/stranke/${customerId}/quibi/dokumenti/work_order/${doc.id}`}>Nalog #{doc.id} · preveri postavke in status</Link> · {quibiDocumentStatusLabel(doc.status)}</li>)}</ul>
         {orders.length === 0 && !readError && <p className="text-sm text-slate-600">Ni prikazanih nalogov.</p>}
       </section>
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračuni v Quibiju</h2>
@@ -198,7 +198,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
       <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Računi v Quibiju</h2>
         <p className="text-sm text-slate-600">Bralni pregled. Končni znesek računa ni Tadejeva odobrena cena predračuna.</p>
         {invoiceReadError && <p role="alert" className="text-red-700">Računov trenutno ni mogoče prebrati.</p>}
-        <ul className="mt-2 space-y-1 text-sm">{invoices.map((doc) => <li key={doc.id}>Račun #{doc.id} · {quibiDocumentStatusLabel(doc.status)}{doc.amount ? ` · znesek v Quibiju: ${doc.amount}` : ""}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-sm">{invoices.map((doc) => <li key={doc.id}><Link className="text-blue-700" href={`/dashboard/stranke/${customerId}/quibi/dokumenti/invoice/${doc.id}`}>Račun #{doc.id} · preveri postavke in status</Link> · {quibiDocumentStatusLabel(doc.status)}{doc.amount ? ` · znesek v Quibiju: ${doc.amount}` : ""}</li>)}</ul>
         {invoices.length === 0 && !invoiceReadError && !readError && <p className="text-sm text-slate-600">Ni prikazanih računov.</p>}
       </section>
     </> : <section className="rounded-xl border bg-white p-4 space-y-4">
