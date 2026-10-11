@@ -28,3 +28,13 @@ test('local creation permission is limited to one synthetic body and forbids eve
   assert.throws(()=>assertLocalPartyWriteTarget({...createEnv,QUIBI_DEV_LOCAL_WRITE_BODY_SHA256:createHash('sha256').update(JSON.stringify(changed)).digest('hex')},'/api2/stranka/form','POST',changed));
  }
 });
+
+test('one approved DEV vehicle create permits only exact synthetic scope and payload SHA',()=>{
+ const body={Vozila:{stranka_id:405957,registrskastevilka:'QA SELAN AI',internastevilka:'TESTSELANAX202601',proizvajalec:'TEST',model:'SELAN AI'}};
+ const allowed={...env,QUIBI_DEV_LOCAL_WRITE_ACTION:'create_vehicle',QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID:'405957',QUIBI_DEV_LOCAL_WRITE_VEHICLE_ID:'11111111-1111-4111-8111-111111111111',QUIBI_DEV_LOCAL_WRITE_BODY_SHA256:createHash('sha256').update(JSON.stringify(body)).digest('hex')};
+ assert.doesNotThrow(()=>assertLocalPartyWriteTarget(allowed,'/api2/vozila/form','POST',body));
+ for(const patch of [{stranka_id:405956},{internastevilka:'TESTSELANAI202601'},{model:'Other'},{opomba:'extra'}]){const changed={Vozila:{...body.Vozila,...patch}};assert.throws(()=>assertLocalPartyWriteTarget({...allowed,QUIBI_DEV_LOCAL_WRITE_BODY_SHA256:createHash('sha256').update(JSON.stringify(changed)).digest('hex')},'/api2/vozila/form','POST',changed));}
+ for(const path of ['/api2/vozila/form/5101','/api2/stranka/form','/api2/glavadokumenta/form','/api2/glavadokumenta/send/2176888'])assert.throws(()=>assertLocalPartyWriteTarget(allowed,path,'POST',body));
+ assert.throws(()=>assertLocalPartyWriteConfiguration({...allowed,QUIBI_DEV_LOCAL_WRITE_VEHICLE_ID:undefined}));
+ assert.throws(()=>quibiWorkflowConfig(allowed,'send'));
+});

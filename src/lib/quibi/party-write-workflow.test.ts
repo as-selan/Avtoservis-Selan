@@ -130,3 +130,13 @@ test('legacy uncertain UUID request remains immutable and truncated prefix is ne
  await assert.rejects(createOrReconcileCustomer({journal:f.journal,input:{serviceRequestId:caseId,customerId,name:body.naziv,email:'',phone:''},read:{async customers(){return [{id:'9001',remoteId:customerId.slice(0,22),name:body.naziv,email:'',phone:''}]},async customer(){throw Error('UNEXPECTED')}},write:{async createCustomer(){writes++}}}),/CREATE_UNCERTAIN/);
  assert.equal(writes,0);assert.equal((await f.journal.get('customer',customerId))?.requestBody,requestBody);
 });
+
+test('global VIN or registration conflicts, including disabled vehicles, prevent CREATE',async()=>{
+ const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,vehicleId,quibiCustomerId:'405957',vin:'TESTSELANAX202601',registration:'QA SELAN AI',make:'TEST',model:'SELAN AI'};
+ const read={async vehicles(){return []},async allVehicles(){return [{id:'1',customerId:'999',vin:'OTHER',registration:'QA-SELAN-AI',make:'TEST',model:'SELAN AI',disabled:true}]},async vehicle(){throw Error('unexpected')}};
+ await assert.rejects(createOrReconcileVehicle({journal:f.journal,read,write:{async createVehicle(){writes++;return '2'}},input}),/MATCH_REVIEW_REQUIRED/);assert.equal(writes,0);
+});
+test('definitive vehicle rejection remains failed and never dispatches again',async()=>{
+ const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,vehicleId,quibiCustomerId:'405957',vin:'TESTSELANAX202601',registration:'QA SELAN AI',make:'TEST',model:'SELAN AI'};const read={async vehicles(){return []},async vehicle(){throw Error('unexpected')}};const write={async createVehicle(){writes++;throw Error('QUIBI_HTTP_403')}};
+ await assert.rejects(createOrReconcileVehicle({journal:f.journal,read,write,input}),/CREATE_REJECTED/);assert.equal((await f.journal.get('vehicle',vehicleId))?.state,'failed');await assert.rejects(createOrReconcileVehicle({journal:f.journal,read,write,input}));assert.equal(writes,1);
+});

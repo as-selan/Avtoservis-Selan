@@ -75,7 +75,7 @@ export async function createOrReconcileCustomer(args: { journal: OperationJourna
 
 export type VehicleCreateInput = { serviceRequestId: string; vehicleId: string; quibiCustomerId: string;
   registration: string; vin: string; make: string; model: string };
-export type VehicleCreateRead = { vehicles(customerId: string): Promise<QuibiVehicle[]>;
+export type VehicleCreateRead = { allVehicles?(): Promise<Pick<QuibiVehicle,"id"|"vin"|"registration">[]>; vehicles(customerId: string): Promise<QuibiVehicle[]>;
   vehicle(id: string, customerId: string): Promise<QuibiVehicle> };
 export type VehicleCreateWrite = { createVehicle(body: { stranka_id: string; registrskastevilka: string;
   internastevilka: string; proizvajalec: string; model: string }): Promise<string> };
@@ -108,9 +108,9 @@ export async function createOrReconcileVehicle(args: { journal: OperationJournal
   }
   if (op?.state === "verified" || op?.state === "uncertain") return reconcile(op);
   if (op?.state === "dispatching" || op?.state === "failed") throw new Error("QUIBI_VEHICLE_CREATE_UNCERTAIN");
-  const existing = await read.vehicles(input.quibiCustomerId);
-  if (existing.some((item) => item.customerId === input.quibiCustomerId && !item.disabled &&
-      (normalized(item.registration) === normalized(input.registration) ||
+  const existing = read.allVehicles ? await read.allVehicles() : await read.vehicles(input.quibiCustomerId);
+  if (existing.some((item) =>
+      (item.registration.replace(/[^a-z0-9]/gi,"").toLowerCase() === input.registration.replace(/[^a-z0-9]/gi,"").toLowerCase() ||
        normalized(item.vin) === normalized(input.vin))))
     throw new Error("QUIBI_VEHICLE_MATCH_REVIEW_REQUIRED");
   op ??= await journal.insertOnce({ kind: "vehicle", localEntityId: input.vehicleId,
@@ -120,8 +120,10 @@ export async function createOrReconcileVehicle(args: { journal: OperationJournal
   if (op.state !== "prepared" || !await journal.claim(op.id, "prepared"))
     throw new Error("QUIBI_VEHICLE_CREATE_CONCURRENT");
   let returnedId: string | null = null;
-  try { returnedId = await write.createVehicle(body); } catch { /* May have committed. */ }
+  let rejection:unknown=null;
+  try { returnedId = await write.createVehicle(body); } catch(error) { rejection=error; }
   op = await journal.patch(op.id, "dispatching", { state: "uncertain",
     ...(returnedId ? { quibiId: returnedId } : {}) });
+  if(isDefinitiveQuibiRejection(rejection)){await journal.patch(op.id,'uncertain',{state:'failed'});throw Error('QUIBI_VEHICLE_CREATE_REJECTED')}
   return reconcile(op);
 }

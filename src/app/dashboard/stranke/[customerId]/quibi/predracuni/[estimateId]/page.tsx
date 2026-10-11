@@ -49,8 +49,8 @@ export default async function QuibiEstimatePage({ params }: {
     {link.sync_status !== "ok" && <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
       Povezava stranke zahteva ponovni pregled. Ne potrjujte cene, dokler ne razrešite neskladja.
     </p>}
-    {!simulated && <a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/estimate/${estimateId}/pdf`}>Odpri dejanski PDF iz Quibija</a>}
-    {simulated && <p className="text-sm text-amber-800">PDF ni na voljo v lokalni simulaciji. Dejanski PDF se odpre prek preverjenega Quibi READ dostopa.</p>}
+    {<a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/estimate/${estimateId}/pdf`}>{simulated ? 'Odpri simuliran PDF QA-SIM' : 'Odpri dejanski PDF iz Quibija'}</a>}
+    {simulated && <p className="text-sm text-amber-800">PDF QA-SIM je ustvarjen samo v lokalnem simuliranem API-ju in ni poslovni dokument iz Quibija.</p>}
     <section className="rounded-xl border bg-white p-4 space-y-2">
       <h2 className="font-semibold">{simulated ? "Simulirana vsebina dokumenta QA" : "Dejanska vsebina dokumenta"}</h2>
       <p className="text-sm">Status: {quibiDocumentStatusLabel(estimate.status)}</p>

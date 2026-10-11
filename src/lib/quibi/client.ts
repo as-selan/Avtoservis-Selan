@@ -1,6 +1,6 @@
 import {quibiCatalogs,parseQuibiCatalog,type QuibiCatalogKind} from "./catalog-read.ts";
 import {readQuibiPdf} from "./pdf-read.ts";
-import { parseCustomerDetail, parseCustomers, parseDocuments, parseDocumentStatus, parseEstimateDetail, parseVehicleDetail, parseVehicles } from "./contracts.ts";
+import { parseCustomerDetail, parseCustomers, parseDocuments, parseDocumentStatus, parseEstimateDetail, parseVehicleDetail, parseVehicles, parseVehicleCandidates } from "./contracts.ts";
 import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } from "../demo/config.ts";
 import { createDemoQuibiReadClient } from "./demo-client.ts";
 
@@ -54,6 +54,7 @@ export function createQuibiReadClient(config: Config) {
       if (value.id !== id) throw new Error("QUIBI_CUSTOMER_ID_MISMATCH");
       return value;
     },
+    async allVehicles() { return parseVehicleCandidates(await read("/api2/vozila/index")); },
     async vehicles(customerId: string) {
       const id = validId(customerId);
       return parseVehicles(await read(`/api2/vozila/index/${id}`)).filter((vehicle) => vehicle.customerId === id);

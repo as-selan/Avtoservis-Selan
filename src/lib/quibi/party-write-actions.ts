@@ -84,6 +84,7 @@ export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
   if (!inputIds)
     return fail("Potrdite ustvarjanje vozila za preverjeno Quibijevo stranko.");
   const { customerId, vehicleId } = inputIds;
+  if(process.env.QUIBI_DEV_LOCAL_WRITE_ACTION==="create_vehicle" && vehicleId!==process.env.QUIBI_DEV_LOCAL_WRITE_VEHICLE_ID)return fail("Lokalno dovoljenje ne velja za to vozilo.");
   try {
     const ctx = await context();
     const [{ data: customer }, { data: link }, { data: vehicle }, { data: existingLink },
@@ -130,6 +131,7 @@ export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
     revalidatePath(`/dashboard/stranke/${customerId}/quibi`);
     return { ok: true, detail: `Quibi vozilo #${op.quibiId} je ponovno prebrano in povezano.` };
   } catch (error) {
+    if(error instanceof Error && error.message==="QUIBI_VEHICLE_CREATE_REJECTED")return fail("Quibi je ustvarjanje vozila dokončno zavrnil. Zahteva ostaja zaklenjena; preverite pravice in dnevnik.");
     if (error instanceof Error && error.message === "QUIBI_VEHICLE_MATCH_REVIEW_REQUIRED")
       return fail("V Quibiju je možno ujemanje vozila. Najprej ročno preglejte obstoječi zapis.");
     return fail("Ustvarjanje vozila ni zanesljivo potrjeno. Ponovni poskus samo preveri vozila iste stranke; ne pošlje novega create zahtevka.");

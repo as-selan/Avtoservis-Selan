@@ -108,3 +108,5 @@ test("vehicle adapter reads only the confirmed customer's Quibi vehicles and val
   await assert.rejects(client.vehicle("972", "13"), /QUIBI_CUSTOMER_ID_MISMATCH/);
   assert.deepEqual(calls, ["/api2/vozila/index/12", "/api2/vozila/view/972", "/api2/vozila/view/972"]);
 });
+
+test('global duplicate candidates include orphan vehicles without granting ownership',async()=>{const client=createQuibiReadClient({username:'test',password:'test',fetcher:(async()=>new Response(JSON.stringify({error:false,data:{Vozila:[{Vozila:{id:10,stranka_id:null,internastevilka:'TESTSELANAX202601',registrskastevilka:'QA SELAN AI',disabled:1}}]}}))) as typeof fetch});assert.deepEqual(await client.allVehicles(),[{id:'10',vin:'TESTSELANAX202601',registration:'QA SELAN AI'}]);await assert.rejects(client.vehicles('405957'),/INVALID_VEHICLE_ID/);});
