@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     const payload = (data ?? {}) as { ok?: boolean; service_request_id?:string };
     if (payload.ok === true) {
-      if(typeof payload.service_request_id==='string')scheduleIntakeSynchronization(payload.service_request_id);
+      schedulePersistedWebIntakeSynchronization(validated.input.clientRequestId);
       return json(publicWebIntakeSuccess(), 200);
     }
 
