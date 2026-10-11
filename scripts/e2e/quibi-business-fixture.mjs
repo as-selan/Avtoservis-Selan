@@ -31,4 +31,3 @@ export function createBusinessFixture(customers,send){
   send(res,400,{error:true});return true;
  };
 }
-
