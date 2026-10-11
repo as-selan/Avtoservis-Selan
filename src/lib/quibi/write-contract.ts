@@ -18,7 +18,7 @@ export function assertQuibiDevWriteAllowed(env: Record<string, string | undefine
 }
 
 export type DocumentLine =
-  | { sifra: string; kolicina: number; popust?: number; ddv_id?: string }
+  | { sifra: string; kolicina: number; popust?: number; ddv_id?: string; cena?: number; opis?: string }
   | { opis: string; enota_id: string; ddv_id: string; kolicina: number; cenaZDDV: number; popust: number };
 
 export type CreateEstimateInput = {
@@ -46,7 +46,7 @@ export function buildEstimateBody(input: CreateEstimateInput): EstimateBody {
   const lines: Record<string, DocumentLine> = {};
   input.lines.forEach((line, index) => {
     if (!Number.isFinite(line.kolicina) || line.kolicina <= 0 || line.kolicina > 100000 ||
-        ("sifra" in line ? !line.sifra.trim() || line.sifra.length > 100 :
+        ("sifra" in line ? !line.sifra.trim() || line.sifra.length > 100 || (line.cena != null && (!Number.isFinite(line.cena)||line.cena<0)) || (line.opis != null && (!line.opis.trim()||line.opis.length>500)) || (line.ddv_id != null&&!/^\d+$/.test(line.ddv_id)) || (line.popust != null&&(!Number.isFinite(line.popust)||line.popust<0||line.popust>100)) :
           !line.opis.trim() || line.opis.length > 500 || !/^\d+$/.test(line.enota_id) ||
           !/^\d+$/.test(line.ddv_id) || !Number.isFinite(line.cenaZDDV) || line.cenaZDDV < 0 ||
           !Number.isFinite(line.popust) || line.popust < 0 || line.popust > 100)) {

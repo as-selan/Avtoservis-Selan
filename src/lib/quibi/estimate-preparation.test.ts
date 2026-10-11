@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {estimatePreparationPayload} from './estimate-preparation.ts';
 import {stableEstimatePayload} from './write-contract.ts';
 const catalogs={numberings:[{id:'2061',label:'Predračun'}],saleTypes:[{id:'1',label:'Dobava'}],units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]};
-const input={serviceRequestId:'f4e5772f-1b9e-4123-a04d-faee37a33860',customerId:'405957',vehicleId:'2388',saleTypeId:'1',lines:[{opis:'Popravilo',enota_id:'1',ddv_id:'5',kolicina:1,cenaZDDV:122,popust:0}]};
+const input={serviceRequestId:'f4e5772f-1b9e-4123-a04d-faee37a33860',customerId:'405957',vehicleId:'2388',saleTypeId:'1',lines:[{opis:'Popravilo',enota_id:'1',ddv_id:'5',kolicina:1,cenaZDDV:100,popust:0}]};
 test('preparation uses the same body and digest as dispatch; changed amount changes digest',()=>{const p=estimatePreparationPayload(input,catalogs);assert.deepEqual({json:p.json,sha256:p.sha256},stableEstimatePayload(p.body));assert.equal(p.body.Glavadokumenta.vozila_id,2388);assert.equal(p.body.Postavkedokumenta['1'].kolicina,1);assert.notEqual(estimatePreparationPayload({...input,lines:[{...input.lines[0],cenaZDDV:123}]},catalogs).sha256,p.sha256);});
 test('preparation fails closed for missing or ambiguous numbering, unknown VAT or unit',()=>{for(const patch of [{numberings:[]},{numberings:[...catalogs.numberings,{id:'999',label:'Predračun'}]},{vatRates:[]},{units:[]},{saleTypes:[]}])assert.throws(()=>estimatePreparationPayload(input,{...catalogs,...patch}),/CATALOG/);assert.throws(()=>estimatePreparationPayload({...input,lines:[{...input.lines[0],cenaZDDV:NaN}]},catalogs),/INVALID/);});
 

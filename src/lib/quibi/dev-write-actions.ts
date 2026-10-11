@@ -1,4 +1,5 @@
 "use server";
+import {unitNetFromGross} from "./line-pricing";
 import {stableEstimatePayload,withDocumentId} from './write-contract';
 import {quibiWorkflowJournal} from './write-journal';
 import {estimateRevisionPreparation} from './estimate-revision-preparation';
@@ -48,7 +49,8 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     if (!choices.saleTypes.some((item) => item.id === saleTypeId) ||
         !choices.units.some((item) => item.id === unitId) ||
         !choices.vatRates.some((item) => item.id === vatId)) return fail("Izbrani šifranti v Quibiju niso več veljavni.");
-    const source = await estimateCatalogSource(form, ctx.read, choices);
+    const source = await estimateCatalogSource(form, ctx.read, choices,ctx.remoteCustomer);
+    if(form.get('historySource')&&ctx.remoteCustomer.priceListId!==null)throw Error('QUIBI_CUSTOMER_PRICING_UNVERIFIED');
     const history=form.get('historySource') ? await freshHistorySource(form,historyRead(ctx.read),{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code}) : null;
     if(history && form.get('expectedSourceSha')!==history.sourceSha)return fail('Zgodovina ali aktualna cena se je spremenila. Ponovno preglejte predlog; dokument ni ustvarjen.');
     if(!history && source && form.get('expectedSourceSha')!==source.option.sourceSha)return fail('Quibijeva postavka ali cena se je spremenila. Ponovno preglejte ponudbo; dokument ni ustvarjen.');
@@ -56,7 +58,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
       input: { serviceRequestId, customerId: ctx.link.external_id,
         vehicleId: ctx.vehicleLink.quibi_vehicle_id, saleTypeId,
         lines: history ? history.payloadLines : source ? [source.line] : [{ opis: ctx.lineDescription, enota_id: unitId, ddv_id: vatId,
-          kolicina: 1, cenaZDDV: price!, popust: 0 }],
+          kolicina: 1, cenaZDDV: unitNetFromGross(price!,vatId,choices.vatRates), popust: 0 }],
         note: `${quibiWorkflowConfig(process.env, "write").mode === "dev" ? "TEST-AUTOSERVIS-SELAN" : "AVTOSERVIS-SELAN"} ${serviceRequestId}` },
     });
     if (!op.quibiId) return fail("Dokument ni preverljivo ustvarjen.");
@@ -103,9 +105,9 @@ export async function updateQuibiDevEstimate(form: FormData): Promise<Result> {
       return fail("Popravek je dovoljen samo za zavrnjeni, preverjeno ustvarjeni Quibi predračun.");
     const base = JSON.parse(created.requestBody) as EstimateBody;
     const first = base.Postavkedokumenta["1"];
-    if (!first || !("opis" in first)) return fail("Postavke ni mogoče varno popraviti.");
+    if (!first || ("sifra" in first)) return fail("Postavke ni mogoče varno popraviti.");
     const replacement: EstimateBody = { ...base, Postavkedokumenta: {
-      "1": { ...first, opis: ctx.lineDescription, cenaZDDV: price },
+      "1": { ...first, opis: ctx.lineDescription, cenaZDDV: unitNetFromGross(price,first.ddv_id,(await quibiDevEstimateChoices(ctx.write)).vatRates) },
     } };
     if(stableEstimatePayload(withDocumentId(replacement,created.quibiId)).sha256!==form.get('expectedSha'))return fail('Priprava popravka se je spremenila. Ponovno preglejte SHA; Quibi ni bil spremenjen.');
     const updated = await updateAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write,
@@ -252,17 +254,19 @@ export async function checkQuibiDevTestEstimateStatus(form: FormData): Promise<R
 /** Only READ calls: no operation journal insertion or external dispatch. */
 export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
   const id=form.get('serviceRequestId'),sale=form.get('saleTypeId'),unit=form.get('unitId'),vat=form.get('vatId'),price=validPrice(form.get('unitPrice'));
-  if(typeof id!=='string'||typeof sale!=='string'||typeof unit!=='string'||typeof vat!=='string'||(price==null&&!form.get('catalogSource')&&!form.get('historySource'))||form.get('serviceMatchConfirmed')!=='yes')return fail('Preverite ceno, storitev in identiteto.');
+  if(typeof id!=='string'||typeof sale!=='string'||typeof unit!=='string'||typeof vat!=='string'||(price==null&&!form.get('catalogSource')&&!form.get('historySource')))return fail('Preverite ceno, storitev in identiteto.');
   try {
     const ctx=await quibiEstimatePreparationContext(id);
     const {data:quotes,error}=await ctx.db.from('quotes').select('id').eq('organization_id',ctx.access.organizationId).eq('service_request_id',id).limit(1);
     if(error||quotes?.length)return fail('Predračun je že povezan ali njegove evidence ni mogoče preveriti.');
     const [numberings,sales,units,vatRates]=await Promise.all(['numberings','saleTypes','units','vat'].map(kind=>ctx.read.catalog(kind as 'numberings'|'saleTypes'|'units'|'vat')));
-    const source=await estimateCatalogSource(form,ctx.read,{units,vatRates});
+    const source=await estimateCatalogSource(form,ctx.read,{units,vatRates},ctx.remoteCustomer);
+    if(form.get('historySource')&&ctx.remoteCustomer.priceListId!==null)throw Error('QUIBI_CUSTOMER_PRICING_UNVERIFIED');
     const history=form.get('historySource') ? await freshHistorySource(form,historyRead(ctx.read),{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code}) : null;
-    const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:history?history.payloadLines:source?[source.line]:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:price!,popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates},history?history.reviewedLines:source?[source.reviewedLine]:undefined);
+    const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:history?history.payloadLines:source?[source.line]:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:unitNetFromGross(price!,vat,vatRates),popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates},history?history.reviewedLines:source?[source.reviewedLine]:undefined);
+    payload.review.pricingSource=history?'Aktualne osnovne cene Quibi artiklov; postavke iz dokumenta #'+history.documentId:source?(ctx.remoteCustomer.priceListId?'Quibi cenik #'+ctx.remoteCustomer.priceListId+' je dodeljen tej stranki.':'Quibi stranka nima dodeljenega posebnega cenika; uporabljene so osnovne cene artiklov.'):'Ročno pregledana cena in sveži Quibi šifranti.';
     return {ok:true,sha:payload.sha256,sourceSha:history?.sourceSha??source?.option.sourceSha,review:payload.review,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
-  } catch {return fail('Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
+  } catch(error) {return fail(error instanceof Error&&error.message==='QUIBI_CUSTOMER_PRICING_UNVERIFIED'?'Quibi ni zanesljivo potrdil cenovne politike stranke ali dovoljenega prenosa posebne cene. Priprava je ustavljena; preverite dodeljeni cenik in artikel v Quibiju.':'Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
 }
 
 /** READ-only revision preparation; WRITE stays behind a separate explicit confirmation. */
@@ -296,7 +300,10 @@ export async function prepareQuibiEstimateHistory(form:FormData){
  const ctx=await quibiEstimatePreparationContext(id);
  const read=historyRead(ctx.read);
  const [units,vatRates]=await Promise.all([read.catalog('units'),read.catalog('vat')]);
- const source=await estimateCatalogSource(form,read,{units,vatRates});
- return await loadEstimateHistory(read,{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code});
+ const source=await estimateCatalogSource(form,read,{units,vatRates},ctx.remoteCustomer);
+ const offset=Number(form.get('historyOffset')??0),scope=form.get('historyScope')==='other'?'other':'vehicle';
+ if(!Number.isSafeInteger(offset)||offset<0)throw Error('INVALID_HISTORY_PAGE');
+ if(ctx.remoteCustomer.priceListId!==null)return {proposals:[],issues:['Quibi nima potrjene osnovne cenovne politike te stranke. Zgodovinski predlog je ustavljen; uporabite preverjeni artikel in cenik stranke.']};
+ return await loadEstimateHistory(read,{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code},{scope,offset});
  }catch{return {proposals:[],issues:['Zgodovine ni mogoče preveriti. Predlog ni pripravljen; dokument ni ustvarjen.']};}
 }

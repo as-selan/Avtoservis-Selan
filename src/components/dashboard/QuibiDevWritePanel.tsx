@@ -40,14 +40,26 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     let active=true;
     const form=new FormData();form.set('serviceRequestId',serviceRequestId);
     if(catalogSource){form.set('catalogSource',catalogSource);form.set('quantity','1');}
-    void prepareQuibiEstimateHistory(form).then(result=>{if(!active)return;setHistory(result);const reliable=result.proposals.filter(p=>p.ready&&p.scope==='vehicle');setHistorySource(reliable.length===1?reliable[0].key:'');}).catch(()=>{if(active)setHistory({proposals:[],issues:['Zgodovine trenutno ni mogoče preveriti.']});}).finally(()=>{if(active)setHistoryPending(false)});
+    void (async()=>{
+      let proposals:EstimateHistoryProposal[]=[],issues:string[]=[],scope='vehicle',offset=0,hasVehicleMatch=false;
+      while(active){
+        form.set('historyScope',scope);form.set('historyOffset',String(offset));
+        const result=await prepareQuibiEstimateHistory(form);if(!active)return;
+        proposals=[...new Map([...proposals,...result.proposals].map(p=>[p.key,p])).values()];issues=[...new Set([...issues,...result.issues])];
+        hasVehicleMatch=proposals.some(p=>p.ready&&p.scope==='vehicle');
+        setHistory({proposals,issues});
+        if(!('nextPage' in result)||!result.nextPage||(result.nextPage.scope==='other'&&hasVehicleMatch))break;
+        scope=result.nextPage.scope;offset=result.nextPage.offset;
+      }
+      if(active){const reliable=proposals.filter(p=>p.ready&&p.scope==='vehicle');setHistorySource(reliable.length===1&&!issues.some(i=>i.includes('ni popoln')||i.includes('največ pet'))?reliable[0].key:'');}
+    })().catch(()=>{if(active)setHistory({proposals:[],issues:['Zgodovine trenutno ni mogoče preveriti.']});}).finally(()=>{if(active)setHistoryPending(false)});
     return ()=>{active=false};
   },[serviceRequestId,mode,catalogSource]);
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
-  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed"].includes(event.target.name)) {setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false)}}} onSubmit={(event) => {
+  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed","serviceMatchConfirmed"].includes(event.target.name)) {setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false)}}} onSubmit={(event) => {
     event.preventDefault();
-    if (lock.current || pending || historyPending || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
+    if (lock.current || pending || (historyPending&&!selectedSource&&!selectedHistory) || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
     const form = new FormData(event.currentTarget);
     form.set("serviceRequestId", serviceRequestId);
     if (quoteId) form.set("quoteId", quoteId);
@@ -95,7 +107,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
           {history.proposals.filter(p=>!p.ready).map(p=><p key={p.key}>Dokument #{p.documentId}: {p.issues.join(' ')}</p>)}
           {selectedHistory&&<div className="space-y-2">
             <p>Vir: Quibi dokument #{selectedHistory.documentId}, {selectedHistory.date}. {selectedHistory.scope==='other'?'Predloga ni mogoče predstavljati kot popravilo tega vozila.':''}</p>
-            {selectedHistory.lines.map((line,index)=><div key={index} className="border-t pt-2"><p className="break-words">{line.description} · {line.articleCode}</p><p>{line.quantity} {line.unit} · aktualni DDV {line.vat}</p><p>Prejšnja cenaZDDV iz dokumenta: {money(Number(line.previousPrice))} · prejšnji popust {line.previousDiscount} % · prejšnji DDV ID {line.historicalVat}</p><p>Aktualna cena na enoto: {money(line.currentPrice)} · aktualni popust {line.discount} %</p></div>)}
+            {selectedHistory.lines.map((line,index)=><div key={index} className="border-t pt-2"><p className="break-words">{line.description} · {line.articleCode}</p><p>{line.quantity} {line.unit} · aktualni DDV {line.vat}</p><p>Prejšnja cena na enoto z DDV: {money(Number(line.previousPrice))} · prejšnji popust {line.previousDiscount} % · prejšnji DDV {line.historicalVat}</p><p>Aktualna cena na enoto: {money(line.currentPrice)} · aktualni popust {line.discount} %</p></div>)}
             <p>Predlagano skupaj: {money(selectedHistory.total)}. Preglejte, ali so vse izvorne postavke potrebne za to popravilo. Vse postavke se ponovno preverijo pred ustvarjanjem.</p>
           </div>}
         </>}
@@ -103,8 +115,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       {selectedSource && !selectedHistory && <div className="space-y-2 rounded border bg-blue-50 p-3 text-sm">
         <p>{selectedSource.name} · šifra {selectedSource.code}</p>
         <p>Quibi: {money(selectedSource.grossPrice)} na {selectedSource.unitLabel} z DDV {selectedSource.vatLabel} · popust {selectedSource.discount} %</p>
-        {selectedSource.priceListDiffers && <p className="text-amber-800">Cenik {selectedSource.priceListName}: {money(Number(selectedSource.priceListNetPrice))} brez DDV, popust {selectedSource.priceListDiscount} %. Ta posebna cena ni uporabljena; pregled in CREATE s šifro uporabljata zgoraj prikazano osnovno ceno artikla.</p>}
-        <p>Pri CREATE Quibi uporabi svojo šifro in ceno. Pred potrditvijo bosta artikel in cenik ponovno prebrana.</p>
+        {selectedSource.priceListDiffers && <p className="text-amber-800">Cenik {selectedSource.priceListName}: {money(Number(selectedSource.priceListNetPrice))} brez DDV, popust {selectedSource.priceListDiscount} %. Strežnik pri pregledu ponudbe preveri, ali je cenik dodeljen tej stranki. Ne uporabljajte posebne cene brez potrjene dodelitve.</p>}
+        <p>Pred potrditvijo strežnik ponovno prebere stranko, artikel in cenik. Veljavna cena je prikazana v pregledu ponudbe.</p>
         <label className="block">Količina<input name="quantity" type="number" defaultValue="1" min="0.001" max="100000" step="0.001" required className="mt-1 block w-full rounded border px-3 py-2"/></label>
         <input type="hidden" name="unitId" value={selectedSource.unitId}/><input type="hidden" name="vatId" value={selectedSource.vatId}/>
         <input type="hidden" name="unitPrice" value={selectedSource.grossPrice}/>
@@ -117,25 +129,25 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
           {choices?.saleTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
-      <div className="grid gap-2 sm:grid-cols-2">
+      {selectedHistory?<><input type="hidden" name="unitId" value={choices?.units.find(u=>u.label===selectedHistory.reviewedLines[0]?.unit)?.id??''}/><input type="hidden" name="vatId" value={selectedHistory.payloadLines[0]?.ddv_id??''}/></>:<div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-sm">Enota
-          <select key={`unit-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.unitId} name="unitId" disabled={!!selectedSource&&!selectedHistory} required className="mt-1 block w-full rounded border px-3 py-2">
-            {choices?.units.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          <select key={`unit-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.unitId??''} name="unitId" disabled={!!selectedSource&&!selectedHistory} required className="mt-1 block w-full rounded border px-3 py-2">
+            <option value="">Izberite enoto</option>{choices?.units.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
         <label className="block text-sm">DDV
-          <select key={`vat-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.vatId} name="vatId" disabled={!!selectedSource} required className="mt-1 block w-full rounded border px-3 py-2">
-            {choices?.vatRates.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          <select key={`vat-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.vatId??''} name="vatId" disabled={!!selectedSource} required className="mt-1 block w-full rounded border px-3 py-2">
+            <option value="">Izberite preverjeni DDV</option>{choices?.vatRates.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
-      </div>
+      </div>}
     </>}
     {(mode === "prepare" || mode === "create" || mode === "update") && <>
       {!selectedSource && !selectedHistory && <label className="block text-sm">Cena za eno storitev z DDV (€)
         <input name="unitPrice" type="number" min="0.01" max="1000000" step="0.01" required
           className="mt-1 block w-full rounded border px-3 py-2" />
       </label>}
-      <label className="flex gap-2 text-sm"><input name="serviceMatchConfirmed" type="checkbox" value="yes" required />
+      <label className="flex gap-2 text-sm"><input name="serviceMatchConfirmed" type="checkbox" value="yes" required={!!preparedSha} />
         Preveril sem, da storitev, stranka, vozilo in predračun pripadajo temu primeru.
       </label>
     </>}
@@ -146,13 +158,13 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         Potrjujem pošiljanje samo na konfiguriran testni naslov.
       </label>
     </>}
-    <button disabled={pending || historyPending || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
+    <button disabled={pending || (historyPending&&!selectedSource&&!selectedHistory) || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
       {pending ? "Preverjam…" : mode === "prepare" ? "Preglej ponudbo" : mode === "create" ? "Preglej ponudbo" : mode === "update" ? "Preglej popravek" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
     </button>
     {(mode === "create" || mode === "prepare" || mode === "update") && preparedSha && <div className="space-y-2">
       {review && <section aria-label="Pregled ponudbe pred ustvarjanjem" className="space-y-2 rounded border bg-slate-50 p-3 text-sm">
         <p>Quibi stranka #{review.customerId} · vozilo #{review.vehicleId}</p>
-        <p>{review.numbering} · {review.saleType}</p>
+        <p>{review.numbering} · {review.saleType}</p>{review.pricingSource&&<p>{review.pricingSource}</p>}
         {review.lines.map((line,index)=><div key={index} className="space-y-1 border-t pt-2">
           <p className="whitespace-pre-wrap break-words font-medium">{line.description}</p>
           <p>Količina: {line.quantity} {line.unit} · DDV: {line.vat} · popust: {line.discount} %</p>

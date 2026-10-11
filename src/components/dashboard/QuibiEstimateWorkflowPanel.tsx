@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation";
 import {approveAndSendQuibiEstimate,pollQuibiEstimateSend} from "@/lib/quibi/unified-actions";
 import {reviewManualQuibiEstimate} from "@/lib/quibi/manual-estimate-action";
 type Props={serviceRequestId:string;quoteId:string;documentId:string;reviewStatus:string;sha256:string;
- amount?:string;lines:{description:string;quantity:string;grossPrice:string}[];recipient:string|null;dev:boolean;
+ amount?:string;lines:{description:string;quantity:string;grossPrice:string;unitGrossPrice?:string;pricingVerified?:boolean}[];recipient:string|null;dev:boolean;
  operationId?:string;attemptedAt?:string|null;operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;qaIdentityExceptionAvailable?:boolean;alreadyDelivered:boolean};
 export function QuibiEstimateWorkflowPanel(p:Props){
  const router=useRouter(),lock=useRef(false),polling=useRef(false);
@@ -31,7 +31,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
   {p.dev&&<p className="text-sm text-amber-800">DEV: isti postopek pošlje samo na testni naslov. Stranki se ne pošlje in dostava stranki se ne evidentira.</p>}
   {p.amount&&<p className="font-medium">Znesek: {Number(p.amount).toLocaleString("sl-SI",{style:"currency",currency:"EUR"})}</p>}
-  <ul className="space-y-1 text-sm">{p.lines.map((line,i)=><li key={i}>{line.description} · količina {line.quantity} · cena {line.grossPrice} €</li>)}</ul>
+  <ul className="space-y-1 text-sm">{p.lines.map((line,i)=><li key={i}>{line.description} · količina {line.quantity} · cena na enoto z DDV {line.pricingVerified?line.unitGrossPrice:"ni preverljiva"}</li>)}</ul>
   <p className="text-sm">Prejemnik: {p.recipient??"pošiljanje ni konfigurirano ali naslov ni potrjen"}</p>
   {sendAllowed&&<form className="space-y-3" onSubmit={e=>{
    e.preventDefault();if(lock.current)return;lock.current=true;setAttempted(true);

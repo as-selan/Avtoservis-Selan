@@ -1,3 +1,4 @@
+import {quibiSourceNotes} from './business-source-lines.ts';
 import {createHash} from 'node:crypto';
 import {buildEstimateBody,stableEstimatePayload,type CreateEstimateInput,type EstimateBody} from './write-contract.ts';
 import {loadQuibiDocument,type QuibiDocumentKind} from './document-read.ts';
@@ -17,19 +18,23 @@ export function businessDocumentBody(kind:BusinessKind,orderId:string,input:Crea
 export function assertBusinessStage(kind:BusinessKind,status:string){
  if(status==='closed'||!['open','in_progress','awaiting_parts','ready_for_collection'].includes(status)||(kind==='invoice'&&status!=='ready_for_collection'))throw Error('QUIBI_BUSINESS_STAGE_NOT_READY');
 }
-export function confirmBusinessContent(doc:QuibiEstimateDetail,body:EstimateBody){
+export function confirmBusinessContent(doc:QuibiEstimateDetail,body:EstimateBody,expectedUnitNetPrices?:number[],expectedUnitIds?:string[]){
  if(doc.customerId!==String(body.Glavadokumenta.stranka_id)||doc.vehicleId!==String(body.Glavadokumenta.vozila_id)||doc.externalId!==body.Glavadokumenta.external_id||doc.numberingId!==String(body.Glavadokumenta.stevilcenje_id)||!doc.number||!/^[a-f0-9]{64}$/.test(doc.contentSha256))throw Error('QUIBI_DOCUMENT_REREAD_MISMATCH');
- const lines=Object.values(body.Postavkedokumenta);
- if(lines.length!==doc.lines.length||lines.some((line,i)=>!('opis' in line)||line.opis.trim()!==doc.lines[i].description.trim()||line.kolicina!==Number(doc.lines[i].quantity)||line.cenaZDDV!==Number(doc.lines[i].grossPrice)||line.enota_id!==doc.lines[i].unitId||line.ddv_id!==doc.lines[i].vatId||doc.lines[i].discount==null||Number(doc.lines[i].discount)!==line.popust))throw Error('QUIBI_DOCUMENT_LINES_MISMATCH');
+ const lines=Object.values(body.Postavkedokumenta),actual=doc.lines.filter(l=>!quibiSourceNotes(doc).includes(l));
+ if(lines.length!==actual.length||lines.some((line,i)=>{
+ const current=actual[i];if(!current.pricingVerified||current.unitNetPrice==null||line.kolicina!==Number(current.quantity)||line.ddv_id!==current.vatId||current.discount==null||Number(current.discount)!==(line.popust??0))return true;
+ if('sifra' in line)return (expectedUnitIds!=null&&current.unitId!==expectedUnitIds[i])||current.articleCode!==line.sifra||(line.opis!=null&&line.opis.trim()!==current.description.trim())||Number(current.unitNetPrice)!==(line.cena??expectedUnitNetPrices?.[i]);
+ return line.opis.trim()!==current.description.trim()||line.cenaZDDV!==Number(current.unitNetPrice)||line.enota_id!==current.unitId;
+ }))throw Error('QUIBI_DOCUMENT_LINES_MISMATCH');
 }
 type Reader={workOrders:(id:string)=>Promise<{id:string}[]>;invoices:(id:string)=>Promise<{id:string}[]>;estimates:(id:string)=>Promise<{id:string}[]>;documentDetail:(id:string,customerId:string)=>Promise<QuibiEstimateDetail>};
-export async function createBusinessDocument(args:{kind:BusinessKind;orderId:string;caseId:string;expectedAmount:string;body:EstimateBody;journal:OperationJournal;read:Reader;write:{createEstimate:(body:EstimateBody)=>Promise<{id:string;number:string}>}}){
+export async function createBusinessDocument(args:{kind:BusinessKind;orderId:string;caseId:string;expectedAmount:string;expectedUnitNetPrices?:number[];expectedUnitIds?:string[];body:EstimateBody;journal:OperationJournal;read:Reader;write:{createEstimate:(body:EstimateBody)=>Promise<{id:string;number:string}>}}){
  const {kind,body,journal,read}=args;
  if(!['work_order','invoice'].includes(kind)||body.Glavadokumenta.external_id!==`selan-work-order:${args.orderId}:${kind}`||'id' in body.Glavadokumenta)throw Error('QUIBI_INVALID_BUSINESS_INPUT');
  const payload=stableEstimatePayload(body);
  const op=await journal.insertOnce({kind,localEntityId:args.orderId,serviceRequestId:args.caseId,externalId:body.Glavadokumenta.external_id,requestBody:payload.json,requestSha256:payload.sha256});
  if(op.requestBody!==payload.json||op.requestSha256!==payload.sha256)throw Error('QUIBI_CREATE_CHANGED_REQUIRES_UPDATE');
- const reread=async(id:string)=>{const doc=await loadQuibiDocument(read,kind as QuibiDocumentKind,id,String(body.Glavadokumenta.stranka_id));confirmBusinessContent(doc,body);if(Number(doc.amount)!==Number(args.expectedAmount)||!Number.isFinite(Number(args.expectedAmount)))throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH');if(op.documentNumber&&doc.number!==op.documentNumber)throw Error('QUIBI_DOCUMENT_NUMBER_MISMATCH');return doc};
+ const reread=async(id:string)=>{const doc=await loadQuibiDocument(read,kind as QuibiDocumentKind,id,String(body.Glavadokumenta.stranka_id));confirmBusinessContent(doc,body,args.expectedUnitNetPrices,args.expectedUnitIds);if(Number(doc.amount)!==Number(args.expectedAmount)||!Number.isFinite(Number(args.expectedAmount)))throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH');if(op.documentNumber&&doc.number!==op.documentNumber)throw Error('QUIBI_DOCUMENT_NUMBER_MISMATCH');return doc};
  if(op.state==='verified'){
   if(!op.quibiId)throw Error('QUIBI_DOCUMENT_UNVERIFIED');const doc=await reread(op.quibiId);
   if(doc.contentSha256!==op.quibiContentSha256)throw Error('QUIBI_DOCUMENT_CHANGED');return op;
@@ -45,8 +50,8 @@ export async function createBusinessDocument(args:{kind:BusinessKind;orderId:str
 }
 
 /** Only changed business lines justify a write; unchanged data is not WRITE evidence. */
-export function assertBusinessUpdateChanges(doc:QuibiEstimateDetail,body:EstimateBody){
- try{confirmBusinessContent(doc,body)}catch(error){if(error instanceof Error&&error.message==='QUIBI_DOCUMENT_LINES_MISMATCH')return;throw error}
+export function assertBusinessUpdateChanges(doc:QuibiEstimateDetail,body:EstimateBody,expectedUnitNetPrices?:number[],expectedUnitIds?:string[]){
+ try{confirmBusinessContent(doc,body,expectedUnitNetPrices,expectedUnitIds)}catch(error){if(error instanceof Error&&error.message==='QUIBI_DOCUMENT_LINES_MISMATCH')return;throw error}
  throw Error('QUIBI_NO_BUSINESS_CHANGES');
 }
 /** Includes the baseline in the immutable request; reconciliation cannot adopt another version. */
@@ -57,7 +62,7 @@ export function businessUpdatePayload(body:EstimateBody,baselineSha:string){
  const revisionId=[sha256.slice(0,8),sha256.slice(8,12),sha256.slice(12,16),sha256.slice(16,20),sha256.slice(20,32)].join('-');
  return {json,sha256,revisionId};
 }
-export async function updateBusinessDocument(args:{kind:BusinessKind;orderId:string;caseId:string;documentId:string;baselineSha:string;expectedSha:string;expectedAmount:string;body:EstimateBody;journal:OperationJournal;read:Reader;write:{updateEstimate:(id:string,body:EstimateBody)=>Promise<{id:string;number:string}>}}){
+export async function updateBusinessDocument(args:{kind:BusinessKind;orderId:string;caseId:string;documentId:string;baselineSha:string;expectedSha:string;expectedAmount:string;expectedUnitNetPrices?:number[];expectedUnitIds?:string[];body:EstimateBody;journal:OperationJournal;read:Reader;write:{updateEstimate:(id:string,body:EstimateBody)=>Promise<{id:string;number:string}>}}){
  const {kind,body,journal,read}=args;
  if(!['work_order','invoice'].includes(kind)||String(body.Glavadokumenta.id)!==args.documentId||body.Glavadokumenta.external_id!==['selan-work-order',args.orderId,kind].join(':'))throw Error('QUIBI_INVALID_BUSINESS_UPDATE');
  if(!Number.isFinite(Number(args.expectedAmount))||Number(args.expectedAmount)<0)throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH');
@@ -66,13 +71,13 @@ export async function updateBusinessDocument(args:{kind:BusinessKind;orderId:str
  const op=await journal.insertOnce({kind:kind==='invoice'?'invoice_update':'work_order_update',localEntityId:payload.revisionId,serviceRequestId:args.caseId,externalId:null,requestBody:payload.json,requestSha256:payload.sha256});
  if(op.requestBody!==payload.json||op.requestSha256!==payload.sha256)throw Error('QUIBI_PREPARED_PAYLOAD_CHANGED');
  const load=()=>loadQuibiDocument(read,kind,args.documentId,String(body.Glavadokumenta.stranka_id));
- const verify=async()=>{const doc=await load();confirmBusinessContent(doc,body);if(!Number.isFinite(Number(args.expectedAmount))||Number(doc.amount)!==Number(args.expectedAmount)||doc.number!==op.documentNumber||doc.contentSha256===args.baselineSha)throw Error('QUIBI_DOCUMENT_REREAD_MISMATCH');return doc};
+ const verify=async()=>{const doc=await load();confirmBusinessContent(doc,body,args.expectedUnitNetPrices,args.expectedUnitIds);if(!Number.isFinite(Number(args.expectedAmount))||Number(doc.amount)!==Number(args.expectedAmount)||doc.number!==op.documentNumber||doc.contentSha256===args.baselineSha)throw Error('QUIBI_DOCUMENT_REREAD_MISMATCH');return doc};
  if(op.state==='verified'){const doc=await verify();if(doc.contentSha256!==op.quibiContentSha256)throw Error('QUIBI_DOCUMENT_CHANGED');return op}
  if(op.state==='uncertain'){if(op.quibiId!==args.documentId)throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');const doc=await verify();return journal.patch(op.id,'uncertain',{state:'verified',quibiContentSha256:doc.contentSha256})}
  if(op.state!=='prepared')throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');
  const before=await load();
  if(before.contentSha256!==args.baselineSha||before.customerId!==String(body.Glavadokumenta.stranka_id)||before.vehicleId!==String(body.Glavadokumenta.vozila_id)||before.numberingId!==String(body.Glavadokumenta.stevilcenje_id)||before.externalId!==body.Glavadokumenta.external_id||!before.number)throw Error('QUIBI_DOCUMENT_CHANGED');
- assertBusinessUpdateChanges(before,body);
+ assertBusinessUpdateChanges(before,body,args.expectedUnitNetPrices,args.expectedUnitIds);
  // Bind before dispatch: the database's active-document index serializes every revision.
  await journal.patch(op.id,'prepared',{quibiId:args.documentId,documentNumber:before.number});
  op.documentNumber=before.number;

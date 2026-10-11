@@ -1,5 +1,5 @@
 export type QuibiPriceList = {id:string;name:string;lines:{articleId:string;netPrice:string;discount:string}[]};
-export type QuibiArticle = {id:string;code:string;name:string;netPrice:string;vatId:string;vatLabel:string;unitId:string;unitLabel:string};
+export type QuibiArticle = {id:string;code:string;name:string;netPrice:string;vatId:string;vatLabel:string;unitId:string;unitLabel:string;stockManaged?:boolean};
 const object=(value:unknown):Record<string,unknown>=>{if(!value||typeof value!=='object'||Array.isArray(value))throw Error('QUIBI_INVALID_PRICING');return value as Record<string,unknown>};
 const id=(value:unknown)=>{const text=String(value??'');if(!/^[1-9][0-9]{0,14}$/.test(text)||!Number.isSafeInteger(Number(text)))throw Error('QUIBI_INVALID_PRICING');return text};
 const decimal=(value:unknown)=>{const text=String(value??'');if(!/^\d+(\.\d+)?$/.test(text)||!Number.isFinite(Number(text)))throw Error('QUIBI_INVALID_PRICING');return text};
@@ -13,5 +13,5 @@ export function parseQuibiArticle(value:unknown,expectedId:string):QuibiArticle{
  const wrapper=object(data(value).Sifranti),article=object(wrapper.Sifranti),vat=object(wrapper.Ddv),unit=object(wrapper.Enota);
  const articleId=id(article.id);if(articleId!==id(expectedId))throw Error('QUIBI_ARTICLE_MISMATCH');
  const vatId=id(article.ddv_id),unitId=id(article.enota_id);if(id(vat.id)!==vatId||id(unit.id)!==unitId)throw Error('QUIBI_ARTICLE_REFERENCE_MISMATCH');
- return {id:articleId,code:name(article.sifra),name:name(article.naziv),netPrice:decimal(article.cenaBrezDDV),vatId,vatLabel:name(vat.naziv),unitId,unitLabel:name(unit.naziv)};
+ return {...([0,1,'0','1',false,true].includes(article.vodiZalogo as string|number|boolean)?{stockManaged:article.vodiZalogo===1||article.vodiZalogo==='1'||article.vodiZalogo===true}:{}),id:articleId,code:name(article.sifra),name:name(article.naziv),netPrice:decimal(article.cenaBrezDDV),vatId,vatLabel:name(vat.naziv),unitId,unitLabel:name(unit.naziv)};
 }

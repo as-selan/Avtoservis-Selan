@@ -1,6 +1,7 @@
+import {quibiLinePricing} from './line-pricing.ts';
 import { createHash } from "node:crypto";
 
-export type QuibiCustomer = { id: string; name: string; phone: string; email: string; remoteId?: string };
+export type QuibiCustomer = { id: string; name: string; phone: string; email: string; remoteId?: string; priceListId?:string|null };
 export type QuibiVehicle = {
   id: string; customerId: string; vin: string; registration: string;
   make: string; model: string; disabled: boolean;
@@ -8,8 +9,8 @@ export type QuibiVehicle = {
 export type QuibiDocument = { id: string; customerId: string; numberingId: string; status: string; amount?: string };
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
-  vehicleId?: string; externalId?: string; number?: string; numberingId?: string; date?: string;
-  lines: { description: string; quantity: string; grossPrice: string; unitId?: string; vatId?: string; discount?: string; articleId?: string; articleCode?: string }[];
+  vehicleId?: string; externalId?: string; number?: string; numberingId?: string; date?: string; saleTypeId?: string;
+  lines: { description: string; quantity: string; grossPrice: string; unitId?: string; vatId?: string; discount?: string; articleId?: string; articleCode?: string; unitNetPrice?: string; unitGrossPrice?: string; lineNetAmount?: string; historicalVatLabel?: string; pricingVerified?: boolean; lineType?: string; stockManaged?: boolean }[];
   contentSha256: string;
 };
 
@@ -48,7 +49,7 @@ export function parseCustomers(value: unknown): QuibiCustomer[] {
     const id = field(customer.id);
     if (!/^\d+$/.test(id)) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
     return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl),
-      ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}) };
+      ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}), ...(customer.cenik_id===null?{priceListId:null}:/^[1-9]\d*$/.test(field(customer.cenik_id))?{priceListId:field(customer.cenik_id)}:{}) };
   });
 }
 
@@ -153,13 +154,14 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
     ...(field(header.ZapSt) ? { number: field(header.ZapSt) } : {}),
     ...(field(header.stevilcenje_id) ? { numberingId: field(header.stevilcenje_id) } : {}),
     ...(field(header.datIzdRac) ? {date:field(header.datIzdRac)} : {}),
+    ...(field(header.vrstaprodaje) ? {saleTypeId:field(header.vrstaprodaje)} : {}),
     status: statusFromDocument(entry),
     contentSha256: createHash("sha256").update(JSON.stringify(canonical(entry))).digest("hex"),
     lines: lines.map((row) => {
       const item = object(row);
       const article = item.Sifranti && typeof item.Sifranti === 'object' && !Array.isArray(item.Sifranti) ? item.Sifranti as Record<string,unknown> : {};
       if(field(article.id)&&field(article.id)!==field(item.sifranti_id))throw new Error('QUIBI_ARTICLE_REFERENCE_MISMATCH');
-      return { ...(field(item.sifranti_id) && field(item.sifranti_id)!=='0' ? {articleId:field(item.sifranti_id)} : {}), ...(field(article.sifra) ? {articleCode:field(article.sifra)} : {}), description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV), ...(field(item.enota_id) ? {unitId:field(item.enota_id)} : {}), ...(field(item.ddv_id) ? {vatId:field(item.ddv_id)} : {}), ...(field(item.popust) ? {discount:field(item.popust)} : {}) };
+      return { ...quibiLinePricing(item), ...(field(item.linetype)?{lineType:field(item.linetype)}:{}), ...([0,1,'0','1',false,true].includes(article.vodiZalogo as string|number|boolean)?{stockManaged:article.vodiZalogo===1||article.vodiZalogo==='1'||article.vodiZalogo===true}:{}), ...(field(item.sifranti_id) && field(item.sifranti_id)!=='0' ? {articleId:field(item.sifranti_id)} : {}), ...(field(article.sifra) ? {articleCode:field(article.sifra)} : {}), description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV), ...(field(item.enota_id) ? {unitId:field(item.enota_id)} : {}), ...(field(item.ddv_id) ? {vatId:field(item.ddv_id)} : {}), ...(field(item.popust) ? {discount:field(item.popust)} : {}) };
     }),
   };
 }

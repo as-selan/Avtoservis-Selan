@@ -7,7 +7,7 @@ const input={numberingId:'6483',saleTypeId:'1',customerId:'7',vehicleId:'8',serv
 function fixture(){
  let row:Operation|null=null,dispatches=0;
  const body=businessDocumentBody('work_order',id,input);
- let doc={id:'42',customerId:'7',vehicleId:'8',number:'DN-1',numberingId:'6483',externalId:body.Glavadokumenta.external_id,amount:'122',status:'',contentSha256:'a'.repeat(64),lines:[{description:'Servis',quantity:'1',grossPrice:'100',unitId:'1',vatId:'1',discount:'0'}]};
+ let doc={id:'42',customerId:'7',vehicleId:'8',number:'DN-1',numberingId:'6483',externalId:body.Glavadokumenta.external_id,amount:'122',status:'',contentSha256:'a'.repeat(64),lines:[{description:'Servis',quantity:'1',grossPrice:'100',unitNetPrice:'100',pricingVerified:true,unitId:'1',vatId:'1',discount:'0'}]};
  const journal:OperationJournal={get:async()=>row,insertOnce:async entry=>row??(row={...entry,id:'journal',state:'prepared',quibiId:null,quibiContentSha256:null,documentNumber:null,sendId:null,sendStatus:null}),claim:async(_,expected)=>{if(!row||row.state!==expected)return false;row={...row,state:'dispatching'};return true},patch:async(_,expected,patch)=>{if(!row||row.state!==expected)throw Error('CONCURRENT');return row={...row,...patch}}};
  const read={workOrders:async()=>[{id:'42'}],invoices:async()=>[],estimates:async()=>[],documentDetail:async()=>doc};
  const write={createEstimate:async()=>{dispatches++;return {id:'42',number:'DN-1'}}};
@@ -38,7 +38,7 @@ test('wrong vehicle reread retains document ID and uncertain state',async()=>{
 import {confirmBusinessContent} from './business-document-workflow.ts';
 test('reread rejects changed units, VAT, discount or amount',async()=>{
  const f=fixture();
- const doc={id:'42',customerId:'7',vehicleId:'8',number:'DN-1',numberingId:'6483',externalId:f.args.body.Glavadokumenta.external_id,amount:'122',status:'',contentSha256:'a'.repeat(64),lines:[{description:'Servis',quantity:'1',grossPrice:'100',unitId:'1',vatId:'1',discount:'0'}]};
+ const doc={id:'42',customerId:'7',vehicleId:'8',number:'DN-1',numberingId:'6483',externalId:f.args.body.Glavadokumenta.external_id,amount:'122',status:'',contentSha256:'a'.repeat(64),lines:[{description:'Servis',quantity:'1',grossPrice:'100',unitNetPrice:'100',pricingVerified:true,unitId:'1',vatId:'1',discount:'0'}]};
  assert.throws(()=>confirmBusinessContent({...doc,lines:[{...doc.lines[0],vatId:'9'}]},f.args.body),/LINES/);
  assert.throws(()=>confirmBusinessContent({...doc,lines:[{...doc.lines[0],discount:'5'}]},f.args.body),/LINES/);
  await assert.rejects(createBusinessDocument({...f.args,expectedAmount:'123'}),/AMOUNT/);
