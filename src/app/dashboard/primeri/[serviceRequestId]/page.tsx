@@ -142,6 +142,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         writeReady = true;
       } catch { writeReady = false; }
     }
+    if (!quote && !fixedPrice && prep?.status === "ready_for_provider" && ["owner","admin"].includes(access.role) && !writeChoices) {
+      try {
+        const read=configuredQuibiReadClient();
+        const [saleTypes,units,vatRates]=await Promise.all([read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat')]);
+        writeChoices={saleTypes,units,vatRates};
+      } catch { /* fail closed: catalog errors do not enable dispatch */ }
+    }
     // Journal evidence remains visible with all external writes disabled.
     if (quote && !sendOperation) {
       try { sendOperation = await quibiWorkflowJournal(access.organizationId, access.userId).get("send", quote.id); }
@@ -244,8 +251,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" && !writeReady && !writeRequested &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
-          {writeReady && !quote && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) &&
-            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="create" lineDescription={estimateLineDescription(request) ?? undefined} choices={writeChoices ?? undefined} />}
+          {!quote && !fixedPrice && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) &&
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} lineDescription={estimateLineDescription(request) ?? undefined} choices={writeChoices ?? undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}

@@ -1,7 +1,9 @@
 "use server";
+import {estimatePreparationPayload} from './estimate-preparation';
+
 
 import { quibiWorkflowConfig } from "./workflow-config";
-import { quibiWorkflowContext as context } from "./workflow-context";
+import { quibiWorkflowContext as context, quibiEstimatePreparationContext } from "./workflow-context";
 import { linkManualQuibiEstimate } from "./manual-estimate-action";
 import { quibiDevEstimateChoices } from "./write-options";
 import { checkTrackedEstimateStatus, sendManualLinkedEstimate, type ManualSendAuthorization, createAndVerifyEstimate, sendAndTrackEstimate, updateAndVerifyEstimate } from "./write-workflow";
@@ -222,3 +224,18 @@ export async function checkQuibiDevTestEstimateStatus(form: FormData): Promise<R
     return sendResult(result.sendStatus);
   } catch { return fail("Status ni preverljiv. Brez novega pošiljanja preverite shranjeni send_id in dnevnik."); }
 }
+
+/** Only READ calls: no operation journal insertion or external dispatch. */
+export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
+  const id=form.get('serviceRequestId'),sale=form.get('saleTypeId'),unit=form.get('unitId'),vat=form.get('vatId'),price=validPrice(form.get('unitPrice'));
+  if(typeof id!=='string'||typeof sale!=='string'||typeof unit!=='string'||typeof vat!=='string'||price==null||form.get('serviceMatchConfirmed')!=='yes')return fail('Preverite ceno, storitev in identiteto.');
+  try {
+    const ctx=await quibiEstimatePreparationContext(id);
+    const {data:quotes,error}=await ctx.db.from('quotes').select('id').eq('organization_id',ctx.access.organizationId).eq('service_request_id',id).limit(1);
+    if(error||quotes?.length)return fail('Predračun je že povezan ali njegove evidence ni mogoče preveriti.');
+    const [numberings,sales,units,vatRates]=await Promise.all(['numberings','saleTypes','units','vat'].map(kind=>ctx.read.catalog(kind as 'numberings'|'saleTypes'|'units'|'vat')));
+    const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:price,popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates});
+    return {ok:true,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
+  } catch {return fail('Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
+}
+

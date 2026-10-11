@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
+import { prepareQuibiEstimate, checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
 import type { QuibiChoice } from "@/lib/quibi/write-options";
 
 export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription }: {
-  serviceRequestId: string; mode: "create" | "update" | "send"; quoteId?: string;
+  serviceRequestId: string; mode: "prepare" | "create" | "update" | "send"; quoteId?: string;
   lineDescription?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] };
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
@@ -14,7 +14,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
-  if (mode === "create" && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
+  if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
   return <form className="space-y-3 border-t pt-3" onSubmit={(event) => {
     event.preventDefault();
@@ -23,17 +23,17 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     form.set("serviceRequestId", serviceRequestId);
     if (quoteId) form.set("quoteId", quoteId);
     startTransition(async () => {
-      const result = mode === "create" ? await createQuibiDevEstimate(form)
+      const result = mode === "prepare" ? await prepareQuibiEstimate(form) : mode === "create" ? await createQuibiDevEstimate(form)
         : mode === "update" ? await updateQuibiDevEstimate(form) : sendId ? await checkQuibiDevTestEstimateStatus(form) : await sendQuibiDevTestEstimate(form);
       setMessage(result.ok ? result.detail : result.message);
       router.refresh();
     });
   }}>
-    <h3 className="font-medium">{mode === "create" ? "Ustvari predračun v Quibiju" :
+    <h3 className="font-medium">{mode === "prepare" ? "Pripravi ponudbo za popravilo" : mode === "create" ? "Ustvari predračun v Quibiju" :
       mode === "update" ? "Popravi zavrnjeni Quibi predračun" : "Pošlji predračun samo na testni naslov"}</h3>
-    {mode === "create" && <>
+    {(mode === "create" || mode === "prepare") && <>
       {lineDescription && <p className="text-sm">Postavka za pregled: {lineDescription}</p>}
-      <p className="text-xs text-amber-800">To ustvari dejanski dokument v konfiguriranem Quibi okolju. Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej.</p>
+      <p className="text-xs text-amber-800">{mode === "prepare" ? "Priprava uporablja samo Quibi READ; dokumenta ne ustvari in ničesar ne pošlje." : "To ustvari dejanski dokument v konfiguriranem Quibi okolju."} Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej.</p>
       <label className="block text-sm">Vrsta prodaje
         <select name="saleTypeId" required className="mt-1 block w-full rounded border px-3 py-2">
           {choices?.saleTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -52,7 +52,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         </label>
       </div>
     </>}
-    {(mode === "create" || mode === "update") && <>
+    {(mode === "prepare" || mode === "create" || mode === "update") && <>
       <label className="block text-sm">Cena za eno storitev z DDV (€)
         <input name="unitPrice" type="number" min="0.01" max="1000000" step="0.01" required
           className="mt-1 block w-full rounded border px-3 py-2" />
@@ -69,8 +69,9 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       </label>
     </>}
     <button disabled={pending || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
-      {pending ? "Preverjam…" : mode === "create" ? "Ustvari in preveri" : mode === "update" ? "Popravi in preveri" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
+      {pending ? "Preverjam…" : mode === "prepare" ? "Preveri ponudbo in SHA" : mode === "create" ? "Ustvari in preveri" : mode === "update" ? "Popravi in preveri" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
     </button>
-    {message && <p role={message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="text-sm">{message}</p>}
+    {message && <p role={message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="whitespace-pre-wrap break-all text-sm">{message}</p>}
   </form>;
 }
+
