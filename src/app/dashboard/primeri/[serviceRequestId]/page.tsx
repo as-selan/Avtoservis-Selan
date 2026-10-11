@@ -1,3 +1,4 @@
+import {QuibiCaseDocuments} from '@/components/dashboard/QuibiCaseDocuments';
 import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate";
 import {estimateLineDescription} from "@/lib/quibi/estimate-line-description";
@@ -220,6 +221,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
+      {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Povpraševanje in podatki</h2>

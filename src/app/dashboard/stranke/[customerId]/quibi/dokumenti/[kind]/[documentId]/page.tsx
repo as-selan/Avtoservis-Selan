@@ -14,9 +14,9 @@ import {documentKindLabels,loadQuibiDocument,type QuibiDocumentKind} from '@/lib
 import {quibiDocumentStatusLabel} from '@/lib/quibi/contracts';
 import {QuibiWorkOrderLink} from '@/components/dashboard/QuibiWorkOrderLink';
 export const dynamic='force-dynamic';
-export default async function QuibiDocument({params,searchParams}:{params:Promise<{customerId:string;kind:string;documentId:string}>;searchParams:Promise<{orderId?:string}>}){
+export default async function QuibiDocument({params,searchParams}:{params:Promise<{customerId:string;kind:string;documentId:string}>;searchParams:Promise<{orderId?:string;caseId?:string}>}){
  const simulated=process.env.QUIBI_E2E_WRITE_ENABLED==='1'&&process.env.SELAN_ISOLATED_E2E==='1';
- const access=await requirePhase1OperationalAccess(),{customerId,kind,documentId}=await params,{orderId}=await searchParams;
+ const access=await requirePhase1OperationalAccess(),{customerId,kind,documentId}=await params,{orderId,caseId}=await searchParams;
  if(!canQueryCustomerId(customerId)||!Object.hasOwn(documentKindLabels,kind)||!/^\d+$/.test(documentId))return <p role="alert">Dokument ni na voljo.</p>;
  const db=await createClient(),environment=quibiLinkEnvironment(process.env);
  const {data:link,error}=await db.from('integration_links').select('external_id,sync_status,quibi_environment').eq('organization_id',access.organizationId).eq('entity_id',customerId).eq('entity_type','customer').eq('provider','quibi').single();
@@ -24,6 +24,7 @@ export default async function QuibiDocument({params,searchParams}:{params:Promis
  let doc;try{doc=await loadQuibiDocument(configuredQuibiReadClient(),kind as QuibiDocumentKind,documentId,link.external_id)}catch{return <p role="alert">Dokumenta ni mogoče preverjeno prebrati za to stranko in vrsto dokumenta. Podatki niso bili spremenjeni.</p>}
  const {data:order}=orderId&&/^[a-f0-9-]{36}$/i.test(orderId)?await db.from('work_orders').select('id,status,vehicle_id,service_request_id').eq('organization_id',access.organizationId).eq('customer_id',customerId).eq('id',orderId).maybeSingle():{data:null};
  const {data:reference,error:referenceError}=order?await db.from('work_order_quibi_documents').select('content_sha256,confirmed_at').eq('organization_id',access.organizationId).eq('work_order_id',order.id).eq('document_kind',kind).eq('quibi_document_id',documentId).eq('quibi_environment',environment).maybeSingle():{data:null,error:null};
+ const {data:originCase}=caseId&&canQueryCustomerId(caseId)?await db.from('service_requests').select('id').eq('organization_id',access.organizationId).eq('customer_id',customerId).eq('id',caseId).is('archived_at',null).maybeSingle():{data:null};
  const referenceState=reference?documentReferenceState(reference.content_sha256,doc.contentSha256):null;
  let recipient='',sendEnabled=false,storedSend=null,sendAmount=doc.amount;
  if(order&&reference&&kind!=='estimate'&&['owner','admin'].includes(access.role)){
@@ -33,7 +34,7 @@ export default async function QuibiDocument({params,searchParams}:{params:Promis
   if(attempt){try{const body=JSON.parse(attempt.request_body) as {recipient?:string;amount?:string};if(typeof body.recipient==='string')recipient=body.recipient;if(typeof body.amount==='string')sendAmount=body.amount}catch{}}
   try{quibiWorkflowConfig(process.env,'send');sendEnabled=!attemptError&&!!recipient&&referenceState==='unchanged'&&process.env.QUIBI_DEV_LOCAL_SEND_ENABLED!=='1'}catch{}
  }
- return <div className="space-y-5"><Link className="text-blue-700" href={order?`/dashboard/nalogi/${order.id}`:`/dashboard/stranke/${customerId}/quibi`}>← Nazaj</Link>
+ return <div className="space-y-5"><Link className="text-blue-700" href={order?`/dashboard/nalogi/${order.id}`:originCase?`/dashboard/primeri/${originCase.id}`:`/dashboard/stranke/${customerId}/quibi`}>← Nazaj</Link>
  <header><h1 className="text-2xl font-semibold">Quibi · {documentKindLabels[kind as QuibiDocumentKind]} #{doc.id}</h1><p className="text-sm">{simulated ? 'QA-SIM: lokalni simuliran API; ni dejanski Quibi poslovni dokument.' : `Svež bralni prikaz iz okolja ${environment==='dev'?'DEV':'produkcija'}. Dokument ostaja v Quibiju.`}</p></header>
  {link.sync_status!=='ok'&&<p role="alert">Povezava stranke zahteva ponoven pregled; povezovanje in druge spremembe niso potrjene.</p>}
  {referenceError&&<p role="alert">Potrjene povezave v tej bazi ni mogoče preveriti.</p>}
