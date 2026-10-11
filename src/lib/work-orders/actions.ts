@@ -1,6 +1,6 @@
 "use server";
 import {demoEvidenceAllowed} from "@/lib/demo/evidence";
-import {requirePhase1OperationalAccess} from "@/lib/auth/requireWorkshopAccess";
+import {requirePhase1OperationalAccess,requireWorkshopAccess} from "@/lib/auth/requireWorkshopAccess";
 import {createClient} from "@/lib/supabase/server";
 import {revalidatePath} from "next/cache";
 import {canTransitionWorkOrder} from "./policy";
@@ -13,11 +13,18 @@ export async function createWorkOrder(caseId:string):Promise<{ok:true;id:string}
  revalidatePath("/dashboard");revalidatePath(`/dashboard/primeri/${caseId}`);revalidatePath("/dashboard/nalogi");return {ok:true,id:data.id};
 }
 export async function recordWorkOrder(form:FormData):Promise<{ok:true}|{ok:false;message:string}>{
- const access=await requirePhase1OperationalAccess();const id=String(form.get("orderId")??""),command=String(form.get("commandId")??""),expected=String(form.get("expectedStatus")??""),next=String(form.get("nextStatus")??"")||null,note=String(form.get("note")??"").trim();
+ const access=await requireWorkshopAccess();const id=String(form.get("orderId")??""),command=String(form.get("commandId")??""),expected=String(form.get("expectedStatus")??""),next=String(form.get("nextStatus")??"")||null,note=String(form.get("note")??"").trim();
  if(!uuid.test(id)||!uuid.test(command)||note.length<4||note.length>4000||(next&&!canTransitionWorkOrder(expected,next)))return {ok:false,message:"Vnesite veljavno opombo in dovoljeno spremembo stanja."};
  if(next==="closed"&&!["owner","admin"].includes(access.role))return {ok:false,message:errors.forbidden};
  if(next==="closed" && (!demoEvidenceAllowed(String(form.get("invoiceReference")??"")) || !demoEvidenceAllowed(String(form.get("handoverReference")??"")))) return {ok:false,message:"V lokalnem QA uporabite samo sintetični referenci QA-SIM-."};
  const db=await createClient();const {data,error}=await db.rpc("record_work_order",{p_order_id:id,p_expected_status:expected,p_next_status:next,p_note:note,p_command_id:command,p_invoice_reference:form.get("invoiceReference")||null,p_handover_reference:form.get("handoverReference")||null,p_close_confirmed:form.get("closeConfirmed")==="yes"});
  if(error||data?.ok!==true)return {ok:false,message:errors[data?.error_code]??"Sprememba ni potrjena. Osvežite nalog in preverite dnevnik."};
- revalidatePath(`/dashboard/nalogi/${id}`);revalidatePath("/dashboard/nalogi");revalidatePath("/dashboard");return {ok:true};
+ revalidatePath(`/dashboard/nalogi/${id}`);revalidatePath(`/dashboard/mehanik/${id}`);revalidatePath("/dashboard/mehanik");revalidatePath("/dashboard/nalogi");revalidatePath("/dashboard");return {ok:true};
+}
+
+export async function assignWorkOrder(form:FormData):Promise<{ok:true}|{ok:false;message:string}>{
+ const access=await requirePhase1OperationalAccess();if(!['owner','admin'].includes(access.role))return {ok:false,message:errors.forbidden};
+ const id=String(form.get('orderId')??''),mechanic=String(form.get('mechanicId')??'')||null,command=String(form.get('commandId')??'');if(!uuid.test(id)||!uuid.test(command)||(mechanic&&!uuid.test(mechanic)))return {ok:false,message:'Neveljavna dodelitev.'};
+ const db=await createClient();const {data,error}=await db.rpc('assign_work_order',{p_order_id:id,p_mechanic_id:mechanic,p_command_id:command});if(error||data?.ok!==true)return {ok:false,message:'Dodelitev ni potrjena. Preverite aktivnega mehanika in stanje naloga.'};
+ revalidatePath('/dashboard/mehanik');revalidatePath('/dashboard/nalogi');revalidatePath(`/dashboard/nalogi/${id}`);return {ok:true};
 }
