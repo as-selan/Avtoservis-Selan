@@ -1,3 +1,4 @@
+import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate";
 import {estimateLineDescription} from "@/lib/quibi/estimate-line-description";
 import {analyzeIntake} from '@/lib/assistance/intake-analysis';
@@ -175,7 +176,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
       inspectionRepairDecision: inspectionResult.data?.repair_decision,
-      slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady, quibiSendStatus: sendOperation?.sendStatus, quibiSendAttempted: !!sendOperation });
+      syntheticAppointment: serviceOffer?.booking_reference?.startsWith("QA-SIM-"), slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady, quibiSendStatus: sendOperation?.sendStatus, quibiSendAttempted: !!sendOperation });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
     const assistance=await analyzeIntake({summary:request.summary,missingFields:missing});
     const recipient = customer?.display_name || "stranka";
@@ -298,6 +299,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {(inspectionResult.data?.status === "requested" || diagnosisOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" offer={diagnosisOffer} realDevWrite={realDevMode} />}
       {(request.status === "awaiting_slot_selection" || serviceOffer) &&
-        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" offer={serviceOffer} realDevWrite={realDevMode} />}
+        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" syntheticQaAllowed={localSyntheticQaAllowed(process.env)} offer={serviceOffer} realDevWrite={realDevMode} />}
     </div>;
 }

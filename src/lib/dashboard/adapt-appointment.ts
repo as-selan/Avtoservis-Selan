@@ -21,6 +21,7 @@ export type AppointmentRow = {
   vehicle_id: string | null;
   appointment_type: string;
   starts_at: string;
+  notes?: string | null;
 };
 
 export type AppointmentCustomerRow = {
@@ -93,6 +94,7 @@ export function adaptAppointmentToDashboard(
 
   return {
     id: row.id,
+    simulated: row.notes?.startsWith("QA-SIM:") ?? false,
     dateLabel: formatAppointmentDateLabel(startsAt, now),
     time: formatZonedClock(startsAt),
     customerName: customer?.display_name?.trim() || FALLBACK_CUSTOMER,

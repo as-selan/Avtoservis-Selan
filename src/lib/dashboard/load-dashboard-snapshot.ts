@@ -126,6 +126,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     );
     const fixedPriceByRequest = new Map<string, string>();
     const slotByRequest = new Map<string, string>();
+    const syntheticAppointments = new Set<string>();
     const linkByCustomer = new Map<string, { sync_status: string }>();
     const quoteByRequest = new Map<string, { id: string; internal_review_status: string }>();
     const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null }>();
@@ -156,7 +157,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       for (const row of inspections.data ?? []) inspectionByRequest.set(row.service_request_id, row.repair_decision);
     }
     const priceRequestIds = requests.filter((row) => row.status === "preparing_offer").map((row) => row.id);
-    const slotRequestIds = requests.filter((row) => row.status === "awaiting_slot_selection").map((row) => row.id);
+    const slotRequestIds = requests.filter((row) => ["awaiting_slot_selection", "appointment_confirmed"].includes(row.status)).map((row) => row.id);
     if (process.env.SELAN_FIXED_PRICE_V1 === "1" && priceRequestIds.length > 0) {
       const { data, error } = await supabase.from("published_fixed_price_cases")
         .select("service_request_id, status").eq("organization_id", access.organizationId)
@@ -166,11 +167,14 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     }
     if (slotRequestIds.length > 0) {
       const { data, error } = await supabase.from("manual_slot_offers")
-        .select("service_request_id, status").eq("organization_id", access.organizationId)
+        .select("service_request_id, status, booking_reference").eq("organization_id", access.organizationId)
         .eq("appointment_type", "service").neq("status", "cancelled")
         .in("service_request_id", slotRequestIds);
       if (error) return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
-      for (const row of data ?? []) slotByRequest.set(row.service_request_id, row.status);
+      for (const row of data ?? []) {
+        slotByRequest.set(row.service_request_id, row.status);
+        if (row.booking_reference?.startsWith("QA-SIM-")) syntheticAppointments.add(row.service_request_id);
+      }
     }
 
     const workOrderByRequest = new Map<string,string>();
@@ -211,6 +215,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
             fixedPriceStatus: fixedPriceByRequest.get(row.id),
             inspectionRepairDecision: inspectionByRequest.get(row.id),
             slotOfferStatus: slotByRequest.get(row.id),
+            syntheticAppointment: syntheticAppointments.has(row.id),
           },
         ),
       );
@@ -298,7 +303,7 @@ async function loadConfirmedAppointments(
 
   const { data: appointmentRows, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, customer_id, vehicle_id, appointment_type, starts_at")
+    .select("id, customer_id, vehicle_id, appointment_type, starts_at, notes")
     .eq("organization_id", organizationId)
     .eq("status", "confirmed")
     .gte("starts_at", start.toISOString())

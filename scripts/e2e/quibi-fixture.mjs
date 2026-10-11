@@ -20,7 +20,7 @@ const send = (res, status, body) => {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
 };
-const business=process.env.QUIBI_E2E_WRITE_ENABLED==='1'?createBusinessFixture(customers,send):null;
+const business=process.env.QUIBI_E2E_WRITE_ENABLED==='1'?createBusinessFixture(customers,send,process.env.QUIBI_E2E_STATE_FILE):null;
 http.createServer(async(req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
   if (url.pathname === "/__control" && req.method === "POST") {

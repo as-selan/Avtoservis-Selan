@@ -2,6 +2,7 @@
 
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
+import {localSyntheticQaAllowed,isSyntheticQaReference} from "./synthetic-qa-policy";
 import { demoEvidenceAllowed } from "@/lib/demo/evidence";
 
 type Result = { ok: true } | { ok: false; message: string };
@@ -48,10 +49,15 @@ export async function proposeManualSlots(
 }
 
 export async function advanceManualSlotOffer(
-  offerId: string, action: "send" | "select" | "confirm" | "cancel",
+  offerId: string, action: "send" | "select" | "confirm" | "confirm_synthetic" | "cancel",
   reference: string, selectedSlot?: number,
 ): Promise<Result> {
-  await requirePhase1OperationalAccess();
+  const access=await requirePhase1OperationalAccess();
+  if(action==='confirm_synthetic'){
+    if(!localSyntheticQaAllowed(process.env)||!['owner','admin'].includes(access.role)||!uuid(offerId)||!isSyntheticQaReference(reference))return invalid('Sintetična potrditev je dovoljena samo v izoliranem lokalnem QA.');
+    const db=await createClient();const {data,error}=await db.rpc('confirm_local_synthetic_slot_offer',{p_offer_id:offerId,p_reference:reference.trim()});
+    return rpcResult(data,error,'Sintetičnega termina ni mogoče potrditi. Preverite lokalni QA adapter.');
+  }
   if ((process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") && action === "confirm") {
     return invalid("Demo ne more potrditi dejanske rezervacije v MyPlanlyju.");
   }

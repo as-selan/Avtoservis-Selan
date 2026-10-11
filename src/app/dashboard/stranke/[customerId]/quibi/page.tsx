@@ -1,3 +1,4 @@
+import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {QuibiPartyUpdate} from '@/components/dashboard/QuibiPartyUpdate';
 import { QuibiLinkSubmit } from "@/components/quibi-link-submit";
 import Link from "next/link";
@@ -91,7 +92,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
   return <div className="space-y-5">
     <Link href={href} className="text-sm font-medium text-blue-700">← Nazaj na stranko</Link>
     <div><h1 className="text-2xl font-semibold">Quibi · {local.customer.displayName}</h1>
-      <p className="text-sm text-slate-600">{process.env.SELAN_REMOTE_DEMO === "1"
+      <p className="text-sm text-slate-600">{localSyntheticQaAllowed(process.env) ? "QA-SIM: lokalna simulacija Quibi; podatki niso dejanski DEV dokumenti." : process.env.SELAN_REMOTE_DEMO === "1"
         ? "Quibi demo – podatki so simulirani. Povezave veljajo samo za sintetične testne primere."
         : process.env.QUIBI_MODE === "production" ? "Quibi: dokumenti in pošiljanje se upravljajo iz Selana. Produkcijski zapisi zahtevajo izrecno konfiguracijo." : process.env.QUIBI_DEV_WRITE_ENABLED === "1"
           ? "Quibi DEV – dejanski podatki iz testnega okolja. Ujemanje stranke in vozila ostaja ročno potrjeno; predračun je mogoče pripraviti v servisnem primeru, testna dostava gre samo na dovoljen naslov."

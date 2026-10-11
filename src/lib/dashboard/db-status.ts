@@ -44,6 +44,7 @@ export function mapDbStatusToUiStatus(status: string, workOrderStatus?: string):
     throw new Error(`Unknown service_request status: ${status}`);
   }
   if(status==='converted'){
+    if(workOrderStatus==='awaiting_parts')return 'caka_dele';
     if(workOrderStatus==='closed')return 'zakljuceno';
     if(workOrderStatus==='ready_for_collection')return 'pripravljeno_za_prevzem';
   }

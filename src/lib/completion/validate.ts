@@ -57,6 +57,7 @@ export function validateCompletionFields(raw: {
   }
 
   const vin = normalizeIntakeVin(vinRaw);
+  if (vin != null && vin.length !== 17) return { ok: false };
 
   return {
     ok: true,

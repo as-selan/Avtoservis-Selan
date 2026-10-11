@@ -6,6 +6,7 @@ export type WorkflowStatusId =
   | "caka_potrditev_ponudbe"
   | "caka_izbiro_termina"
   | "termin_potrjen"
+  | "caka_dele"
   | "aktivno_popravilo"
   | "pripravljeno_za_prevzem"
   | "zakljuceno";
@@ -43,6 +44,7 @@ export interface ServiceOrderDemo {
 }
 
 export interface AppointmentDemo {
+  simulated?: boolean;
   id: string;
   /** Compact date label for multi-day Termini card (e.g. Danes / 14. 9.). */
   dateLabel: string;

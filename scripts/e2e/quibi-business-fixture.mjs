@@ -1,6 +1,10 @@
+import {existsSync,readFileSync,writeFileSync,renameSync} from 'node:fs';
 // Optional extension of the existing loopback fixture. Never contacts another server.
-export function createBusinessFixture(customers,send){
- const vehicles=[],documents=[],requests=new Map();let nextVehicle=5100,nextDocument=4100;
+export function createBusinessFixture(customers,send,stateFile){
+ const saved=stateFile&&existsSync(stateFile)?JSON.parse(readFileSync(stateFile,"utf8")):null;
+ if(saved)customers.splice(0,customers.length,...saved.customers);
+ const vehicles=saved?.vehicles??[],documents=saved?.documents??[],requests=new Map(saved?.requests??[]);let nextVehicle=saved?.nextVehicle??5100,nextDocument=saved?.nextDocument??4100;
+ const persist=()=>{if(stateFile){writeFileSync(stateFile+".tmp",JSON.stringify({customers,vehicles,documents,requests:[...requests],nextVehicle,nextDocument}));renameSync(stateFile+".tmp",stateFile)}};
  return async(req,res,url)=>{
   const list=(key,inner,values)=>send(res,200,{error:false,data:{[key]:values.map(item=>({[inner]:item}))}});
   const catalogs={'/api2/stevilcenje':['Stevilcenje','Stevilcenje',[{id:'2061',naziv:'Predračun',glava_id:'2'},{id:'6483',naziv:'Delovni nalog',glava_id:'3'},{id:'2060',naziv:'Račun',glava_id:'1'}]],'/api2/enota':['Enote','Enota',[{id:'1',naziv:'kos'}]],'/api2/ddv':['DDV','Ddv',[{id:'1',naziv:'22 %'}]],'/api2/statusi':['Statusi','Statusi',[{id:'1',naziv:'QA-SIM Osnutek'}]]};
@@ -13,20 +17,22 @@ export function createBusinessFixture(customers,send){
   if(req.method==='GET'&&documentId&&documents.some(d=>d.Glavadokumenta.id===documentId)){send(res,200,{error:false,data:{Dokumenti:[documents.find(d=>d.Glavadokumenta.id===documentId)]}});return true}
   if(req.method!=='POST')return false;
   if(url.pathname.includes('/send')){send(res,403,{error:true,message:'Fixture never sends'});return true}
-  if(!['/api2/stranka/form','/api2/vozila/form','/api2/glavadokumenta/form','/api2/dn','/api2/predracuni','/api2/fakture'].includes(url.pathname))return false;
+  const updateId=/^\/api2\/vozila\/form\/(\d+)$/.exec(url.pathname)?.[1];
+  if(!updateId&&!['/api2/stranka/form','/api2/vozila/form','/api2/glavadokumenta/form','/api2/dn','/api2/predracuni','/api2/fakture'].includes(url.pathname))return false;
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>200000){send(res,413,{error:true});return true}}
   let body;try{body=JSON.parse(raw)}catch{send(res,400,{error:true});return true}
   if(['/api2/dn','/api2/predracuni','/api2/fakture'].includes(url.pathname)){
    const kind={'/api2/dn':'6483','/api2/predracuni':'2061','/api2/fakture':'2060'}[url.pathname];
    send(res,200,{error:false,data:{Dokumenti:documents.filter(d=>String(d.Glavadokumenta.stranka_id)===String(body.Filtriraj?.stranka)&&String(d.Glavadokumenta.stevilcenje_id)===kind)}});return true;
   }
-  if(body.Stranka){const c=body.Stranka;if(!/^TEST-SELAN-AI/.test(c.naziv)||!c.remote_id||c.emajl!=='test-selan-ai@example.test'||c.telst){send(res,403,{error:true});return true}let item=customers.find(x=>x.remote_id===c.remote_id);if(!item){item={...c,id:String(2100+customers.length)};customers.push(item)}send(res,200,{error:false,data:{Stranke:{Stranka:item}}});return true}
-  if(body.Vozila){const v=body.Vozila;if(!customers.some(c=>c.id===String(v.stranka_id)&&c.naziv==='TEST-SELAN-AI')){send(res,403,{error:true});return true}const item={...v,id:String(++nextVehicle),stranka_id:String(v.stranka_id),disabled:0};vehicles.push(item);send(res,200,{error:false,data:{Vozila:{Vozilo:item.id}}});return true}
+  if(body.Stranka){const c=body.Stranka;if(!/^TEST-SELAN-AI/.test(c.naziv)||!c.remote_id||c.emajl!=='test-selan-ai@example.test'||c.telst){send(res,403,{error:true});return true}let item=customers.find(x=>x.remote_id===c.remote_id);if(!item){item={...c,id:String(2100+customers.length)};customers.push(item)}persist();send(res,200,{error:false,data:{Stranke:{Stranka:item}}});return true}
+  if(body.Vozila&&updateId){const v=vehicles.find(v=>v.id===updateId);if(!v||!customers.some(c=>c.id===v.stranka_id&&c.naziv==='TEST-SELAN-AI')||!body.Vozila.internastevilka||body.Vozila.internastevilka.length!==17){send(res,403,{error:true});return true}Object.assign(v,body.Vozila);persist();send(res,200,{error:false,data:{Vozila:{Vozilo:v.id}}});return true}
+  if(body.Vozila){const v=body.Vozila;if(!customers.some(c=>c.id===String(v.stranka_id)&&c.naziv==='TEST-SELAN-AI')){send(res,403,{error:true});return true}const item={...v,id:String(++nextVehicle),stranka_id:String(v.stranka_id),disabled:0};vehicles.push(item);persist();send(res,200,{error:false,data:{Vozila:{Vozilo:item.id}}});return true}
   if(body.Glavadokumenta){const h=body.Glavadokumenta;if(!customers.some(c=>c.id===String(h.stranka_id)&&c.naziv==='TEST-SELAN-AI')||!vehicles.some(v=>v.id===String(h.vozila_id)&&v.stranka_id===String(h.stranka_id))||!['2061','2060','6483'].includes(String(h.stevilcenje_id))||!h.external_id||h.id){send(res,403,{error:true});return true}
-   const existing=requests.get(h.external_id);if(existing){if(existing.raw!==raw){send(res,409,{error:true});return true}send(res,200,existing.response);return true}
+   const existing=requests.get(h.external_id);if(!existing&&documents.some(d=>d.Glavadokumenta.external_id===h.external_id)){send(res,409,{error:true,message:"Existing document requires journal review"});return true}if(existing){if(existing.raw!==raw){send(res,409,{error:true});return true}send(res,200,existing.response);return true}
    const lines=Object.values(body.Postavkedokumenta??{});if(!lines.length||lines.some(l=>l.sifra||l.enota_id!=='1'||l.ddv_id!=='1')){send(res,400,{error:true});return true}
    const id=String(++nextDocument),ZapSt=`QA-SIM-${id}`,znesek=lines.reduce((sum,l)=>sum+Number(l.kolicina)*Number(l.cenaZDDV)*(1-Number(l.popust??0)/100),0).toFixed(2);
-   const document={Glavadokumenta:{...h,id,ZapSt,znesek,stranka_id:String(h.stranka_id),vozila_id:String(h.vozila_id)},Statusi:{id:'1',naziv:'QA-SIM Osnutek'},Postavkedokumenta:lines};documents.push(document);const response={error:false,id,ZapSt};requests.set(h.external_id,{raw,response});send(res,200,response);return true;
+   const document={Glavadokumenta:{...h,id,ZapSt,znesek,stranka_id:String(h.stranka_id),vozila_id:String(h.vozila_id)},Statusi:{id:'1',naziv:'QA-SIM Osnutek'},Postavkedokumenta:lines};documents.push(document);const response={error:false,id,ZapSt};requests.set(h.external_id,{raw,response});persist();send(res,200,response);return true;
   }
   send(res,400,{error:true});return true;
  };

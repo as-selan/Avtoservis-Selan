@@ -92,3 +92,5 @@ test("manual permits email only for all operator channels", () => {
     assert.equal(validateManualIntakeForm({ ...base, channel, phone: "", email: "qa@example.test" }).ok, true);
   }
 });
+
+test("manual intake rejects a supplied VIN with the wrong length",()=>{assert.equal(validateManualIntakeForm({...base,vin:"TESTSELANAI2026011"}).ok,false);assert.equal(validateManualIntakeForm({...base,vin:"TESTSELANAI202601"}).ok,true);});

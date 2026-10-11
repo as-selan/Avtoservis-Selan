@@ -66,3 +66,10 @@ test("converted cases direct work execution, parts and invoice closure", () => {
  assert.match(nextCaseStep({...base,workOrderStatus:"ready_for_collection"}).label,/račun.*prevzem/);
  assert.equal(nextCaseStep({...base,status:"closed"}).kind,"closed");
 });
+
+test("synthetic appointment never claims an external reservation", () => {
+ const step=nextCaseStep({status:"appointment_confirmed",offerPrepared:true,quibiLinked:true,syntheticAppointment:true});
+ assert.match(step.label,/QA-SIM/);
+ assert.match(step.label,/Zunanje rezervacije ni/);
+ assert.equal(step.externalConfirmed,false);
+});

@@ -1,3 +1,6 @@
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {createServer} from 'node:http';import test from 'node:test';import assert from 'node:assert/strict';
 import {createBusinessFixture} from './quibi-business-fixture.mjs';
 import {createQuibiReadClient} from '../../src/lib/quibi/client.ts';
@@ -6,7 +9,7 @@ import {customerRemoteId} from '../../src/lib/quibi/customer-remote-id.ts';
 import {buildEstimateBody} from '../../src/lib/quibi/write-contract.ts';
 import {businessDocumentBody,confirmBusinessContent} from '../../src/lib/quibi/business-document-workflow.ts';
 test('existing HTTP clients simulate customer, vehicle, estimate, work order and invoice without a live write',async()=>{
- const customers=[];const send=(res,status,value)=>{res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify(value))};const business=createBusinessFixture(customers,send);
+ const customers=[];const send=(res,status,value)=>{res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify(value))};const directory=mkdtempSync(join(tmpdir(),'selan-fixture-'));const stateFile=join(directory,'state.json');let business=createBusinessFixture(customers,send,stateFile);
  const server=createServer(async(req,res)=>{const url=new URL(req.url,'http://127.0.0.1');if(await business(req,res,url))return;if(url.pathname==='/api2/stranka'){send(res,200,{error:false,data:{Stranke:customers.map(Stranka=>({Stranka}))}});return}const id=url.pathname.split('/').at(-1);send(res,200,{error:false,data:{Stranke:{Stranka:customers.find(c=>c.id===id)}}})});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  try{
@@ -16,10 +19,13 @@ test('existing HTTP clients simulate customer, vehicle, estimate, work order and
   const customer={remote_id:customerRemoteId('11111111-1111-4111-8111-111111111111'),naziv:'TEST-SELAN-AI',emajl:'test-selan-ai@example.test'};
   await write.createCustomer(customer);await write.createCustomer(customer);assert.equal((await read.customers()).length,1);const c=(await read.customers())[0];assert.equal((await read.customer(c.id)).remoteId,customer.remote_id);
   const v=await write.createVehicle({stranka_id:c.id,registrskastevilka:'QA SELAN AI',internastevilka:'TESTSELANAI2026011',proizvajalec:'TEST',model:'QA AI'});assert.equal((await read.vehicle(v,c.id)).customerId,c.id);
+  await write.updateVehicle(v,{internastevilka:'TESTSELANAI202601',registrskastevilka:'QA SELAN AI',proizvajalec:'TEST',model:'QA AI'});assert.equal((await read.vehicle(v,c.id)).vin,'TESTSELANAI202601');assert.equal((await read.vehicles(c.id)).length,1);
+  await assert.rejects(write.updateVehicle(v,{internastevilka:'INVALID'}),/HTTP_403/);
   const input={serviceRequestId:'11111111-1111-4111-8111-111111111112',customerId:c.id,vehicleId:v,numberingId:'2061',saleTypeId:'1',lines:[{opis:'QA storitev',enota_id:'1',ddv_id:'1',kolicina:1,cenaZDDV:122,popust:0}]};
   const bodies=[buildEstimateBody(input),businessDocumentBody('work_order','11111111-1111-4111-8111-111111111113',{...input,numberingId:'6483'}),businessDocumentBody('invoice','11111111-1111-4111-8111-111111111113',{...input,numberingId:'2060'},'2026-10-11')];
   for(const body of bodies){const result=await write.createEstimate(body),again=await write.createEstimate(body);assert.equal(again.id,result.id);const doc=await read.documentDetail(result.id,c.id);confirmBusinessContent(doc,body);assert.equal(doc.amount,'122.00');assert.ok(doc.number.startsWith('QA-SIM-'));await assert.rejects(write.createEstimate({...body,Postavkedokumenta:{0:{...body.Postavkedokumenta[0],cenaZDDV:123}}}),/HTTP_409/)}
   assert.equal((await read.estimates(c.id)).length,1);assert.equal((await read.workOrders(c.id)).length,1);assert.equal((await read.invoices(c.id)).length,1);
+  business=createBusinessFixture(customers,send,stateFile);assert.equal((await read.vehicle(v,c.id)).vin,'TESTSELANAI202601');assert.equal((await read.invoices(c.id)).length,1);assert.equal((await write.createEstimate(bodies[0])).id,(await read.estimates(c.id))[0].id);
   await assert.rejects(write.sendDocument('4101','test-selan-ai@example.test'),/DISABLED/);
- }finally{await new Promise(resolve=>server.close(resolve))}
+ }finally{await new Promise(resolve=>server.close(resolve));rmSync(directory,{recursive:true,force:true})}
 });

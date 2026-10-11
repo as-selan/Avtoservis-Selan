@@ -12,8 +12,8 @@ type Offer = {
   booking_reference: string | null;
 };
 
-export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, realDevWrite = false }: {
-  serviceRequestId: string; appointmentType: "diagnosis" | "service"; offer: Offer | null; realDevWrite?: boolean;
+export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, realDevWrite = false, syntheticQaAllowed = false }: {
+  serviceRequestId: string; appointmentType: "diagnosis" | "service"; offer: Offer | null; realDevWrite?: boolean; syntheticQaAllowed?: boolean;
 }) {
   const router = useRouter();
   const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
@@ -29,7 +29,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
   const statusMessage = offer?.status === "proposed" ? "Tri možnosti so pripravljene, niso še poslane ali rezervirane."
     : offer?.status === "offered" ? demo ? "Pošiljanje možnosti je simulirano; nobena ni rezervirana." : "Tri možnosti so bile ročno poslane; nobena ni začasno rezervirana."
       : offer?.status === "selected" ? "Stranka je izbrala termin; rezervacija v MyPlanlyju še ni potrjena."
-        : offer?.status === "confirmed" ? "Termin je interno potrjen na podlagi ročno zabeležene rezervacije v MyPlanlyju. Samodejne sinhronizacije ni."
+        : offer?.status === "confirmed" && offer.booking_reference?.startsWith("QA-SIM-") ? "QA-SIM: simuliran interni termin. To NI rezervacija v MyPlanlyju." : offer?.status === "confirmed" ? "Termin je interno potrjen na podlagi ročno zabeležene rezervacije v MyPlanlyju. Samodejne sinhronizacije ni."
           : "Tri možnosti je treba dejansko preveriti v MyPlanlyju. Aplikacija ne preverja razpoložljivosti sama.";
   function create() {
     if (pending || !attested) return;
@@ -44,7 +44,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
       if (result.ok) { setAttested(false); setReference(""); router.refresh(); }
     });
   }
-  function advance(action: "send" | "select" | "confirm" | "cancel") {
+  function advance(action: "send" | "select" | "confirm" | "confirm_synthetic" | "cancel") {
     if (!offer || pending || !attested) return;
     startTransition(async () => {
       const result = await advanceManualSlotOffer(offer.id, action, reference,
@@ -81,8 +81,8 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
         onChange={(event) => setSelected(Number(event.target.value))}>
         <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
       </select></label>}
-    {offer?.status !== "confirmed" && !(demo && offer?.status === "selected") && <>
-      <label className="block text-sm">{!offer ? "Referenca preverjanja razpoložljivosti" : offer.status === "proposed" ? demo ? "Referenca simuliranega pošiljanja" : "Referenca dejansko poslanih možnosti" : offer.status === "offered" ? "Referenca strankine izbire" : "Referenca dejanske rezervacije v MyPlanlyju"}
+    {offer?.status !== "confirmed" && !(demo && !syntheticQaAllowed && offer?.status === "selected") && <>
+      <label className="block text-sm">{!offer ? "Referenca preverjanja razpoložljivosti" : offer.status === "proposed" ? demo ? "Referenca simuliranega pošiljanja" : "Referenca dejansko poslanih možnosti" : offer.status === "offered" ? "Referenca strankine izbire" : syntheticQaAllowed ? "Sintetična referenca potrditve QA-SIM" : "Referenca dejanske rezervacije v MyPlanlyju"}
         <input className="mt-1 block w-full rounded border px-2 py-1" value={reference} maxLength={200}
           onChange={(event) => setReference(event.target.value)} placeholder="Sledljiv ID ali zapis" />
       </label>
@@ -90,7 +90,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
         {!offer ? demo ? "Za demo sem pripravil tri sintetične možnosti; MyPlanly ni preverjen." : "Tri termine sem dejansko preveril v MyPlanlyju."
           : offer.status === "proposed" ? demo ? "Simuliram pošiljanje; stranka ne prejme sporočila." : "Te tri možnosti sem dejansko poslal stranki."
             : offer.status === "offered" ? demo ? "Simuliram strankino izbiro." : "Prejel sem dejansko izbiro stranke."
-              : "Izbrani termin sem dejansko rezerviral v MyPlanlyju."}
+              : syntheticQaAllowed ? "Potrjujem lokalno simulacijo termina. MyPlanly ni rezerviran." : "Izbrani termin sem dejansko rezerviral v MyPlanlyju."}
       </label>
       <div className="flex flex-wrap gap-2">
         {!offer ? <button type="button" disabled={pending || !attested || reference.trim().length < 4 || slots.some((slot) => !slot)}
@@ -100,11 +100,11 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
             : offer.status === "offered" ? <button type="button" disabled={pending || !attested || reference.trim().length < 4}
               onClick={() => advance("select")} className="rounded border px-3 py-2 text-sm disabled:opacity-50">Evidentiraj strankino izbiro</button>
               : <button type="button" disabled={pending || !attested || reference.trim().length < 4}
-                  onClick={() => advance("confirm")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">Potrdi ročno rezerviran termin</button>}
+                  onClick={() => advance(syntheticQaAllowed ? "confirm_synthetic" : "confirm")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">{syntheticQaAllowed ? "Potrdi simuliran QA termin" : "Potrdi ročno rezerviran termin"}</button>}
       </div>
     </>}
-    {demo && offer?.status === "selected" && <p className="text-sm text-amber-800">Demo se ustavi pri izbiri. Dejanska rezervacija v MyPlanlyju ni mogoča.</p>}
-    {offer?.status === "confirmed" && <p className="text-xs text-slate-600">Referenca ročne rezervacije: {offer.booking_reference}</p>}
+    {demo && !syntheticQaAllowed && offer?.status === "selected" && <p className="text-sm text-amber-800">Demo se ustavi pri izbiri. Dejanska rezervacija v MyPlanlyju ni mogoča.</p>}
+    {offer?.status === "confirmed" && <p className="text-xs text-slate-600">{offer.booking_reference?.startsWith("QA-SIM-") ? "Sintetična referenca; zunanje rezervacije ni:" : "Referenca ročne rezervacije:"} {offer.booking_reference}</p>}
     {offer && offer.status !== "confirmed" && <div className="space-y-2 border-t pt-3">
       <p className="text-xs text-slate-600">Če nobena možnost ne velja več ali jo je stranka zavrnila, umaknite ponudbo. Ker ni bilo začasne rezervacije, ni samodejnega sproščanja terminov.</p>
       <label className="block text-sm">Referenca umika ali zavrnitve

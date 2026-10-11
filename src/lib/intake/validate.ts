@@ -79,6 +79,9 @@ export function validateManualIntakeForm(raw: {
     fieldErrors.email = "Neveljavna e-pošta";
   }
 
+  const vin = blankToNull(raw.vin);
+  if (vin && vin.replace(/\s/g, "").length !== 17) fieldErrors.vin = "VIN mora imeti 17 znakov";
+
   const serviceWanted = blankToNull(raw.serviceWanted);
   const problemDescription = blankToNull(raw.problemDescription);
   if (!serviceWanted && !problemDescription) {
