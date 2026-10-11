@@ -67,12 +67,13 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       <label className="block text-sm">Postavka iz Quibija
         <select name="catalogSource" value={catalogSource} onChange={event=>setCatalogSource(event.target.value)} className="mt-1 block w-full rounded border px-3 py-2">
           <option value="">{catalogOptions.length?'Izberite storitev ali dopolnite manjkajočo postavko spodaj':'Šifrant ni na voljo; dopolnite postavko za pregled'}</option>
-          {catalogOptions.map(option=><option key={option.key} value={option.key}>{option.name} · {option.code} · {option.priceListName}</option>)}
+          {catalogOptions.map(option=><option key={option.key} value={option.key}>{option.name} · {option.code} · {option.priceListDiffers?'osnovna cena artikla':option.priceListName}</option>)}
         </select>
       </label>
       {selectedSource && <div className="space-y-2 rounded border bg-blue-50 p-3 text-sm">
         <p>{selectedSource.name} · šifra {selectedSource.code}</p>
         <p>Quibi: {money(selectedSource.grossPrice)} na {selectedSource.unitLabel} z DDV {selectedSource.vatLabel} · popust {selectedSource.discount} %</p>
+        {selectedSource.priceListDiffers && <p className="text-amber-800">Cenik {selectedSource.priceListName}: {money(Number(selectedSource.priceListNetPrice))} brez DDV, popust {selectedSource.priceListDiscount} %. Ta posebna cena ni uporabljena; pregled in CREATE s šifro uporabljata zgoraj prikazano osnovno ceno artikla.</p>}
         <p>Pri CREATE Quibi uporabi svojo šifro in ceno. Pred potrditvijo bosta artikel in cenik ponovno prebrana.</p>
         <label className="block">Količina<input name="quantity" type="number" defaultValue="1" min="0.001" max="100000" step="0.001" required className="mt-1 block w-full rounded border px-3 py-2"/></label>
         <input type="hidden" name="unitId" value={selectedSource.unitId}/><input type="hidden" name="vatId" value={selectedSource.vatId}/>
