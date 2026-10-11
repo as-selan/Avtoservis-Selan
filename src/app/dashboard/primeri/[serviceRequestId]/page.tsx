@@ -1,3 +1,5 @@
+import {previewDevActivationReadiness} from '@/lib/quibi/hosted-activation-requirements';
+import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
 import {QuibiCaseBusinessOperations} from '@/components/dashboard/QuibiCaseBusinessOperations';
 import {QuibiCaseDocuments} from '@/components/dashboard/QuibiCaseDocuments';
 import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
@@ -100,6 +102,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
       ? quoteEvidence.external_id : null;
+    const activation=previewDevActivationReadiness(process.env);
     const appointments = appointmentResult.data ?? [];
     const latestApproval = approvalResult.data?.[0] ?? null;
     let approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
@@ -151,6 +154,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       } catch { /* fail closed: catalog errors do not enable dispatch */ }
     }
     // Journal evidence remains visible with all external writes disabled.
+    if (quote && !createdOperation){try{createdOperation=await quibiWorkflowJournal(access.organizationId,access.userId).get("estimate",serviceRequestId)}catch{}}
     if (quote && !sendOperation) {
       try { sendOperation = await quibiWorkflowJournal(access.organizationId, access.userId).get("send", quote.id); }
       catch { /* journal unavailable: sending still remains closed */ }
@@ -179,7 +183,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         }
       } catch { priceReadFailed = true; }
     }
-    const {data:workOrder}=await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle();
+    const internalOrdersEnabled=internalWorkOrdersEnabled(process.env);
+    const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
     const step = nextCaseStep({ status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
@@ -266,10 +271,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {customer && quibiEstimateId && <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi/predracuni/${quibiEstimateId}`}>
             {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri demo predračun" : "Podrobnosti predračuna v Selanu"} #{quibiEstimateId} →
           </Link>}
-          {writeReady && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
+          {createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
-            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} />}
-          {process.env.QUIBI_E2E_WRITE_ENABLED === "1" && quote?.internal_review_status === "unreviewed" && ["owner", "admin"].includes(access.role) && <ReviewManualEstimate quoteId={quote.id} />}
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} writeEnabled={writeReady} />}
+          {quote?.internal_review_status === "unreviewed" && ["owner", "admin"].includes(access.role) && <ReviewManualEstimate quoteId={quote.id} />}
           {quote && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
             <QuibiEstimateWorkflowPanel key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
@@ -281,7 +286,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
               qaIdentityExceptionAvailable={localQaIdentityExceptionAvailable(process.env, serviceRequestId, quote.id, quibiEstimateId, proposedPrice?.amount ?? "")}
               manualIdentityRequired={reviewDetail?.vehicleId !== vehicleLink?.quibi_vehicle_id ||
                 reviewDetail?.externalId !== "selan-service-request:" + serviceRequestId} />}
-          {request.status === "appointment_confirmed" && <CreateWorkOrder caseId={serviceRequestId} />}
+          {internalOrdersEnabled && request.status === "appointment_confirmed" && <CreateWorkOrder caseId={serviceRequestId} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status === "delivered" &&
             <ManualEstimateHandoff quoteId={quote.id} delivered decision={approval.customer_decision ?? null} realDevWrite={realDevMode} apiDispatch={approval.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status !== "delivered" &&
@@ -291,7 +296,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             </details>}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
-        <section className="rounded-xl border bg-white p-4 space-y-2">
+        <section id="termini" className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Termini</h2>
           {appointments.length === 0 ? <p className="text-sm text-slate-600">Potrjen interni termin še ni zabeležen. Ponujene možnosti so prikazane spodaj.</p> : <ul className="space-y-1 text-sm">{appointments.map((item) =>
             <li key={item.id}>{new Date(item.starts_at).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })} · {item.appointment_type} · interno: {item.status}</li>)}</ul>}
@@ -299,6 +304,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         </section>
       </div>
       {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
+      {activation&&["owner","admin"].includes(access.role)&&<aside className="space-y-2 rounded border bg-amber-50 p-4 text-sm"><h2 className="font-semibold">Aktivacija poslovnih dejanj DEV</h2>{activation.missing.length>0&&<p>Manjkajo ali niso veljavne nastavitve: {activation.missing.join(", ")}. Skrivnosti ostanejo na strežniku.</p>}{!activation.writeEnabled&&<p>WRITE/SEND sta izključena. Priprava in pregled ne ustvarita dokumenta. Aktivacija zahteva odobreno DEV journal migracijo in dovoljenje za izbrano dejanje.</p>}{activation.localOverrideEnabled&&<p role="alert">Lokalni override ne sme biti omogočen v Preview.</p>}</aside>}
       {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
       {fixedPriceEnabled && (fixedPrice || (request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
         <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} realDevWrite={realDevMode} />}

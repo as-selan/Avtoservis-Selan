@@ -1,5 +1,6 @@
 "use client";
 
+import {useRouter} from 'next/navigation';
 import { useState } from "react";
 import { prepareOfferAction } from "@/lib/offer-preparation/actions";
 import {
@@ -20,6 +21,7 @@ export function PrepareOfferButton({
   compact?: boolean;
   providerReady?: boolean;
 }) {
+  const router=useRouter();
   const [pending, setPending] = useState(false);
   const [prepared, setPrepared] = useState(alreadyPrepared);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export function PrepareOfferButton({
       }
       setPrepared(true);
       setProviderMessage(result.unconfiguredMessage);
+      router.refresh();
     } catch {
       setError(OFFER_PREP_GENERIC_ERROR);
     } finally {

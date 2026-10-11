@@ -53,7 +53,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
     {pending?"Preverjam in pošiljam…":p.reviewStatus==="approved_for_send"?"Pošlji stranki":"Odobri in pošlji stranki"}
    </button>
   </form>}
-  {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<p className="text-sm text-amber-800">Za pošiljanje sta potrebna potrjena vsebina in varna konfiguracija. Ob neznanem izidu preverite dnevnik.</p>}
+  {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<div className="space-y-2"><button disabled className="rounded border px-3 py-2 text-sm">Pošiljanje čaka na potrjeno vsebino in konfiguracijo</button><p className="text-sm text-amber-800">Za pošiljanje sta potrebna potrjena vsebina in varna konfiguracija. DEV zahteva konfiguriran testni naslov. Ob neznanem izidu preverite dnevnik.</p></div>}
   {p.reviewStatus==="unreviewed"&&!p.operationState&&<button type="button" disabled={pending} className="rounded border px-3 py-2 text-sm" onClick={()=>startTransition(async()=>{const r=await reviewManualQuibiEstimate(p.quoteId,"reject");setMessage(r.ok?"Predračun je zavrnjen za popravek.":r.message);router.refresh()})}>Zavrni za popravek</button>}
   {p.operationState&&<div role="status" className="space-y-2 text-sm"><p>{outcome.outcome}: {outcome.message}</p>
    <p>Čas poskusa (UTC): {p.attemptedAt??"ni zabeležen"}</p><p>Referenca dnevnika: {p.operationId}</p>

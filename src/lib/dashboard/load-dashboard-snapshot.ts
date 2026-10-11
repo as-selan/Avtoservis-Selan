@@ -1,3 +1,4 @@
+import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
 import { createClient } from "@/lib/supabase/server";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import {
@@ -179,7 +180,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
 
     const workOrderByRequest = new Map<string,string>();
     const convertedIds=requests.filter(row=>row.status==='converted').map(row=>row.id);
-    if(convertedIds.length){
+    if(convertedIds.length&&internalWorkOrdersEnabled(process.env)){
       const {data,error}=await supabase.from('work_orders').select('service_request_id,status').eq('organization_id',access.organizationId).in('service_request_id',convertedIds);
       // Older installations may not have the optional local work-order module yet.
       if(error&&!['42P01','PGRST205'].includes(error.code))return {ok:false,message:LOAD_ERROR_MESSAGE,generatedAt};

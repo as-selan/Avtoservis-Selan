@@ -1,4 +1,8 @@
 "use server";
+import {stableEstimatePayload,withDocumentId} from './write-contract';
+import {quibiWorkflowJournal} from './write-journal';
+import {estimateRevisionPreparation} from './estimate-revision-preparation';
+import {loadQuibiDocument} from './document-read';
 import {estimatePreparationPayload} from './estimate-preparation';
 
 
@@ -64,6 +68,9 @@ export async function updateQuibiDevEstimate(form: FormData): Promise<Result> {
   if (typeof serviceRequestId !== "string" || typeof quoteId !== "string" || !uuid.test(quoteId) ||
       price == null || form.get("serviceMatchConfirmed") !== "yes")
     return fail("Preverite popravek cene in potrdite ujemanje storitve.");
+  const preparation=await prepareQuibiEstimateRevision(form);
+  if(!preparation.ok)return preparation;
+  if(form.get('updateConfirmed')!=='yes'||form.get('expectedSha')!==preparation.sha)return fail('Najprej preglejte SHA popravka in izrecno potrdite UPDATE iste vsebine.');
   try {
     const ctx = await context(serviceRequestId);
     const { data: quote } = await ctx.db.from("quotes")
@@ -86,6 +93,7 @@ export async function updateQuibiDevEstimate(form: FormData): Promise<Result> {
     const replacement: EstimateBody = { ...base, Postavkedokumenta: {
       "1": { ...first, opis: ctx.lineDescription, cenaZDDV: price },
     } };
+    if(stableEstimatePayload(withDocumentId(replacement,created.quibiId)).sha256!==form.get('expectedSha'))return fail('Priprava popravka se je spremenila. Ponovno preglejte SHA; Quibi ni bil spremenjen.');
     const updated = await updateAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write,
       serviceRequestId, revisionId: quoteId, customerId: ctx.link.external_id,
       vehicleId: ctx.vehicleLink.quibi_vehicle_id, documentId: created.quibiId,
@@ -239,4 +247,24 @@ export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
     const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:price,popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates});
     return {ok:true,sha:payload.sha256,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
   } catch {return fail('Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
+}
+
+/** READ-only revision preparation; WRITE stays behind a separate explicit confirmation. */
+export async function prepareQuibiEstimateRevision(form:FormData):Promise<Result>{
+ const id=form.get('serviceRequestId'),quoteId=form.get('quoteId'),price=validPrice(form.get('unitPrice'));
+ if(typeof id!=='string'||typeof quoteId!=='string'||!uuid.test(quoteId)||price==null||form.get('serviceMatchConfirmed')!=='yes')return fail('Preverite popravek in ujemanje storitve.');
+ try{
+ const ctx=await quibiEstimatePreparationContext(id),journal=quibiWorkflowJournal(ctx.access.organizationId,ctx.access.userId);
+ const [{data:quote,error:qe},{data:latest,error:le},created]=await Promise.all([
+ ctx.db.from('quotes').select('id,content_sha256,evidence_kind,evidence_payload,internal_review_status').eq('organization_id',ctx.access.organizationId).eq('service_request_id',id).eq('id',quoteId).single(),
+ ctx.db.from('quotes').select('id').eq('organization_id',ctx.access.organizationId).eq('service_request_id',id).order('version_no',{ascending:false}).limit(1).single(),journal.get('estimate',id)]);
+ const evidence=quote?.evidence_payload as {external_id?:string;customer_external_id?:string}|null;
+ if(qe||le||!quote||latest?.id!==quoteId||quote.internal_review_status!=='rejected_for_revision'||quote.evidence_kind!=='quibi_manual_estimate'||!created||created.state!=='verified'||!created.quibiId||evidence?.external_id!==created.quibiId||evidence?.customer_external_id!==ctx.link.external_id)throw Error('REVISION_UNVERIFIED');
+ const current=await loadQuibiDocument(ctx.read,'estimate',created.quibiId,ctx.link.external_id);
+ if(current.contentSha256!==quote.content_sha256||current.vehicleId!==ctx.vehicleLink.quibi_vehicle_id||current.externalId!==created.externalId||current.lines.length!==1)throw Error('REVISION_CHANGED');
+ const base=JSON.parse(created.requestBody) as EstimateBody;
+ const [saleTypes,units,vatRates,numberings]=await Promise.all(['saleTypes','units','vat','numberings'].map(kind=>ctx.read.catalog(kind as 'saleTypes'|'units'|'vat'|'numberings')));
+ const payload=estimateRevisionPreparation(base,current,ctx.lineDescription,price,{saleTypes,units,vatRates,numberings});
+ return {ok:true,sha:payload.sha256,detail:'Priprava popravka preverjena; Quibi ni bil spremenjen. SHA: '+payload.sha256+'\n'+payload.json};
+ }catch{return fail('Priprava popravka ni potrjena. Preverite zadnjo zavrnjeno različico, identiteto, šifrante in journal.');}
 }

@@ -1,3 +1,4 @@
+import {quibiCaseProcessStage} from '@/lib/quibi/case-process-stage';
 import Link from 'next/link';
 import {createClient} from '@/lib/supabase/server';
 import {configuredQuibiReadClient} from '@/lib/quibi/client';
@@ -9,7 +10,9 @@ import {businessSendKey} from '@/lib/quibi/business-send-workflow';
 import {QuibiBusinessDocumentForm} from './QuibiBusinessDocumentForm';
 import {QuibiBusinessSend} from './QuibiBusinessSend';
 export async function QuibiCaseBusinessOperations({organizationId,userId,caseId,customerId,status}:{organizationId:string;userId:string;caseId:string;customerId:string;status:string}){
- if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'||!['appointment_confirmed','converted'].includes(status))return null;
+ if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview')return null;
+ const phase=quibiCaseProcessStage(status);if(!phase)return null;
+ if(!phase.businessReady)return <section className="space-y-2 rounded-xl border bg-white p-4"><h2 className="font-semibold">Nadaljevanje Quibi poslovnega postopka</h2><p>{phase.label}</p><p className="text-sm">Za nadaljevanje ni potreben lokalni poslovni nalog. Naloga in račun nastaneta v Quibiju po veljavni odobritvi in terminu.</p></section>;
  const db=await createClient();
  const [{data:link,error:le},{data:customer,error:ce},{data:operations,error:oe}]=await Promise.all([
  db.from('integration_links').select('external_id,sync_status,quibi_environment').eq('organization_id',organizationId).eq('entity_id',customerId).eq('entity_type','customer').eq('provider','quibi').single(),
