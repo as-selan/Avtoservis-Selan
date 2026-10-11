@@ -10,3 +10,8 @@ import {loadQuibiDocument,documentKindLabels,type QuibiDocumentKind} from './doc
   return loadQuibiDocument(read,scope.kind as QuibiDocumentKind,scope.documentId,scope.customerId);
  }
  export async function loadDirectDevPdf(read:Reader,scope:DirectDocumentScope){await loadDirectDevDocument(read,scope);return read.documentPdf(scope.documentId);}
+
+export function assertDirectDevVehicleRead(env:Record<string,string|undefined>,role:string,customerId:string,vehicleId:string){
+ if(env.APP_ENV!=='preproduction'||env.QUIBI_MODE!=='dev'||env.VERCEL_ENV!=='preview'||env.SELAN_REMOTE_DEMO==='1'||env.QUIBI_E2E_WRITE_ENABLED==='1'||!['owner','admin','reception'].includes(role))throw Error('QUIBI_DIRECT_READ_FORBIDDEN');
+ if(![customerId,vehicleId].every(id=>/^[1-9][0-9]{0,14}$/.test(id)&&Number.isSafeInteger(Number(id))))throw Error('QUIBI_INVALID_VEHICLE');
+}

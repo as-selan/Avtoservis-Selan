@@ -1,3 +1,4 @@
+import {QuibiDocumentPayments} from '@/components/dashboard/QuibiDocumentPayments';
 import {QuibiBusinessSend} from '@/components/dashboard/QuibiBusinessSend';
 import {businessSendKey} from '@/lib/quibi/business-send-workflow';
 import {quibiWorkflowConfig,actualCustomerEmail} from '@/lib/quibi/workflow-config';
@@ -46,6 +47,7 @@ export default async function QuibiDocument({params,searchParams}:{params:Promis
  <p className="text-sm text-amber-800">Ista stranka in vozilo še ne dokazujeta istega naročila. Povezavo s servisnim primerom mora potrditi skrbnik po pregledu postavk. Lokalno stanje dela ne spreminja poslovnega statusa dokumenta v Quibiju.</p>
  {order&&order.status!=='closed'&&kind!=='estimate'&&['owner','admin'].includes(access.role)&&(doc.vehicleId?<QuibiWorkOrderLink orderId={order.id} documentId={doc.id} kind={kind} sha={doc.contentSha256}/>:<p role="alert">Povezovanje je ustavljeno, ker Quibi ne vrača vozila dokumenta. Sintetična izjema predračuna tukaj ne velja.</p>)}
  {order&&reference&&kind!=='estimate'&&['owner','admin'].includes(access.role)&&<QuibiBusinessSend orderId={order.id} documentId={doc.id} kind={kind} sha={reference.content_sha256} amount={sendAmount} recipient={recipient} enabled={sendEnabled} initialState={storedSend?{state:storedSend.state,sendId:storedSend.send_id,sendStatus:storedSend.send_status,attemptedAt:storedSend.attempted_at}:null}/>}
+ {['invoice','advance_invoice','credit_note'].includes(kind)&&<QuibiDocumentPayments documentId={doc.id}/>}
  <DocumentCommunicationDraft kind={documentKindLabels[kind as QuibiDocumentKind]} id={doc.id} amount={doc.amount}/>
  </div>;
 

@@ -25,6 +25,13 @@ const copy = <T>(value: T): T => structuredClone(value);
 
 export function createDemoQuibiReadClient() {
   return {
+    async vehicleInfo():Promise<ReturnType<typeof import('./operational-read.ts').parseVehicleInfo>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async addresses():Promise<ReturnType<typeof import('./operational-read.ts').parseAddresses>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async lots():Promise<ReturnType<typeof import('./operational-read.ts').parseLots>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async stock():Promise<ReturnType<typeof import('./operational-read.ts').parseStock>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async paymentMethods():Promise<string[]>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async documentPayments():Promise<ReturnType<typeof import('./operational-read.ts').parseDocumentPayments>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async documents():Promise<QuibiDocument[]>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
     async searchCustomers(query: string): Promise<QuibiCustomer[]> {
       const needle = query.trim().toLocaleLowerCase("sl-SI");
       if (needle.length < 2 || needle.length > 100) return [];

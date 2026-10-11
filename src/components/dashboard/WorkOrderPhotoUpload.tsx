@@ -1,7 +1,6 @@
 "use client";
-import {useRef,useState,useTransition} from "react";
-import {useRouter} from "next/navigation";
-import {uploadWorkOrderPhoto} from "@/lib/work-orders/photo-actions";
+import {useEffect,useRef,useState,useTransition} from 'react';
+import Image from 'next/image';
 async function compressedPhoto(file:File){
  if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>20000000)throw Error("Izberite fotografijo JPEG, PNG ali WebP do 20 MB.");
  const image=await createImageBitmap(file);if(image.width*image.height>25000000){image.close();throw Error("Fotografija je prevelika. Izberite manjšo različico.")}
@@ -9,9 +8,16 @@ async function compressedPhoto(file:File){
  const ctx=canvas.getContext("2d");if(!ctx){image.close();throw Error("Fotografije ni mogoče pripraviti.")};ctx.drawImage(image,0,0,canvas.width,canvas.height);image.close();
  const blob=await new Promise<Blob|null>(r=>canvas.toBlob(r,"image/jpeg",0.75));if(!blob||blob.size>786432)throw Error("Izberite manjšo fotografijo; omejitev po pripravi je 768 KB.");return new File([blob],"photo.jpg",{type:"image/jpeg"});
 }
+
 export function WorkOrderPhotoUpload({id}:{id:string}){
- const [pending,start]=useTransition(),[message,setMessage]=useState(""),lock=useRef(false),router=useRouter();
- return <form className="space-y-3 rounded-xl border bg-white p-4" onSubmit={e=>{e.preventDefault();if(lock.current)return;lock.current=true;const f=new FormData(e.currentTarget);start(async()=>{try{const file=f.get("photo");if(!(file instanceof File))throw Error("Izberite fotografijo.");f.set("photo",await compressedPhoto(file));f.set("orderId",id);const r=await uploadWorkOrderPhoto(f);setMessage(r.ok?"Fotografija je varno shranjena v nalogu.":r.message);if(r.ok)router.refresh()}catch(error){setMessage(error instanceof Error?error.message:"Prenos ni potrjen.")}finally{lock.current=false}})}}>
- <h2 className="font-semibold">Fotografija popravila</h2><p className="text-sm text-slate-600">Fotografija se pred nalaganjem zmanjša. Shranjena je zasebno in dostopna samo pooblaščenim zaposlenim.</p><label className="block text-sm">Fotografija<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required className="mt-1 block w-full text-sm"/></label><label className="block text-sm">Opis fotografije<input name="caption" required minLength={4} maxLength={300} className="mt-1 w-full rounded border p-2"/></label><button disabled={pending} className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50">{pending?"Pripravljam in nalagam…":"Shrani fotografijo"}</button>{message&&<p role="status">{message}</p>}
- </form>;
+ const [pending,start]=useTransition(),[preview,setPreview]=useState<string|null>(null),[message,setMessage]=useState(''),url=useRef<string|null>(null),lock=useRef(false);
+ useEffect(()=>()=>{if(url.current)URL.revokeObjectURL(url.current)},[]);
+ return <section className="space-y-3 rounded-xl border bg-white p-4" aria-label="Fotografije popravila">
+ <h2 className="font-semibold">Fotografije popravila</h2>
+ <p className="text-sm">Quibi povezava za fotografije in priloge še ni na voljo. Obstoječe fotografije ostajajo ohranjene. Novih fotografij ne shranjujemo v Selanovo bazo ali Supabase Storage.</p>
+ <label className="block text-sm">Mobilno fotografiranje ali izbor za predogled v tej napravi<input disabled={pending} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="mt-1 block w-full text-sm" onChange={e=>{const file=e.target.files?.[0];if(!file||lock.current)return;lock.current=true;setMessage('');start(async()=>{try{const photo=await compressedPhoto(file);if(url.current)URL.revokeObjectURL(url.current);url.current=URL.createObjectURL(photo);setPreview(url.current);setMessage('Fotografija je pripravljena samo v tej napravi. Ni bila naložena ali povezana s Quibijem.')}catch(error){setMessage(error instanceof Error?error.message:'Predogled ni uspel.')}finally{lock.current=false}})}}/></label>
+ {preview&&<><Image src={preview} alt="Lokalni predogled fotografije popravila" width={1600} height={1200} unoptimized className="h-auto max-h-96 w-full object-contain"/><a href={preview} download={'selan-'+id+'.jpg'} className="inline-block rounded border px-3 py-2">Prenesi fotografijo v napravo</a></>}
+ <p className="text-sm">Za trajno povezavo potrebujemo Quibi API za upload, seznam, varen ogled ter pripenjanje fotografije na vozilo in poslovni delovni nalog.</p>
+ {message&&<p role="status">{message}</p>}
+ </section>;
 }

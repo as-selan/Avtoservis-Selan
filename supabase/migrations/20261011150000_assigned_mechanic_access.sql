@@ -12,14 +12,7 @@ grant execute on function private.can_work_on_order(uuid) to authenticated;
 create policy assigned_work_order_photos_read on public.work_order_photos for select to authenticated using(private.can_work_on_order(work_order_id));
 create policy assigned_work_order_photo_read on storage.objects for select to authenticated using(bucket_id='selan-work-order-photos' and exists(
  select 1 from public.work_order_photos p where p.storage_path=name and private.can_work_on_order(p.work_order_id)));
--- A definer helper avoids broad SELECT grants on work_orders for mechanic uploads.
-create function private.can_upload_order_photo(p_name text) returns boolean language sql stable security definer set search_path='' as $$
- select exists(select 1 from public.work_orders w where w.organization_id::text=(storage.foldername(p_name))[1] and w.id::text=(storage.foldername(p_name))[2]
- and w.status<>'closed' and private.can_work_on_order(w.id));
-$$;
-revoke all on function private.can_upload_order_photo(text) from public,anon;
-grant execute on function private.can_upload_order_photo(text) to authenticated;
-create policy assigned_work_order_photo_upload on storage.objects for insert to authenticated with check(bucket_id='selan-work-order-photos' and private.can_upload_order_photo(name));
+-- Legacy photo reads remain available; no new Storage upload permission.
 create function public.work_order_mechanics(p_order_id uuid) returns jsonb language sql stable security definer set search_path='' as $$
  select coalesce(jsonb_agg(jsonb_build_object('id',m.profile_id,'name',coalesce(nullif(p.full_name,''),'Mehanik')) order by p.full_name),'[]'::jsonb)
  from public.work_orders w join public.organization_memberships m on m.organization_id=w.organization_id and m.role='mechanic' and m.is_active

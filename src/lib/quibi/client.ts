@@ -1,3 +1,5 @@
+import {extraDocumentPaths,type ExtraDocumentKind} from './document-read.ts';
+import {parseVehicleInfo,parseAddresses,parseLots,parseStock,parsePaymentMethods,parseDocumentPayments} from './operational-read.ts';
 import {parseQuibiArticle,parseQuibiPriceLists} from './pricing-read.ts';
 import {quibiCatalogs,parseQuibiCatalog,type QuibiCatalogKind} from "./catalog-read.ts";
 import {readQuibiPdf} from "./pdf-read.ts";
@@ -42,6 +44,13 @@ export function createQuibiReadClient(config: Config) {
   };
 
   return {
+    async vehicleInfo(vehicleId:string,customerId:string){return parseVehicleInfo(await read('/api2/vozila/view/'+validId(vehicleId)),vehicleId,validId(customerId))},
+    async addresses(customerId:string){return parseAddresses(await read('/api2/address/index/'+validId(customerId)),customerId)},
+    async lots(articleId:string){return parseLots(await read('/api2/loti/index/'+validId(articleId)))},
+    async stock(warehouseId:string,reserved:boolean){if(typeof reserved!=='boolean')throw Error('QUIBI_INVALID_STOCK_FILTER');return parseStock(await read('/api2/sifranti/trenutnazaloga/'+validId(warehouseId)+'/'+(reserved?'1':'0')))},
+    async paymentMethods(){return parsePaymentMethods(await read('/api2/glavadokumenta/placila'))},
+    async documentPayments(documentId:string){return parseDocumentPayments(await read('/api2/delnaplacila/placiladokumenta/'+validId(documentId)),documentId)},
+    async documents(kind:ExtraDocumentKind,customerId:string){if(!Object.hasOwn(extraDocumentPaths,kind))throw Error('QUIBI_INVALID_DOCUMENT');const id=validId(customerId);return parseDocuments(await read(extraDocumentPaths[kind],'POST',id),id)},
     async priceLists() { return parseQuibiPriceLists(await read("/api2/cenik")); },
     async article(id: string) { return parseQuibiArticle(await read(`/api2/sifranti/view/${validId(id)}`), id); },
     async customers() { return parseCustomers(await read("/api2/stranka")); },
