@@ -6,7 +6,8 @@
 begin transaction read only;
 select to_regclass('public.work_orders') as work_orders,
        to_regclass('public.work_order_photos') as photos,
-       to_regclass('public.work_order_quibi_documents') as quibi_links;
+       to_regclass('public.work_order_quibi_documents') as quibi_links,
+       to_regclass('public.work_order_quibi_document_revisions') as quibi_reference_history;
 select version from supabase_migrations.schema_migrations order by version desc limit 10;
 select role,count(*) as active_members from public.organization_memberships where is_active group by role;
 select count(*) as storage_objects from storage.objects;

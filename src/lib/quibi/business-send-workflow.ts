@@ -13,6 +13,7 @@ export async function sendBusinessDocument(args:{caseId:string;documentId:string
  const op=await args.journal.insertOnce({kind:'send',localEntityId:localId,serviceRequestId:args.caseId,externalId:null,requestBody,requestSha256});
  if(op.requestBody!==requestBody||op.requestSha256!==requestSha256)throw Error('QUIBI_SEND_CHANGED');
  if(op.state!=='prepared')return op;
+ await args.journal.patch(op.id,'prepared',{quibiId:args.documentId,quibiContentSha256:args.sha});
  if(!await args.journal.claim(op.id,'prepared'))throw Error('QUIBI_SEND_ALREADY_CLAIMED');
  try{
   const result=await args.write.sendDocument(args.documentId,args.recipient);

@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {buildEstimateBody,stableEstimatePayload,type CreateEstimateInput,type EstimateBody} from './write-contract.ts';
 import {loadQuibiDocument,type QuibiDocumentKind} from './document-read.ts';
 import type {OperationJournal} from './write-workflow.ts';
@@ -39,6 +40,48 @@ export async function createBusinessDocument(args:{kind:BusinessKind;orderId:str
   const result=await args.write.createEstimate(JSON.parse(op.requestBody) as EstimateBody);
   await journal.patch(op.id,'dispatching',{state:'uncertain',quibiId:result.id,documentNumber:result.number});
   const doc=await reread(result.id);if(doc.number!==result.number)throw Error('QUIBI_DOCUMENT_NUMBER_MISMATCH');
+  return journal.patch(op.id,'uncertain',{state:'verified',quibiContentSha256:doc.contentSha256});
+ }catch(cause){await journal.patch(op.id,'dispatching',{state:'uncertain'}).catch(()=>undefined);throw cause}
+}
+
+/** Only changed business lines justify a write; unchanged data is not WRITE evidence. */
+export function assertBusinessUpdateChanges(doc:QuibiEstimateDetail,body:EstimateBody){
+ try{confirmBusinessContent(doc,body)}catch(error){if(error instanceof Error&&error.message==='QUIBI_DOCUMENT_LINES_MISMATCH')return;throw error}
+ throw Error('QUIBI_NO_BUSINESS_CHANGES');
+}
+/** Includes the baseline in the immutable request; reconciliation cannot adopt another version. */
+export function businessUpdatePayload(body:EstimateBody,baselineSha:string){
+ if(!/^[a-f0-9]{64}$/.test(baselineSha)||!Number.isSafeInteger(body.Glavadokumenta.id)||!body.Glavadokumenta.id)throw Error('QUIBI_INVALID_BUSINESS_UPDATE');
+ const json=JSON.stringify({baselineSha,body});
+ const sha256=createHash('sha256').update(json).digest('hex');
+ const revisionId=[sha256.slice(0,8),sha256.slice(8,12),sha256.slice(12,16),sha256.slice(16,20),sha256.slice(20,32)].join('-');
+ return {json,sha256,revisionId};
+}
+export async function updateBusinessDocument(args:{kind:BusinessKind;orderId:string;caseId:string;documentId:string;baselineSha:string;expectedSha:string;expectedAmount:string;body:EstimateBody;journal:OperationJournal;read:Reader;write:{updateEstimate:(id:string,body:EstimateBody)=>Promise<{id:string;number:string}>}}){
+ const {kind,body,journal,read}=args;
+ if(!['work_order','invoice'].includes(kind)||String(body.Glavadokumenta.id)!==args.documentId||body.Glavadokumenta.external_id!==['selan-work-order',args.orderId,kind].join(':'))throw Error('QUIBI_INVALID_BUSINESS_UPDATE');
+ if(!Number.isFinite(Number(args.expectedAmount))||Number(args.expectedAmount)<0)throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH');
+ const payload=businessUpdatePayload(body,args.baselineSha);
+ if(payload.sha256!==args.expectedSha)throw Error('QUIBI_PREPARED_PAYLOAD_CHANGED');
+ const op=await journal.insertOnce({kind:kind==='invoice'?'invoice_update':'work_order_update',localEntityId:payload.revisionId,serviceRequestId:args.caseId,externalId:null,requestBody:payload.json,requestSha256:payload.sha256});
+ if(op.requestBody!==payload.json||op.requestSha256!==payload.sha256)throw Error('QUIBI_PREPARED_PAYLOAD_CHANGED');
+ const load=()=>loadQuibiDocument(read,kind,args.documentId,String(body.Glavadokumenta.stranka_id));
+ const verify=async()=>{const doc=await load();confirmBusinessContent(doc,body);if(!Number.isFinite(Number(args.expectedAmount))||Number(doc.amount)!==Number(args.expectedAmount)||doc.number!==op.documentNumber||doc.contentSha256===args.baselineSha)throw Error('QUIBI_DOCUMENT_REREAD_MISMATCH');return doc};
+ if(op.state==='verified'){const doc=await verify();if(doc.contentSha256!==op.quibiContentSha256)throw Error('QUIBI_DOCUMENT_CHANGED');return op}
+ if(op.state==='uncertain'){if(op.quibiId!==args.documentId)throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');const doc=await verify();return journal.patch(op.id,'uncertain',{state:'verified',quibiContentSha256:doc.contentSha256})}
+ if(op.state!=='prepared')throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');
+ const before=await load();
+ if(before.contentSha256!==args.baselineSha||before.customerId!==String(body.Glavadokumenta.stranka_id)||before.vehicleId!==String(body.Glavadokumenta.vozila_id)||before.numberingId!==String(body.Glavadokumenta.stevilcenje_id)||before.externalId!==body.Glavadokumenta.external_id||!before.number)throw Error('QUIBI_DOCUMENT_CHANGED');
+ assertBusinessUpdateChanges(before,body);
+ // Bind before dispatch: the database's active-document index serializes every revision.
+ await journal.patch(op.id,'prepared',{quibiId:args.documentId,documentNumber:before.number});
+ op.documentNumber=before.number;
+ if(!await journal.claim(op.id,'prepared'))throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');
+ try{
+  const result=await args.write.updateEstimate(args.documentId,body);
+  await journal.patch(op.id,'dispatching',{state:'uncertain'});
+  if(result.id!==args.documentId||result.number!==before.number)throw Error('QUIBI_DOCUMENT_REREAD_MISMATCH');
+  const doc=await verify();
   return journal.patch(op.id,'uncertain',{state:'verified',quibiContentSha256:doc.contentSha256});
  }catch(cause){await journal.patch(op.id,'dispatching',{state:'uncertain'}).catch(()=>undefined);throw cause}
 }
