@@ -11,11 +11,12 @@ import {configuredQuibiWorkflowWriteClient} from './write-client';
 import {quibiWorkflowJournal} from './write-journal';
 import {customerFingerprint,vehicleFingerprint} from './contracts';
 import {updatePartyAndVerify} from './party-update-workflow';
-export async function updateLinkedQuibiParty(form:FormData):Promise<{ok:boolean;message:string}>{
+import {partyUpdateFailure,type PartyUpdateResult} from './party-update-result';
+export async function updateLinkedQuibiParty(form:FormData):Promise<PartyUpdateResult>{
  const access=await requirePhase1OperationalAccess();
- if(!['owner','admin'].includes(access.role))return {ok:false,message:'Spremembo lahko potrdi skrbnik.'};
+ if(!['owner','admin'].includes(access.role))return {ok:false,state:'blocked',message:'Spremembo lahko potrdi skrbnik.'};
  const customerId=String(form.get('customerId')??''),vehicleId=String(form.get('vehicleId')??''),revisionId=String(form.get('revisionId')??''),baseline=String(form.get('baseline')??'');
- if(!/^[a-f0-9-]{36}$/i.test(customerId)||!(/^[a-f0-9-]{36}$/i.test(revisionId))||form.get('confirmed')!=='yes'||(vehicleId&&!/^[a-f0-9-]{36}$/i.test(vehicleId)))return {ok:false,message:'Potrdite pregled prikazanih lokalnih in Quibi podatkov.'};
+ if(!/^[a-f0-9-]{36}$/i.test(customerId)||!(/^[a-f0-9-]{36}$/i.test(revisionId))||form.get('confirmed')!=='yes'||(vehicleId&&!/^[a-f0-9-]{36}$/i.test(vehicleId)))return {ok:false,state:'blocked',message:'Potrdite pregled prikazanih lokalnih in Quibi podatkov.'};
  try{
   assertLocalPartyWriteRequest(process.env,await headers());
   const write=configuredQuibiWorkflowWriteClient(),read=configuredQuibiReadClient(),db=await createClient(),environment=quibiLinkEnvironment(process.env);
@@ -54,6 +55,6 @@ export async function updateLinkedQuibiParty(form:FormData):Promise<{ok:boolean;
    const {error:linkError}=await store.from('quibi_vehicle_links').update({local_fingerprint:target,external_fingerprint:target,last_seen_fingerprint:target,sync_status:'ok',last_error_code:null,last_checked_at:new Date().toISOString(),confirmed_at:new Date().toISOString(),confirmed_by:access.userId}).eq('organization_id',access.organizationId).eq('vehicle_id',vehicleId).eq('customer_id',customerId).eq('quibi_vehicle_id',vl.quibi_vehicle_id).eq('quibi_environment',environment).eq('external_fingerprint',vl.external_fingerprint).select('vehicle_id').single();if(linkError)throw Error('LINK_UPDATE_FAILED');
   }
   revalidatePath(`/dashboard/stranke/${customerId}/quibi`);
-  return {ok:true,message:'Sprememba je ponovno prebrana; povezava je potrjena za nove podatke. Prejšnji in novi podatkovni prstni odtis ostajata v dnevniku operacije.'};
- }catch{return {ok:false,message:'Sprememba ni potrjena. WRITE mora biti posebej dovoljen; podatki se od pregleda ne smejo spremeniti. Ob neznanem izidu ne pošiljajte nove zahteve.'}}
+  return {ok:true,state:'verified',message:'Sprememba je ponovno prebrana; povezava je potrjena za nove podatke. Prejšnji in novi podatkovni prstni odtis ostajata v dnevniku operacije.'};
+ }catch(error){return partyUpdateFailure(error)}
 }
