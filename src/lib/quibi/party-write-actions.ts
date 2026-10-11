@@ -1,5 +1,8 @@
 "use server";
 
+import {headers} from 'next/headers';
+import {assertLocalPartyWriteRequest} from './local-write-policy';
+import {revalidatePath} from 'next/cache';
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
@@ -17,6 +20,7 @@ const fail = (message: string): Result => ({ ok: false, message });
 async function context() {
   const access = await requirePhase1OperationalAccess();
   if (!["owner", "admin"].includes(access.role)) throw new Error("QUIBI_WRITE_FORBIDDEN");
+  assertLocalPartyWriteRequest(process.env, await headers());
   // Checks the selected exact origin, environment, separate credentials and explicit opt-ins.
   const write = configuredQuibiWorkflowWriteClient();
   const read = createQuibiReadClient(quibiWorkflowConfig(process.env,"write"));
@@ -54,7 +58,7 @@ export async function createQuibiDevCustomer(form: FormData): Promise<Result> {
     const op = await createOrReconcileCustomer({ journal: ctx.journal, read: ctx.read, write: ctx.write, input });
     if (!op.quibiId) return fail("Quibijevega ID-ja ni mogoče potrditi.");
     const remote = await ctx.read.customer(op.quibiId);
-    if (remote.remoteId !== customerId || customerFingerprint(remote) !== customerFingerprint({
+    if (remote.remoteId !== JSON.parse(op.requestBody).remote_id || customerFingerprint(remote) !== customerFingerprint({
       name: input.name, phone: input.phone, email: input.email,
     })) return fail("Nova stranka v Quibiju se ne ujema s Selanovimi podatki.");
     const { error } = await ctx.trusted.from("integration_links").insert({
@@ -65,8 +69,10 @@ export async function createQuibiDevCustomer(form: FormData): Promise<Result> {
       sync_status: "ok", last_checked_at: new Date().toISOString(),
     });
     if (error) return fail("Stranka je preverjeno ustvarjena v Quibiju, povezava pa zahteva pregled; ne ustvarjajte je znova.");
+    revalidatePath(`/dashboard/stranke/${customerId}/quibi`);
     return { ok: true, detail: `Quibi stranka #${op.quibiId} je ponovno prebrana in povezana.` };
   } catch (error) {
+    if(error instanceof Error && error.message==='QUIBI_CUSTOMER_CREATE_REJECTED')return fail('Quibi je ustvarjanje dokončno zavrnil. Ponovitve ni; preverite pravice in dnevnik.');
     if (error instanceof Error && error.message === "QUIBI_CUSTOMER_MATCH_REVIEW_REQUIRED")
       return fail("V Quibiju je možno ujemanje. Najprej ročno preglejte in povežite obstoječo stranko.");
     return fail("Ustvarjanje stranke ni zanesljivo potrjeno. Ponovni poskus samo preveri remote_id; ne pošlje novega create zahtevka.");
@@ -121,6 +127,7 @@ export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
       confirmed_by: ctx.access.userId, sync_status: "ok", last_checked_at: new Date().toISOString(),
     });
     if (error) return fail("Vozilo je preverjeno ustvarjeno v Quibiju, povezava pa zahteva pregled; ne ustvarjajte ga znova.");
+    revalidatePath(`/dashboard/stranke/${customerId}/quibi`);
     return { ok: true, detail: `Quibi vozilo #${op.quibiId} je ponovno prebrano in povezano.` };
   } catch (error) {
     if (error instanceof Error && error.message === "QUIBI_VEHICLE_MATCH_REVIEW_REQUIRED")

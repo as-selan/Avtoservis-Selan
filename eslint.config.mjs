@@ -10,8 +10,10 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     ".next-local-review/**",
+    ".next-local-qa/**",
     "playwright-report/**",
     "test-results/**",
+    ".playwright-cli/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

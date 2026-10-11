@@ -1,4 +1,5 @@
 import "server-only";
+import {estimateLineDescription} from "./estimate-line-description";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
 import { configuredQuibiReadClient } from "./client";
@@ -16,10 +17,10 @@ export async function quibiWorkflowContext(serviceRequestId: string) {
     const write = configuredQuibiWorkflowWriteClient();
     const db = await createClient();
     const { data: request, error: requestError } = await db.from("service_requests")
-        .select("customer_id,vehicle_id,status,service_wanted").eq("organization_id", access.organizationId)
+        .select("customer_id,vehicle_id,status,service_wanted,problem_description").eq("organization_id", access.organizationId)
         .eq("id", serviceRequestId).is("archived_at", null).maybeSingle();
     if (requestError || !request || request.status !== "preparing_offer" || !request.customer_id ||
-        !request.vehicle_id || !request.service_wanted?.trim())
+        !request.vehicle_id || !estimateLineDescription(request))
         throw new Error("QUIBI_CASE_NOT_READY");
     const [customerResult, vehicleResult, linkResult, vehicleLinkResult, prepResult, fixedResult] = await Promise.all([
         db.from("customers").select("display_name,phone,email").eq("organization_id", access.organizationId)
@@ -63,6 +64,6 @@ export async function quibiWorkflowContext(serviceRequestId: string) {
             localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
                 make: vehicle.make ?? "", model: vehicle.model ?? "" }, remoteVehicle, vehicleLink }))
         throw new Error("QUIBI_LINK_CHANGED");
-    return { access, db, request, customer, remoteCustomer, link, vehicleLink, read, write,
+    return { access, db, request, lineDescription: estimateLineDescription(request)!, customer, remoteCustomer, link, vehicleLink, read, write,
         journal: quibiWorkflowJournal(access.organizationId, access.userId) };
 }

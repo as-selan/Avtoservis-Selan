@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function QuibiEstimatePage({ params }: {
   params: Promise<{ customerId: string; estimateId: string }>;
 }) {
+  const simulated = process.env.QUIBI_E2E_WRITE_ENABLED === "1" && process.env.SELAN_ISOLATED_E2E === "1";
   const access = await requirePhase1OperationalAccess();
   const { customerId, estimateId } = await params;
   if (!canQueryCustomerId(customerId) || !/^\d+$/.test(estimateId)) {
@@ -43,14 +44,15 @@ export default async function QuibiEstimatePage({ params }: {
     </Link>
     <header>
       <h1 className="text-2xl font-semibold">Quibijev predračun #{estimate.id}</h1>
-      <p className="text-sm text-slate-600">Neposreden bralni prikaz iz Quibijevega testnega okolja.</p>
+      <p className="text-sm text-slate-600">{simulated ? "QA-SIM: vsebina iz lokalnega simuliranega API-ja; ni dejanski Quibi dokument." : "Neposreden bralni prikaz iz Quibijevega testnega okolja."}</p>
     </header>
     {link.sync_status !== "ok" && <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
       Povezava stranke zahteva ponovni pregled. Ne potrjujte cene, dokler ne razrešite neskladja.
     </p>}
-    <a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/estimate/${estimateId}/pdf`}>Odpri dejanski PDF iz Quibija</a>
+    {!simulated && <a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/estimate/${estimateId}/pdf`}>Odpri dejanski PDF iz Quibija</a>}
+    {simulated && <p className="text-sm text-amber-800">PDF ni na voljo v lokalni simulaciji. Dejanski PDF se odpre prek preverjenega Quibi READ dostopa.</p>}
     <section className="rounded-xl border bg-white p-4 space-y-2">
-      <h2 className="font-semibold">Dejanska vsebina dokumenta</h2>
+      <h2 className="font-semibold">{simulated ? "Simulirana vsebina dokumenta QA" : "Dejanska vsebina dokumenta"}</h2>
       <p className="text-sm">Status: {quibiDocumentStatusLabel(estimate.status)}</p>
       <p className="text-sm">Znesek, kot ga vrne Quibi: {estimate.amount}</p>
       <ul className="space-y-2 text-sm">{estimate.lines.map((line, index) => <li key={index} className="border-t pt-2">

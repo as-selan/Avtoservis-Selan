@@ -8,8 +8,9 @@ const branchHost = process.env.VERCEL_BRANCH_URL ?? "";
 const publicPreviewHost = /^[a-z0-9-]+\.vercel\.app$/.test(branchHost) ? branchHost : previewHost;
 
 const nextConfig: NextConfig = {
+  ...(process.env.SELAN_LOCAL_QA_DIST === '1' && process.env.VERCEL !== '1' ? {distDir: '.next-local-qa'} : {}),
   ...(process.env.SELAN_LOCAL_REVIEW === "1" ? {
-    distDir: ".next-local-review",
+    distDir: process.env.SELAN_LOCAL_QA_DIST === "1" ? ".next-local-qa" : ".next-local-review",
     env: { NEXT_PUBLIC_SELAN_LOCAL_REVIEW: "1" },
   } : {}),
   // Only this reviewed branch can opt into Quibi DEV reads on the hosted project.

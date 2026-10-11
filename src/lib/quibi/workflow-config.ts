@@ -8,6 +8,11 @@ export type WorkflowConfig = {
     password: string;
 };
 export function quibiWorkflowConfig(env: Record<string, string | undefined>, capability: "read" | "write" | "send" = "send"): WorkflowConfig {
+    if(env.QUIBI_E2E_WRITE_ENABLED==='1'){
+        const loopback=(value:string|undefined)=>{try{const u=new URL(value??'');return u.protocol==='http:'&&u.hostname==='127.0.0.1'&&!!u.port&&u.origin===value}catch{return false}};
+        if(env.APP_ENV!=='local'||env.CI!=='true'||env.SELAN_ISOLATED_E2E!=='1'||env.VERCEL==='1'||env.VERCEL_ENV||env.QUIBI_DEV_WRITE_ENABLED==='1'||env.QUIBI_DEV_LOCAL_SEND_ENABLED==='1'||!loopback(env.QUIBI_E2E_ORIGIN)||!loopback(env.NEXT_PUBLIC_SUPABASE_URL)||!loopback(env.PUBLIC_APP_ORIGIN)||env.QUIBI_DEV_USERNAME!=='selan-isolated-fixture'||env.QUIBI_DEV_PASSWORD!=='selan-isolated-fixture'||capability==='send')throw Error('QUIBI_FIXTURE_WRITE_DISABLED');
+        return {mode:'dev',origin:env.QUIBI_E2E_ORIGIN!,username:'selan-isolated-fixture',password:'selan-isolated-fixture'};
+    }
     const demo = env.SELAN_REMOTE_DEMO === "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || env.SELAN_LOCAL_REVIEW === "1";
     if (env.APP_ENV === "production" && env.QUIBI_MODE === "production" && env.VERCEL_ENV === "production" && !demo &&
         env.QUIBI_PRODUCTION_READ_ENABLED === "1" && env.QUIBI_PRODUCTION_USERNAME && env.QUIBI_PRODUCTION_PASSWORD &&

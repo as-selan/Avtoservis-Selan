@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
 import type { QuibiChoice } from "@/lib/quibi/write-options";
 
-export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState }: {
+export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription }: {
   serviceRequestId: string; mode: "create" | "update" | "send"; quoteId?: string;
+  lineDescription?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] };
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
 }) {
@@ -31,6 +32,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     <h3 className="font-medium">{mode === "create" ? "Ustvari predračun v Quibiju" :
       mode === "update" ? "Popravi zavrnjeni Quibi predračun" : "Pošlji predračun samo na testni naslov"}</h3>
     {mode === "create" && <>
+      {lineDescription && <p className="text-sm">Postavka za pregled: {lineDescription}</p>}
       <p className="text-xs text-amber-800">To ustvari dejanski dokument v konfiguriranem Quibi okolju. Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej.</p>
       <label className="block text-sm">Vrsta prodaje
         <select name="saleTypeId" required className="mt-1 block w-full rounded border px-3 py-2">
@@ -51,7 +53,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       </div>
     </>}
     {(mode === "create" || mode === "update") && <>
-      <label className="block text-sm">Cena za eno storitev brez DDV (€)
+      <label className="block text-sm">Cena za eno storitev z DDV (€)
         <input name="unitPrice" type="number" min="0.01" max="1000000" step="0.01" required
           className="mt-1 block w-full rounded border px-3 py-2" />
       </label>

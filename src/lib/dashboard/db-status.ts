@@ -22,7 +22,7 @@ const DB_TO_UI_STATUS: Record<ServiceRequestDbStatus, WorkflowStatusId> = {
   awaiting_slot_selection: "caka_izbiro_termina",
   appointment_confirmed: "termin_potrjen",
   admin_completed: "zakljuceno",
-  converted: "zakljuceno",
+  converted: "aktivno_popravilo",
   declined: "zakljuceno",
   cancelled: "zakljuceno",
   closed: "zakljuceno",
@@ -39,9 +39,13 @@ export function isServiceRequestDbStatus(
  * Unknown values throw — never silently fall through to "novo".
  * UI-only "potreben_pregled" has no DB counterpart.
  */
-export function mapDbStatusToUiStatus(status: string): WorkflowStatusId {
+export function mapDbStatusToUiStatus(status: string, workOrderStatus?: string): WorkflowStatusId {
   if (!isServiceRequestDbStatus(status)) {
     throw new Error(`Unknown service_request status: ${status}`);
+  }
+  if(status==='converted'){
+    if(workOrderStatus==='closed')return 'zakljuceno';
+    if(workOrderStatus==='ready_for_collection')return 'pripravljeno_za_prevzem';
   }
   return DB_TO_UI_STATUS[status];
 }

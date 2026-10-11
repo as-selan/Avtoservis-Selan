@@ -73,12 +73,14 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
   const localFingerprint = customerFingerprint({ name: local.customer.displayName, phone: local.customer.phone ?? "", email: local.customer.email ?? "" });
   let writeReady = false;
   let updateReady = false;
+  let customerCreateReady = false;
   if (["owner", "admin"].includes(access.role)) {
     try {
       configuredQuibiWorkflowWriteClient();
       await quibiWorkflowJournal(access.organizationId, access.userId).get("customer", customerId);
-      updateReady = true;
+      updateReady = process.env.QUIBI_DEV_LOCAL_WRITE_ACTION !== "create_customer";
       writeReady = process.env.QUIBI_DEV_LOCAL_WRITE_ENABLED !== "1" && process.env.QUIBI_DEV_LOCAL_SEND_ENABLED !== "1";
+      customerCreateReady = writeReady || (process.env.QUIBI_DEV_LOCAL_WRITE_ACTION === "create_customer" && process.env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID === customerId && local.customer.displayName === "TEST-SELAN-AI");
     } catch { writeReady = false; }
   }
   const localChanged = !!link && localFingerprint !== link.local_fingerprint;
@@ -224,7 +226,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
         </form>
       </div>)}
       {query.q && matches.length === 0 && !readError && <p className="text-sm text-slate-600">Ni ujemanj.</p>}
-      {writeReady && query.q && matches.length === 0 && !readError && local.customer.serviceRequests.length > 0 &&
+      {customerCreateReady && query.q && matches.length === 0 && !readError && local.customer.serviceRequests.length > 0 &&
         <QuibiDevPartyCreate customerId={customerId} />}
     </section>}
   </div>;

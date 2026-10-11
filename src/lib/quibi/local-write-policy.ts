@@ -1,10 +1,9 @@
+import {customerRemoteId} from './customer-remote-id.ts';
 import {createHash} from 'node:crypto';
+import {assertLocalPartyWriteConfiguration} from './local-write-configuration.ts';
+export {assertLocalPartyWriteConfiguration} from './local-write-configuration.ts';
 type Env=Record<string,string|undefined>;
-/** One reviewed customer-update body only. This permission cannot send or create documents. */
-export function assertLocalPartyWriteConfiguration(env:Env){
- let app:URL,db:URL;try{app=new URL(env.PUBLIC_APP_ORIGIN??'');db=new URL(env.NEXT_PUBLIC_SUPABASE_URL??'')}catch{throw Error('QUIBI_LOCAL_WRITE_DISABLED')}
- if(db.protocol!=='http:'||db.hostname!=='127.0.0.1'||db.username||db.password||env.APP_ENV!=='preproduction'||env.QUIBI_MODE!=='dev'||env.QUIBI_DEV_LOCAL_WRITE_ENABLED!=='1'||env.QUIBI_DEV_WRITE_ENABLED!=='1'||env.SELAN_APPROVED_LOCAL_DEV!=='1'||env.QUIBI_DEV_LOCAL_SEND_ENABLED==='1'||env.VERCEL==='1'||(env.VERCEL_ENV!==undefined&&env.VERCEL_ENV!=='development')||env.SELAN_REMOTE_DEMO==='1'||env.NEXT_PUBLIC_SELAN_REMOTE_DEMO==='1'||env.SELAN_LOCAL_REVIEW==='1'||env.QUIBI_E2E_ORIGIN||!env.QUIBI_DEV_USERNAME||!env.QUIBI_DEV_PASSWORD||app.protocol!=='http:'||app.hostname!=='127.0.0.1'||app.origin!==env.PUBLIC_APP_ORIGIN||env.COMPLETION_PUBLIC_ORIGIN!==app.origin||!/^\d+$/.test(env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID??'')||env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID==='405956'||!/^[a-f0-9]{64}$/.test(env.QUIBI_DEV_LOCAL_WRITE_BODY_SHA256??''))throw Error('QUIBI_LOCAL_WRITE_DISABLED');
-}
+/** One immutable customer body only; creation is restricted to TEST-SELAN-AI. */
 export function assertLocalPartyWriteRequest(env:Env,headers:Pick<Headers,'get'>){
  if(env.QUIBI_DEV_LOCAL_WRITE_ENABLED!=='1')return;
  assertLocalPartyWriteConfiguration(env);const app=new URL(env.PUBLIC_APP_ORIGIN!);
@@ -14,5 +13,8 @@ export function assertLocalPartyWriteTarget(env:Env,path:string,method:string,bo
  if(env.QUIBI_DEV_LOCAL_WRITE_ENABLED!=='1')return;
  assertLocalPartyWriteConfiguration(env);
  if(method==='GET')return;
- if(method!=='POST'||path!==`/api2/stranka/form/${env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID}`||createHash('sha256').update(JSON.stringify(body)).digest('hex')!==env.QUIBI_DEV_LOCAL_WRITE_BODY_SHA256)throw Error('QUIBI_LOCAL_WRITE_SCOPE_MISMATCH');
+ const create=env.QUIBI_DEV_LOCAL_WRITE_ACTION==='create_customer';
+ const customer=(body as {Stranka?:Record<string,unknown>}|undefined)?.Stranka;
+ const synthetic=create&&!!customer&&customer.remote_id===customerRemoteId(env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID!)&&customer.naziv==='TEST-SELAN-AI'&&customer.emajl==='test-selan-ai@example.test'&&Object.keys(customer).every(key=>['remote_id','naziv','emajl'].includes(key));
+ if(method!=='POST'||path!==(create?'/api2/stranka/form':`/api2/stranka/form/${env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID}`)||(create&&!synthetic)||createHash('sha256').update(JSON.stringify(body)).digest('hex')!==env.QUIBI_DEV_LOCAL_WRITE_BODY_SHA256)throw Error('QUIBI_LOCAL_WRITE_SCOPE_MISMATCH');
 }

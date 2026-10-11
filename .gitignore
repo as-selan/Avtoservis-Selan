@@ -51,3 +51,6 @@ supabase/.branches/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.next-local-qa/
+.playwright-cli/

@@ -38,7 +38,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     const op = await createAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write,
       input: { serviceRequestId, customerId: ctx.link.external_id,
         vehicleId: ctx.vehicleLink.quibi_vehicle_id, saleTypeId,
-        lines: [{ opis: ctx.request.service_wanted.trim(), enota_id: unitId, ddv_id: vatId,
+        lines: [{ opis: ctx.lineDescription, enota_id: unitId, ddv_id: vatId,
           kolicina: 1, cenaZDDV: price, popust: 0 }],
         note: `${quibiWorkflowConfig(process.env, "write").mode === "dev" ? "TEST-AUTOSERVIS-SELAN" : "AVTOSERVIS-SELAN"} ${serviceRequestId}` },
     });
@@ -80,7 +80,7 @@ export async function updateQuibiDevEstimate(form: FormData): Promise<Result> {
     const first = base.Postavkedokumenta["1"];
     if (!first || !("opis" in first)) return fail("Postavke ni mogoče varno popraviti.");
     const replacement: EstimateBody = { ...base, Postavkedokumenta: {
-      "1": { ...first, opis: ctx.request.service_wanted.trim(), cenaZDDV: price },
+      "1": { ...first, opis: ctx.lineDescription, cenaZDDV: price },
     } };
     const updated = await updateAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write,
       serviceRequestId, revisionId: quoteId, customerId: ctx.link.external_id,

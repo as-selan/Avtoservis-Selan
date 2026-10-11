@@ -61,7 +61,7 @@ export function adaptServiceRequestToOrder(
   now: Date,
   stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status">,
 ): ServiceOrderDemo {
-  const uiStatus = mapDbStatusToUiStatus(row.status);
+  const uiStatus = mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
 
   return {
     id: toPresentationRef(row.id),

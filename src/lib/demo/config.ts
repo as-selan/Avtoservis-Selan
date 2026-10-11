@@ -1,8 +1,13 @@
+import {assertLocalPartyWriteConfiguration} from '../quibi/local-write-configuration.ts';
 import { assertApprovedLocalDevSendConfiguration } from "../quibi/local-send-policy.ts";
 /** Permit only the reviewed hosted project and an explicit Quibi mode in preproduction. */
 function preproductionEnvironment(): Record<string, string | undefined> {
   // Direct accesses let Next.js inline the public branch flags from next.config.
   return {
+    QUIBI_DEV_LOCAL_WRITE_ENABLED: process.env.QUIBI_DEV_LOCAL_WRITE_ENABLED,
+    QUIBI_DEV_LOCAL_WRITE_ACTION: process.env.QUIBI_DEV_LOCAL_WRITE_ACTION,
+    QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID: process.env.QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID,
+    QUIBI_DEV_LOCAL_WRITE_BODY_SHA256: process.env.QUIBI_DEV_LOCAL_WRITE_BODY_SHA256,
     APP_ENV: process.env.APP_ENV,
     QUIBI_DEV_LOCAL_SEND_ENABLED: process.env.QUIBI_DEV_LOCAL_SEND_ENABLED,
     SELAN_APPROVED_LOCAL_DEV: process.env.SELAN_APPROVED_LOCAL_DEV,
@@ -28,6 +33,7 @@ function preproductionEnvironment(): Record<string, string | undefined> {
 
 export function assertPreproductionQuibiConfiguration(env: Record<string, string | undefined> = preproductionEnvironment()): void {
   if (env.APP_ENV !== "preproduction") return;
+  if(env.QUIBI_DEV_LOCAL_WRITE_ENABLED==='1'){assertLocalPartyWriteConfiguration(env);return;}
   if (env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1") {
     assertApprovedLocalDevSendConfiguration(env, "https://dev.quibi.net", false);
     if (env.NEXT_PUBLIC_SUPABASE_URL !== "https://verxxsjbewmkgoxwqvxo.supabase.co" ||

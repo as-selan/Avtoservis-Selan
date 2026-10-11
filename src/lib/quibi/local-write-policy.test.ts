@@ -1,3 +1,4 @@
+import {customerRemoteId} from './customer-remote-id.ts';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {test} from 'node:test';
@@ -15,4 +16,15 @@ test('local write denies hosted environment, external origin, missing flags and 
  for(const patch of [{NEXT_PUBLIC_SUPABASE_URL:'https://hosted.supabase.co'},{VERCEL:'1'},{APP_ENV:'production'},{QUIBI_MODE:'production'},{QUIBI_DEV_WRITE_ENABLED:'0'},{QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID:'405956'},{PUBLIC_APP_ORIGIN:'http://localhost:3002'}])assert.throws(()=>assertLocalPartyWriteConfiguration({...env,...patch}),/DISABLED/);
  assert.throws(()=>assertLocalPartyWriteRequest(env,new Headers({host:'evil.test',origin:env.PUBLIC_APP_ORIGIN})),/FORBIDDEN/);
  assert.doesNotThrow(()=>assertLocalPartyWriteRequest(env,new Headers({host:'127.0.0.1:3002',origin:env.PUBLIC_APP_ORIGIN})));
+});
+test('local creation permission is limited to one synthetic body and forbids every other write',()=>{
+ const customer={remote_id:customerRemoteId('11111111-1111-4111-8111-111111111111'),naziv:'TEST-SELAN-AI',emajl:'test-selan-ai@example.test'};
+ const body={Stranka:customer};
+ const createEnv={...env,QUIBI_DEV_LOCAL_WRITE_ACTION:'create_customer',QUIBI_DEV_LOCAL_WRITE_CUSTOMER_ID:'11111111-1111-4111-8111-111111111111',QUIBI_DEV_LOCAL_WRITE_BODY_SHA256:createHash('sha256').update(JSON.stringify(body)).digest('hex')};
+ assert.doesNotThrow(()=>assertLocalPartyWriteTarget(createEnv,'/api2/stranka/form','POST',body));
+ for(const path of ['/api2/stranka/form/7','/api2/vozila/form','/api2/glavadokumenta/form','/api2/glavadokumenta/send/2176888'])assert.throws(()=>assertLocalPartyWriteTarget(createEnv,path,'POST',body));
+ for(const patch of [{naziv:'Real customer'},{emajl:'customer@gmail.com'},{telst:'+38640123456'}]){
+  const changed={Stranka:{...customer,...patch}};
+  assert.throws(()=>assertLocalPartyWriteTarget({...createEnv,QUIBI_DEV_LOCAL_WRITE_BODY_SHA256:createHash('sha256').update(JSON.stringify(changed)).digest('hex')},'/api2/stranka/form','POST',changed));
+ }
 });

@@ -1,3 +1,4 @@
+import {validCustomerRemoteId} from './customer-remote-id.ts';
 import {assertLocalPartyWriteTarget} from './local-write-policy.ts';
 import {
   assertQuibiDevTestSendAllowed, quibiDevTestRecipient, assertQuibiDevWriteAllowed, parseQuibiWriteResponse, QUIBI_DEV_ORIGIN,
@@ -54,7 +55,7 @@ function createTransport(config: Config, workflow: boolean) {
 
   return {
     async createCustomer(customer: { remote_id: string; naziv: string; emajl?: string; telst?: string }) {
-      if (!/^[0-9a-f-]{36}$/i.test(customer.remote_id) || !customer.naziv.trim())
+      if (!validCustomerRemoteId(customer.remote_id) || !customer.naziv.trim())
         throw new Error("QUIBI_INVALID_CUSTOMER_INPUT");
       return responseData(await call("/api2/stranka/form", "POST", { Stranka: customer }));
     },

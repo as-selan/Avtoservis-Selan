@@ -13,10 +13,12 @@ export function PrepareOfferButton({
   serviceRequestId,
   alreadyPrepared = false,
   compact = false,
+  providerReady = false,
 }: {
   serviceRequestId: string;
   alreadyPrepared?: boolean;
   compact?: boolean;
+  providerReady?: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [prepared, setPrepared] = useState(alreadyPrepared);
@@ -50,7 +52,7 @@ export function PrepareOfferButton({
           <p className="text-xs font-medium text-slate-700">
             {OFFER_PREP_READY_NEXT_ACTION}
           </p>
-          <p className="text-xs text-slate-600">{providerMessage}</p>
+          {!providerReady && <p className="text-xs text-slate-600">{providerMessage}</p>}
         </div>
       ) : (
         <button

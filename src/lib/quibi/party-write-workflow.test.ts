@@ -1,3 +1,4 @@
+import {customerRemoteId} from './customer-remote-id.ts';
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createOrReconcileCustomer, createOrReconcileVehicle } from "./party-write-workflow.ts";
@@ -41,7 +42,7 @@ test("customer create re-reads exact remote_id and never repeats ambiguous creat
   } };
   const write = { async createCustomer() {
     writes++;
-    remote = [{ id: "9001", remoteId: customerId, name: "TEST Stranka", phone: "", email: "" }];
+    remote = [{ id: "9001", remoteId: customerRemoteId(customerId), name: "TEST Stranka", phone: "", email: "" }];
     throw new Error("TIMEOUT");
   } };
   const input = { serviceRequestId: caseId, customerId, name: "TEST Stranka", phone: "", email: "" };
@@ -120,4 +121,12 @@ test("vehicle preflight blocks duplicate registration before any POST", async ()
       vin: "TESTVIN1234567890", registration: "TEST-01", make: "Test", model: "A" },
   }), /QUIBI_VEHICLE_MATCH_REVIEW_REQUIRED/);
   assert.equal(writes, 0);
+});
+
+test('legacy uncertain UUID request remains immutable and truncated prefix is never automatic proof',async()=>{
+ const f=journalFixture(),body={remote_id:customerId,naziv:'TEST Stranka'},requestBody=JSON.stringify(body);
+ const {createHash}=await import('node:crypto');const op=await f.journal.insertOnce({kind:'customer',localEntityId:customerId,serviceRequestId:caseId,externalId:customerId,requestBody,requestSha256:createHash('sha256').update(requestBody).digest('hex')});
+ await f.journal.claim(op.id,'prepared');await f.journal.patch(op.id,'dispatching',{state:'uncertain'});let writes=0;
+ await assert.rejects(createOrReconcileCustomer({journal:f.journal,input:{serviceRequestId:caseId,customerId,name:body.naziv,email:'',phone:''},read:{async customers(){return [{id:'9001',remoteId:customerId.slice(0,22),name:body.naziv,email:'',phone:''}]},async customer(){throw Error('UNEXPECTED')}},write:{async createCustomer(){writes++}}}),/CREATE_UNCERTAIN/);
+ assert.equal(writes,0);assert.equal((await f.journal.get('customer',customerId))?.requestBody,requestBody);
 });

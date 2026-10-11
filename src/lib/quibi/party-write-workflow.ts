@@ -1,3 +1,5 @@
+import {isDefinitiveQuibiRejection} from './send-outcome.ts';
+import {customerRemoteId} from './customer-remote-id.ts';
 import { createHash } from "node:crypto";
 import { customerFingerprint, vehicleFingerprint, type QuibiCustomer, type QuibiVehicle } from "./contracts.ts";
 import type { Operation, OperationJournal } from "./write-workflow.ts";
@@ -27,20 +29,22 @@ export async function createOrReconcileCustomer(args: { journal: OperationJourna
   const { journal, read, write, input } = args;
   if (!uuid.test(input.customerId) || !uuid.test(input.serviceRequestId) || !input.name.trim())
     throw new Error("QUIBI_INVALID_CUSTOMER_INPUT");
-  const body = { remote_id: input.customerId, naziv: input.name.trim(),
+  let op = await journal.get("customer", input.customerId);
+  const remoteId=op?String(JSON.parse(op.requestBody).remote_id??''):customerRemoteId(input.customerId);
+  if(![input.customerId,customerRemoteId(input.customerId)].includes(remoteId))throw Error('QUIBI_CREATE_CHANGED_REQUIRES_UPDATE');
+  const body = { remote_id: remoteId, naziv: input.name.trim(),
     ...(input.email.trim() ? { emajl: input.email.trim() } : {}),
     ...(input.phone.trim() ? { telst: input.phone.trim() } : {}) };
   const { json, sha256 } = exactRequest(body);
   const expected = customerFingerprint({ name: body.naziv, phone: body.telst ?? "", email: body.emajl ?? "" });
-  let op = await journal.get("customer", input.customerId);
   if (op) unchanged(op, json, sha256);
 
   async function reconcile(current: Operation): Promise<Operation> {
-    const matches = (await read.customers()).filter((item) => item.remoteId === input.customerId);
+    const matches = (await read.customers()).filter((item) => item.remoteId === body.remote_id);
     if (matches.length !== 1 || (current.quibiId && current.quibiId !== matches[0].id))
       throw new Error("QUIBI_CUSTOMER_CREATE_UNCERTAIN");
     const detail = await read.customer(matches[0].id);
-    if (detail.id !== matches[0].id || detail.remoteId !== input.customerId ||
+    if (detail.id !== matches[0].id || detail.remoteId !== body.remote_id ||
         customerFingerprint(detail) !== expected) throw new Error("QUIBI_CUSTOMER_REREAD_MISMATCH");
     if (current.state === "verified") return current;
     if (current.state !== "uncertain") throw new Error("QUIBI_CUSTOMER_CREATE_UNCERTAIN");
@@ -51,7 +55,7 @@ export async function createOrReconcileCustomer(args: { journal: OperationJourna
     throw new Error("QUIBI_CUSTOMER_CREATE_UNCERTAIN");
 
   const existing = await read.customers();
-  if (existing.some((item) => item.remoteId === input.customerId ||
+  if (existing.some((item) => item.remoteId === body.remote_id ||
       (!!input.email.trim() && normalized(item.email) === normalized(input.email)) ||
       (!!input.phone.trim() && normalized(item.phone) === normalized(input.phone)) ||
       normalized(item.name) === normalized(input.name)))
@@ -62,8 +66,10 @@ export async function createOrReconcileCustomer(args: { journal: OperationJourna
   unchanged(op, json, sha256);
   if (op.state !== "prepared" || !await journal.claim(op.id, "prepared"))
     throw new Error("QUIBI_CUSTOMER_CREATE_CONCURRENT");
-  try { await write.createCustomer(body); } catch { /* Quibi may have committed before timeout. */ }
+  let rejection:unknown=null;
+  try { await write.createCustomer(body); } catch(error) { rejection=error; }
   op = await journal.patch(op.id, "dispatching", { state: "uncertain" });
+  if(isDefinitiveQuibiRejection(rejection)){await journal.patch(op.id,'uncertain',{state:'failed'});throw Error('QUIBI_CUSTOMER_CREATE_REJECTED')}
   return reconcile(op);
 }
 

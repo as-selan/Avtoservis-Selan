@@ -173,6 +173,14 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       for (const row of data ?? []) slotByRequest.set(row.service_request_id, row.status);
     }
 
+    const workOrderByRequest = new Map<string,string>();
+    const convertedIds=requests.filter(row=>row.status==='converted').map(row=>row.id);
+    if(convertedIds.length){
+      const {data,error}=await supabase.from('work_orders').select('service_request_id,status').eq('organization_id',access.organizationId).in('service_request_id',convertedIds);
+      // Older installations may not have the optional local work-order module yet.
+      if(error&&!['42P01','PGRST205'].includes(error.code))return {ok:false,message:LOAD_ERROR_MESSAGE,generatedAt};
+      for(const row of data??[])workOrderByRequest.set(row.service_request_id,row.status);
+    }
     const orders: ServiceOrderDemo[] = [];
     const attention: AttentionItemDemo[] = [];
 
@@ -191,6 +199,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
+            workOrderStatus: workOrderByRequest.get(row.id),
             offerPrepared: preparedRequestIds.has(row.id),
             quibiLinked: !!(row.customer_id && linkByCustomer.has(row.customer_id)),
             quibiSyncStatus: row.customer_id ? linkByCustomer.get(row.customer_id)?.sync_status : undefined,

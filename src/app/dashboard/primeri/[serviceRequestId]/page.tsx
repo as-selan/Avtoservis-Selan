@@ -1,3 +1,6 @@
+import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate";
+import {estimateLineDescription} from "@/lib/quibi/estimate-line-description";
+import {analyzeIntake} from '@/lib/assistance/intake-analysis';
 import { CreateWorkOrder } from "@/components/dashboard/WorkOrderEditor";
 import { localQaIdentityExceptionAvailable } from "@/lib/quibi/local-send-policy";
 import Link from "next/link";
@@ -101,7 +104,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const serviceOffer = slotOffersResult.data?.find((item) => item.appointment_type === "service") ?? null;
     let writeRequested = false;
     try { quibiWorkflowConfig(process.env, "write"); writeRequested = true; } catch { /* disabled */ }
-    const realDevMode = writeRequested && process.env.SELAN_REMOTE_DEMO !== "1" &&
+    const realDevMode = writeRequested && process.env.QUIBI_E2E_WRITE_ENABLED !== "1" && process.env.SELAN_REMOTE_DEMO !== "1" &&
       process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1";
     let testRecipient: string | null = null;
     let reviewDetail: QuibiEstimateDetail | null = null;
@@ -174,6 +177,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       inspectionRepairDecision: inspectionResult.data?.repair_decision,
       slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady, quibiSendStatus: sendOperation?.sendStatus, quibiSendAttempted: !!sendOperation });
     const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
+    const assistance=await analyzeIntake({summary:request.summary,missingFields:missing});
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = request.status === "needs_data" && missing.length > 0
       ? { title: "Dopolnitev podatkov", body: `Pozdravljeni, ${recipient}. Za nadaljevanje vašega servisnega povpraševanja potrebujemo še: ${missing.join(", ")}. Prosimo, dopolnite podatke prek povezave, ki vam jo bomo poslali posebej. Lep pozdrav, Avtoservis Selan` }
@@ -188,12 +192,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
 
     return <div className="space-y-5">
       {process.env.SELAN_LOCAL_REVIEW === "1" && !realDevMode && <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-        Lokalni QA: reference QA-SIM pomenijo simuliran preizkus. Nobeno sporočilo ni dejansko poslano in noben termin ni rezerviran v MyPlanlyju. {process.env.QUIBI_MODE === "dev" ? "Quibi DEV: podatki so prebrani iz testnega okolja." : "Quibi je lokalna simulacija."}
+        Lokalni QA: reference QA-SIM pomenijo simuliran preizkus. Nobeno sporočilo ni dejansko poslano in noben termin ni rezerviran v MyPlanlyju. {process.env.QUIBI_E2E_WRITE_ENABLED === "1" ? "Quibi je lokalna simulacija." : process.env.QUIBI_MODE === "dev" ? "Quibi DEV: podatki so prebrani iz testnega okolja." : "Quibi je lokalna simulacija."}
       </p>}
       <Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link>
       <header><h1 className="text-2xl font-semibold text-slate-900">Primer #{toPresentationRef(request.id)}</h1>
         <p className="mt-1 text-sm text-slate-600">{request.summary}</p>
-        <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Stanje: {getStatusLabel(mapDbStatusToUiStatus(request.status))}</p></header>
+        <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Stanje: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p></header>
 
       <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
         <h2 className="font-semibold text-blue-950">Naslednji korak</h2>
@@ -202,7 +206,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           !inspectionResult.data?.repair_decision &&
           <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
       </section>
-      {communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
+      {assistance.status==='unavailable' && <p className="text-xs text-slate-500">AI ponudnik ni povezan. Manjkajoči podatki so preverjeni s pravili aplikacije; besedila so predloge za pregled, ne AI rezultati ali poslana sporočila.</p>}
+      {communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft key={communicationDraft.body} title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
       {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
         ["owner", "admin"].includes(access.role) &&
         <ReviewIntakeButton serviceRequestId={serviceRequestId} />}
@@ -232,12 +237,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
-          {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} />}
+          {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} providerReady={writeReady} />}
           {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" && !writeReady && !writeRequested &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
           {writeReady && !quote && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) &&
-            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="create" choices={writeChoices ?? undefined} />}
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="create" lineDescription={estimateLineDescription(request) ?? undefined} choices={writeChoices ?? undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
@@ -253,6 +258,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {writeReady && createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
             <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} />}
+          {process.env.QUIBI_E2E_WRITE_ENABLED === "1" && quote?.internal_review_status === "unreviewed" && ["owner", "admin"].includes(access.role) && <ReviewManualEstimate quoteId={quote.id} />}
           {quote && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
             <QuibiEstimateWorkflowPanel key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
@@ -269,7 +275,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             <ManualEstimateHandoff quoteId={quote.id} delivered decision={approval.customer_decision ?? null} realDevWrite={realDevMode} apiDispatch={approval.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status !== "delivered" &&
             (!sendOperation || sendOperation.sendStatus === "failed") && <details className="border-t pt-3">
-              <summary className="cursor-pointer text-sm">Zunanja ročna dostava — samo za dejansko pošiljanje izven Quibi API-ja</summary>
+              <summary className="cursor-pointer text-sm">{process.env.QUIBI_E2E_WRITE_ENABLED === "1" ? "QA: simulacija dostave brez pošiljanja" : "Zunanja ročna dostava — samo za dejansko pošiljanje izven Quibi API-ja"}</summary>
               <ManualEstimateHandoff quoteId={quote.id} delivered={false} decision={null} realDevWrite={realDevMode} />
             </details>}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}

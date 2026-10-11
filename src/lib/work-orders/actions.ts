@@ -1,4 +1,5 @@
 "use server";
+import {demoEvidenceAllowed} from "@/lib/demo/evidence";
 import {requirePhase1OperationalAccess} from "@/lib/auth/requireWorkshopAccess";
 import {createClient} from "@/lib/supabase/server";
 import {revalidatePath} from "next/cache";
@@ -15,6 +16,7 @@ export async function recordWorkOrder(form:FormData):Promise<{ok:true}|{ok:false
  const access=await requirePhase1OperationalAccess();const id=String(form.get("orderId")??""),command=String(form.get("commandId")??""),expected=String(form.get("expectedStatus")??""),next=String(form.get("nextStatus")??"")||null,note=String(form.get("note")??"").trim();
  if(!uuid.test(id)||!uuid.test(command)||note.length<4||note.length>4000||(next&&!canTransitionWorkOrder(expected,next)))return {ok:false,message:"Vnesite veljavno opombo in dovoljeno spremembo stanja."};
  if(next==="closed"&&!["owner","admin"].includes(access.role))return {ok:false,message:errors.forbidden};
+ if(next==="closed" && (!demoEvidenceAllowed(String(form.get("invoiceReference")??"")) || !demoEvidenceAllowed(String(form.get("handoverReference")??"")))) return {ok:false,message:"V lokalnem QA uporabite samo sintetični referenci QA-SIM-."};
  const db=await createClient();const {data,error}=await db.rpc("record_work_order",{p_order_id:id,p_expected_status:expected,p_next_status:next,p_note:note,p_command_id:command,p_invoice_reference:form.get("invoiceReference")||null,p_handover_reference:form.get("handoverReference")||null,p_close_confirmed:form.get("closeConfirmed")==="yes"});
  if(error||data?.ok!==true)return {ok:false,message:errors[data?.error_code]??"Sprememba ni potrjena. Osvežite nalog in preverite dnevnik."};
  revalidatePath(`/dashboard/nalogi/${id}`);revalidatePath("/dashboard/nalogi");revalidatePath("/dashboard");return {ok:true};

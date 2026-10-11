@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { accessLookupFailure } from "./access-lookup-failure";
 
 /** Membership role values that exist in the schema (including deferred mechanic). */
 export type WorkshopRole = "owner" | "admin" | "reception" | "mechanic";
@@ -20,6 +21,12 @@ export type Phase1OperationalAccess = {
 };
 
 const WORKSHOP_SLUG = "avtoservis-selan";
+function resolveLookupFailure(error:{code?:string}|null, found:boolean):never {
+  const failure=accessLookupFailure(error,found);
+  if(failure==='reauthenticate') redirect('/login?reason=session');
+  if(failure==='unavailable') throw new Error('WORKSHOP_ACCESS_TEMPORARILY_UNAVAILABLE');
+  redirect('/dostop-zavrnjen');
+}
 
 const WORKSHOP_ROLES = new Set<WorkshopRole>([
   "owner",
@@ -74,7 +81,8 @@ export async function requireWorkshopAccess(): Promise<WorkshopAccess> {
     .maybeSingle();
 
   if (orgError || !organization?.id) {
-    redirect("/dostop-zavrnjen");
+    console.error('WORKSHOP_ACCESS_LOOKUP', {stage:'organization', code:orgError?.code?.replace(/[^A-Za-z0-9_]/g,'').slice(0,40)??'no_row'});
+    resolveLookupFailure(orgError, Boolean(organization?.id));
   }
 
   const { data: membership, error: membershipError } = await supabase
@@ -86,7 +94,8 @@ export async function requireWorkshopAccess(): Promise<WorkshopAccess> {
     .maybeSingle();
 
   if (membershipError || !membership?.role || !isWorkshopRole(membership.role)) {
-    redirect("/dostop-zavrnjen");
+    console.error('WORKSHOP_ACCESS_LOOKUP', {stage:'membership', code:membershipError?.code?.replace(/[^A-Za-z0-9_]/g,'').slice(0,40)??'no_active_role'});
+    resolveLookupFailure(membershipError, Boolean(membership?.role && isWorkshopRole(membership.role)));
   }
 
   return {

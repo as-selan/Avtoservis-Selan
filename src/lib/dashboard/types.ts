@@ -6,6 +6,8 @@ export type WorkflowStatusId =
   | "caka_potrditev_ponudbe"
   | "caka_izbiro_termina"
   | "termin_potrjen"
+  | "aktivno_popravilo"
+  | "pripravljeno_za_prevzem"
   | "zakljuceno";
 
 export type DashboardPeriodId =

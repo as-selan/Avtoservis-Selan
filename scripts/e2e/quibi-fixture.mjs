@@ -1,3 +1,4 @@
+import {createBusinessFixture} from './quibi-business-fixture.mjs';
 import http from "node:http";
 
 if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1") {
@@ -10,11 +11,17 @@ const customers = [
   { id: "2001", naziv: "Bor Preizkus", telst: "+38640333444", emajl: "bor@example.test" },
   { id: "2002", naziv: "Ana Preizkus", telst: "+38640111222", emajl: "ana@example.test" },
 ];
+if(process.env.QUIBI_E2E_WRITE_ENABLED==='1'&&process.env.QUIBI_E2E_CUSTOMER_ID){
+ const id=process.env.QUIBI_E2E_CUSTOMER_ID;
+ if(!/^\d+$/.test(id)||id==='405956')throw Error('Invalid synthetic fixture customer');
+ customers.push({id,naziv:'TEST-SELAN-AI',emajl:'test-selan-ai@example.test',telst:'',remote_id:process.env.QUIBI_E2E_CUSTOMER_REMOTE_ID??''});
+}
 const send = (res, status, body) => {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
 };
-http.createServer((req, res) => {
+const business=process.env.QUIBI_E2E_WRITE_ENABLED==='1'?createBusinessFixture(customers,send):null;
+http.createServer(async(req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
   if (url.pathname === "/__control" && req.method === "POST") {
     const next = url.searchParams.get("mode");
@@ -22,6 +29,7 @@ http.createServer((req, res) => {
     mode = next;
     return send(res, 200, { ok: true });
   }
+  if(business&&await business(req,res,url))return;
   if (mode === "error") return send(res, 503, { error: true });
   if (url.pathname === "/api2/stranka" && req.method === "GET") {
     return send(res, 200, { error: false, data: { Stranke: customers.map((Stranka) => ({ Stranka })) } });

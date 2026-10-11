@@ -1,4 +1,5 @@
 "use server";
+import {estimateLineDescription} from "./estimate-line-description";
 
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
@@ -47,10 +48,10 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
   }
   const db = await createClient();
   const { data: request, error: requestError } = await db.from("service_requests")
-    .select("customer_id, vehicle_id, status, service_wanted").eq("organization_id", access.organizationId)
+    .select("customer_id, vehicle_id, status, service_wanted, problem_description").eq("organization_id", access.organizationId)
     .eq("id", serviceRequestId).is("archived_at", null).maybeSingle();
   if (requestError || !request || request.status !== "preparing_offer" || !request.customer_id ||
-      !request.service_wanted?.trim()) {
+      !estimateLineDescription(request)) {
     return error("Primer ni pripravljen za povezavo predračuna.");
   }
   const [{ data: customer, error: customerError }, { data: link, error: linkError }] = await Promise.all([
