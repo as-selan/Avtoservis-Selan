@@ -67,7 +67,7 @@ async function verifyDocument(read: EstimateRead, customerId: string, vehicleId:
 /** No network write can happen before insertOnce has durably stored the exact body. */
 export async function createAndVerifyEstimate(args: {
   journal: OperationJournal; read: EstimateRead; write: EstimateWrite;
-  input: Omit<CreateEstimateInput, "numberingId">;
+  input: Omit<CreateEstimateInput, "numberingId">; expectedRequestSha256?: string;
 }) {
   const { journal, read, write, input } = args;
   if (!uuid.test(input.serviceRequestId)) throw new Error("QUIBI_INVALID_CASE_ID");
@@ -79,6 +79,7 @@ export async function createAndVerifyEstimate(args: {
     : await discoverEstimateNumbering(write);
   const body = buildEstimateBody({ ...input, numberingId });
   const payload = stableEstimatePayload(body);
+  if (args.expectedRequestSha256 !== undefined && (!/^[a-f0-9]{64}$/.test(args.expectedRequestSha256) || payload.sha256 !== args.expectedRequestSha256)) throw Error('QUIBI_PREPARED_PAYLOAD_CHANGED');
   const op = existing ?? await journal.insertOnce({
     kind: "estimate", localEntityId: input.serviceRequestId, serviceRequestId: input.serviceRequestId,
     externalId: body.Glavadokumenta.external_id, requestBody: payload.json, requestSha256: payload.sha256,

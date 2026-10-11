@@ -9,7 +9,7 @@ import { quibiDevEstimateChoices } from "./write-options";
 import { checkTrackedEstimateStatus, sendManualLinkedEstimate, type ManualSendAuthorization, createAndVerifyEstimate, sendAndTrackEstimate, updateAndVerifyEstimate } from "./write-workflow";
 import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient, type EstimateBody } from "./write-contract";
 
-type Result = { ok: true; detail: string } | { ok: false; message: string };
+type Result = { ok: true; detail: string; sha?: string } | { ok: false; message: string };
 const fail = (message: string): Result => ({ ok: false, message });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validPrice = (value: FormDataEntryValue | null): number | null => {
@@ -28,6 +28,8 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
   if (typeof serviceRequestId !== "string" || typeof saleTypeId !== "string" ||
       typeof unitId !== "string" || typeof vatId !== "string" || price == null ||
       form.get("serviceMatchConfirmed") !== "yes") return fail("Preverite ceno in izrecno potrdite ujemanje storitve.");
+  const expectedSha = form.get('expectedSha');
+  if (typeof expectedSha !== 'string' || !/^[a-f0-9]{64}$/.test(expectedSha) || form.get('createConfirmed') !== 'yes') return fail('Najprej preverite pripravo in izrecno potrdite CREATE istega payload-a.');
   try {
     const ctx = await context(serviceRequestId);
     const { data: quotes, error } = await ctx.db.from("quotes").select("id")
@@ -37,7 +39,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     if (!choices.saleTypes.some((item) => item.id === saleTypeId) ||
         !choices.units.some((item) => item.id === unitId) ||
         !choices.vatRates.some((item) => item.id === vatId)) return fail("Izbrani šifranti v Quibiju niso več veljavni.");
-    const op = await createAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write,
+    const op = await createAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write, expectedRequestSha256: expectedSha,
       input: { serviceRequestId, customerId: ctx.link.external_id,
         vehicleId: ctx.vehicleLink.quibi_vehicle_id, saleTypeId,
         lines: [{ opis: ctx.lineDescription, enota_id: unitId, ddv_id: vatId,
@@ -235,6 +237,6 @@ export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
     if(error||quotes?.length)return fail('Predračun je že povezan ali njegove evidence ni mogoče preveriti.');
     const [numberings,sales,units,vatRates]=await Promise.all(['numberings','saleTypes','units','vat'].map(kind=>ctx.read.catalog(kind as 'numberings'|'saleTypes'|'units'|'vat')));
     const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:price,popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates});
-    return {ok:true,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
+    return {ok:true,sha:payload.sha256,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
   } catch {return fail('Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
 }

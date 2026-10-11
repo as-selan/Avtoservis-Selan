@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { prepareQuibiEstimate, checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
 import type { QuibiChoice } from "@/lib/quibi/write-options";
@@ -14,19 +14,28 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
+  const [preparedSha, setPreparedSha] = useState<string | null>(null);
+  const [dispatchStarted, setDispatchStarted] = useState(false);
+  const lock = useRef(false);
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
-  return <form className="space-y-3 border-t pt-3" onSubmit={(event) => {
+  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || event.target.name !== "createConfirmed") setPreparedSha(null)}} onSubmit={(event) => {
     event.preventDefault();
-    if (pending || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
+    if (lock.current || pending || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
     const form = new FormData(event.currentTarget);
     form.set("serviceRequestId", serviceRequestId);
     if (quoteId) form.set("quoteId", quoteId);
+    const dispatch = mode === "create" && (event.nativeEvent as SubmitEvent).submitter?.getAttribute('data-dispatch') === 'yes';
+    if (dispatch && (!preparedSha || dispatchStarted || form.get('createConfirmed') !== 'yes')) {setMessage('Potrdite CREATE pregledanega payload-a.');return;}
+    if (dispatch) {form.set('expectedSha', preparedSha!);setDispatchStarted(true)}
+    lock.current = true;
     startTransition(async () => {
-      const result = mode === "prepare" ? await prepareQuibiEstimate(form) : mode === "create" ? await createQuibiDevEstimate(form)
+      try { const result = (mode === "prepare" || (mode === "create" && !dispatch)) ? await prepareQuibiEstimate(form) : mode === "create" ? await createQuibiDevEstimate(form)
         : mode === "update" ? await updateQuibiDevEstimate(form) : sendId ? await checkQuibiDevTestEstimateStatus(form) : await sendQuibiDevTestEstimate(form);
       setMessage(result.ok ? result.detail : result.message);
+      if (!dispatch && (mode === "create" || mode === "prepare")) setPreparedSha(result.ok ? result.sha ?? null : null);
       router.refresh();
+      } catch {setMessage("Izid ni potrjen. Preverite dnevnik; pošiljanja ali ustvarjanja ne ponavljajte.")} finally {lock.current = false}
     });
   }}>
     <h3 className="font-medium">{mode === "prepare" ? "Pripravi ponudbo za popravilo" : mode === "create" ? "Ustvari predračun v Quibiju" :
@@ -69,8 +78,13 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       </label>
     </>}
     <button disabled={pending || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
-      {pending ? "Preverjam…" : mode === "prepare" ? "Preveri ponudbo in SHA" : mode === "create" ? "Ustvari in preveri" : mode === "update" ? "Popravi in preveri" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
+      {pending ? "Preverjam…" : mode === "prepare" ? "Preveri ponudbo in SHA" : mode === "create" ? "Preveri ponudbo in SHA" : mode === "update" ? "Popravi in preveri" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
     </button>
+    {mode === "create" && preparedSha && <div className="space-y-2">
+      <p className="break-all text-xs">Pregledani SHA: {preparedSha}</p>
+      <label className="flex gap-2 text-sm"><input name="createConfirmed" type="checkbox" value="yes" disabled={dispatchStarted}/>Izrecno potrjujem en CREATE pregledanega predračuna v Quibi DEV.</label>
+      <button data-dispatch="yes" disabled={pending || dispatchStarted} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{dispatchStarted ? 'Dispatch sprožen; pred nadaljevanjem preverite dnevnik' : 'Ustvari pregledani predračun v Quibiju'}</button>
+    </div>}
     {message && <p role={message.startsWith("Priprava preverjena") || message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="whitespace-pre-wrap break-all text-sm">{message}</p>}
   </form>;
 }

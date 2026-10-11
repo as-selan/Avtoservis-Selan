@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createAndVerifyEstimate, sendAndTrackEstimate, updateAndVerifyEstimate,
   type NewOperation, type Operation, type OperationJournal, type OperationPatch } from "./write-workflow.ts";
-import { buildEstimateBody, type EstimateBody } from "./write-contract.ts";
+import { buildEstimateBody, stableEstimatePayload, type EstimateBody } from "./write-contract.ts";
 
 const caseId = "00000000-0000-4000-8000-000000000001";
 const revisionId = "00000000-0000-4000-8000-000000000002";
@@ -197,4 +197,16 @@ test("re-read refuses a document under another customer or document ID", async (
     await assert.rejects(createAndVerifyEstimate({ ...f, input }), /QUIBI_DOCUMENT_REREAD_MISMATCH/);
     assert.equal(f.records.get(`estimate:${caseId}`)?.state, "uncertain");
   }
+});
+
+test('CREATE accepts reviewed request SHA and rejects drift before journal insert or dispatch',async()=>{
+ const sha=stableEstimatePayload(buildEstimateBody({...input,numberingId:'2061'})).sha256;
+ for(const patch of [{customerId:'999'},{vehicleId:'999'},{lines:[{sifra:'CHANGED',kolicina:1}]}]){
+  const f=fixture();await assert.rejects(createAndVerifyEstimate({...f,input:{...input,...patch},expectedRequestSha256:sha}),/PREPARED_PAYLOAD_CHANGED/);assert.deepEqual(f.events,[]);
+ }
+ const changedNumbering=fixture();changedNumbering.write.getNumberings=async()=>[{Stevilcenje:{id:'999',naziv:'Predračun',glava_id:'2'}}];
+ await assert.rejects(createAndVerifyEstimate({...changedNumbering,input,expectedRequestSha256:sha}),/PREPARED_PAYLOAD_CHANGED/);assert.deepEqual(changedNumbering.events,[]);
+ const f=fixture();const results=await Promise.allSettled([createAndVerifyEstimate({...f,input,expectedRequestSha256:sha}),createAndVerifyEstimate({...f,input,expectedRequestSha256:sha})]);
+ assert.ok(results.some(r=>r.status==='fulfilled'));assert.equal(f.events.filter(e=>e==='create').length,1);
+ await createAndVerifyEstimate({...f,input,expectedRequestSha256:sha});assert.equal(f.events.filter(e=>e==='create').length,1);
 });
