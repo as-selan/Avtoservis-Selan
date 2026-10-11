@@ -79,13 +79,14 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       </label>
     </>}
     <button disabled={pending || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
-      {pending ? "Preverjam…" : mode === "prepare" ? "Preveri ponudbo in SHA" : mode === "create" ? "Preveri ponudbo in SHA" : mode === "update" ? "Preveri popravek in SHA" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
+      {pending ? "Preverjam…" : mode === "prepare" ? "Preglej ponudbo" : mode === "create" ? "Preglej ponudbo" : mode === "update" ? "Preglej popravek" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
     </button>
     {(mode === "create" || mode === "prepare" || mode === "update") && preparedSha && <div className="space-y-2">
-      <p className="break-all text-xs">Pregledani SHA: {preparedSha}</p>
-      <label className="flex gap-2 text-sm"><input name={mode==="update"?"updateConfirmed":"createConfirmed"} type="checkbox" value="yes" disabled={dispatchStarted||mode==="prepare"||!writeEnabled}/>Izrecno potrjujem en {mode==="update"?"UPDATE":"CREATE"} pregledanega predračuna v Quibi DEV.</label>
+      <details className="text-xs"><summary>Podrobnosti preverjanja</summary><p className="break-all">Prstni odtis: {preparedSha}</p></details>
+      <label className="flex gap-2 text-sm"><input name={mode==="update"?"updateConfirmed":"createConfirmed"} type="checkbox" value="yes" disabled={dispatchStarted||mode==="prepare"||!writeEnabled}/>Potrjujem {mode==="update"?"posodobitev":"ustvarjanje"} pregledanega predračuna v Quibi DEV.</label>
       <button data-dispatch="yes" disabled={pending || dispatchStarted || mode==="prepare" || !writeEnabled} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{mode==='prepare'||!writeEnabled?'Zapis čaka na odobreno aktivacijo DEV WRITE':dispatchStarted ? 'Dispatch sprožen; pred nadaljevanjem preverite dnevnik' : mode==='update'?'Posodobi pregledani predračun v Quibiju':'Ustvari pregledani predračun v Quibiju'}</button>
     </div>}
-    {message && <p role={message.startsWith("Priprava preverjena") || message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="whitespace-pre-wrap break-all text-sm">{message}</p>}
+    {message && <p role={message.startsWith("Priprava preverjena") || message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="whitespace-pre-wrap break-all text-sm">{message.split("\n")[0]}</p>}
+    {message.includes("\n") && <details className="text-xs"><summary>Podrobnosti priprave za pregled</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">{message.slice(message.indexOf("\n")+1)}</pre></details>}
   </form>;
 }

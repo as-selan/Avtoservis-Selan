@@ -14,8 +14,9 @@ import {stableEstimatePayload,withDocumentId} from './write-contract';
 import {configuredQuibiWorkflowWriteClient} from './write-client';
 import {quibiWorkflowJournal} from './write-journal';
 import {linkWorkOrderQuibiDocument} from './work-order-document-actions';
-export type BusinessPreparationResult={ok:boolean;message:string;sha?:string;sourceId?:string;sourceSha?:string;amount?:string;documentId?:string;baselineSha?:string};
+export type BusinessPreparationResult={ok:boolean;message:string;sha?:string;sourceId?:string;sourceSha?:string;amount?:string;documentId?:string;baselineSha?:string;dispatchStarted?:boolean};
 export async function prepareQuibiBusinessDocument(form:FormData):Promise<BusinessPreparationResult>{
+ let dispatchStarted=false;
  const access=await requirePhase1OperationalAccess();
  if(!['owner','admin'].includes(access.role))return {ok:false,message:'Pripravo poslovnih dokumentov lahko potrdi skrbnik.'};
  const updating=form.get('operation')==='update';
@@ -79,6 +80,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   if(form.get('expectedSha')!==payload.sha256)throw Error('SOURCE_CHANGED');
   const write=configuredQuibiWorkflowWriteClient();
   const journal=quibiWorkflowJournal(access.organizationId,access.userId);
+  dispatchStarted=true;
   const op=updating?await updateBusinessDocument({kind,orderId,caseId:order.service_request_id,documentId:existing!.quibi_document_id,baselineSha:baselineSha!,expectedSha:payload.sha256,expectedAmount:source.amount,body,read,write,journal}):await createBusinessDocument({kind,orderId,caseId:order.service_request_id,expectedAmount:source.amount,body,read,write,journal});
   if(!op.quibiId||!op.quibiContentSha256)throw Error('DOCUMENT_UNVERIFIED');
   if(directCase){revalidatePath('/dashboard/primeri/'+order.service_request_id);return {ok:true,message:'Quibi dokument je ponovno prebran. ID in SHA sta shranjena v journalu servisnega primera.',documentId:op.quibiId};}
@@ -91,5 +93,5 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const linked=await linkWorkOrderQuibiDocument(linkForm);
   revalidatePath(`/dashboard/nalogi/${orderId}`);
   return {ok:linked.ok,message:linked.ok?`Quibi dokument #${op.quibiId} je ponovno prebran in povezan.`:`Quibi dokument #${op.quibiId} obstaja; lokalna povezava zahteva pregled. Ne ustvarjajte novega.`,documentId:op.quibiId};
- }catch(error){const code=error instanceof Error?error.message:'';return {ok:false,message:code==='SEND_HISTORY_BLOCKED'?'Dokument ima poskus pošiljanja ali dnevnika ni mogoče preveriti. Posodobitev je ustavljena; najprej razrešite dostavo in nadaljnji poslovni postopek.':code==='QUIBI_NO_BUSINESS_CHANGES'?'Postavke povezanega dokumenta že ustrezajo odobrenemu viru. Quibi zapis ni potreben.':code==='SOURCE_CHANGED'?'Izvirni dokument ali priprava se je spremenila. Potreben je nov pregled.':code==='APPROVAL_REQUIRED'?'Manjka veljavna odobritev stranke za zadnji predračun.':code==='SOURCE_LINE_METADATA_UNSUPPORTED'?'Izvirne postavke nimajo veljavnih podatkov ali njihove enote/DDV niso v svežih Quibi šifrantih. Prenos je ustavljen; preverite izvirni dokument v Quibiju.':code==='WORK_ORDER_REQUIRED'?'Račun zahteva preverjeno povezan Quibi delovni nalog.':code==='QUIBI_BUSINESS_STAGE_NOT_READY'?'Račun je na voljo šele, ko je popravilo pripravljeno za prevzem.':code==='QUIBI_WORKFLOW_DISABLED'?'Quibi WRITE je izključen. Pripravo lahko preverite brez zapisa.':'Operacija ni zanesljivo potrjena. Preverite identiteto, šifrante, izvirni dokument in dnevnik. Po neznanem izidu ne ustvarjajte novega dokumenta.'}}
+ }catch(error){const code=error instanceof Error?error.message:'';return {ok:false,dispatchStarted,message:code==='SEND_HISTORY_BLOCKED'?'Dokument ima poskus pošiljanja ali dnevnika ni mogoče preveriti. Posodobitev je ustavljena; najprej razrešite dostavo in nadaljnji poslovni postopek.':code==='QUIBI_NO_BUSINESS_CHANGES'?'Postavke povezanega dokumenta že ustrezajo odobrenemu viru. Quibi zapis ni potreben.':code==='SOURCE_CHANGED'?'Izvirni dokument ali priprava se je spremenila. Potreben je nov pregled.':code==='APPROVAL_REQUIRED'?'Manjka veljavna odobritev stranke za zadnji predračun.':code==='SOURCE_LINE_METADATA_UNSUPPORTED'?'Izvirne postavke nimajo veljavnih podatkov ali njihove enote/DDV niso v svežih Quibi šifrantih. Prenos je ustavljen; preverite izvirni dokument v Quibiju.':code==='WORK_ORDER_REQUIRED'?'Račun zahteva preverjeno povezan Quibi delovni nalog.':code==='QUIBI_BUSINESS_STAGE_NOT_READY'?'Račun je na voljo šele, ko je popravilo pripravljeno za prevzem.':code==='QUIBI_WORKFLOW_DISABLED'?'Quibi WRITE je izključen. Pripravo lahko preverite brez zapisa.':'Operacija ni zanesljivo potrjena. Preverite identiteto, šifrante, izvirni dokument in dnevnik. Po neznanem izidu ne ustvarjajte novega dokumenta.'}}
 }
