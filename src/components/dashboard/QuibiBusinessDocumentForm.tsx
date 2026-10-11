@@ -7,15 +7,15 @@ type Choice={id:string;label:string};
 export function QuibiBusinessDocumentForm({orderId,status,choices,writeEnabled,customerId}:{orderId:string;customerId:string;status:string;choices:{numberings:Choice[];saleTypes:Choice[];units:Choice[];vat:Choice[]};writeEnabled:boolean}){
  const [kind,setKind]=useState('work_order'),[result,setResult]=useState<BusinessPreparationResult|null>(null),[pending,start]=useTransition(),lock=useRef(false),router=useRouter();
  if(status==='closed')return null;
- const labels={numberingId:'Številčenje',saleTypeId:'Vrsta prodaje',unitId:'Enota izvirnih postavk',vatId:'DDV izvirnih postavk'};
- const options={numberingId:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===(kind==='invoice'?'račun':'delovni nalog')),saleTypeId:choices.saleTypes,unitId:choices.units,vatId:choices.vat};
+ const labels={numberingId:'Številčenje',saleTypeId:'Vrsta prodaje'};
+ const options={numberingId:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===(kind==='invoice'?'račun':'delovni nalog')),saleTypeId:choices.saleTypes};
  return <form className="space-y-3 rounded border bg-white p-4" onChange={()=>setResult(null)} onSubmit={e=>{
   e.preventDefault();if(lock.current)return;lock.current=true;
   const f=new FormData(e.currentTarget);f.set('orderId',orderId);const dispatch=(e.nativeEvent as SubmitEvent).submitter?.getAttribute('data-dispatch')==='yes';
   if(dispatch){f.set('dispatch','yes');f.set('expectedSha',result?.sha??'')}
   start(async()=>{try{setResult(await prepareQuibiBusinessDocument(f));router.refresh()}catch{setResult({ok:false,message:'Izid ni potrjen. Pred nadaljevanjem preverite dnevnik; ne ustvarjajte novega dokumenta.'})}finally{lock.current=false}});
  }}><h3 className="font-semibold">Pripravi poslovni dokument v Quibiju</h3>
- <p className="text-sm">Postavke se preberejo iz zadnjega odobrenega predračuna oziroma povezanega Quibi naloga. To ni lokalni poslovni dokument. Prenos zahteva potrjene enote, DDV in postavke brez popusta.</p>
+ <p className="text-sm">Postavke se preberejo iz zadnjega odobrenega predračuna oziroma povezanega Quibi naloga. To ni lokalni poslovni dokument. Enota, DDV in popust vsake postavke se prenesejo iz Quibija in preverijo proti svežim šifrantom. Ponoven vnos ni potreben.</p>
  <Link className="text-sm text-blue-700" href={`/dashboard/stranke/${customerId}/quibi`}>Preglej izvirne dokumente te stranke →</Link>
  <label className="block text-sm">Vrsta dokumenta<select name="kind" value={kind} onChange={e=>setKind(e.target.value)} className="mt-1 w-full rounded border p-2"><option value="work_order">Delovni nalog</option><option value="invoice" disabled={status!=='ready_for_collection'}>Račun po opravljenem popravilu</option></select></label>
  {Object.entries(labels).map(([key,label])=><label key={key} className="block text-sm">{label}<select name={key} required defaultValue="" className="mt-1 w-full rounded border p-2"><option value="">Izberite po pregledu izvirnega dokumenta</option>{options[key as keyof typeof options].map(n=><option key={n.id} value={n.id}>{n.label} · {n.id}</option>)}</select></label>)}
