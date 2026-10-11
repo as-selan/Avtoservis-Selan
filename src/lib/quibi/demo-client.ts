@@ -59,6 +59,8 @@ export function createDemoQuibiReadClient() {
       if (id(documentId) === "3001" && id(customerId) === "2001") return "";
       throw new Error("QUIBI_DOCUMENT_NOT_FOUND");
     },
+    async priceLists(): Promise<import("./pricing-read.ts").QuibiPriceList[]> { throw Error("QUIBI_DEMO_PRICING_UNAVAILABLE"); },
+    async article(): Promise<import("./pricing-read.ts").QuibiArticle> { throw Error("QUIBI_DEMO_PRICING_UNAVAILABLE"); },
     async catalog(): Promise<{id:string;label:string}[]> { throw Error("QUIBI_DEMO_CATALOG_UNAVAILABLE"); },
     async documentPdf(): Promise<Uint8Array<ArrayBuffer>> { throw Error("QUIBI_DEMO_PDF_UNAVAILABLE"); },
     async documentDetail(documentId: string, customerId: string): Promise<QuibiEstimateDetail> {

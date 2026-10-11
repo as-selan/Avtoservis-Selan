@@ -1,3 +1,4 @@
+import {parseQuibiArticle,parseQuibiPriceLists} from './pricing-read.ts';
 import {quibiCatalogs,parseQuibiCatalog,type QuibiCatalogKind} from "./catalog-read.ts";
 import {readQuibiPdf} from "./pdf-read.ts";
 import { parseCustomerDetail, parseCustomers, parseDocuments, parseDocumentStatus, parseEstimateDetail, parseVehicleDetail, parseVehicles, parseVehicleCandidates } from "./contracts.ts";
@@ -41,6 +42,8 @@ export function createQuibiReadClient(config: Config) {
   };
 
   return {
+    async priceLists() { return parseQuibiPriceLists(await read("/api2/cenik")); },
+    async article(id: string) { return parseQuibiArticle(await read(`/api2/sifranti/view/${validId(id)}`), id); },
     async customers() { return parseCustomers(await read("/api2/stranka")); },
     async searchCustomers(query: string) {
       const needle = query.trim().toLocaleLowerCase("sl-SI");
