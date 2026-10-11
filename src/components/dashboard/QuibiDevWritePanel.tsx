@@ -21,11 +21,12 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const [review, setReview] = useState<EstimateReview | null>(null);
   const [document, setDocument] = useState<CreatedEstimateSummary | null>(null);
   const money = (amount:number) => amount.toLocaleString('sl-SI',{style:'currency',currency:'EUR'});
+  const [confirmed, setConfirmed] = useState(false);
   const [dispatchStarted, setDispatchStarted] = useState(false);
   const lock = useRef(false);
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
-  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed"].includes(event.target.name)) {setPreparedSha(null);setReview(null)}}} onSubmit={(event) => {
+  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed"].includes(event.target.name)) {setPreparedSha(null);setReview(null);setConfirmed(false)}}} onSubmit={(event) => {
     event.preventDefault();
     if (lock.current || pending || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
     const form = new FormData(event.currentTarget);
@@ -40,7 +41,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         : mode === "update" ? await updateQuibiDevEstimate(form) : sendId ? await checkQuibiDevTestEstimateStatus(form) : await sendQuibiDevTestEstimate(form);
       setMessage(result.ok ? result.detail : result.message);
       if(result.ok && result.document) setDocument(result.document);
-      if(!dispatch) setReview(result.ok ? result.review ?? null : null);
+      if(!dispatch) {setReview(result.ok ? result.review ?? null : null);setConfirmed(false);}
       if (!dispatch && (mode === "create" || mode === "prepare" || mode === "update")) setPreparedSha(result.ok ? result.sha ?? null : null);
       router.refresh();
       } catch {setMessage("Izid ni potrjen. Preverite dnevnik; pošiljanja ali ustvarjanja ne ponavljajte.")} finally {lock.current = false}
@@ -108,8 +109,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         <p className="font-semibold">Skupaj z DDV: {money(review.total)}</p>
       </section>}
       <details className="text-xs"><summary>Podrobnosti preverjanja</summary><p className="break-all">Prstni odtis: {preparedSha}</p></details>
-      <label className="flex gap-2 text-sm"><input name={mode==="update"?"updateConfirmed":"createConfirmed"} type="checkbox" value="yes" disabled={dispatchStarted||mode==="prepare"||!writeEnabled}/>Potrjujem {mode==="update"?"posodobitev":"ustvarjanje"} pregledanega predračuna v Quibi DEV.</label>
-      <button data-dispatch="yes" disabled={pending || dispatchStarted || mode==="prepare" || !writeEnabled} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{mode==='prepare'||!writeEnabled?'Zapis čaka na odobreno aktivacijo DEV WRITE':dispatchStarted ? 'Dispatch sprožen; pred nadaljevanjem preverite dnevnik' : mode==='update'?'Posodobi pregledani predračun v Quibiju':'Ustvari pregledani predračun v Quibiju'}</button>
+      <label className="flex gap-2 text-sm"><input name={mode==="update"?"updateConfirmed":"createConfirmed"} type="checkbox" value="yes" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} disabled={dispatchStarted||mode==="prepare"||!writeEnabled}/>Potrjujem {mode==="update"?"posodobitev":"ustvarjanje"} pregledanega predračuna v Quibi DEV.</label>
+      <button data-dispatch="yes" disabled={pending || dispatchStarted || !confirmed || mode==="prepare" || !writeEnabled} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{mode==='prepare'||!writeEnabled?'Zapis čaka na odobreno aktivacijo DEV WRITE':dispatchStarted ? 'Dispatch sprožen; pred nadaljevanjem preverite dnevnik' : mode==='update'?'Posodobi pregledani predračun v Quibiju':'Ustvari pregledani predračun v Quibiju'}</button>
     </div>}
     {message && <p role={message.startsWith("Priprava preverjena") || message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="whitespace-pre-wrap break-all text-sm">{message.split("\n")[0]}</p>}
     {message.includes("\n") && <details className="text-xs"><summary>Podrobnosti priprave za pregled</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">{message.slice(message.indexOf("\n")+1)}</pre></details>}
