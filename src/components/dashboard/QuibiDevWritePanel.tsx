@@ -3,13 +3,15 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { prepareQuibiEstimateRevision, prepareQuibiEstimate, checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
+import type { EstimateCatalogOption } from '@/lib/quibi/estimate-catalog';
 import type { EstimateReview } from '@/lib/quibi/estimate-preparation';
 import type { CreatedEstimateSummary } from '@/lib/quibi/created-estimate-summary';
 import type { QuibiChoice } from "@/lib/quibi/write-options";
 
-export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, writeEnabled=true }: {
+export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, writeEnabled=true }: {
   serviceRequestId: string; mode: "prepare" | "create" | "update" | "send"; quoteId?: string;
   writeEnabled?:boolean;
+  catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;
   lineDescription?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] };
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
@@ -17,6 +19,9 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
+  const [catalogSource,setCatalogSource]=useState(initialCatalogSource??'');
+  const selectedSource=catalogOptions.find(option=>option.key===catalogSource);
+  const [sourceSha,setSourceSha]=useState<string|null>(null);
   const [preparedSha, setPreparedSha] = useState<string | null>(null);
   const [review, setReview] = useState<EstimateReview | null>(null);
   const [document, setDocument] = useState<CreatedEstimateSummary | null>(null);
@@ -26,7 +31,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const lock = useRef(false);
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
-  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed"].includes(event.target.name)) {setPreparedSha(null);setReview(null);setConfirmed(false)}}} onSubmit={(event) => {
+  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed"].includes(event.target.name)) {setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false)}}} onSubmit={(event) => {
     event.preventDefault();
     if (lock.current || pending || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
     const form = new FormData(event.currentTarget);
@@ -34,14 +39,14 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     if (quoteId) form.set("quoteId", quoteId);
     const dispatch = (mode === "create" || mode === "update") && (event.nativeEvent as SubmitEvent).submitter?.getAttribute('data-dispatch') === 'yes';
     if (dispatch && (!writeEnabled || !preparedSha || dispatchStarted || form.get(mode==='update'?'updateConfirmed':'createConfirmed') !== 'yes')) {setMessage('Preglejte postavko in potrdite ustvarjanje predračuna.');return;}
-    if (dispatch) {form.set('expectedSha', preparedSha!);setDispatchStarted(true)}
+    if (dispatch) {form.set('expectedSha', preparedSha!);if(sourceSha)form.set('expectedSourceSha',sourceSha);setDispatchStarted(true)}
     lock.current = true;
     startTransition(async () => {
       try { const result = mode==="update"&&!dispatch?await prepareQuibiEstimateRevision(form):(mode === "prepare" || (mode === "create" && !dispatch)) ? await prepareQuibiEstimate(form) : mode === "create" ? await createQuibiDevEstimate(form)
         : mode === "update" ? await updateQuibiDevEstimate(form) : sendId ? await checkQuibiDevTestEstimateStatus(form) : await sendQuibiDevTestEstimate(form);
       setMessage(result.ok ? result.detail : result.message);
       if(result.ok && result.document) setDocument(result.document);
-      if(!dispatch) {setReview(result.ok ? result.review ?? null : null);setConfirmed(false);}
+      if(!dispatch) {setSourceSha(result.ok?result.sourceSha??null:null);setReview(result.ok ? result.review ?? null : null);setConfirmed(false);}
       if (!dispatch && (mode === "create" || mode === "prepare" || mode === "update")) setPreparedSha(result.ok ? result.sha ?? null : null);
       router.refresh();
       } catch {setMessage("Izid ni potrjen. Preverite dnevnik; pošiljanja ali ustvarjanja ne ponavljajte.")} finally {lock.current = false}
@@ -58,7 +63,22 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     <h3 className="font-medium">{mode === "prepare" ? "Pripravi ponudbo za popravilo" : mode === "create" ? "Ustvari predračun v Quibiju" :
       mode === "update" ? "Popravi zavrnjeni Quibi predračun" : "Pošlji predračun samo na testni naslov"}</h3>
     {(mode === "create" || mode === "prepare") && <>
-      {lineDescription && <p className="text-sm">Postavka za pregled: {lineDescription}</p>}
+      {catalogIssues.map(issue=><p key={issue} role="alert" className="text-sm text-amber-800">{issue}</p>)}
+      <label className="block text-sm">Postavka iz Quibija
+        <select name="catalogSource" value={catalogSource} onChange={event=>setCatalogSource(event.target.value)} className="mt-1 block w-full rounded border px-3 py-2">
+          <option value="">{catalogOptions.length?'Izberite storitev ali dopolnite manjkajočo postavko spodaj':'Šifrant ni na voljo; dopolnite postavko za pregled'}</option>
+          {catalogOptions.map(option=><option key={option.key} value={option.key}>{option.name} · {option.code} · {option.priceListName}</option>)}
+        </select>
+      </label>
+      {selectedSource && <div className="space-y-2 rounded border bg-blue-50 p-3 text-sm">
+        <p>{selectedSource.name} · šifra {selectedSource.code}</p>
+        <p>Quibi: {money(selectedSource.grossPrice)} na {selectedSource.unitLabel} z DDV {selectedSource.vatLabel} · popust {selectedSource.discount} %</p>
+        <p>Pri CREATE Quibi uporabi svojo šifro in ceno. Pred potrditvijo bosta artikel in cenik ponovno prebrana.</p>
+        <label className="block">Količina<input name="quantity" type="number" defaultValue="1" min="0.001" max="100000" step="0.001" required className="mt-1 block w-full rounded border px-3 py-2"/></label>
+        <input type="hidden" name="unitId" value={selectedSource.unitId}/><input type="hidden" name="vatId" value={selectedSource.vatId}/>
+        <input type="hidden" name="unitPrice" value={selectedSource.grossPrice}/>
+      </div>}
+      {lineDescription && !selectedSource && <p className="text-sm">Postavka za pregled: {lineDescription}</p>}
       <p className="text-xs text-amber-800">{mode === "prepare" ? "Priprava uporablja samo Quibi READ; dokumenta ne ustvari in ničesar ne pošlje." : "To ustvari dejanski dokument v konfiguriranem Quibi okolju."} {mode === "prepare" ? "Payload in SHA sta samo za pregled in nista shranjen poslovni dokument. Pred ustvarjanjem bo izvedeno novo preverjanje." : "Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej."}</p>
       <label className="block text-sm">Vrsta prodaje
         <select name="saleTypeId" required className="mt-1 block w-full rounded border px-3 py-2">
@@ -67,22 +87,22 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       </label>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-sm">Enota
-          <select name="unitId" required className="mt-1 block w-full rounded border px-3 py-2">
+          <select key={`unit-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.unitId} name="unitId" disabled={!!selectedSource} required className="mt-1 block w-full rounded border px-3 py-2">
             {choices?.units.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
         <label className="block text-sm">DDV
-          <select name="vatId" required className="mt-1 block w-full rounded border px-3 py-2">
+          <select key={`vat-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.vatId} name="vatId" disabled={!!selectedSource} required className="mt-1 block w-full rounded border px-3 py-2">
             {choices?.vatRates.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
       </div>
     </>}
     {(mode === "prepare" || mode === "create" || mode === "update") && <>
-      <label className="block text-sm">Cena za eno storitev z DDV (€)
+      {!selectedSource && <label className="block text-sm">Cena za eno storitev z DDV (€)
         <input name="unitPrice" type="number" min="0.01" max="1000000" step="0.01" required
           className="mt-1 block w-full rounded border px-3 py-2" />
-      </label>
+      </label>}
       <label className="flex gap-2 text-sm"><input name="serviceMatchConfirmed" type="checkbox" value="yes" required />
         Preveril sem, da storitev, stranka, vozilo in predračun pripadajo temu primeru.
       </label>

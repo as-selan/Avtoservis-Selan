@@ -1,3 +1,4 @@
+import {loadEstimateCatalog,exactEstimateCatalogMatch,type EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
 import {AutomaticIntakeSync} from '@/components/dashboard/AutomaticIntakeSync';
 import {previewDevActivationReadiness} from '@/lib/quibi/hosted-activation-requirements';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
@@ -154,6 +155,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         writeChoices={saleTypes,units,vatRates};
       } catch { /* fail closed: catalog errors do not enable dispatch */ }
     }
+    let estimateCatalog:{options:EstimateCatalogOption[];issues:string[]}={options:[],issues:[]};
+    if(!quote&&!fixedPrice&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status)){
+      try{estimateCatalog=await loadEstimateCatalog(configuredQuibiReadClient());}
+      catch{estimateCatalog.issues=['Quibijevih cenikov ni mogoče prebrati. Podatki niso nadomeščeni z lokalnim cenikom.'];}
+    }
     // Journal evidence remains visible with all external writes disabled.
     if (quote && !createdOperation){try{createdOperation=await quibiWorkflowJournal(access.organizationId,access.userId).get("estimate",serviceRequestId)}catch{}}
     if (quote && !sendOperation) {
@@ -255,12 +261,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
+          {request.status === "new" && !fixedPrice && estimateCatalog.options.length>0 && <p className="text-sm">Iz Quibija so pripravljene postavke iz cenikov ({estimateCatalog.options.length}). Po potrditvi pregleda primera bodo na voljo v pripravi predračuna; stranke in vozila ni treba ponovno vnašati.</p>}
           {request.status === "preparing_offer" && !fixedPrice && step.kind !== "review_quibi_mismatch" && <PrepareOfferButton serviceRequestId={serviceRequestId} alreadyPrepared={prep?.status === "ready_for_provider"} providerReady={writeReady} />}
           {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" && !writeReady && !writeRequested &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
           {!quote && !fixedPrice && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) &&
-            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} lineDescription={estimateLineDescription(request) ?? undefined} choices={writeChoices ?? undefined} />}
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} lineDescription={estimateLineDescription(request) ?? undefined} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
