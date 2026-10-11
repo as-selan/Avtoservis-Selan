@@ -60,7 +60,7 @@ export function parseCustomerDetail(value: unknown): QuibiCustomer {
   const id = field(customer.id);
   if (!/^\d+$/.test(id)) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
   return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl),
-    ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}) };
+    ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}), ...(customer.cenik_id===null?{priceListId:null}:/^[1-9]\d*$/.test(field(customer.cenik_id))?{priceListId:field(customer.cenik_id)}:{}) };
 }
 
 function projectVehicle(value: unknown): QuibiVehicle {
