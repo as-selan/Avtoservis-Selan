@@ -1,4 +1,6 @@
 "use server";
+import {assertBusinessCreationNamespace} from './case-business-policy';
+import {loadCaseBusinessContext} from './case-business-context';
 import {revalidatePath} from 'next/cache';
 import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
 import {createClient} from '@/lib/supabase/server';
@@ -17,19 +19,22 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
  const access=await requirePhase1OperationalAccess();
  if(!['owner','admin'].includes(access.role))return {ok:false,message:'Pripravo poslovnih dokumentov lahko potrdi skrbnik.'};
  const updating=form.get('operation')==='update';
- const orderId=String(form.get('orderId')??''),kind=String(form.get('kind')??'') as BusinessKind;
+ const directCase=typeof form.get('caseId')==='string';
+ const orderId=String(form.get(directCase?'caseId':'orderId')??''),kind=String(form.get('kind')??'') as BusinessKind;
  if(!/^[a-f0-9-]{36}$/i.test(orderId)||!['work_order','invoice'].includes(kind)||form.get('confirmed')!=='yes')return {ok:false,message:'Izrecno potrdite pripravo dokumenta za ta nalog.'};
  try{
   const db=await createClient(),environment=quibiLinkEnvironment(process.env);
-  const {data:order,error:orderError}=await db.from('work_orders').select('id,service_request_id,customer_id,vehicle_id,status').eq('organization_id',access.organizationId).eq('id',orderId).single();
+  const caseContext=directCase?await loadCaseBusinessContext(db,access.organizationId,orderId,kind,form.get('repairCompleted')==='yes'):null;
+  const {data:order,error:orderError}=caseContext?{data:caseContext.order,error:null}:await db.from('work_orders').select('id,service_request_id,customer_id,vehicle_id,status').eq('organization_id',access.organizationId).eq('id',orderId).single();
   if(orderError||!order||order.service_request_id==='9d40c42f-b6a8-473b-983f-f9620df97d10')throw Error('CASE_BLOCKED');
   assertBusinessStage(kind,order.status);
+  if(environment==='dev'){const {data:prior,error}=await db.from('quibi_dev_operation_journal').select('local_entity_id,kind').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('kind',kind);if(error)throw Error('QUIBI_JOURNAL_READ_FAILED');assertBusinessCreationNamespace(prior??[],orderId,kind);}
   const [{data:link,error:le},{data:vehicleLink,error:ve},{data:customer,error:ce},{data:vehicle,error:vre},{data:existing,error:ee}]=await Promise.all([
    db.from('integration_links').select('*').eq('organization_id',access.organizationId).eq('entity_id',order.customer_id).eq('entity_type','customer').eq('provider','quibi').single(),
    db.from('quibi_vehicle_links').select('*').eq('organization_id',access.organizationId).eq('vehicle_id',order.vehicle_id).eq('customer_id',order.customer_id).single(),
    db.from('customers').select('display_name,phone,email').eq('organization_id',access.organizationId).eq('id',order.customer_id).is('archived_at',null).single(),
    db.from('vehicles').select('customer_id,vin,registration_current,make,model').eq('organization_id',access.organizationId).eq('id',order.vehicle_id).is('archived_at',null).single(),
-   db.from('work_order_quibi_documents').select('id,quibi_document_id,content_sha256,quibi_environment').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind',kind).maybeSingle()
+   caseContext?Promise.resolve({data:caseContext.reference,error:null}):db.from('work_order_quibi_documents').select('id,quibi_document_id,content_sha256,quibi_environment').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind',kind).maybeSingle()
   ]);
   if(le||ve||ce||vre||ee||!link||!vehicleLink||!customer||!vehicle||vehicle.customer_id!==order.customer_id||link.quibi_environment!==environment||vehicleLink.quibi_environment!==environment||vehicleLink.quibi_customer_id!==link.external_id||link.sync_status!=='ok'||vehicleLink.sync_status!=='ok')throw Error('IDENTITY_UNVERIFIED');
   if(updating&&(!existing||existing.quibi_environment!==environment))throw Error('UPDATE_REFERENCE_REQUIRED');
@@ -50,14 +55,14 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    source=await loadQuibiDocument(read,'estimate',evidence!.external_id!,link.external_id);
    if(source.contentSha256!==quote.content_sha256)throw Error('SOURCE_CHANGED');
   }else{
-   const {data:reference,error}=await db.from('work_order_quibi_documents').select('quibi_document_id,content_sha256').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind','work_order').eq('quibi_environment',environment).single();
+   const {data:reference,error}=caseContext?{data:caseContext.workOrderReference,error:null}:await db.from('work_order_quibi_documents').select('quibi_document_id,content_sha256').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind','work_order').eq('quibi_environment',environment).single();
    if(error||!reference)throw Error('WORK_ORDER_REQUIRED');
    source=await loadQuibiDocument(read,'work_order',reference.quibi_document_id,link.external_id);
    if(source.contentSha256!==reference.content_sha256)throw Error('SOURCE_CHANGED');
   }
   const lines=businessSourceLines(source,units,vat);
   if(source.vehicleId!==vehicleLink.quibi_vehicle_id||!source.lines.length)throw Error('IDENTITY_UNVERIFIED');
-  let body=businessDocumentBody(kind,orderId,{serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}`},String(form.get('serviceDate')??''));
+  let body=businessDocumentBody(kind,orderId,{serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}${directCase&&kind==='invoice'?'; popravilo opravljeno, potrjeno: '+access.userId:''}`},String(form.get('serviceDate')??''));
   let baselineSha:string|undefined;
   if(updating){
    const {data:sendAttempt,error:sendError}=await db.from(environment==='dev'?'quibi_dev_operation_journal':'quibi_production_operation_journal').select('quibi_id,request_body').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('kind','send').not('attempted_at','is',null);
@@ -76,6 +81,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const journal=quibiWorkflowJournal(access.organizationId,access.userId);
   const op=updating?await updateBusinessDocument({kind,orderId,caseId:order.service_request_id,documentId:existing!.quibi_document_id,baselineSha:baselineSha!,expectedSha:payload.sha256,expectedAmount:source.amount,body,read,write,journal}):await createBusinessDocument({kind,orderId,caseId:order.service_request_id,expectedAmount:source.amount,body,read,write,journal});
   if(!op.quibiId||!op.quibiContentSha256)throw Error('DOCUMENT_UNVERIFIED');
+  if(directCase){revalidatePath('/dashboard/primeri/'+order.service_request_id);return {ok:true,message:'Quibi dokument je ponovno prebran. ID in SHA sta shranjena v journalu servisnega primera.',documentId:op.quibiId};}
   if(updating){
    const {error}=await db.rpc('confirm_work_order_quibi_document_revision',{p_reference_id:existing!.id,p_operation_id:op.id});
    revalidatePath('/dashboard/nalogi/'+orderId);

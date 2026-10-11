@@ -1,3 +1,4 @@
+import {QuibiCaseBusinessOperations} from '@/components/dashboard/QuibiCaseBusinessOperations';
 import {QuibiCaseDocuments} from '@/components/dashboard/QuibiCaseDocuments';
 import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate";
@@ -297,6 +298,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <p className="text-xs text-amber-800">Google Koledar in MyPlanly nista avtomatsko potrjena. Zunanje usklajevanje opravite in preverite ročno.</p>
         </section>
       </div>
+      {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
       {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
       {fixedPriceEnabled && (fixedPrice || (request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
         <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} realDevWrite={realDevMode} />}

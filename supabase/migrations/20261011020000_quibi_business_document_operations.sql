@@ -11,12 +11,23 @@ begin
  end loop;
 end $$;
 
+-- One business CREATE per service case, even when callers switch internal/direct scopes.
+-- Existing conflicts must be reviewed before approval; index failure must roll back migration.
+create unique index quibi_dev_one_business_create_per_case on public.quibi_dev_operation_journal(organization_id,service_request_id,kind)
+ where kind in ('work_order','invoice');
+
 -- An unresolved timeout blocks every other revision of the same document.
 create unique index quibi_dev_active_business_update on public.quibi_dev_operation_journal(organization_id,quibi_id)
  where kind in ('work_order_update','invoice_update') and quibi_id is not null and state in ('prepared','dispatching','uncertain');
 create unique index quibi_production_active_business_update on public.quibi_production_operation_journal(organization_id,quibi_id)
  where kind in ('work_order_update','invoice_update') and quibi_id is not null and state in ('prepared','dispatching','uncertain');
 
+-- Optional compatibility for existing internal-task document references.
+-- Direct case operations require only the existing journal; never create internal tasks here.
+do $optional_legacy$
+begin
+ if to_regclass('public.work_order_quibi_documents') is not null and to_regclass('public.work_orders') is not null then
+  execute $legacy_sql$
 -- References and hashes only; business content remains in Quibi and its immutable operation journal.
 create table public.work_order_quibi_document_revisions (
  id uuid primary key default gen_random_uuid(), organization_id uuid not null,
@@ -56,6 +67,11 @@ begin
 end $$;
 revoke all on function public.confirm_work_order_quibi_document_revision(uuid,uuid) from public,anon,service_role;
 grant execute on function public.confirm_work_order_quibi_document_revision(uuid,uuid) to authenticated;
+  $legacy_sql$;
+ else
+  raise notice 'Internal task reference audit skipped: direct case journal remains authoritative';
+ end if;
+end $optional_legacy$;
 notify pgrst,'reload schema';
 
 -- Serialize SEND and UPDATE for the same remote document without rewriting historical journal rows.

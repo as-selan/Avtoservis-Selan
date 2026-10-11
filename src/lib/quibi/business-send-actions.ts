@@ -1,4 +1,5 @@
 "use server";
+import {loadCaseBusinessContext} from './case-business-context';
 import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
 import {createClient} from '@/lib/supabase/server';
 import {configuredQuibiReadClient} from './client';
@@ -12,14 +13,16 @@ import {sendPresentation} from './send-outcome';
 export async function sendLinkedQuibiBusinessDocument(form:FormData):Promise<{ok:boolean;message:string;sendId?:string;status?:string;locked?:boolean}>{
  const access=await requirePhase1OperationalAccess();
  if(!['owner','admin'].includes(access.role))return {ok:false,message:'Pošiljanje lahko potrdi skrbnik.'};
- const orderId=String(form.get('orderId')??''),documentId=String(form.get('documentId')??''),kind=String(form.get('kind')??''),sha=String(form.get('sha')??'');
+ const directCase=typeof form.get('caseId')==='string';
+ const orderId=String(form.get(directCase?'caseId':'orderId')??''),documentId=String(form.get('documentId')??''),kind=String(form.get('kind')??''),sha=String(form.get('sha')??'');
  if(!/^[a-f0-9-]{36}$/i.test(orderId)||!/^\d+$/.test(documentId)||documentId==='2176888'||!['work_order','invoice'].includes(kind)||!/^[a-f0-9]{64}$/.test(sha))return {ok:false,message:'Dokument ni dovoljen za ta postopek.'};
  try{
   const db=await createClient(),environment=quibiLinkEnvironment(process.env);
-  const {data:order,error:oe}=await db.from('work_orders').select('*').eq('organization_id',access.organizationId).eq('id',orderId).single();
+  const caseContext=directCase?await loadCaseBusinessContext(db,access.organizationId,orderId,kind,kind==='invoice'):null;
+  const {data:order,error:oe}=caseContext?{data:caseContext.order,error:null}:await db.from('work_orders').select('*').eq('organization_id',access.organizationId).eq('id',orderId).single();
   if(oe||!order||order.service_request_id==='9d40c42f-b6a8-473b-983f-f9620df97d10')throw Error('FORBIDDEN');
-  const {data:reference,error:re}=await db.from('work_order_quibi_documents').select('*').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind',kind).eq('quibi_document_id',documentId).eq('quibi_environment',environment).single();
-  if(re||!reference||reference.content_sha256!==sha)throw Error('CONTENT_CHANGED');
+  const {data:reference,error:re}=caseContext?{data:caseContext.reference,error:null}:await db.from('work_order_quibi_documents').select('*').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind',kind).eq('quibi_document_id',documentId).eq('quibi_environment',environment).single();
+  if(re||!reference||reference.quibi_document_id!==documentId||reference.content_sha256!==sha)throw Error('CONTENT_CHANGED');
   const journal=quibiWorkflowJournal(access.organizationId,access.userId),key=businessSendKey(order.service_request_id,documentId,sha);
   if(form.get('poll')==='yes'){
    const op=await journal.get('send',key);
