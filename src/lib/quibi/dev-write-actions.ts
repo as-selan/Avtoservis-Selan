@@ -3,6 +3,8 @@ import {stableEstimatePayload,withDocumentId} from './write-contract';
 import {quibiWorkflowJournal} from './write-journal';
 import {estimateRevisionPreparation} from './estimate-revision-preparation';
 import {loadQuibiDocument} from './document-read';
+import {createdEstimateSummary, type CreatedEstimateSummary} from './created-estimate-summary';
+import type {EstimateReview} from './estimate-preparation';
 import {estimatePreparationPayload} from './estimate-preparation';
 
 
@@ -13,7 +15,7 @@ import { quibiDevEstimateChoices } from "./write-options";
 import { checkTrackedEstimateStatus, sendManualLinkedEstimate, type ManualSendAuthorization, createAndVerifyEstimate, sendAndTrackEstimate, updateAndVerifyEstimate } from "./write-workflow";
 import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient, type EstimateBody } from "./write-contract";
 
-type Result = { ok: true; detail: string; sha?: string } | { ok: false; message: string };
+type Result = { ok: true; detail: string; sha?: string; review?: EstimateReview; document?: CreatedEstimateSummary } | { ok: false; message: string };
 const fail = (message: string): Result => ({ ok: false, message });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validPrice = (value: FormDataEntryValue | null): number | null => {
@@ -34,6 +36,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
       form.get("serviceMatchConfirmed") !== "yes") return fail("Preverite ceno in izrecno potrdite ujemanje storitve.");
   const expectedSha = form.get('expectedSha');
   if (typeof expectedSha !== 'string' || !/^[a-f0-9]{64}$/.test(expectedSha) || form.get('createConfirmed') !== 'yes') return fail('Najprej preverite pripravo in izrecno potrdite CREATE istega payload-a.');
+  let createdId: string | null = null;
   try {
     const ctx = await context(serviceRequestId);
     const { data: quotes, error } = await ctx.db.from("quotes").select("id")
@@ -51,13 +54,18 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
         note: `${quibiWorkflowConfig(process.env, "write").mode === "dev" ? "TEST-AUTOSERVIS-SELAN" : "AVTOSERVIS-SELAN"} ${serviceRequestId}` },
     });
     if (!op.quibiId) return fail("Dokument ni preverljivo ustvarjen.");
+    createdId = op.quibiId;
+    const detail = await ctx.read.estimateDetail(op.quibiId, ctx.link.external_id);
+    const document = createdEstimateSummary(detail, {id:op.quibiId,customerId:ctx.link.external_id,
+      vehicleId:ctx.vehicleLink.quibi_vehicle_id,sha:op.quibiContentSha256 ?? '',amount:price},ctx.request.customer_id!,false);
     // The existing RPC registers a digest after another Quibi re-read and keeps
     // Tadej's existing review/price approval path. UI labels the API origin.
     const linked = await linkManualQuibiEstimate(serviceRequestId, op.quibiId, true);
-    return linked.ok ? { ok: true, detail: `Quibi predračun #${op.quibiId} je ustvarjen in povezan.` }
-      : fail(`Dokument #${op.quibiId} obstaja v Quibiju, povezava s primerom pa zahteva pregled: ${linked.message}`);
+    return {ok:true,document:{...document,linked:linked.ok},detail:linked.ok
+      ? `Quibi predračun #${op.quibiId} je ustvarjen in povezan. Pošiljanje zahteva ločeno potrditev.`
+      : `Dokument #${op.quibiId} obstaja v Quibiju, povezava s primerom pa zahteva pregled: ${linked.message}. Ne ustvarjajte novega dokumenta.`};
   } catch {
-    return fail("Quibi operacija ni potrjena. Pred ponovnim poskusom preverite dnevnik; ne ustvarjajte drugega dokumenta.");
+    return fail(createdId ? `Quibi dokument #${createdId} je ustvarjen, ponovno preverjanje ali povezava pa ni potrjena. Ne ustvarjajte drugega dokumenta.` : "Quibi operacija ni potrjena. Pred ponovnim poskusom preverite dnevnik; ne ustvarjajte drugega dokumenta.");
   }
 }
 
@@ -245,7 +253,7 @@ export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
     if(error||quotes?.length)return fail('Predračun je že povezan ali njegove evidence ni mogoče preveriti.');
     const [numberings,sales,units,vatRates]=await Promise.all(['numberings','saleTypes','units','vat'].map(kind=>ctx.read.catalog(kind as 'numberings'|'saleTypes'|'units'|'vat')));
     const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:price,popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates});
-    return {ok:true,sha:payload.sha256,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
+    return {ok:true,sha:payload.sha256,review:payload.review,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
   } catch {return fail('Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
 }
 

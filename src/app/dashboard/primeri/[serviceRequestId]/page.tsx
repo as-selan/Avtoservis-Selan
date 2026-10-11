@@ -273,6 +273,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {customer && quibiEstimateId && <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi/predracuni/${quibiEstimateId}`}>
             {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri demo predračun" : "Podrobnosti predračuna v Selanu"} #{quibiEstimateId} →
           </Link>}
+          {customer && quibiEstimateId && <a className="block text-sm font-medium text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customer.id}/estimate/${quibiEstimateId}/pdf`}>Odpri PDF predračuna iz Quibija</a>}
           {createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
             <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} writeEnabled={writeReady} />}
