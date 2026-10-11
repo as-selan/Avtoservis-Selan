@@ -1,5 +1,6 @@
 "use server";
 
+import {changesQuibiIdentity,QUIBI_IDENTITY_EDIT_MESSAGE} from "./quibi-owned-fields";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
@@ -60,13 +61,17 @@ export async function updateCustomerAction(input: {
 
   try {
     const supabase = await createClient();
+    const [identity,link]=await Promise.all([
+      supabase.from("customers").select("display_name,phone,email").eq("organization_id",access.organizationId).eq("id",input.customerId).is("archived_at",null).maybeSingle(),
+      supabase.from("integration_links").select("id").eq("organization_id",access.organizationId).eq("entity_id",input.customerId).eq("provider","quibi").eq("entity_type","customer").maybeSingle(),
+    ]);
+    if(identity.error||link.error||!identity.data)return {ok:false,message:CUSTOMER_VEHICLE_EDIT_UNAVAILABLE};
+    if(changesQuibiIdentity(!!link.data,identity.data,validated.value,["display_name","phone","email"]))return {ok:false,message:QUIBI_IDENTITY_EDIT_MESSAGE};
     const { data, error } = await supabase
       .from("customers")
       .update({
         customer_type: validated.value.customer_type,
-        display_name: validated.value.display_name,
-        phone: validated.value.phone,
-        email: validated.value.email,
+        ...(!link.data ? {display_name:validated.value.display_name,phone:validated.value.phone,email:validated.value.email} : {}),
         notes: validated.value.notes,
       })
       .eq("id", input.customerId)
@@ -142,7 +147,7 @@ export async function updateVehicleAction(input: {
 
     const { data: existing, error: existingError } = await supabase
       .from("vehicles")
-      .select("id, mileage_latest_km")
+      .select("id, mileage_latest_km,vin,registration_current,make,model")
       .eq("id", input.vehicleId)
       .eq("organization_id", access.organizationId)
       .eq("customer_id", input.customerId)
@@ -156,6 +161,9 @@ export async function updateVehicleAction(input: {
       return { ok: false, message: CUSTOMER_VEHICLE_EDIT_UNAVAILABLE };
     }
 
+    const {data:quibiLink,error:quibiLinkError}=await supabase.from("quibi_vehicle_links").select("id").eq("organization_id",access.organizationId).eq("vehicle_id",input.vehicleId).eq("customer_id",input.customerId).maybeSingle();
+    if(quibiLinkError)return {ok:false,message:CUSTOMER_VEHICLE_EDIT_GENERIC_ERROR};
+    if(changesQuibiIdentity(!!quibiLink,existing,validated.value,["vin","registration_current","make","model"]))return {ok:false,message:QUIBI_IDENTITY_EDIT_MESSAGE};
     const currentMileage =
       typeof existing.mileage_latest_km === "number"
         ? existing.mileage_latest_km
@@ -176,6 +184,7 @@ export async function updateVehicleAction(input: {
       notes: validated.value.notes,
       mileage_latest_km: validated.value.mileage_latest_km,
     };
+    if(quibiLink){for(const key of ["vin","registration_current","make","model"] as const)delete updatePayload[key];}
     if (mileageChanged) {
       updatePayload.mileage_latest_recorded_at = new Date().toISOString();
     }

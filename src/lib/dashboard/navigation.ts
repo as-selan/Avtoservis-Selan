@@ -1,14 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity,
-  CalendarDays,
-  Car,
   ClipboardList,
-  FileText,
-  Inbox,
   LayoutDashboard,
   Plug,
-  Settings,
   Users,
 } from "lucide-react";
 
@@ -31,47 +25,17 @@ export const APP_NAV_ITEMS: NavItem[] = [
   },
   {
     id: "service-orders",
-    label: "Servisni nalogi",
+    label: "Potek popravil",
     href: "/dashboard/nalogi",
     icon: ClipboardList,
     available: true,
   },
   {
-    id: "inquiries",
-    label: "Povpraševanja",
-    icon: Inbox,
-    available: false,
-  },
-  {
-    id: "appointments",
-    label: "Termini",
-    icon: CalendarDays,
-    available: false,
-  },
-  {
-    id: "offers",
-    label: "Ponudbe",
-    icon: FileText,
-    available: false,
-  },
-  {
     id: "customers",
-    label: "Stranke",
+    label: "Kontakti primerov",
     href: "/dashboard/stranke",
     icon: Users,
     available: true,
-  },
-  {
-    id: "vehicles",
-    label: "Vozila",
-    icon: Car,
-    available: false,
-  },
-  {
-    id: "activity",
-    label: "Aktivnost",
-    icon: Activity,
-    available: false,
   },
   {
     id: "integrations",
@@ -79,11 +43,5 @@ export const APP_NAV_ITEMS: NavItem[] = [
     href: "/dashboard/quibi",
     icon: Plug,
     available: true,
-  },
-  {
-    id: "settings",
-    label: "Nastavitve",
-    icon: Settings,
-    available: false,
   },
 ];

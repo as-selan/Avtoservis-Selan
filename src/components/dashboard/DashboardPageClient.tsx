@@ -21,7 +21,7 @@ interface DashboardPageClientProps {
 
 export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   const { setOpen: setManualOpen } = useManualEntry();
-  const [period, setPeriod] = useState<DashboardPeriodId>("danes");
+  const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusId | "all">(
     "all",
   );
