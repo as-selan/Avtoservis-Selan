@@ -84,7 +84,7 @@ test("create persists exact payload first, re-reads owner/vehicle/document, then
     lines: [{ sifra: "CHANGED", kolicina: 1 }] } }), /QUIBI_CREATE_CHANGED_REQUIRES_UPDATE/);
 });
 
-test("uncertain create retries persisted body and owner mismatch prevents verification", async () => {
+test("uncertain create without returned ID blocks a second dispatch; owner mismatch prevents verification", async () => {
   const f = fixture();
   const original = f.write.createEstimate;
   let first = true;
@@ -95,8 +95,8 @@ test("uncertain create retries persisted body and owner mismatch prevents verifi
   };
   await assert.rejects(createAndVerifyEstimate({ ...f, input }), /NETWORK_TIMEOUT_AFTER_COMMIT/);
   assert.equal(f.records.get(`estimate:${caseId}`)?.state, "uncertain");
-  const retry = await createAndVerifyEstimate({ ...f, input });
-  assert.equal(retry.state, "verified");
+  await assert.rejects(createAndVerifyEstimate({ ...f, input }), /QUIBI_OPERATION_REQUIRES_RECONCILIATION/);
+  assert.equal(f.events.filter(event => event === "create").length, 1);
   const wrong = fixture();
   wrong.write.createEstimate = async (body) => {
     const result = await original.call(wrong.write, body);

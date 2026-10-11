@@ -87,7 +87,7 @@ export async function createAndVerifyEstimate(args: {
   samePayload(op, payload.json, payload.sha256);
   if (op.externalId !== body.Glavadokumenta.external_id) throw new Error("QUIBI_EXTERNAL_ID_MISMATCH");
   if (op.state === "verified") return op;
-  if (op.state === "dispatching" || op.state === "failed") throw new Error("QUIBI_OPERATION_REQUIRES_RECONCILIATION");
+  if (op.state === "dispatching" || op.state === "failed" || (op.state === "uncertain" && !op.quibiId)) throw new Error("QUIBI_OPERATION_REQUIRES_RECONCILIATION");
   if (op.quibiId) {
     const detail = await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, op.quibiId, numberingId,
       op.documentNumber);
@@ -95,8 +95,7 @@ export async function createAndVerifyEstimate(args: {
   }
   if (!await journal.claim(op.id, op.state)) throw new Error("QUIBI_OPERATION_CONCURRENT");
   try {
-    // For an uncertain create, Quibi's documented same-body external_id replay
-    // contract returns the original ID. Never rebuild the body from edited UI.
+    // Dispatch only a prepared request. Unknown outcomes require reconciliation.
     const storedBody = JSON.parse(op.requestBody) as EstimateBody;
     const result = await write.createEstimate(storedBody);
     const dispatched = await journal.patch(op.id, "dispatching", {
