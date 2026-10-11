@@ -1,4 +1,4 @@
-import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
+import {schedulePersistedWebIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
 import { NextResponse, type NextRequest } from "next/server";
 import { createHmac } from "node:crypto";
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";

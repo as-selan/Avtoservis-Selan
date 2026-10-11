@@ -73,3 +73,14 @@ export function scheduleCompletedIntakeSynchronization(tokenHash:string){
  if(!error&&data)await processIntakeSynchronization(data.service_request_id);
  });
 }
+
+/** Hosted web RPC intentionally returns no IDs. Resolve only the just-persisted server-authorized request. */
+export function schedulePersistedWebIntakeSynchronization(clientRequestId:string){
+ if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'||!uuid.test(clientRequestId))return;
+ after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
+ const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
+ const {data:org,error:orgError}=await db.from('organizations').select('id').eq('slug','avtoservis-selan').single();if(orgError||!org)return;
+ const {data,error}=await db.from('service_requests').select('id').eq('organization_id',org.id).eq('source','web_form').eq('intake_request_id',clientRequestId).is('archived_at',null).single();
+ if(!error&&data)await processIntakeSynchronization(data.id);
+ });
+}
