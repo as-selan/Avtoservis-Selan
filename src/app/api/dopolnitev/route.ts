@@ -1,3 +1,4 @@
+import {scheduleCompletedIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { hashCompletionToken } from "@/lib/completion/token";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/completion/public";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function json(body: unknown, status = 200): NextResponse {
   const sanitized = sanitizeCompletionPublicResponse(body);
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
     if (payload.ok !== true) {
       return json(publicCompletionUnavailable(), 400);
     }
+    scheduleCompletedIntakeSynchronization(tokenHash);
     return json(payload, 200);
   } catch {
     return json(publicCompletionUnavailable(), 400);

@@ -1,3 +1,4 @@
+import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
 import { NextResponse, type NextRequest } from "next/server";
 import { createHmac } from "node:crypto";
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/intake/web-public";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function json(body: unknown, status = 200): NextResponse {
   const sanitized = sanitizeWebIntakePublicResponse(body);
@@ -98,8 +100,9 @@ export async function POST(request: NextRequest) {
       return json(publicWebIntakeFailure(), 400);
     }
 
-    const payload = (data ?? {}) as { ok?: boolean };
+    const payload = (data ?? {}) as { ok?: boolean; service_request_id?:string };
     if (payload.ok === true) {
+      if(typeof payload.service_request_id==='string')scheduleIntakeSynchronization(payload.service_request_id);
       return json(publicWebIntakeSuccess(), 200);
     }
 

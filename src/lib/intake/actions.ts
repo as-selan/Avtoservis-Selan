@@ -1,5 +1,6 @@
 "use server";
 
+import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
 import { createClient } from "@/lib/supabase/server";
 import { requireManualIntakeAccess } from "@/lib/intake/access";
 import { manualIntakeErrorMessage } from "@/lib/intake/errors";
@@ -270,6 +271,7 @@ export async function createManualServiceRequestIntakeAction(raw: {
     };
   }
 
+  scheduleIntakeSynchronization(result.serviceRequestId);
   const statusNote =
     result.status === "needs_data"
       ? " Status: manjkajo podatki."

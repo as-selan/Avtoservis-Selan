@@ -1,3 +1,4 @@
+import {AutomaticIntakeSync} from '@/components/dashboard/AutomaticIntakeSync';
 import {previewDevActivationReadiness} from '@/lib/quibi/hosted-activation-requirements';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
 import {QuibiCaseBusinessOperations} from '@/components/dashboard/QuibiCaseBusinessOperations';
@@ -234,6 +235,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
+      {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null}/>}
       {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border bg-white p-4 space-y-2">
