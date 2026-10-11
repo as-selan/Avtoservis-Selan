@@ -3,6 +3,7 @@ import {stableEstimatePayload,withDocumentId} from './write-contract';
 import {quibiWorkflowJournal} from './write-journal';
 import {estimateRevisionPreparation} from './estimate-revision-preparation';
 import {loadQuibiDocument} from './document-read';
+import {loadEstimateHistory,freshHistorySource} from './estimate-history';
 import {estimateCatalogSource} from './estimate-catalog-source';
 import {createdEstimateSummary, type CreatedEstimateSummary} from './created-estimate-summary';
 import type {EstimateReview} from './estimate-preparation';
@@ -33,7 +34,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
   const vatId = form.get("vatId");
   const price = validPrice(form.get("unitPrice"));
   if (typeof serviceRequestId !== "string" || typeof saleTypeId !== "string" ||
-      typeof unitId !== "string" || typeof vatId !== "string" || (price == null && !form.get("catalogSource")) ||
+      typeof unitId !== "string" || typeof vatId !== "string" || (price == null && !form.get("catalogSource") && !form.get('historySource')) ||
       form.get("serviceMatchConfirmed") !== "yes") return fail("Preverite ceno in izrecno potrdite ujemanje storitve.");
   const expectedSha = form.get('expectedSha');
   if (typeof expectedSha !== 'string' || !/^[a-f0-9]{64}$/.test(expectedSha) || form.get('createConfirmed') !== 'yes') return fail('Najprej preverite pripravo in izrecno potrdite CREATE istega payload-a.');
@@ -48,11 +49,13 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
         !choices.units.some((item) => item.id === unitId) ||
         !choices.vatRates.some((item) => item.id === vatId)) return fail("Izbrani šifranti v Quibiju niso več veljavni.");
     const source = await estimateCatalogSource(form, ctx.read, choices);
-    if(source && form.get('expectedSourceSha')!==source.option.sourceSha)return fail('Quibijeva postavka ali cena se je spremenila. Ponovno preglejte ponudbo; dokument ni ustvarjen.');
+    const history=form.get('historySource') ? await freshHistorySource(form,historyRead(ctx.read),{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code}) : null;
+    if(history && form.get('expectedSourceSha')!==history.sourceSha)return fail('Zgodovina ali aktualna cena se je spremenila. Ponovno preglejte predlog; dokument ni ustvarjen.');
+    if(!history && source && form.get('expectedSourceSha')!==source.option.sourceSha)return fail('Quibijeva postavka ali cena se je spremenila. Ponovno preglejte ponudbo; dokument ni ustvarjen.');
     const op = await createAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write, expectedRequestSha256: expectedSha,
       input: { serviceRequestId, customerId: ctx.link.external_id,
         vehicleId: ctx.vehicleLink.quibi_vehicle_id, saleTypeId,
-        lines: source ? [source.line] : [{ opis: ctx.lineDescription, enota_id: unitId, ddv_id: vatId,
+        lines: history ? history.payloadLines : source ? [source.line] : [{ opis: ctx.lineDescription, enota_id: unitId, ddv_id: vatId,
           kolicina: 1, cenaZDDV: price!, popust: 0 }],
         note: `${quibiWorkflowConfig(process.env, "write").mode === "dev" ? "TEST-AUTOSERVIS-SELAN" : "AVTOSERVIS-SELAN"} ${serviceRequestId}` },
     });
@@ -60,7 +63,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     createdId = op.quibiId;
     const detail = await ctx.read.estimateDetail(op.quibiId, ctx.link.external_id);
     const document = createdEstimateSummary(detail, {id:op.quibiId,customerId:ctx.link.external_id,
-      vehicleId:ctx.vehicleLink.quibi_vehicle_id,sha:op.quibiContentSha256 ?? '',amount:source?.total ?? price!},ctx.request.customer_id!,false);
+      vehicleId:ctx.vehicleLink.quibi_vehicle_id,sha:op.quibiContentSha256 ?? '',amount:history?.total ?? source?.total ?? price!},ctx.request.customer_id!,false);
     // The existing RPC registers a digest after another Quibi re-read and keeps
     // Tadej's existing review/price approval path. UI labels the API origin.
     const linked = await linkManualQuibiEstimate(serviceRequestId, op.quibiId, true);
@@ -249,15 +252,16 @@ export async function checkQuibiDevTestEstimateStatus(form: FormData): Promise<R
 /** Only READ calls: no operation journal insertion or external dispatch. */
 export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
   const id=form.get('serviceRequestId'),sale=form.get('saleTypeId'),unit=form.get('unitId'),vat=form.get('vatId'),price=validPrice(form.get('unitPrice'));
-  if(typeof id!=='string'||typeof sale!=='string'||typeof unit!=='string'||typeof vat!=='string'||(price==null&&!form.get('catalogSource'))||form.get('serviceMatchConfirmed')!=='yes')return fail('Preverite ceno, storitev in identiteto.');
+  if(typeof id!=='string'||typeof sale!=='string'||typeof unit!=='string'||typeof vat!=='string'||(price==null&&!form.get('catalogSource')&&!form.get('historySource'))||form.get('serviceMatchConfirmed')!=='yes')return fail('Preverite ceno, storitev in identiteto.');
   try {
     const ctx=await quibiEstimatePreparationContext(id);
     const {data:quotes,error}=await ctx.db.from('quotes').select('id').eq('organization_id',ctx.access.organizationId).eq('service_request_id',id).limit(1);
     if(error||quotes?.length)return fail('Predračun je že povezan ali njegove evidence ni mogoče preveriti.');
     const [numberings,sales,units,vatRates]=await Promise.all(['numberings','saleTypes','units','vat'].map(kind=>ctx.read.catalog(kind as 'numberings'|'saleTypes'|'units'|'vat')));
     const source=await estimateCatalogSource(form,ctx.read,{units,vatRates});
-    const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:source?[source.line]:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:price!,popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates},source?[source.reviewedLine]:undefined);
-    return {ok:true,sha:payload.sha256,sourceSha:source?.option.sourceSha,review:payload.review,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
+    const history=form.get('historySource') ? await freshHistorySource(form,historyRead(ctx.read),{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code}) : null;
+    const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,lines:history?history.payloadLines:source?[source.line]:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:price!,popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates},history?history.reviewedLines:source?[source.reviewedLine]:undefined);
+    return {ok:true,sha:payload.sha256,sourceSha:history?.sourceSha??source?.option.sourceSha,review:payload.review,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
   } catch {return fail('Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
 }
 
@@ -279,4 +283,20 @@ export async function prepareQuibiEstimateRevision(form:FormData):Promise<Result
  const payload=estimateRevisionPreparation(base,current,ctx.lineDescription,price,{saleTypes,units,vatRates,numberings});
  return {ok:true,sha:payload.sha256,detail:'Priprava popravka preverjena; Quibi ni bil spremenjen. SHA: '+payload.sha256+'\n'+payload.json};
  }catch{return fail('Priprava popravka ni potrjena. Preverite zadnjo zavrnjeno različico, identiteto, šifrante in journal.');}
+}
+
+function historyRead(read:Awaited<ReturnType<typeof quibiEstimatePreparationContext>>['read']){
+ if(!('historyDocuments' in read))throw Error('QUIBI_HISTORY_REAL_READ_REQUIRED');
+ return read;
+}
+/** Authorized READ only. Account-wide results are suggestions, never vehicle history evidence. */
+export async function prepareQuibiEstimateHistory(form:FormData){
+ try{
+ const id=form.get('serviceRequestId');if(typeof id!=='string'||!uuid.test(id))throw Error('INVALID_CASE');
+ const ctx=await quibiEstimatePreparationContext(id);
+ const read=historyRead(ctx.read);
+ const [units,vatRates]=await Promise.all([read.catalog('units'),read.catalog('vat')]);
+ const source=await estimateCatalogSource(form,read,{units,vatRates});
+ return await loadEstimateHistory(read,{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code});
+ }catch{return {proposals:[],issues:['Zgodovine ni mogoče preveriti. Predlog ni pripravljen; dokument ni ustvarjen.']};}
 }

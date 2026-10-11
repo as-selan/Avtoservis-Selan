@@ -22,7 +22,7 @@ export function createQuibiReadClient(config: Config) {
         const response = await fetcher(`${origin}${path}`, {
           method,
           headers: { username: config.username, password: config.password, "Content-Type": "application/json" },
-          body: method === "POST" ? JSON.stringify({ Filtriraj: { stranka: Number(customerId) } }) : undefined,
+          body: method === "POST" ? JSON.stringify({ Filtriraj: { ...(customerId ? {stranka: Number(customerId)} : {}) } }) : undefined,
           redirect: "error", cache: "no-store",
           signal: AbortSignal.timeout(8000),
         });
@@ -74,6 +74,13 @@ export function createQuibiReadClient(config: Config) {
     async vehicle(id: string, customerId: string) {
       const vehicleId = validId(id);
       return parseVehicleDetail(await read(`/api2/vozila/view/${vehicleId}`), vehicleId, validId(customerId));
+    },
+    /** Documented list filters are optional; caller must authorize account-wide history. */
+    async historyDocuments(kind: 'work_order'|'estimate'|'invoice', customerId?:string) {
+      const paths={work_order:'/api2/dn',estimate:'/api2/predracuni',invoice:'/api2/fakture'};
+      if(!Object.hasOwn(paths,kind))throw Error('QUIBI_INVALID_DOCUMENT');
+      const id=customerId ? validId(customerId) : undefined;
+      return parseDocuments(await read(paths[kind],'POST',id),id);
     },
     async workOrders(customerId: string) {
       const id = validId(customerId);

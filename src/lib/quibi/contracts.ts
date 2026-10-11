@@ -8,8 +8,8 @@ export type QuibiVehicle = {
 export type QuibiDocument = { id: string; customerId: string; numberingId: string; status: string; amount?: string };
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
-  vehicleId?: string; externalId?: string; number?: string; numberingId?: string;
-  lines: { description: string; quantity: string; grossPrice: string; unitId?: string; vatId?: string; discount?: string }[];
+  vehicleId?: string; externalId?: string; number?: string; numberingId?: string; date?: string;
+  lines: { description: string; quantity: string; grossPrice: string; unitId?: string; vatId?: string; discount?: string; articleId?: string; articleCode?: string }[];
   contentSha256: string;
 };
 
@@ -120,7 +120,7 @@ export function parseDocumentStatus(value: unknown, expectedId: string, customer
   return statusFromDocument(entry);
 }
 
-export function parseDocuments(value: unknown, customerId: string): QuibiDocument[] {
+export function parseDocuments(value: unknown, customerId?: string): QuibiDocument[] {
   return rows(value, "Dokumenti").map((entry) => {
     const doc = object(object(entry).Glavadokumenta);
     const id = field(doc.id);
@@ -130,7 +130,7 @@ export function parseDocuments(value: unknown, customerId: string): QuibiDocumen
     return { id, customerId: owner, numberingId: field(doc.stevilcenje_id),
       status,
       ...(doc.znesek !== undefined && doc.znesek !== null ? { amount: field(doc.znesek) } : {}) };
-  }).filter((doc) => doc.customerId === customerId);
+  }).filter((doc) => !customerId || doc.customerId === customerId);
 }
 
 /** Read-only projection of a real Quibi estimate; never persisted as a second document. */
@@ -152,11 +152,14 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
     ...(field(header.external_id) ? { externalId: field(header.external_id) } : {}),
     ...(field(header.ZapSt) ? { number: field(header.ZapSt) } : {}),
     ...(field(header.stevilcenje_id) ? { numberingId: field(header.stevilcenje_id) } : {}),
+    ...(field(header.datIzdRac) ? {date:field(header.datIzdRac)} : {}),
     status: statusFromDocument(entry),
     contentSha256: createHash("sha256").update(JSON.stringify(canonical(entry))).digest("hex"),
     lines: lines.map((row) => {
       const item = object(row);
-      return { description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV), ...(field(item.enota_id) ? {unitId:field(item.enota_id)} : {}), ...(field(item.ddv_id) ? {vatId:field(item.ddv_id)} : {}), ...(field(item.popust) ? {discount:field(item.popust)} : {}) };
+      const article = item.Sifranti && typeof item.Sifranti === 'object' && !Array.isArray(item.Sifranti) ? item.Sifranti as Record<string,unknown> : {};
+      if(field(article.id)&&field(article.id)!==field(item.sifranti_id))throw new Error('QUIBI_ARTICLE_REFERENCE_MISMATCH');
+      return { ...(field(item.sifranti_id) && field(item.sifranti_id)!=='0' ? {articleId:field(item.sifranti_id)} : {}), ...(field(article.sifra) ? {articleCode:field(article.sifra)} : {}), description: field(item.opis), quantity: field(item.kolicina), grossPrice: field(item.cenaZDDV), ...(field(item.enota_id) ? {unitId:field(item.enota_id)} : {}), ...(field(item.ddv_id) ? {vatId:field(item.ddv_id)} : {}), ...(field(item.popust) ? {discount:field(item.popust)} : {}) };
     }),
   };
 }
