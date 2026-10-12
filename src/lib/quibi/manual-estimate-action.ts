@@ -1,4 +1,5 @@
 "use server";
+import {syntheticCaseEvidenceAllowed} from './synthetic-case-evidence';
 import {estimateLineDescription} from "./estimate-line-description";
 
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
@@ -277,6 +278,16 @@ export async function recordManualEstimateDecision(
       || !["approved", "rejected"].includes(decision)
       || reference.trim().length < 4 || reference.trim().length > 200) {
     return error("Navedite veljavno odločitev in referenco strankinega odgovora.");
+  }
+  if(reference.trim().startsWith('QA-SIM-')){
+    if(!['owner','admin'].includes(access.role))return error('QA odločitev lahko evidentira samo skrbnik.');
+    const scoped=await createClient();
+    const {data:qaQuote,error:qe}=await scoped.from('quotes').select('service_request_id').eq('organization_id',access.organizationId).eq('id',quoteId).single();
+    if(qe||!qaQuote)return error('QA predračun ni potrjen.');
+    const {data:qaCase,error:re}=await scoped.from('service_requests').select('customer_id,vehicle_id,problem_description').eq('organization_id',access.organizationId).eq('id',qaQuote.service_request_id).is('archived_at',null).single();
+    if(re||!qaCase?.customer_id||!qaCase.vehicle_id)return error('QA primer ni potrjen.');
+    const [{data:qaCustomer,error:ce},{data:qaVehicle,error:ve}]=await Promise.all([scoped.from('customers').select('display_name,email').eq('organization_id',access.organizationId).eq('id',qaCase.customer_id).is('archived_at',null).single(),scoped.from('vehicles').select('vin').eq('organization_id',access.organizationId).eq('id',qaCase.vehicle_id).eq('customer_id',qaCase.customer_id).is('archived_at',null).single()]);
+    if(ce||ve||!syntheticCaseEvidenceAllowed(process.env,{description:qaCase.problem_description,name:qaCustomer?.display_name,email:qaCustomer?.email,vin:qaVehicle?.vin}))return error('Simulirana odločitev zahteva izrecno označen sintetični DEV primer.');
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
