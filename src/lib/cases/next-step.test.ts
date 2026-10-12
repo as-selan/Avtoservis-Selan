@@ -75,3 +75,8 @@ test("synthetic appointment never claims an external reservation", () => {
 });
 
 test('unknown Quibi CREATE is the next action instead of a new estimate',()=>{const step=nextCaseStep({status:'preparing_offer',offerPrepared:true,quibiLinked:true,quibiCreateUncertain:true});assert.equal(step.kind,'review_quibi_mismatch');assert.ok(step.label.includes('Nov CREATE je ustavljen'))});
+
+test('recorded customer approval proceeds to direct Quibi business flow without inventing delivery',()=>{
+ const step=nextCaseStep({status:'awaiting_slot_selection',offerPrepared:true,quibiLinked:true,directQuibiBusiness:true,customerDecision:'approved',deliveryStatus:'pending'});
+ assert.equal(step.kind,'manual_external_handoff');assert.equal(step.externalConfirmed,false);
+});

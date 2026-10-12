@@ -55,7 +55,7 @@ export function nextCaseStep(input: {
       ? "Po dejanskem sporočilu objavljene cene počakajte na odločitev stranke."
       : "Po dejanski dostavi počakaj na odločitev stranke.");
     case "awaiting_slot_selection":
-      if(input.directQuibiBusiness&&input.customerDecision==="approved"&&input.deliveryStatus==="delivered")return step("manual_external_handoff","Po potrditvi popravila nadaljujte s Quibi nalogom in nato računom v poslovnem postopku spodaj. Termin uredite ločeno po potrebi.");
+      if(input.directQuibiBusiness&&input.customerDecision==="approved")return step("manual_external_handoff","Po potrditvi popravila nadaljujte s Quibi nalogom in nato računom v poslovnem postopku spodaj. Termin uredite ločeno po potrebi.");
       if (input.slotOfferStatus === "selected") return step("manual_scheduling",
         "Stranka je izbrala termin. Rezerviraj ga v MyPlanlyju in zabeleži dejansko referenco; rezervacija še ni potrjena.");
       if (input.slotOfferStatus === "offered") return step("manual_scheduling",

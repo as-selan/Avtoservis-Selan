@@ -9,18 +9,21 @@ export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEn
  const initial=businessFormStart(references);
  const [operation,setOperation]=useState(initial.operation),[dispatchStarted,setDispatchStarted]=useState(false);
  const [kind,setKind]=useState(initial.kind),[result,setResult]=useState<BusinessPreparationResult|null>(null),[pending,start]=useTransition(),lock=useRef(false),router=useRouter();
- const form=useRef<HTMLFormElement>(null),autoloaded=useRef(false);
+ const form=useRef<HTMLFormElement>(null),autoloaded=useRef(''),[revision,setRevision]=useState(0);
  useEffect(()=>{
-  if(status==='closed'||autoloaded.current||!form.current||!businessPreparationCanAutoload({caseId,kind,operation,numberingCount:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')==='delovni nalog').length}))return;
-  autoloaded.current=true;lock.current=true;
-  const data=new FormData(form.current);data.set('caseId',caseId!);data.set('operation','create');
+  if(status==='closed'||!form.current||!businessPreparationCanAutoload({caseId,kind,operation,numberingCount:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===(kind==='invoice'?'račun':'delovni nalog')).length}))return;
+  const data=new FormData(form.current);
+  const signature=JSON.stringify([caseId,kind,operation,data.get('numberingId'),data.get('saleTypeId'),data.get('repairCompleted'),data.get('serviceDate')]);
+  if(autoloaded.current===signature||lock.current)return;
+  autoloaded.current=signature;lock.current=true;
+  data.set('caseId',caseId!);data.set('operation','create');
   // Prepare from the approved Quibi source; never include dispatch or a business confirmation.
   start(async()=>{try{setResult(await prepareQuibiBusinessDocument(data))}catch{setResult({ok:false,message:'Priprave ni mogoče preveriti. Ponovno preglejte pripravo dokumenta.'})}finally{lock.current=false}});
- },[caseId,kind,operation,status,choices.numberings]);
+ },[caseId,kind,operation,status,choices.numberings,revision]);
  if(status==='closed')return null;
  const labels={numberingId:'Številčenje',saleTypeId:'Vrsta prodaje'};
  const options={numberingId:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===(kind==='invoice'?'račun':'delovni nalog')),saleTypeId:choices.saleTypes};
- return <form ref={form} className="space-y-3 rounded border bg-white p-4" onChange={e=>{if(!(e.target instanceof HTMLInputElement)||e.target.name!=="confirmed")setResult(null)}} onSubmit={e=>{
+ return <form ref={form} className="space-y-3 rounded border bg-white p-4" onChange={e=>{if(!(e.target instanceof HTMLInputElement)||e.target.name!=="confirmed"){setResult(null);setRevision(v=>v+1)}}} onSubmit={e=>{
   e.preventDefault();if(lock.current||dispatchStarted)return;lock.current=true;
   const f=new FormData(e.currentTarget);f.set(caseId?'caseId':'orderId',caseId??orderId);f.set('operation',operation);const dispatch=(e.nativeEvent as SubmitEvent).submitter?.getAttribute('data-dispatch')==='yes';
   if(dispatch){setDispatchStarted(true);f.set('dispatch','yes');f.set('expectedSha',result?.sha??'')}
@@ -36,7 +39,7 @@ export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEn
  {kind==='invoice'&&<label className="block text-sm">Dejanski datum opravljene storitve<input type="date" name="serviceDate" required className="mt-1 w-full rounded border p-2"/></label>}
  <label className="flex gap-2 text-sm"><input name="confirmed" type="checkbox" required={!!result?.sha} value="yes"/>Pregledal sem izvirni dokument, postavke, odobritev stranke, enoto in DDV. Potrjujem pripravo za ta servisni nalog.</label>
  <button disabled={pending||dispatchStarted} className="rounded border px-3 py-2 disabled:opacity-50">{pending?'Preverjam…':'Preglej pripravo dokumenta'}</button>
- {result?.sha&&<div className="space-y-2"><p>Vir: <Link className="text-blue-700" href={`/dashboard/stranke/${customerId}/quibi/dokumenti/${kind==='work_order'?'estimate':'work_order'}/${result.sourceId}`}>#{result.sourceId} · odpri izvirnik</Link> · znesek izvirnika {result.amount} EUR</p><div className="space-y-2">{result.lines?.map((line,index)=><div key={index} className="border-t pt-2"><p className="break-words">{line.description}</p><p>{line.quantity} {line.unit} · DDV {line.vat} · popust {line.discount} % · {Number(line.unitGrossPrice).toLocaleString('sl-SI',{style:'currency',currency:'EUR'})} na enoto z DDV</p></div>)}{result.notes?.length?<p className="text-amber-800">Izvirne opombe: {result.notes.join(' · ')}. Ostanejo v izvornem Quibi dokumentu; niso obračunske postavke.</p>:null}</div><details className="text-xs"><summary>Podrobnosti preverjanja</summary><p className="break-all">Prstni odtis: {result.sha}</p></details><button data-dispatch="yes" disabled={pending||dispatchStarted||!writeEnabled} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{operation==='update'?'Posodobi v Quibiju in ponovno preveri':'Ustvari v Quibiju in ponovno preveri'}</button></div>}
+ {result?.sourceId&&<div className="space-y-2"><p>Vir: <Link className="text-blue-700" href={`/dashboard/stranke/${customerId}/quibi/dokumenti/${kind==='work_order'?'estimate':'work_order'}/${result.sourceId}`}>#{result.sourceId} · odpri izvirnik</Link> · znesek izvirnika {result.amount} EUR</p><div className="space-y-2">{result.lines?.map((line,index)=><div key={index} className="border-t pt-2"><p className="break-words">{line.description}</p><p>{line.quantity} {line.unit} · DDV {line.vat} · popust {line.discount} % · {Number(line.unitGrossPrice).toLocaleString('sl-SI',{style:'currency',currency:'EUR'})} na enoto z DDV</p></div>)}{result.notes?.length?<p className="text-amber-800">Izvirne opombe: {result.notes.join(' · ')}. Ostanejo v izvornem Quibi dokumentu; niso obračunske postavke.</p>:null}</div>{result.sha&&<><details className="text-xs"><summary>Podrobnosti preverjanja</summary><p className="break-all">Prstni odtis: {result.sha}</p></details><button data-dispatch="yes" disabled={pending||dispatchStarted||!writeEnabled} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{operation==='update'?'Posodobi v Quibiju in ponovno preveri':'Ustvari v Quibiju in ponovno preveri'}</button></>}</div>}
  {!writeEnabled&&<p className="text-sm text-amber-800">Quibi WRITE je izključen. Za dejanski DEV preizkus sta potrebna ločena odobritev in konfiguracija; pravice še niso potrjene.</p>}
  {dispatchStarted&&<p className="text-sm">Zahtevek je bil sprožen enkrat. Preverite prikazani rezultat in povezani dokument. Ob neznanem izidu ponovitev ostaja ustavljena.</p>}
  {result&&<p role={result.ok?'status':'alert'} className="text-sm">{result.message}</p>}

@@ -1,4 +1,5 @@
 "use server";
+import {hasRecordedCustomerApproval} from './business-form-state';
 import {assertBusinessCreationNamespace} from './case-business-policy';
 import {loadCaseBusinessContext} from './case-business-context';
 import {revalidatePath} from 'next/cache';
@@ -25,7 +26,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
  if(!/^[a-f0-9-]{36}$/i.test(orderId)||!['work_order','invoice'].includes(kind)||(form.get('dispatch')==='yes'&&form.get('confirmed')!=='yes'))return {ok:false,message:'Izrecno potrdite pripravo dokumenta za ta nalog.'};
  try{
   const db=await createClient(),environment=quibiLinkEnvironment(process.env);
-  const caseContext=directCase?await loadCaseBusinessContext(db,access.organizationId,orderId,kind,form.get('repairCompleted')==='yes'):null;
+  const caseContext=directCase?await loadCaseBusinessContext(db,access.organizationId,orderId,kind,form.get('repairCompleted')==='yes',form.get('dispatch')!=='yes'):null;
   const {data:order,error:orderError}=caseContext?{data:caseContext.order,error:null}:await db.from('work_orders').select('id,service_request_id,customer_id,vehicle_id,status').eq('organization_id',access.organizationId).eq('id',orderId).single();
   if(orderError||!order||order.service_request_id==='9d40c42f-b6a8-473b-983f-f9620df97d10')throw Error('CASE_BLOCKED');
   assertBusinessStage(kind,order.status);
@@ -51,8 +52,8 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    const {data:quote,error}=await db.from('quotes').select('id,evidence_kind,evidence_payload,content_sha256,internal_review_status').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('quibi_environment',environment).order('version_no',{ascending:false}).limit(1).maybeSingle();
    const evidence=quote?.evidence_payload as {external_id?:string;customer_external_id?:string}|null;
    if(error||!quote||quote.internal_review_status!=='approved_for_send'||quote.evidence_kind!=='quibi_manual_estimate'||!evidence?.external_id||evidence.customer_external_id!==link.external_id||evidence.external_id==='2176888')throw Error('APPROVAL_REQUIRED');
-   const {data:approval,error:ae}=await db.from('customer_approvals').select('id').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('quote_id',quote.id).eq('content_sha256',quote.content_sha256).eq('customer_decision','approved').eq('delivery_status','delivered').is('revoked_at',null).limit(1).maybeSingle();
-   if(ae||!approval)throw Error('APPROVAL_REQUIRED');
+   const {data:approval,error:ae}=await db.from('customer_approvals').select('customer_decision,decided_at,decision_evidence_reference,revoked_at,content_sha256').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('quote_id',quote.id).eq('content_sha256',quote.content_sha256).eq('customer_decision','approved').is('revoked_at',null).limit(1).maybeSingle();
+   if(ae||!approval||!hasRecordedCustomerApproval(approval,quote.content_sha256))throw Error('APPROVAL_REQUIRED');
    source=await loadQuibiDocument(read,'estimate',evidence!.external_id!,link.external_id);
    if(source.contentSha256!==quote.content_sha256)throw Error('SOURCE_CHANGED');
   }else{
@@ -71,6 +72,8 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const expectedUnitIds=source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>line.unitId!);
   const expectedUnitNetPrices=source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>Number(line.unitNetPrice));
   if(source.vehicleId!==vehicleLink.quibi_vehicle_id||!source.lines.length)throw Error('IDENTITY_UNVERIFIED');
+  const review={sourceId:source.id,sourceSha:source.contentSha256,amount:source.amount,lines:source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>({description:line.description,quantity:line.quantity,unit:units.find(u=>u.id===line.unitId)!.label,vat:vat.find(v=>v.id===line.vatId)!.label,unitGrossPrice:line.unitGrossPrice!,discount:line.discount!})),notes:quibiSourceNotes(source).map(line=>line.description)};
+  if(kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Potrdite opravljeno popravilo in dejanski datum; Selan nato samodejno preveri pripravo za CREATE.'};
   let body=businessDocumentBody(kind,orderId,{serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}${directCase&&kind==='invoice'?'; popravilo opravljeno, potrjeno: '+access.userId:''}`},String(form.get('serviceDate')??''));
   let baselineSha:string|undefined;
   if(updating){
@@ -84,7 +87,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    if(form.get('dispatch')!=='yes')assertBusinessUpdateChanges(current,body,expectedUnitNetPrices,expectedUnitIds);
   }
   const payload=updating?businessUpdatePayload(body,baselineSha!):stableEstimatePayload(body);
-  if(form.get('dispatch')!=='yes')return {ok:true,message:'Priprava preverjena. Ni bilo Quibi zapisa ali pošiljanja. Preverite postavke, enoto in DDV v izvirnem dokumentu pred potrditvijo.',sha:payload.sha256,sourceId:source.id,sourceSha:source.contentSha256,amount:source.amount,baselineSha,lines:source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>({description:line.description,quantity:line.quantity,unit:units.find(u=>u.id===line.unitId)!.label,vat:vat.find(v=>v.id===line.vatId)!.label,unitGrossPrice:line.unitGrossPrice!,discount:line.discount!})),notes:quibiSourceNotes(source).map(line=>line.description)};
+  if(form.get('dispatch')!=='yes')return {ok:true,message:'Priprava preverjena. Ni bilo Quibi zapisa ali pošiljanja. Preverite postavke, enoto in DDV v izvirnem dokumentu pred potrditvijo.',sha:payload.sha256,baselineSha,...review};
   if(form.get('expectedSha')!==payload.sha256)throw Error('SOURCE_CHANGED');
   const write=configuredQuibiWorkflowWriteClient();
   const journal=quibiWorkflowJournal(access.organizationId,access.userId);

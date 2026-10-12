@@ -12,3 +12,9 @@ test('duplicate create or revision without original create is blocked',()=>{asse
 test('switching between internal task and direct case never creates a second business document',()=>{assert.throws(()=>assertBusinessCreationNamespace([{kind:'work_order',local_entity_id:'internal-order'}],'case','work_order'));assert.doesNotThrow(()=>assertBusinessCreationNamespace([{kind:'work_order',local_entity_id:'case'}],'case','work_order'))});
 
 test('approved repair can prepare Quibi order before manual appointment, but invoice still needs completion',()=>{assert.doesNotThrow(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','work_order',false));assert.throws(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',false));assert.doesNotThrow(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',true));assert.throws(()=>assertCaseBusinessScope(env,'awaiting_customer_approval','work_order',false))});
+
+test('invoice READ preview never implies completion or allows an unconfirmed dispatch',()=>{
+ assert.doesNotThrow(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',false,true));
+ assert.throws(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',false,false));
+ assert.throws(()=>assertCaseBusinessScope({...env,QUIBI_MODE:'production'},'awaiting_slot_selection','invoice',false,true));
+});
