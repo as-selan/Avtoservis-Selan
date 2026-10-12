@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {historyProposal,loadEstimateHistory,freshHistorySource,type HistoryRead} from './estimate-history.ts';
+import {historyProposal,loadEstimateHistory,freshHistorySource,verifyHistoryCatalogReferences,type HistoryRead} from './estimate-history.ts';
 import {estimateCatalogOption} from './estimate-catalog.ts';
 import {parseEstimateDetail} from './contracts.ts';
 import type {QuibiEstimateDetail} from './contracts.ts';
@@ -24,3 +24,33 @@ test('real detail fields project date and article identity without inventing mis
 test('a changed or missing historical unit never silently reinterprets quantities',()=>{for(const unitId of ['2',undefined])assert.equal(historyProposal({...detail,lines:[{...detail.lines[0],unitId}]},'invoice',input,[option])!.ready,false);});
 
 test('history scan continues beyond ten documents in bounded application pages',async()=>{const docs=Array.from({length:32},(_,i)=>({id:String(100+i),customerId:'2',numberingId:'1',status:''}));let count=0;const paged={...read,historyDocuments:async(kind:string)=>kind==='invoice'?docs:[],documentDetail:async(id:string)=>{count++;return {...detail,id,lines:id==='100'?detail.lines:[{...detail.lines[0],description:'Drugo',articleCode:'OTHER'}]}}};const first=await loadEstimateHistory(paged,input,{scope:'vehicle',offset:0});assert.equal(count,24);assert.deepEqual(first.nextPage,{scope:'vehicle',offset:24});const second=await loadEstimateHistory(paged,input,first.nextPage);assert.equal(count,32);assert.equal(second.proposals[0].documentId,'100');assert.equal(second.proposals[0].ready,true)});
+
+test('assigned customer price and discount fill the whole history basket and are rechecked',async()=>{
+ const custom={...list,id:'190',lines:[{articleId:'11',netPrice:'80',discount:'5'}]};
+ const ownRead={...read,priceLists:async()=>[list,custom],article:async()=>({...article,stockManaged:false})};
+ const form=new FormData();form.set('historySource','invoice:2:7');
+ const proposal=await freshHistorySource(form,ownRead,{...input,priceListId:'190'});
+ assert.equal(proposal!.total,185.44);assert.equal('cena' in proposal!.payloadLines[0]&&proposal!.payloadLines[0].cena,80);assert.equal(proposal!.payloadLines[0].popust,5);
+ const changed=await freshHistorySource(form,{...ownRead,priceLists:async()=>[list,{...custom,lines:[{articleId:'11',netPrice:'90',discount:'5'}]}]},{...input,priceListId:'190'});
+ assert.notEqual(changed!.sourceSha,proposal!.sourceSha);
+});
+test('missing assigned list or unsupported stock price never falls back to base pricing',async()=>{
+ const form=new FormData();form.set('historySource','invoice:2:7');
+ await assert.rejects(freshHistorySource(form,read,{...input,priceListId:'missing'}),/REVIEW/);
+ const custom={...list,id:'190',lines:[{articleId:'11',netPrice:'80',discount:'0'}]};
+ await assert.rejects(freshHistorySource(form,{...read,priceLists:async()=>[custom]},{...input,priceListId:'190'}),/REVIEW/);
+});
+test('explicit base-price customer ignores unrelated lists and discounts',async()=>{
+ const form=new FormData();form.set('historySource','invoice:2:7');
+ const p=await freshHistorySource(form,{...read,priceLists:async()=>[list,{...list,id:'190',lines:[{articleId:'11',netPrice:'100',discount:'20'}]}]},{...input,priceListId:null});
+ assert.equal(p!.total,244);assert.equal(p!.lines[0].discount,0);
+});
+
+test('history transfers the actual sale type; changed live unit or VAT metadata requires a new review',()=>{
+ const proposal=historyProposal({...detail,saleTypeId:'1'},'invoice',input,[option])!;
+ assert.equal(proposal.saleTypeId,'1');
+ const catalogs={units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]};
+ assert.doesNotThrow(()=>verifyHistoryCatalogReferences(proposal,catalogs));
+ assert.throws(()=>verifyHistoryCatalogReferences(proposal,{...catalogs,vatRates:[{id:'5',label:'9.5 %'}]}),/CHANGED/);
+ assert.throws(()=>verifyHistoryCatalogReferences(proposal,{...catalogs,units:[{id:'1',label:'ura'}]}),/CHANGED/);
+});

@@ -57,12 +57,12 @@ export function nextCaseStep(input: {
     case "awaiting_slot_selection":
       if(input.directQuibiBusiness&&input.customerDecision==="approved")return step("manual_external_handoff","Po potrditvi popravila nadaljujte s Quibi nalogom in nato računom v poslovnem postopku spodaj. Termin uredite ločeno po potrebi.");
       if (input.slotOfferStatus === "selected") return step("manual_scheduling",
-        "Stranka je izbrala termin. Rezerviraj ga v MyPlanlyju in zabeleži dejansko referenco; rezervacija še ni potrjena.");
+        "Stranka je izbrala termin. Rezerviraj ga ročno in zabeleži dejansko referenco; rezervacija še ni potrjena.");
       if (input.slotOfferStatus === "offered") return step("manual_scheduling",
         "Tri možnosti so bile ročno poslane. Počakaj na dejansko izbiro stranke; termini še niso rezervirani.");
       if (input.slotOfferStatus === "proposed") return step("manual_scheduling",
         "Tri možnosti so pripravljene. Po dejanskem pošiljanju stranki zabeleži referenco; termini še niso rezervirani.");
-      return step("manual_scheduling", "Ročno preveri tri možnosti v MyPlanlyju, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
+      return step("manual_scheduling", "Ročno preveri tri dejanske možnosti, pošlji jih stranki in zabeleži izbiro. Možnosti niso rezervirane.");
     case "converted": return step("manual_external_handoff", input.workOrderStatus==="awaiting_parts" ? "Pridobi potrebne dele in nadaljuj delo v nalogu." : input.workOrderStatus==="ready_for_collection" ? "Preveri dejanski račun v Quibiju ter uredi prevzem in plačilo pred zaključkom naloga." : "Odpri delovni nalog in zabeleži potek popravila. Račun ostaja v Quibiju; zaključek zahteva dejansko preverjen račun in prevzem.");
     case "closed": return step("closed", "Primer in delovni nalog sta zaključena.");
     case "appointment_confirmed": return step("manual_external_handoff", input.syntheticAppointment ? "QA-SIM: interni testni termin je potrjen. Zunanje rezervacije ni; nadaljuj z lokalnim nalogom." : "Termin je ročno potrjen. Pripravi poslovni delovni nalog v Quibiju iz odobrenega predračuna; interna naloga ni obvezna. Zunanja sinhronizacija ni potrjena.");

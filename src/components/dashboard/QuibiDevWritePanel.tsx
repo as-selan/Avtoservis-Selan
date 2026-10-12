@@ -18,6 +18,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
 }) {
   const router = useRouter();
+  const formElement=useRef<HTMLFormElement>(null),automaticPreparation=useRef('');
+  const [revision,setRevision]=useState(0);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
   const [catalogSource,setCatalogSource]=useState(initialCatalogSource??'');
@@ -35,12 +37,12 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const [confirmed, setConfirmed] = useState(false);
   const [dispatchStarted, setDispatchStarted] = useState(false);
   const lock = useRef(false);
-  const historyInterrupted=useRef(false);
+  const historyInterrupted=useRef(false),historyReading=useRef(mode==='create'||mode==='prepare');
   useEffect(()=>{
     if(mode!=='create'&&mode!=='prepare')return;
     if(operationState==='uncertain'||operationState==='dispatching'){let active=true;void reconcileQuibiEstimate(serviceRequestId).then(result=>{if(active){setMessage(result.message);if(result.ok)router.refresh();}});return ()=>{active=false};}
     let active=true;
-    historyInterrupted.current=false;
+    historyInterrupted.current=false;historyReading.current=true;
     const form=new FormData();form.set('serviceRequestId',serviceRequestId);
     if(catalogSource){form.set('catalogSource',catalogSource);form.set('quantity','1');}
     void (async()=>{
@@ -55,13 +57,22 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         scope=result.nextPage.scope;offset=result.nextPage.offset;
       }
       if(active){const reliable=proposals.filter(p=>p.ready&&p.scope==='vehicle');const automatic=reliable.length===1&&!issues.some(i=>i.includes('ni popoln')||i.includes('največ pet'))?reliable[0].key:'';setHistorySource(automatic);if(automatic){setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false);}}
-    })().catch(()=>{if(active)setHistory({proposals:[],issues:['Zgodovine trenutno ni mogoče preveriti.']});}).finally(()=>{if(active)setHistoryPending(false)});
+    })().catch(()=>{if(active)setHistory({proposals:[],issues:['Zgodovine trenutno ni mogoče preveriti.']});}).finally(()=>{if(active){historyReading.current=false;setHistoryPending(false)}});
     return ()=>{active=false};
   },[serviceRequestId,mode,catalogSource,operationState,router]);
+  useEffect(()=>{
+    if(!['prepare','create'].includes(mode)||historyPending||historyReading.current||!formElement.current||(!selectedSource&&!selectedHistory)||operationState==='uncertain'||operationState==='dispatching'||dispatchStarted||lock.current)return;
+    const data=new FormData(formElement.current);data.delete('createConfirmed');data.delete('serviceMatchConfirmed');
+    if(!choices?.saleTypes.some(s=>s.id===data.get('saleTypeId')))return;
+    const signature=JSON.stringify([...data.entries()]);if(automaticPreparation.current===signature)return;
+    automaticPreparation.current=signature;lock.current=true;data.set('serviceRequestId',serviceRequestId);
+    // READ preview only. CREATE is exclusively the explicitly confirmed submit action.
+    startTransition(async()=>{try{const result=await prepareQuibiEstimate(data);setMessage(result.ok?result.detail:result.message);setPreparedSha(result.ok?result.sha??null:null);setSourceSha(result.ok?result.sourceSha??null:null);setReview(result.ok?result.review??null:null);setConfirmed(false)}catch{setMessage('Priprave ni mogoče preveriti. Poskusite ponovno pregledati predračun.')}finally{lock.current=false}});
+  },[mode,serviceRequestId,historyPending,historySource,catalogSource,revision,operationState,dispatchStarted,selectedSource,selectedHistory,choices]);
   if((mode==='create'||mode==='prepare')&&(operationState==='uncertain'||operationState==='dispatching'))return <section className="space-y-2 rounded border border-amber-300 p-3"><p>Izid ustvarjanja zahteva preverjanje. Novega predračuna ne ustvarjajte.</p><button disabled={pending} className="rounded border px-3 py-2" onClick={()=>startTransition(async()=>{const result=await reconcileQuibiEstimate(serviceRequestId);setMessage(result.message);if(result.ok)router.refresh()})}>{pending?'Preverjam Quibi…':'Preveri obstoječi dokument brez novega CREATE'}</button>{message&&<p role="status">{message}</p>}</section>;
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
-  return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed","serviceMatchConfirmed"].includes(event.target.name)) {setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false)}}} onSubmit={(event) => {
+  return <form ref={formElement} className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed","serviceMatchConfirmed"].includes(event.target.name)) {setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false);setRevision(v=>v+1)}}} onSubmit={(event) => {
     event.preventDefault();
     if (lock.current || pending || (historyPending&&!selectedSource&&!selectedHistory) || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
     const form = new FormData(event.currentTarget);
@@ -83,7 +94,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       router.refresh();
       } catch {setMessage("Izid ni potrjen. Preverite dnevnik; pošiljanja ali ustvarjanja ne ponavljajte.")} finally {lock.current = false}
     });
-  }}>
+  }}><fieldset disabled={pending} className="space-y-3">
     {document && <section role="status" className="space-y-2 rounded border border-blue-200 bg-blue-50 p-3">
       <p className="font-semibold">Quibi predračun #{document.id}{document.number ? ` · ${document.number}` : ''}</p>
       <p>Znesek po Quibiju: {money(Number(document.amount.replace(',', '.')))}</p>
@@ -131,8 +142,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       {lineDescription && !selectedSource && <p className="text-sm">Postavka za pregled: {lineDescription}</p>}
       <p className="text-xs text-amber-800">{mode === "prepare" ? "Priprava uporablja samo Quibi READ; dokumenta ne ustvari in ničesar ne pošlje." : "To ustvari dejanski dokument v konfiguriranem Quibi okolju."} {mode === "prepare" ? "Payload in SHA sta samo za pregled in nista shranjen poslovni dokument. Pred ustvarjanjem bo izvedeno novo preverjanje." : "Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej."}</p>
       <label className="block text-sm">Vrsta prodaje
-        <select name="saleTypeId" required className="mt-1 block w-full rounded border px-3 py-2">
-          {choices?.saleTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        <select key={historySource} defaultValue={selectedHistory?.saleTypeId&&choices?.saleTypes.some(s=>s.id===selectedHistory.saleTypeId)?selectedHistory.saleTypeId:choices?.saleTypes.length===1?choices.saleTypes[0].id:''} name="saleTypeId" required className="mt-1 block w-full rounded border px-3 py-2">
+          <option value="">Izberite vrsto prodaje, če je vir ne določa</option>{choices?.saleTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
       {selectedHistory?<><input type="hidden" name="unitId" value={choices?.units.find(u=>u.label===selectedHistory.reviewedLines[0]?.unit)?.id??''}/><input type="hidden" name="vatId" value={selectedHistory.payloadLines[0]?.ddv_id??''}/></>:<div className="grid gap-2 sm:grid-cols-2">
@@ -184,5 +195,5 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     </div>}
     {message && <p role={message.startsWith("Priprava preverjena") || message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="whitespace-pre-wrap break-all text-sm">{message.split("\n")[0]}</p>}
     {message.includes("\n") && <details className="text-xs"><summary>Podrobnosti priprave za pregled</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">{message.slice(message.indexOf("\n")+1)}</pre></details>}
-  </form>;
+  </fieldset></form>;
 }
