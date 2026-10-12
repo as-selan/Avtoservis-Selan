@@ -35,16 +35,18 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const [confirmed, setConfirmed] = useState(false);
   const [dispatchStarted, setDispatchStarted] = useState(false);
   const lock = useRef(false);
+  const historyInterrupted=useRef(false);
   useEffect(()=>{
     if(mode!=='create'&&mode!=='prepare')return;
     let active=true;
+    historyInterrupted.current=false;
     const form=new FormData();form.set('serviceRequestId',serviceRequestId);
     if(catalogSource){form.set('catalogSource',catalogSource);form.set('quantity','1');}
     void (async()=>{
       let proposals:EstimateHistoryProposal[]=[],issues:string[]=[],scope='vehicle',offset=0,hasVehicleMatch=false;
-      while(active){
+      while(active&&!historyInterrupted.current){
         form.set('historyScope',scope);form.set('historyOffset',String(offset));
-        const result=await prepareQuibiEstimateHistory(form);if(!active)return;
+        const result=await prepareQuibiEstimateHistory(form);if(!active||historyInterrupted.current)return;
         proposals=[...new Map([...proposals,...result.proposals].map(p=>[p.key,p])).values()];issues=[...new Set([...issues,...result.issues])];
         hasVehicleMatch=proposals.some(p=>p.ready&&p.scope==='vehicle');
         setHistory({proposals,issues});
@@ -67,6 +69,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     if (dispatch && (!writeEnabled || !preparedSha || dispatchStarted || form.get(mode==='update'?'updateConfirmed':'createConfirmed') !== 'yes')) {setMessage('Preglejte postavko in potrdite ustvarjanje predračuna.');return;}
     if(dispatch&&mode==='create'&&form.get('createConfirmed')==='yes')form.set('serviceMatchConfirmed','yes');
     if (dispatch) {form.set('expectedSha', preparedSha!);if(sourceSha)form.set('expectedSourceSha',sourceSha);setDispatchStarted(true)}
+    historyInterrupted.current=true;
     lock.current = true;
     startTransition(async () => {
       try { const result = mode==="update"&&!dispatch?await prepareQuibiEstimateRevision(form):(mode === "prepare" || (mode === "create" && !dispatch)) ? await prepareQuibiEstimate(form) : mode === "create" ? await createQuibiDevEstimate(form)
