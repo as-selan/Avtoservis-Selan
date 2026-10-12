@@ -7,7 +7,7 @@ export type CaseStepKind =
 export type CaseStep = { kind: CaseStepKind; label: string; externalConfirmed: false };
 
 export function nextCaseStep(input: {
-  directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
+  quibiCreateUncertain?:boolean;directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
   offerPrepared: boolean;
   quibiLinked: boolean;
   quibiSyncStatus?: string;
@@ -30,6 +30,7 @@ export function nextCaseStep(input: {
       ? "Po naročenem popravilu je pregled brezplačen. Preveri podatke primera in izrecno sprejmi pripravo predračuna."
       : "Tadej naj preveri stranko, vozilo in podatke povpraševanja pred pripravo ponudbe.");
     case "preparing_offer":
+      if(input.quibiCreateUncertain)return step("review_quibi_mismatch","Preverite izid obstoječega Quibi predračuna. Nov CREATE je ustavljen; primer se nadaljuje samo po preverljivem READ rezultatu.");
       if (input.fixedPriceStatus === "prepared") return step("review_estimate", "Tadej naj preveri objavljeno končno ceno in vir.");
       if (input.fixedPriceStatus === "approved") return step("send_estimate", "Odobreno končno ceno dejansko sporočite stranki in zabeležite dokazilo.");
       if (input.fixedPriceStatus) return step("await_customer", "Preverite dejansko odločitev stranke o objavljeni končni ceni.");

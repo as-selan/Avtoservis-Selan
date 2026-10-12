@@ -192,7 +192,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     }
     const internalOrdersEnabled=internalWorkOrdersEnabled(process.env);
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
-    const step = nextCaseStep({ directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
+    const step = nextCaseStep({ quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
