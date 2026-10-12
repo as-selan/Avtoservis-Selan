@@ -1,7 +1,7 @@
 import {quibiSourceNotes} from './business-source-lines.ts';
 import {createHash} from 'node:crypto';
 import type {QuibiDocument,QuibiEstimateDetail} from './contracts.ts';
-import {loadEstimateCatalog,type EstimateCatalogOption} from './estimate-catalog.ts';
+import {catalogDocumentLine,loadEstimateCatalog,type EstimateCatalogOption} from './estimate-catalog.ts';
 import type {QuibiArticle,QuibiPriceList} from './pricing-read.ts';
 import type {EstimateReview} from './estimate-preparation.ts';
 import type {DocumentLine} from './write-contract.ts';
@@ -23,7 +23,7 @@ export function historyProposal(detail:QuibiEstimateDetail,kind:HistoryKind,inpu
   if(unique.length!==1||!line.unitId||line.unitId!==unique[0].unitId||!line.quantity.trim()||!Number.isFinite(quantity)||quantity<=0||quantity>100000||(!line.pricingVerified||!line.unitGrossPrice)||!Number.isFinite(old)||old<0||!Number.isFinite(discount)||discount<0||discount>100){issues.push('Postavka '+line.description+' nima enolično preverjene aktualne cene, DDV ali količine.');continue;}
   const o=unique[0];sources.push(o.sourceSha);
   lines.push({description:o.name,articleCode:o.code,quantity,unit:o.unitLabel,vat:o.vatLabel,historicalVat:line.historicalVatLabel??'ni vrnjen',previousPrice:line.unitGrossPrice!,previousDiscount:line.discount??'ni vrnjen',currentPrice:o.grossPrice,discount:o.discount});
-  payloadLines.push({sifra:o.code,kolicina:quantity,popust:o.discount,ddv_id:o.vatId});
+  payloadLines.push(catalogDocumentLine(o,quantity));
   reviewedLines.push({description:o.name,quantity,unit:o.unitLabel,vat:o.vatLabel,unitPrice:o.grossPrice,discount:o.discount});
  }
  const total=Math.round(reviewedLines.reduce((sum,l)=>sum+l.quantity*l.unitPrice*(1-l.discount/100),0)*100)/100;
@@ -34,7 +34,7 @@ export function historyProposal(detail:QuibiEstimateDetail,kind:HistoryKind,inpu
 async function documentCatalog(read:HistoryRead,detail:QuibiEstimateDetail,options:EstimateCatalogOption[]){
  const result=[...options];
  const ids=[...new Set(detail.lines.map(l=>l.articleId).filter((id):id is string=>!!id&&!options.some(o=>o.articleId===id)))];
- for(let i=0;i<ids.length;i+=8){const reads=await Promise.allSettled(ids.slice(i,i+8).map(id=>read.article(id)));for(const r of reads){if(r.status!=='fulfilled')continue;const a=r.value,rate=a.vatLabel.match(/^(\d+(?:[.,]\d+)?)\s*%$/);if(!rate)continue;const percentage=Number(rate[1].replace(',','.'));if(!Number.isFinite(percentage)||percentage>100)continue;result.push({key:'article:'+a.id,articleId:a.id,priceListId:'',priceListName:'Osnovna cena artikla',name:a.name,code:a.code,unitId:a.unitId,unitLabel:a.unitLabel,vatId:a.vatId,vatLabel:a.vatLabel,grossPrice:Number((Number(a.netPrice)*(1+percentage/100)).toFixed(8)),discount:0,priceListNetPrice:a.netPrice,priceListDiscount:0,priceListDiffers:false,sourceSha:createHash('sha256').update(JSON.stringify(a)).digest('hex')});}}
+ for(let i=0;i<ids.length;i+=8){const reads=await Promise.allSettled(ids.slice(i,i+8).map(id=>read.article(id)));for(const r of reads){if(r.status!=='fulfilled')continue;const a=r.value,rate=a.vatLabel.match(/^(\d+(?:[.,]\d+)?)\s*%$/);if(!rate)continue;const percentage=Number(rate[1].replace(',','.'));if(!Number.isFinite(percentage)||percentage>100)continue;result.push({stockManaged:a.stockManaged,unitNetPrice:Number(a.netPrice),key:'article:'+a.id,articleId:a.id,priceListId:'',priceListName:'Osnovna cena artikla',name:a.name,code:a.code,unitId:a.unitId,unitLabel:a.unitLabel,vatId:a.vatId,vatLabel:a.vatLabel,grossPrice:Number((Number(a.netPrice)*(1+percentage/100)).toFixed(8)),discount:0,priceListNetPrice:a.netPrice,priceListDiscount:0,priceListDiffers:false,sourceSha:createHash('sha256').update(JSON.stringify(a)).digest('hex')});}}
  return result;
 }
 export async function loadEstimateHistory(read:HistoryRead,input:{customerId:string;vehicleId:string;wanted:string;code?:string},page?:{scope:'vehicle'|'other';offset:number}){

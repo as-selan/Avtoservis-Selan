@@ -80,7 +80,7 @@ export function withDocumentId(body: EstimateBody, documentId: string): Estimate
 export function parseQuibiWriteResponse(value: unknown): { id: string; number: string; replayed: boolean } {
   if (!value || typeof value !== "object") throw new Error("QUIBI_INVALID_RESPONSE");
   const result = value as Record<string, unknown>;
-  if (result.error !== false || !/^\d+$/.test(String(result.id ?? "")) || !String(result.ZapSt ?? "").trim())
+  if (result.error !== false || !/^[1-9]\d*$/.test(String(result.id ?? "")) || !Number.isSafeInteger(Number(result.id)) || !["string","number"].includes(typeof result.ZapSt) || !String(result.ZapSt ?? "").trim())
     throw new Error(result.error === true ? "QUIBI_API_REJECTED" : "QUIBI_INVALID_RESPONSE");
   return { id: String(result.id), number: String(result.ZapSt), replayed: result.replayed === true };
 }

@@ -49,8 +49,10 @@ function createTransport(config: Config, workflow: boolean) {
       body: body ? JSON.stringify(body) : undefined,
       cache: "no-store", redirect: "error", signal: AbortSignal.timeout(12000),
     });
-    if (!response.ok) throw new Error(`QUIBI_HTTP_${response.status}`);
-    return response.json();
+    if (!response.ok){console.error(JSON.stringify({event:'quibi_transport_failure',path:path.split('?')[0],status:response.status}));throw new Error(`QUIBI_HTTP_${response.status}`);}
+    const payload:unknown=await response.json();
+    if(payload&&typeof payload==='object'&&(payload as Record<string,unknown>).error===true){const errors=(payload as Record<string,unknown>).errors;const fields=errors&&typeof errors==='object'?Object.keys(errors).filter(k=>/^[A-Za-z][A-Za-z0-9_.]{0,80}$/.test(k)):[];console.error(JSON.stringify({event:'quibi_api_rejection',path:path.split('?')[0],status:response.status,fields}));throw new Error('QUIBI_API_REJECTED');}
+    return payload;
   }
 
   return {

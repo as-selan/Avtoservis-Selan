@@ -192,7 +192,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     }
     const internalOrdersEnabled=internalWorkOrdersEnabled(process.env);
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
-    const step = nextCaseStep({ status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
+    const step = nextCaseStep({ directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
@@ -267,7 +267,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {request.status === "preparing_offer" && !fixedPrice && prep?.status === "ready_for_provider" && link && step.kind !== "review_quibi_mismatch" && !writeReady && !writeRequested &&
             <LinkManualEstimateForm serviceRequestId={serviceRequestId} />}
           {!quote && !fixedPrice && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) &&
-            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} lineDescription={estimateLineDescription(request) ?? undefined} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
+            <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} operationState={createdOperation?.state} lineDescription={estimateLineDescription(request) ?? undefined} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}

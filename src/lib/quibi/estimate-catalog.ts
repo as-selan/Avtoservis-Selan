@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
+import type {DocumentLine} from './write-contract.ts';
 import type {QuibiArticle,QuibiPriceList} from './pricing-read.ts';
-export type EstimateCatalogOption={key:string;articleId:string;priceListId:string;name:string;code:string;priceListName:string;unitId:string;unitLabel:string;vatId:string;vatLabel:string;grossPrice:number;discount:number;priceListNetPrice:string;priceListDiscount:number;priceListDiffers:boolean;sourceSha:string};
+export type EstimateCatalogOption={key:string;articleId:string;priceListId:string;name:string;code:string;priceListName:string;unitId:string;unitLabel:string;vatId:string;vatLabel:string;grossPrice:number;discount:number;priceListNetPrice:string;priceListDiscount:number;priceListDiffers:boolean;sourceSha:string;stockManaged?:boolean;unitNetPrice?:number};
 export function estimateCatalogOption(article:QuibiArticle,list:QuibiPriceList):EstimateCatalogOption {
  const rows=list.lines.filter(line=>line.articleId===article.id);
  const rate=article.vatLabel.trim().match(/^(\d+(?:[.,]\d+)?)\s*%$/);
@@ -9,7 +10,7 @@ export function estimateCatalogOption(article:QuibiArticle,list:QuibiPriceList):
  if(!Number.isFinite(percentage)||percentage>100)throw Error('QUIBI_CATALOG_VAT_UNSUPPORTED');
  const grossPrice=Number((Number(article.netPrice)*(1+percentage/100)).toFixed(8));
  const sourceSha=createHash('sha256').update(JSON.stringify({article,listId:list.id,line:rows[0]})).digest('hex');
- return {key:list.id+':'+article.id,articleId:article.id,priceListId:list.id,name:article.name,code:article.code,priceListName:list.name,unitId:article.unitId,unitLabel:article.unitLabel,vatId:article.vatId,vatLabel:article.vatLabel,grossPrice,discount:Number(rows[0].netPrice)===Number(article.netPrice)?Number(rows[0].discount):0,priceListNetPrice:rows[0].netPrice,priceListDiscount:Number(rows[0].discount),priceListDiffers:Number(rows[0].netPrice)!==Number(article.netPrice),sourceSha};
+ return {stockManaged:article.stockManaged,unitNetPrice:Number(article.netPrice),key:list.id+':'+article.id,articleId:article.id,priceListId:list.id,name:article.name,code:article.code,priceListName:list.name,unitId:article.unitId,unitLabel:article.unitLabel,vatId:article.vatId,vatLabel:article.vatLabel,grossPrice,discount:Number(rows[0].netPrice)===Number(article.netPrice)?Number(rows[0].discount):0,priceListNetPrice:rows[0].netPrice,priceListDiscount:Number(rows[0].discount),priceListDiffers:Number(rows[0].netPrice)!==Number(article.netPrice),sourceSha};
 }
 export function exactEstimateCatalogMatch(wanted:string,options:EstimateCatalogOption[]):string|null {
  const normalize=(s:string)=>s.trim().normalize('NFKC').toLocaleLowerCase('sl-SI').replace(/\s+/g,' ');
@@ -25,3 +26,5 @@ export async function loadEstimateCatalog(read:{priceLists():Promise<QuibiPriceL
  for(const list of lists)for(const article of articles){if(!list.lines.some(line=>line.articleId===article.id))continue;try{const option=estimateCatalogOption(article,list);options.push(option);if(option.priceListDiffers)issues.push('Cenik '+list.name+' ima za artikel '+article.code+' drugo ceno. Priprava s šifro uporablja osnovno ceno artikla; posebna cena cenika ni samodejno uporabljena.');}catch{issues.push('Povezava cenika ali DDV ni preverljiva. Samodejna priprava te postavke je ustavljena.');}}
  return {options,issues:[...new Set(issues)]};
 }
+
+export function catalogDocumentLine(option:EstimateCatalogOption,quantity:number):DocumentLine {return {sifra:option.code,kolicina:quantity,popust:option.discount,ddv_id:option.vatId,...(option.stockManaged===false&&Number.isFinite(option.unitNetPrice)?{cena:option.unitNetPrice,opis:option.name}:{})};}

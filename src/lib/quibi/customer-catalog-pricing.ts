@@ -14,5 +14,5 @@ export function customerCatalogPricing(article:QuibiArticle,selected:QuibiPriceL
  const net=custom?Number(option.priceListNetPrice):Number(article.netPrice);
  const discount=assigned?option.priceListDiscount:0;
  const gross=Number((net*vatFactor(article.vatLabel)).toFixed(8));
- return {option:{...option,grossPrice:gross,discount,sourceSha:createHash('sha256').update(JSON.stringify({source:option.sourceSha,assigned:customer.priceListId??null,net,discount})).digest('hex')},net,custom};
+ return {option:{...option,unitNetPrice:net,grossPrice:gross,discount,sourceSha:createHash('sha256').update(JSON.stringify({source:option.sourceSha,assigned:customer.priceListId??null,net,discount})).digest('hex')},net,custom};
 }

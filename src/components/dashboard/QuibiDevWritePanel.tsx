@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { prepareQuibiEstimateHistory, prepareQuibiEstimateRevision, prepareQuibiEstimate, checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
+import { reconcileQuibiEstimate, prepareQuibiEstimateHistory, prepareQuibiEstimateRevision, prepareQuibiEstimate, checkQuibiDevTestEstimateStatus, createQuibiDevEstimate, sendQuibiDevTestEstimate, updateQuibiDevEstimate } from "@/lib/quibi/dev-write-actions";
 import type { EstimateHistoryProposal } from '@/lib/quibi/estimate-history';
 import type { EstimateCatalogOption } from '@/lib/quibi/estimate-catalog';
 import type { EstimateReview } from '@/lib/quibi/estimate-preparation';
@@ -38,6 +38,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const historyInterrupted=useRef(false);
   useEffect(()=>{
     if(mode!=='create'&&mode!=='prepare')return;
+    if(operationState==='uncertain'||operationState==='dispatching'){let active=true;void reconcileQuibiEstimate(serviceRequestId).then(result=>{if(active){setMessage(result.message);if(result.ok)router.refresh();}});return ()=>{active=false};}
     let active=true;
     historyInterrupted.current=false;
     const form=new FormData();form.set('serviceRequestId',serviceRequestId);
@@ -56,7 +57,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       if(active){const reliable=proposals.filter(p=>p.ready&&p.scope==='vehicle');const automatic=reliable.length===1&&!issues.some(i=>i.includes('ni popoln')||i.includes('največ pet'))?reliable[0].key:'';setHistorySource(automatic);if(automatic){setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false);}}
     })().catch(()=>{if(active)setHistory({proposals:[],issues:['Zgodovine trenutno ni mogoče preveriti.']});}).finally(()=>{if(active)setHistoryPending(false)});
     return ()=>{active=false};
-  },[serviceRequestId,mode,catalogSource]);
+  },[serviceRequestId,mode,catalogSource,operationState,router]);
+  if((mode==='create'||mode==='prepare')&&(operationState==='uncertain'||operationState==='dispatching'))return <section className="space-y-2 rounded border border-amber-300 p-3"><p>Izid ustvarjanja zahteva preverjanje. Novega predračuna ne ustvarjajte.</p><button disabled={pending} className="rounded border px-3 py-2" onClick={()=>startTransition(async()=>{const result=await reconcileQuibiEstimate(serviceRequestId);setMessage(result.message);if(result.ok)router.refresh()})}>{pending?'Preverjam Quibi…':'Preveri obstoječi dokument brez novega CREATE'}</button>{message&&<p role="status">{message}</p>}</section>;
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
   return <form className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed","serviceMatchConfirmed"].includes(event.target.name)) {setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false)}}} onSubmit={(event) => {

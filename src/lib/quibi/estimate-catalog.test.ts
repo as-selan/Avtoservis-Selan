@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {estimateCatalogOption,exactEstimateCatalogMatch,loadEstimateCatalog} from './estimate-catalog.ts';
+import {catalogDocumentLine,estimateCatalogOption,exactEstimateCatalogMatch,loadEstimateCatalog} from './estimate-catalog.ts';
 import {estimatePreparationPayload} from './estimate-preparation.ts';
 const article={id:'116731',code:'SERVIS-QA',name:'Pregled vozila',netPrice:'100',vatId:'5',vatLabel:'22 %',unitId:'1',unitLabel:'kos'};
 const list={id:'189',name:'Servis',lines:[{articleId:'116731',netPrice:'100',discount:'0'}]};
@@ -13,3 +13,5 @@ test('failed article READ is reported without blocking other available services'
 test('unit gross price keeps precision for quantities; total is rounded only at document review',()=>{const option=estimateCatalogOption({...article,netPrice:'37.7'},{...list,lines:[{...list.lines[0],netPrice:'37.7'}]});assert.equal(option.grossPrice,45.994);assert.equal(Math.round(option.grossPrice*2*100)/100,91.99);});
 
 test('all price-list article references are read without the old sixty-article truncation',async()=>{let count=0;const rows=Array.from({length:65},(_,i)=>({articleId:String(100+i),netPrice:'100',discount:'0'}));const result=await loadEstimateCatalog({priceLists:async()=>[{...list,lines:rows}],article:async(id)=>{count++;return {...article,id,code:'SERVICE'+id}}});assert.equal(count,65);assert.equal(result.options.length,65)});
+
+test('documented non-stock price is frozen in the approved payload; stock price is never overridden',()=>{const option=estimateCatalogOption({...article,stockManaged:false},list);assert.deepEqual(catalogDocumentLine(option,2),{sifra:article.code,kolicina:2,popust:0,ddv_id:'5',cena:100,opis:article.name});assert.equal('cena' in catalogDocumentLine({...option,stockManaged:true},2),false)});
