@@ -1,5 +1,5 @@
 "use server";
-import {hasRecordedCustomerApproval} from './business-form-state';
+import {hasRecordedCustomerApproval,businessHeaderSelection} from './business-form-state';
 import {assertBusinessCreationNamespace} from './case-business-policy';
 import {loadCaseBusinessContext} from './case-business-context';
 import {revalidatePath} from 'next/cache';
@@ -15,7 +15,7 @@ import {stableEstimatePayload,withDocumentId} from './write-contract';
 import {configuredQuibiWorkflowWriteClient} from './write-client';
 import {quibiWorkflowJournal} from './write-journal';
 import {linkWorkOrderQuibiDocument} from './work-order-document-actions';
-export type BusinessPreparationResult={ok:boolean;message:string;sha?:string;sourceId?:string;sourceSha?:string;amount?:string;documentId?:string;baselineSha?:string;dispatchStarted?:boolean;lines?:{description:string;quantity:string;unit:string;vat:string;unitGrossPrice:string;discount:string}[];notes?:string[]};
+export type BusinessPreparationResult={ok:boolean;message:string;sha?:string;sourceId?:string;sourceSha?:string;amount?:string;documentId?:string;baselineSha?:string;dispatchStarted?:boolean;lines?:{description:string;quantity:string;unit:string;vat:string;unitGrossPrice:string;discount:string}[];notes?:string[];headerSelectionRequired?:boolean};
 export async function prepareQuibiBusinessDocument(form:FormData):Promise<BusinessPreparationResult>{
  let dispatchStarted=false;
  const access=await requirePhase1OperationalAccess();
@@ -45,7 +45,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const [remoteCustomer,remoteVehicle,numberings,saleTypes,units,vat]=await Promise.all([read.customer(link.external_id),read.vehicle(vehicleLink.quibi_vehicle_id,link.external_id),read.catalog('numberings'),read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat')]);
   if(remoteVehicle.disabled||customerFingerprint({name:customer.display_name,phone:customer.phone??'',email:customer.email??''})!==link.local_fingerprint||customerFingerprint(remoteCustomer)!==link.external_fingerprint||vehicleFingerprint({vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''})!==vehicleLink.local_fingerprint||vehicleFingerprint(remoteVehicle)!==vehicleLink.external_fingerprint)throw Error('IDENTITY_CHANGED');
   let numberingId=String(form.get('numberingId')??''),saleTypeId=String(form.get('saleTypeId')??'');
-  const expectedLabel=kind==='invoice'?'račun':'delovni nalog';
+
 
   let source;
   if(kind==='work_order'){
@@ -62,10 +62,8 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    source=await loadQuibiDocument(read,'work_order',reference.quibi_document_id,link.external_id);
    if(source.contentSha256!==reference.content_sha256)throw Error('SOURCE_CHANGED');
   }
-  const matchingNumberings=numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===expectedLabel);
-  if(!numberingId&&matchingNumberings.length===1)numberingId=matchingNumberings[0].id;
-  if(!saleTypeId)saleTypeId=source.saleTypeId??'';
-  if(!matchingNumberings.some(n=>n.id===numberingId)||!saleTypes.some(n=>n.id===saleTypeId))throw Error('CATALOG_INVALID');
+  const header=businessHeaderSelection(kind,numberings,saleTypes,{numberingId,saleTypeId,sourceSaleTypeId:source.saleTypeId});
+  ({numberingId,saleTypeId}=header);
   const articleIds=[...new Set(source.lines.flatMap(line=>line.articleId?[line.articleId]:[]))];
   const articles=await Promise.all(articleIds.map(id=>read.article(id)));
   const lines=businessSourceLines(source,units,vat,articles);
@@ -73,6 +71,10 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const expectedUnitNetPrices=source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>Number(line.unitNetPrice));
   if(source.vehicleId!==vehicleLink.quibi_vehicle_id||!source.lines.length)throw Error('IDENTITY_UNVERIFIED');
   const review={sourceId:source.id,sourceSha:source.contentSha256,amount:source.amount,lines:source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>({description:line.description,quantity:line.quantity,unit:units.find(u=>u.id===line.unitId)!.label,vat:vat.find(v=>v.id===line.vatId)!.label,unitGrossPrice:line.unitGrossPrice!,discount:line.discount!})),notes:quibiSourceNotes(source).map(line=>line.description)};
+  if(!header.ready){
+   if(form.get('dispatch')==='yes')throw Error('CATALOG_INVALID');
+   return {...review,ok:true,headerSelectionRequired:true,message:'Postavke so prebrane iz preverjenega Quibi dokumenta. Izberite veljavno številčenje in vrsto prodaje; priprava se nato samodejno preveri.'};
+  }
   if(kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Potrdite opravljeno popravilo in dejanski datum; Selan nato samodejno preveri pripravo za CREATE.'};
   let body=businessDocumentBody(kind,orderId,{serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}${directCase&&kind==='invoice'?'; popravilo opravljeno, potrjeno: '+access.userId:''}`},String(form.get('serviceDate')??''));
   let baselineSha:string|undefined;
@@ -104,5 +106,5 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const linked=await linkWorkOrderQuibiDocument(linkForm);
   revalidatePath(`/dashboard/nalogi/${orderId}`);
   return {ok:linked.ok,message:linked.ok?`Quibi dokument #${op.quibiId} je ponovno prebran in povezan.`:`Quibi dokument #${op.quibiId} obstaja; lokalna povezava zahteva pregled. Ne ustvarjajte novega.`,documentId:op.quibiId};
- }catch(error){const code=error instanceof Error?error.message:'';return {ok:false,dispatchStarted,message:code==='SEND_HISTORY_BLOCKED'?'Dokument ima poskus pošiljanja ali dnevnika ni mogoče preveriti. Posodobitev je ustavljena; najprej razrešite dostavo in nadaljnji poslovni postopek.':code==='QUIBI_NO_BUSINESS_CHANGES'?'Postavke povezanega dokumenta že ustrezajo odobrenemu viru. Quibi zapis ni potreben.':code==='SOURCE_CHANGED'?'Izvirni dokument ali priprava se je spremenila. Potreben je nov pregled.':code==='APPROVAL_REQUIRED'?'Manjka veljavna odobritev stranke za zadnji predračun.':['SOURCE_LINE_METADATA_UNSUPPORTED','SOURCE_ARTICLE_CHANGED','SOURCE_STOCK_PRICE_CHANGED'].includes(code)?'Izvirne postavke nimajo veljavnih podatkov ali njihove enote/DDV niso v svežih Quibi šifrantih. Prenos je ustavljen; preverite izvirni dokument v Quibiju.':code==='WORK_ORDER_REQUIRED'?'Račun zahteva preverjeno povezan Quibi delovni nalog.':code==='QUIBI_BUSINESS_STAGE_NOT_READY'?'Račun je na voljo šele, ko je popravilo pripravljeno za prevzem.':code==='QUIBI_WORKFLOW_DISABLED'?'Quibi WRITE je izključen. Pripravo lahko preverite brez zapisa.':'Operacija ni zanesljivo potrjena. Preverite identiteto, šifrante, izvirni dokument in dnevnik. Po neznanem izidu ne ustvarjajte novega dokumenta.'}}
+ }catch(error){const code=error instanceof Error?error.message:'';return {ok:false,dispatchStarted,message:code==='SEND_HISTORY_BLOCKED'?'Dokument ima poskus pošiljanja ali dnevnika ni mogoče preveriti. Posodobitev je ustavljena; najprej razrešite dostavo in nadaljnji poslovni postopek.':code==='QUIBI_NO_BUSINESS_CHANGES'?'Postavke povezanega dokumenta že ustrezajo odobrenemu viru. Quibi zapis ni potreben.':code==='SOURCE_CHANGED'?'Izvirni dokument ali priprava se je spremenila. Potreben je nov pregled.':code==='APPROVAL_REQUIRED'?'Manjka veljavna odobritev stranke za zadnji predračun.':['SOURCE_LINE_METADATA_UNSUPPORTED','SOURCE_ARTICLE_CHANGED','SOURCE_STOCK_PRICE_CHANGED'].includes(code)?'Izvirne postavke nimajo veljavnih podatkov ali njihove enote/DDV niso v svežih Quibi šifrantih. Prenos je ustavljen; preverite izvirni dokument v Quibiju.':code==='WORK_ORDER_REQUIRED'?'Račun zahteva preverjeno povezan Quibi delovni nalog.':code==='QUIBI_BUSINESS_STAGE_NOT_READY'?'Za račun potrdite dejansko opravljeno popravilo; za nalog je potrebna veljavna odobritev stranke.':code==='QUIBI_WORKFLOW_DISABLED'?'Quibi WRITE je izključen. Pripravo lahko preverite brez zapisa.':'Operacija ni zanesljivo potrjena. Preverite identiteto, šifrante, izvirni dokument in dnevnik. Po neznanem izidu ne ustvarjajte novega dokumenta.'}}
 }

@@ -7,6 +7,7 @@ import {QuibiCaseDocuments} from '@/components/dashboard/QuibiCaseDocuments';
 import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate";
 import {estimateLineDescription} from "@/lib/quibi/estimate-line-description";
+import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
 import {currentIntakeCompleteness} from '@/lib/intake/completeness';
 import {configuredIntakeProvider} from '@/lib/assistance/configured-intake-provider';
 import {intakeAiConfiguration} from '@/lib/assistance/openai-intake-provider';
@@ -78,7 +79,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       db.from("appointments").select("id, status, appointment_type, starts_at, ends_at")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("starts_at", { ascending: true }),
-      db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, delivery_proof_kind, customer_decision, decided_at, decision_evidence_reference")
+      db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, delivery_proof_kind, customer_decision, decided_at, decision_evidence_reference, content_sha256, revoked_at")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId)
         .order("created_at", { ascending: false }).limit(1),
       db.from("preliminary_inspections").select("status, findings, repair_decision")
@@ -110,7 +111,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const activation=previewDevActivationReadiness(process.env);
     const appointments = appointmentResult.data ?? [];
     const latestApproval = approvalResult.data?.[0] ?? null;
-    let approval = latestApproval?.quote_id === quote?.id ? latestApproval : null;
+    let approval = latestApproval && latestApproval.quote_id === quote?.id && latestApproval.revoked_at===null && latestApproval.content_sha256===quote?.content_sha256 ? latestApproval : null;
     const diagnosisOffer = slotOffersResult.data?.find((item) => item.appointment_type === "diagnosis") ?? null;
     const serviceOffer = slotOffersResult.data?.find((item) => item.appointment_type === "service") ?? null;
     let writeRequested = false;
@@ -139,7 +140,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             await pollQuibiEstimateSend(statusForm);
             sendOperation = await journal.get("send", quote.id);
             const [freshApproval, freshCase] = await Promise.all([
-              db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, delivery_proof_kind, customer_decision, decided_at, decision_evidence_reference")
+              db.from("customer_approvals").select("quote_id, delivery_status, delivered_at, delivery_channel, delivery_evidence_reference, delivery_proof_kind, customer_decision, decided_at, decision_evidence_reference, content_sha256, revoked_at")
                 .eq("organization_id", access.organizationId).eq("quote_id", quote.id).is("revoked_at", null).maybeSingle(),
               db.from("service_requests").select("status").eq("organization_id", access.organizationId).eq("id", serviceRequestId).maybeSingle(),
             ]);
@@ -195,7 +196,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     }
     const internalOrdersEnabled=internalWorkOrdersEnabled(process.env);
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
-    const step = nextCaseStep({ quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
+    const step = nextCaseStep({ customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,

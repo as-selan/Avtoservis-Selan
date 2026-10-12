@@ -80,3 +80,5 @@ test('recorded customer approval proceeds to direct Quibi business flow without 
  const step=nextCaseStep({status:'awaiting_slot_selection',offerPrepared:true,quibiLinked:true,directQuibiBusiness:true,customerDecision:'approved',deliveryStatus:'pending'});
  assert.equal(step.kind,'manual_external_handoff');assert.equal(step.externalConfirmed,false);
 });
+
+test('verified approval overrides stale offer status without requiring delivery; uncertain CREATE and invalid identity still block',()=>{const base={status:'preparing_offer',offerPrepared:true,quibiLinked:true,directQuibiBusiness:true,quoteReviewStatus:'approved_for_send',customerApprovalVerified:true,deliveryStatus:'pending'};assert.equal(nextCaseStep(base).kind,'manual_external_handoff');assert.equal(nextCaseStep({...base,status:'awaiting_customer_approval'}).kind,'manual_external_handoff');assert.equal(nextCaseStep({...base,quibiCreateUncertain:true}).kind,'review_quibi_mismatch');assert.equal(nextCaseStep({...base,quibiSyncStatus:'both_changed'}).kind,'review_quibi_mismatch');assert.notEqual(nextCaseStep({...base,customerApprovalVerified:false}).kind,'manual_external_handoff');});

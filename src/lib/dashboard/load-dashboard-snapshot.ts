@@ -1,3 +1,4 @@
+import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
 import { createClient } from "@/lib/supabase/server";
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
@@ -129,8 +130,8 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const slotByRequest = new Map<string, string>();
     const syntheticAppointments = new Set<string>();
     const linkByCustomer = new Map<string, { sync_status: string }>();
-    const quoteByRequest = new Map<string, { id: string; internal_review_status: string }>();
-    const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null }>();
+    const quoteByRequest = new Map<string, { id: string; internal_review_status: string; content_sha256:string }>();
+    const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null;content_sha256:string;decided_at:string|null;decision_evidence_reference:string|null;revoked_at:string|null }>();
     const inspectionByRequest = new Map<string, string | null>();
     const requestIds = requests.map((row) => row.id);
     const uncertainEstimateRequests = new Set<string>();
@@ -144,12 +145,12 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     }
     if (requestIds.length > 0) {
       const [quotes, approvals, inspections] = await Promise.all([
-        supabase.from("quotes").select("id, service_request_id, internal_review_status, version_no")
+        supabase.from("quotes").select("id, service_request_id, internal_review_status, version_no, content_sha256")
           .eq("organization_id", access.organizationId).in("service_request_id", requestIds)
           .order("version_no", { ascending: false }),
-        supabase.from("customer_approvals").select("service_request_id, quote_id, delivery_status, customer_decision, created_at")
+        supabase.from("customer_approvals").select("service_request_id, quote_id, delivery_status, customer_decision, created_at, content_sha256, decided_at, decision_evidence_reference, revoked_at")
           .eq("organization_id", access.organizationId).in("service_request_id", requestIds)
-          .order("created_at", { ascending: false }),
+          .is("revoked_at",null).order("created_at", { ascending: false }),
         supabase.from("preliminary_inspections").select("service_request_id, repair_decision")
           .eq("organization_id", access.organizationId).in("service_request_id", requestIds),
       ]);
@@ -217,6 +218,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
+            customerApprovalVerified: (()=>{const approval=approvalByRequest.get(row.id),quote=quoteByRequest.get(row.id);return !!approval&&!!quote&&approval.quote_id===quote.id&&hasRecordedCustomerApproval(approval,quote.content_sha256)})(),
             quibiCreateUncertain: uncertainEstimateRequests.has(row.id),
             quibiSendAttempted: quoteSendByRequest.has(row.id),
             quibiSendStatus: quoteSendByRequest.get(row.id)?.status,

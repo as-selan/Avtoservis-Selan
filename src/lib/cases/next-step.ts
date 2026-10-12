@@ -7,7 +7,7 @@ export type CaseStepKind =
 export type CaseStep = { kind: CaseStepKind; label: string; externalConfirmed: false };
 
 export function nextCaseStep(input: {
-  quibiCreateUncertain?:boolean;directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
+  customerApprovalVerified?:boolean;quibiCreateUncertain?:boolean;directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
   offerPrepared: boolean;
   quibiLinked: boolean;
   quibiSyncStatus?: string;
@@ -24,6 +24,7 @@ export function nextCaseStep(input: {
     return step("manual_inspection_billing",
       "Popravilo ni naročeno: predhodni pregled je plačljiv. Znesek, račun in plačilo preverite ročno v Quibiju; tukaj niso potrjeni.");
   }
+  if(input.directQuibiBusiness&&input.customerApprovalVerified&&input.quoteReviewStatus==='approved_for_send'&&input.quibiLinked&&(!input.quibiSyncStatus||input.quibiSyncStatus==='ok')&&!input.quibiCreateUncertain&&['preparing_offer','awaiting_customer_approval'].includes(input.status))return step('manual_external_handoff','Stranka je potrdila predračun. Nadaljujte s pripravo Quibi naloga spodaj; dostava in termin nista pogoja.');
   switch (input.status) {
     case "needs_data": return step("request_data", "Zahtevaj manjkajoče podatke in nadaljuj isti primer.");
     case "new": return step("verify_intake", input.inspectionRepairDecision === "ordered"

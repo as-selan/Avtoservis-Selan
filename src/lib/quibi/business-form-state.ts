@@ -7,9 +7,9 @@ export function businessDispatchMayContinue(result:{ok:boolean;dispatchStarted?:
  return !result.ok&&result.dispatchStarted===false;
 }
 
-/** READ preparation is safe only when no business header decision is ambiguous. */
+/** READ may show source lines before a header choice; CREATE still requires validated numbering. */
 export function businessPreparationCanAutoload(input:{caseId?:string;kind:string;operation:string;numberingCount:number}){
- return !!input.caseId&&['work_order','invoice'].includes(input.kind)&&input.operation==='create'&&input.numberingCount===1;
+ return !!input.caseId&&['work_order','invoice'].includes(input.kind)&&input.operation==='create';
 }
 
 export function hasRecordedCustomerApproval(row:{customer_decision:string|null;decided_at:string|null;decision_evidence_reference:string|null;revoked_at:string|null;content_sha256:string},sha:string){
@@ -20,4 +20,12 @@ export function hasRecordedCustomerApproval(row:{customer_decision:string|null;d
 export function businessDispatchConfirmation(sha:string|undefined){
  if(!sha||! /^[a-f0-9]{64}$/.test(sha))throw Error('BUSINESS_PREPARATION_REQUIRED');
  return {dispatch:'yes',confirmed:'yes',expectedSha:sha};
+}
+
+export function businessHeaderSelection(kind:string,numberings:{id:string;label:string}[],saleTypes:{id:string}[],input:{numberingId:string;saleTypeId:string;sourceSaleTypeId?:string}){
+ const expected=kind==='invoice'?'račun':'delovni nalog';
+ const matching=numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===expected);
+ const numberingId=input.numberingId||(matching.length===1?matching[0].id:'');
+ const saleTypeId=input.saleTypeId||input.sourceSaleTypeId||'';
+ return {numberingId,saleTypeId,ready:matching.some(n=>n.id===numberingId)&&saleTypes.some(n=>n.id===saleTypeId)};
 }
