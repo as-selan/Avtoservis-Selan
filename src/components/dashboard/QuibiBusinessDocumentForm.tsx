@@ -1,23 +1,31 @@
 "use client";
-import {useRef,useState,useTransition} from 'react';
+import {useEffect,useRef,useState,useTransition} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {prepareQuibiBusinessDocument,type BusinessPreparationResult} from '@/lib/quibi/business-document-actions';
-import {businessFormStart,businessDispatchMayContinue} from '@/lib/quibi/business-form-state';
+import {businessFormStart,businessDispatchMayContinue,businessPreparationCanAutoload} from '@/lib/quibi/business-form-state';
 type Choice={id:string;label:string};
 export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEnabled,customerId,references=[]}:{orderId:string;caseId?:string;customerId:string;status:string;choices:{numberings:Choice[];saleTypes:Choice[];units:Choice[];vat:Choice[]};writeEnabled:boolean;references?:{document_kind:string;quibi_document_id:string}[]}){
  const initial=businessFormStart(references);
  const [operation,setOperation]=useState(initial.operation),[dispatchStarted,setDispatchStarted]=useState(false);
  const [kind,setKind]=useState(initial.kind),[result,setResult]=useState<BusinessPreparationResult|null>(null),[pending,start]=useTransition(),lock=useRef(false),router=useRouter();
+ const form=useRef<HTMLFormElement>(null),autoloaded=useRef(false);
+ useEffect(()=>{
+  if(status==='closed'||autoloaded.current||!form.current||!businessPreparationCanAutoload({caseId,kind,operation,numberingCount:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')==='delovni nalog').length}))return;
+  autoloaded.current=true;lock.current=true;
+  const data=new FormData(form.current);data.set('caseId',caseId!);data.set('operation','create');
+  // Prepare from the approved Quibi source; never include dispatch or a business confirmation.
+  start(async()=>{try{setResult(await prepareQuibiBusinessDocument(data))}catch{setResult({ok:false,message:'Priprave ni mogoče preveriti. Ponovno preglejte pripravo dokumenta.'})}finally{lock.current=false}});
+ },[caseId,kind,operation,status,choices.numberings]);
  if(status==='closed')return null;
  const labels={numberingId:'Številčenje',saleTypeId:'Vrsta prodaje'};
  const options={numberingId:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===(kind==='invoice'?'račun':'delovni nalog')),saleTypeId:choices.saleTypes};
- return <form className="space-y-3 rounded border bg-white p-4" onChange={e=>{if(!(e.target instanceof HTMLInputElement)||e.target.name!=="confirmed")setResult(null)}} onSubmit={e=>{
+ return <form ref={form} className="space-y-3 rounded border bg-white p-4" onChange={e=>{if(!(e.target instanceof HTMLInputElement)||e.target.name!=="confirmed")setResult(null)}} onSubmit={e=>{
   e.preventDefault();if(lock.current||dispatchStarted)return;lock.current=true;
   const f=new FormData(e.currentTarget);f.set(caseId?'caseId':'orderId',caseId??orderId);f.set('operation',operation);const dispatch=(e.nativeEvent as SubmitEvent).submitter?.getAttribute('data-dispatch')==='yes';
   if(dispatch){setDispatchStarted(true);f.set('dispatch','yes');f.set('expectedSha',result?.sha??'')}
   start(async()=>{try{const next=await prepareQuibiBusinessDocument(f);setResult(next);if(dispatch&&businessDispatchMayContinue(next))setDispatchStarted(false);router.refresh()}catch{setResult({ok:false,message:'Izid ni potrjen. Pred nadaljevanjem preverite dnevnik; ne ustvarjajte novega dokumenta.'})}finally{lock.current=false}});
- }}><h3 className="font-semibold">Poslovni dokument v Quibiju</h3>
+ }}><fieldset disabled={pending} className="space-y-3"><h3 className="font-semibold">Poslovni dokument v Quibiju</h3>
  <label className="block text-sm">Operacija<select value={operation} onChange={e=>setOperation(e.target.value)} disabled={dispatchStarted} className="mt-1 w-full rounded border p-2"><option value="create">Ustvari nov dokument</option><option value="update" disabled={!references.some(r=>r.document_kind===kind)}>Posodobi povezani dokument iz odobrenega vira</option></select></label>
  {operation==='update'&&<p className="text-sm">Posodobitev dokumenta #{references.find(r=>r.document_kind===kind)?.quibi_document_id}. Vse postavke se prenesejo iz veljavnega odobrenega predračuna oziroma Quibi delovnega naloga. ID, stranka, vozilo in številčenje ostanejo isti. Prejšnja potrditev se ohrani v revizijski sledi.</p>}
  <p className="text-sm">Postavke se preberejo iz zadnjega odobrenega predračuna oziroma povezanega Quibi naloga. To ni lokalni poslovni dokument. Enota, DDV in popust vsake postavke se prenesejo iz Quibija in preverijo proti svežim šifrantom. Ponoven vnos ni potreben.</p>
@@ -32,5 +40,5 @@ export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEn
  {!writeEnabled&&<p className="text-sm text-amber-800">Quibi WRITE je izključen. Za dejanski DEV preizkus sta potrebna ločena odobritev in konfiguracija; pravice še niso potrjene.</p>}
  {dispatchStarted&&<p className="text-sm">Zahtevek je bil sprožen enkrat. Preverite prikazani rezultat in povezani dokument. Ob neznanem izidu ponovitev ostaja ustavljena.</p>}
  {result&&<p role={result.ok?'status':'alert'} className="text-sm">{result.message}</p>}
- </form>;
+ </fieldset></form>;
 }

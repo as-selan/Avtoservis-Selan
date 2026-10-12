@@ -35,3 +35,41 @@ test('storage failure after verified customer create recovers without another cu
  await synchronizeIntakeParties(f.args);assert.equal(f.count(),2);
  await synchronizeIntakeParties(f.args);assert.equal(f.count(),2);
 });
+
+test('partial vehicle is filled from a uniquely identified owned Quibi vehicle without CREATE',async()=>{
+ const f=fixture();f.customers.push({...customer,id:'91'});f.vehicles.push({...vehicle,id:'92',customerId:'91',disabled:false});
+ let enriched=false;const partial={...vehicle,make:'',model:'',vin:''};
+ const result=await synchronizeIntakeParties({...f.args,vehicle:partial,enrichVehicle:async remote=>{enriched=true;Object.assign(partial,remote)}});
+ assert.deepEqual(result,{customerId:'91',vehicleId:'92'});assert.equal(enriched,true);assert.equal(f.count(),0);assert.equal(partial.vin,vehicle.vin);
+});
+test('empty identifiers never select a vehicle and incomplete unmatched intake never creates one',async()=>{
+ const f=fixture();f.customers.push({...customer,id:'91'});f.vehicles.push({...vehicle,id:'92',customerId:'91',disabled:false});
+ const empty={vin:'',registration:'',make:'',model:''};assert.equal(automaticVehicleMatch('91',empty,f.vehicles),null);
+ assert.deepEqual(await synchronizeIntakeParties({...f.args,vehicle:empty}),{customerId:'91',vehicleId:null});assert.equal(f.count(),0);
+});
+test('conflicting or ambiguous partial vehicles require review; failed enrichment never saves a link',async()=>{
+ const f=fixture();f.customers.push({...customer,id:'91'});f.vehicles.push({...vehicle,id:'92',customerId:'91',disabled:false});
+ assert.throws(()=>automaticVehicleMatch('91',{...vehicle,model:'OTHER'},f.vehicles),/REVIEW/);
+ assert.throws(()=>automaticVehicleMatch('91',{...vehicle,model:''},[...f.vehicles,{...f.vehicles[0],id:'93'}]),/REVIEW/);
+ await assert.rejects(synchronizeIntakeParties({...f.args,vehicle:{...vehicle,model:''},enrichVehicle:async()=>{throw Error('INTAKE_VEHICLE_CHANGED')}}),/CHANGED/);
+ assert.deepEqual(f.saved,['91']);assert.equal(f.count(),0);
+});
+
+test('missing contact is recovered from fresh unique identity without a customer CREATE',async()=>{
+ const f=fixture();f.customers.push({...customer,id:'91'});f.vehicles.push({...vehicle,id:'92',customerId:'91',disabled:false});
+ const partial={...customer,phone:''};let enriched=false;
+ await synchronizeIntakeParties({...f.args,customer:partial,enrichCustomer:async remote=>{enriched=true;Object.assign(partial,remote)}});
+ assert.equal(enriched,true);assert.equal(partial.phone,customer.phone);assert.equal(f.count(),0);
+});
+test('name alone and conflicting supplied contacts are never automatic identity proof',()=>{
+ const remote={...customer,id:'91'};
+ assert.throws(()=>automaticCustomerMatch({...customer,phone:'',email:''},[remote]),/REVIEW/);
+ assert.throws(()=>automaticCustomerMatch({...customer,phone:'OTHER'},[remote]),/REVIEW/);
+});
+
+test('registration formatting identifies the same owned vehicle but fresh data must be persisted before linking',async()=>{
+ const f=fixture();f.customers.push({...customer,id:'91'});f.vehicles.push({...vehicle,id:'92',customerId:'91',disabled:false});
+ const local={...vehicle,registration:'QA-AUTO'};let persisted=false;
+ await synchronizeIntakeParties({...f.args,vehicle:local,enrichVehicle:async remote=>{persisted=true;local.registration=remote.registration}});
+ assert.equal(persisted,true);assert.equal(local.registration,vehicle.registration);assert.equal(f.count(),0);
+});

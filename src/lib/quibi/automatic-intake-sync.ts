@@ -44,7 +44,22 @@ export async function processIntakeSynchronization(caseId:string){
   const localVehicle=vehicle?{vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''}:null;
   if(link&&(link.local_fingerprint!==customerFingerprint(localCustomer)||link.external_fingerprint!==customerFingerprint(localCustomer))||vehicleLink&&localVehicle&&(vehicleLink.local_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.external_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.quibi_customer_id!==link?.external_id))throw Error('INTAKE_IDENTITY_REVIEW');
   const result=await synchronizeIntakeParties({caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:configuredQuibiWorkflowWriteClient(),journal:quibiDevOperationJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
-   saveCustomer:async remote=>{
+   enrichCustomer:async remote=>{
+    if(link)throw Error('INTAKE_IDENTITY_REVIEW');
+    let update=db.from('customers').update({display_name:localCustomer.name||remote.name,phone:localCustomer.phone||remote.phone||null,email:localCustomer.email||remote.email||null}).eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null);
+    for(const key of ['display_name','phone','email'] as const)update=customer[key]===null?update.is(key,null):update.eq(key,customer[key]);
+    const {data,error}=await update.select('id').single();
+    if(error||!data)throw Error('INTAKE_CUSTOMER_CHANGED');
+    Object.assign(localCustomer,{name:localCustomer.name||remote.name,phone:localCustomer.phone||remote.phone,email:localCustomer.email||remote.email});
+   },enrichVehicle:async remote=>{
+    if(!vehicle||!localVehicle||vehicleLink)throw Error('INTAKE_IDENTITY_REVIEW');
+    // Compare the original row before filling blanks; a concurrent edit requires a new review.
+    let update=db.from('vehicles').update({vin:localVehicle.vin||remote.vin,registration_current:remote.registration,make:localVehicle.make||remote.make,model:localVehicle.model||remote.model}).eq('organization_id',org.id).eq('customer_id',request.customer_id).eq('id',request.vehicle_id).is('archived_at',null);
+    for(const key of ['vin','registration_current','make','model'] as const)update=vehicle[key]===null?update.is(key,null):update.eq(key,vehicle[key]);
+    const {data,error}=await update.select('id').single();
+    if(error||!data)throw Error('INTAKE_VEHICLE_CHANGED');
+    Object.assign(localVehicle,{vin:localVehicle.vin||remote.vin,registration:remote.registration,make:localVehicle.make||remote.make,model:localVehicle.model||remote.model});
+   },saveCustomer:async remote=>{
     if(link)return;
     const row={organization_id:org.id,provider:'quibi',entity_type:'customer',entity_id:request.customer_id,external_id:remote.id,quibi_environment:'dev',local_fingerprint:customerFingerprint(localCustomer),external_fingerprint:customerFingerprint(remote),confirmed_by:actor,sync_status:'ok',last_checked_at:new Date().toISOString()};
     const {error}=await db.from('integration_links').insert(row);

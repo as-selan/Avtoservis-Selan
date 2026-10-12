@@ -6,3 +6,8 @@ export function businessFormStart(references: {document_kind:string}[]) {
 export function businessDispatchMayContinue(result:{ok:boolean;dispatchStarted?:boolean}) {
  return !result.ok&&result.dispatchStarted===false;
 }
+
+/** READ preparation is safe only when no business header decision is ambiguous. */
+export function businessPreparationCanAutoload(input:{caseId?:string;kind:string;operation:string;numberingCount:number}){
+ return !!input.caseId&&input.kind==='work_order'&&input.operation==='create'&&input.numberingCount===1;
+}
