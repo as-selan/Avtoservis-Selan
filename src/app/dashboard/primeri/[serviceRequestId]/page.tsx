@@ -297,13 +297,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
               manualIdentityRequired={reviewDetail?.vehicleId !== vehicleLink?.quibi_vehicle_id ||
                 reviewDetail?.externalId !== "selan-service-request:" + serviceRequestId} />}
           {internalOrdersEnabled && request.status === "appointment_confirmed" && <CreateWorkOrder caseId={serviceRequestId} />}
-          {quote?.internal_review_status === "approved_for_send" && quibiEstimateId &&
+          {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} realDevWrite={realDevMode} apiDispatch={approval?.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
-          {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && approval?.delivery_status !== "delivered" &&
-            (!sendOperation || sendOperation.sendStatus === "failed") && <details className="border-t pt-3">
-              <summary className="cursor-pointer text-sm">{process.env.QUIBI_E2E_WRITE_ENABLED === "1" ? "QA: simulacija dostave brez pošiljanja" : "Zunanja ročna dostava — samo za dejansko pošiljanje izven Quibi API-ja"}</summary>
-              <ManualEstimateHandoff mode="delivery" quoteId={quote.id} delivered={false} decision={null} realDevWrite={realDevMode} />
-            </details>}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
         <section id="termini" className="rounded-xl border bg-white p-4 space-y-2">

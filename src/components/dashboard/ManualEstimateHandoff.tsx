@@ -4,59 +4,83 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordManualEstimateDelivery, recordManualEstimateDecision } from "@/lib/quibi/manual-estimate-action";
 
-export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false, apiDispatch = false, mode = "decision" }: {
+export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false, apiDispatch = false }: {
   quoteId: string;
   delivered: boolean;
   decision: string | null;
-  realDevWrite?: boolean; apiDispatch?: boolean; mode?: "decision" | "delivery";
+  realDevWrite?: boolean;
+  apiDispatch?: boolean;
 }) {
   const router = useRouter();
-  const deliveryMode = mode === "delivery";
   const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
   const [channel, setChannel] = useState("email");
-  const [reference, setReference] = useState("");
-  const [attested, setAttested] = useState(false);
+  const [decisionReference, setDecisionReference] = useState("");
+  const [deliveryReference, setDeliveryReference] = useState("");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+
   function submit(kind: "delivery" | "approved" | "rejected") {
-    if (pending || !attested || reference.trim().length < 4) return;
+    const reference = (kind === "delivery" ? deliveryReference : decisionReference).trim();
+    if (pending || reference.length < 4 || reference.length > 200) return;
     startTransition(async () => {
-      const result = kind === "delivery"
-        ? await recordManualEstimateDelivery(quoteId, channel, reference)
-        : await recordManualEstimateDecision(quoteId, kind, reference);
-      setMessage(result.ok
-        ? kind === "delivery" ? demo ? "Demo – ni poslano. Simulacija je shranjena." : "Dejanska ročna dostava je evidentirana."
-          : demo ? "Simulirana odločitev je shranjena." : "Strankina odločitev je evidentirana."
-        : result.message);
-      if (result.ok) { setAttested(false); setReference(""); router.refresh(); }
+      try {
+        const result = kind === "delivery"
+          ? await recordManualEstimateDelivery(quoteId, channel, reference)
+          : await recordManualEstimateDecision(quoteId, kind, reference);
+        setMessage(result.ok
+          ? kind === "delivery"
+            ? demo ? "Demo – simulacija dostave je shranjena; nič ni bilo poslano." : "Dejanska dostava je evidentirana."
+            : demo ? "Simulirana odločitev je shranjena." : "Strankina odločitev je evidentirana."
+          : result.message);
+        if (result.ok) {
+          if (kind === "delivery") setDeliveryReference("");
+          else setDecisionReference("");
+          router.refresh();
+        }
+      } catch {
+        setMessage("Zapis ni potrjen. Osvežite primer in preverite dejansko stanje.");
+      }
     });
   }
-  if (decision && !deliveryMode) return <p className="text-sm">Strankina odločitev: {decision}. Evidentirano za to različico predračuna.</p>;
-  return <div className="space-y-2 border-t pt-3">
-    <h3 className="font-medium">{!deliveryMode ? "Odgovor stranke" : demo ? "Simulirano pošiljanje" : "Dejansko ročno pošiljanje"}</h3>
-    <p className="text-xs text-amber-800">{demo ? "Demo – ni poslano. Uporabite samo sintetično referenco QA-SIM-." : delivered && apiDispatch ? "Quibi API je predal sporočilo poštnemu strežniku; prejem ni potrjen. Tukaj zabeležite samo dejanski odgovor stranke." : deliveryMode ? "Neobvezno ročno dokazilo za dejansko zunanjo dostavo. To ni odločitev stranke." : "Zabeležite dejansko odobritev ali zavrnitev tega predračuna. Predhodna evidenca dostave ni potrebna."}</p>
-    {deliveryMode && <label className="block text-sm">Uporabljen kanal
-      <select className="mt-1 block rounded border px-2 py-1" value={channel} onChange={(event) => setChannel(event.target.value)}>
-        <option value="email">E-pošta</option><option value="sms">SMS</option>
-        <option value="in_person">Osebno</option><option value="other">Drugo</option>
-      </select>
-    </label>}
-    <label className="block text-sm">{demo ? "Sintetična referenca QA-SIM" : !deliveryMode ? "Referenca dejanskega odgovora" : "Referenca poslanega sporočila"}
-      <input className="mt-1 block w-full rounded border px-2 py-1" value={reference} maxLength={200}
-        onChange={(event) => setReference(event.target.value)} placeholder="ID sporočila ali sledljiv zapis" />
-    </label>
-    <label className="flex gap-2 text-sm"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-      {demo ? "Potrjujem simulacijo brez dejanske komunikacije." : !deliveryMode ? "Prejel sem dejanski odgovor stranke za to različico." : "Ta predračun sem dejansko poslal stranki po navedenem kanalu."}
+
+  if (decision) {
+    return <p className="text-sm">Strankina odločitev: {decision}. Evidentirana je za to različico predračuna.</p>;
+  }
+
+  const decisionReady = decisionReference.trim().length >= 4 && decisionReference.trim().length <= 200;
+  const deliveryReady = deliveryReference.trim().length >= 4 && deliveryReference.trim().length <= 200;
+  return <section className="space-y-3 border-t pt-3">
+    <h3 className="font-medium">Odločitev stranke</h3>
+    <p className="text-sm">
+      {demo ? "Demo – uporabljajte samo sintetično referenco QA-SIM-." : "Če je stranka odgovorila osebno, po telefonu ali drugače, zabeležite njen dejanski odgovor. Predhodno evidentiranje pošiljanja ni potrebno."}
+      {delivered && apiDispatch ? " Quibi je sporočilo predal poštnemu strežniku; prejem ni potrjen." : ""}
+    </p>
+    <label className="block text-sm">{demo ? "Referenca odgovora QA-SIM-" : "Referenca dejanskega odgovora stranke"}
+      <input className="mt-1 block w-full rounded border px-2 py-1" value={decisionReference} maxLength={200}
+        onChange={event => setDecisionReference(event.target.value)} placeholder={demo ? "QA-SIM-odgovor" : "Sledljiv zapis pogovora ali sporočila"} />
     </label>
     <div className="flex flex-wrap gap-2">
-      {!deliveryMode ? <>
-        <button type="button" disabled={pending || !attested || reference.trim().length < 4} onClick={() => submit("approved")}
-          className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">Stranka potrdi popravilo</button>
-        <button type="button" disabled={pending || !attested || reference.trim().length < 4} onClick={() => submit("rejected")}
-          className="rounded border px-3 py-2 text-sm disabled:opacity-50">Stranka zavrne predračun</button>
-      </> : <button type="button" disabled={pending || !attested || reference.trim().length < 4} onClick={() => submit("delivery")}
-        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">{demo ? "Simuliraj pošiljanje" : "Evidentiraj dejansko pošiljanje"}</button>}
+      <button type="button" disabled={pending || !decisionReady} onClick={() => submit("approved")}
+        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">Stranka je potrdila popravilo</button>
+      <button type="button" disabled={pending || !decisionReady} onClick={() => submit("rejected")}
+        className="rounded border px-3 py-2 text-sm disabled:opacity-50">Stranka je zavrnila predračun</button>
     </div>
-    {message && <p role={message.includes("evidentirana") ? "status" : "alert"} className="text-sm">{message}</p>}
-  </div>;
+    {!delivered && <details className="space-y-2 rounded border p-3 text-sm">
+      <summary className="cursor-pointer">Ločeno evidentiraj dejansko dostavo predračuna (neobvezno)</summary>
+      <p className="pt-2">To uporabite samo, če je bil predračun dejansko izročen ali poslan. Evidentiranje dostave ni pogoj za zapis odločitve.</p>
+      <label className="block">Uporabljen kanal
+        <select className="mt-1 block rounded border px-2 py-1" value={channel} onChange={event => setChannel(event.target.value)}>
+          <option value="email">E-pošta</option><option value="sms">SMS</option>
+          <option value="in_person">Osebno</option><option value="other">Drugo</option>
+        </select>
+      </label>
+      <label className="block">{demo ? "Referenca QA-SIM-" : "Referenca dejanske dostave"}
+        <input className="mt-1 block w-full rounded border px-2 py-1" value={deliveryReference} maxLength={200}
+          onChange={event => setDeliveryReference(event.target.value)} />
+      </label>
+      <button type="button" disabled={pending || !deliveryReady} onClick={() => submit("delivery")}
+        className="rounded border px-3 py-2 disabled:opacity-50">{demo ? "Evidentiraj simulacijo" : "Evidentiraj dejansko dostavo"}</button>
+    </details>}
+    {message && <p role="status" className="text-sm">{message}</p>}
+  </section>;
 }
