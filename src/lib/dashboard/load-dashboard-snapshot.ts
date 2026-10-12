@@ -135,6 +135,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const inspectionByRequest = new Map<string, string | null>();
     const requestIds = requests.map((row) => row.id);
     const uncertainEstimateRequests = new Set<string>();
+    const rejectedEstimateRequests = new Set<string>();
     const quoteSendByRequest = new Map<string,{status:string|null}>();
     if (customerIds.length > 0) {
       const { data, error } = await supabase.from("integration_links")
@@ -168,6 +169,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       for(const operation of data ?? []) {
         if(!operation.service_request_id)continue;
         if(operation.kind==='estimate'&&['uncertain','dispatching'].includes(operation.state))uncertainEstimateRequests.add(operation.service_request_id);
+        if(operation.kind==='estimate'&&operation.state==='failed')rejectedEstimateRequests.add(operation.service_request_id);
         if(operation.kind==='send'&&operation.attempted_at&&operation.local_entity_id===quoteByRequest.get(operation.service_request_id)?.id)quoteSendByRequest.set(operation.service_request_id,{status:operation.send_status});
       }
     }
@@ -219,6 +221,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           now,
           {
             customerApprovalVerified: (()=>{const approval=approvalByRequest.get(row.id),quote=quoteByRequest.get(row.id);return !!approval&&!!quote&&approval.quote_id===quote.id&&hasRecordedCustomerApproval(approval,quote.content_sha256)})(),
+            quibiCreateRejected:rejectedEstimateRequests.has(row.id),
             quibiCreateUncertain: uncertainEstimateRequests.has(row.id),
             quibiSendAttempted: quoteSendByRequest.has(row.id),
             quibiSendStatus: quoteSendByRequest.get(row.id)?.status,

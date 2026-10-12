@@ -39,7 +39,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const lock = useRef(false);
   const historyInterrupted=useRef(false),historyReading=useRef(mode==='create'||mode==='prepare');
   useEffect(()=>{
-    if(mode!=='create'&&mode!=='prepare')return;
+    if(mode!=='create'&&mode!=='prepare'||operationState==='failed')return;
     if(operationState==='uncertain'||operationState==='dispatching'){let active=true;void reconcileQuibiEstimate(serviceRequestId).then(result=>{if(active){setMessage(result.message);if(result.ok)router.refresh();}});return ()=>{active=false};}
     let active=true;
     historyInterrupted.current=false;historyReading.current=true;
@@ -61,7 +61,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     return ()=>{active=false};
   },[serviceRequestId,mode,catalogSource,operationState,router]);
   useEffect(()=>{
-    if(!['prepare','create'].includes(mode)||historyPending||historyReading.current||!formElement.current||(!selectedSource&&!selectedHistory)||operationState==='uncertain'||operationState==='dispatching'||dispatchStarted||lock.current)return;
+    if(!['prepare','create'].includes(mode)||historyPending||historyReading.current||!formElement.current||(!selectedSource&&!selectedHistory)||operationState==='failed'||operationState==='uncertain'||operationState==='dispatching'||dispatchStarted||lock.current)return;
     const data=new FormData(formElement.current);data.delete('createConfirmed');data.delete('serviceMatchConfirmed');
     if(!choices?.saleTypes.some(s=>s.id===data.get('saleTypeId')))return;
     const signature=JSON.stringify({fields:[...data.entries()],catalogSha:selectedSource?.sourceSha,historySha:selectedHistory?.sourceSha});if(automaticPreparation.current===signature)return;
@@ -69,6 +69,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     // READ preview only. CREATE is exclusively the explicitly confirmed submit action.
     startTransition(async()=>{try{const result=await prepareQuibiEstimate(data);setMessage(result.ok?result.detail:result.message);setPreparedSha(result.ok?result.sha??null:null);setSourceSha(result.ok?result.sourceSha??null:null);setReview(result.ok?result.review??null:null);setConfirmed(false)}catch{setMessage('Priprave ni mogoče preveriti. Poskusite ponovno pregledati predračun.')}finally{lock.current=false}});
   },[mode,serviceRequestId,historyPending,historySource,catalogSource,revision,operationState,dispatchStarted,selectedSource,selectedHistory,choices]);
+  if((mode==='create'||mode==='prepare')&&operationState==='failed')return <section className="space-y-2 rounded border border-red-300 p-3"><p role="alert">Quibi je dokončno zavrnil ustvarjanje predračuna. Dokument ni potrjeno ustvarjen. Ta poskus je zaklenjen; samodejne ponovitve ni.</p><p>Pred nadaljevanjem mora skrbnik preveriti razlog zavrnitve pri Quibiju. Ne ustvarjajte drugega dokumenta brez preverjenega nadaljevanja.</p></section>;
   if((mode==='create'||mode==='prepare')&&(operationState==='uncertain'||operationState==='dispatching'))return <section className="space-y-2 rounded border border-amber-300 p-3"><p>Izid ustvarjanja zahteva preverjanje. Novega predračuna ne ustvarjajte.</p><button disabled={pending} className="rounded border px-3 py-2" onClick={()=>startTransition(async()=>{const result=await reconcileQuibiEstimate(serviceRequestId);setMessage(result.message);if(result.ok)router.refresh()})}>{pending?'Preverjam Quibi…':'Preveri obstoječi dokument brez novega CREATE'}</button>{message&&<p role="status">{message}</p>}</section>;
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;

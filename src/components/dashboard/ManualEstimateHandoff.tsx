@@ -4,12 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordManualEstimateDelivery, recordManualEstimateDecision } from "@/lib/quibi/manual-estimate-action";
 
-export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false, apiDispatch = false }: {
+export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false, apiDispatch = false, syntheticQa = false }: {
   quoteId: string;
   delivered: boolean;
   decision: string | null;
   realDevWrite?: boolean;
   apiDispatch?: boolean;
+  syntheticQa?:boolean;
 }) {
   const router = useRouter();
   const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
@@ -21,6 +22,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
 
   function submit(kind: "delivery" | "approved" | "rejected") {
     const reference = (kind === "delivery" ? deliveryReference : decisionReference).trim();
+    if(syntheticQa&&kind!=='delivery'&&!reference.startsWith('QA-SIM-')){setMessage('Za simulirano odločitev uporabite referenco QA-SIM-.');return;}
     if (pending || reference.length < 4 || reference.length > 200) return;
     startTransition(async () => {
       try {
@@ -30,7 +32,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
         setMessage(result.ok
           ? kind === "delivery"
             ? demo ? "Demo – simulacija dostave je shranjena; nič ni bilo poslano." : "Dejanska dostava je evidentirana."
-            : demo ? "Simulirana odločitev je shranjena." : "Strankina odločitev je evidentirana."
+            : (demo||syntheticQa) ? "Simulirana QA odločitev je shranjena; ni dejanska odobritev stranke." : "Strankina odločitev je evidentirana."
           : result.message);
         if (result.ok) {
           if (kind === "delivery") setDeliveryReference("");
@@ -44,15 +46,15 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
   }
 
   if (decision) {
-    return <p className="text-sm">Strankina odločitev: {decision}. Evidentirana je za to različico predračuna.</p>;
+    return <p className="text-sm">{syntheticQa?"Simulirana QA odločitev":"Strankina odločitev"}: {decision}. Evidentirana je za to različico predračuna.</p>;
   }
 
   const decisionReady = decisionReference.trim().length >= 4 && decisionReference.trim().length <= 200;
   const deliveryReady = deliveryReference.trim().length >= 4 && deliveryReference.trim().length <= 200;
   return <section className="space-y-3 border-t pt-3">
-    <h3 className="font-medium">Odločitev stranke</h3>
+    <h3 className="font-medium">{syntheticQa?"Simulirana QA odločitev (brez dejanske stranke)":"Odločitev stranke"}</h3>
     <p className="text-sm">
-      {demo ? "Demo – uporabljajte samo sintetično referenco QA-SIM-." : "Če je stranka odgovorila osebno, po telefonu ali drugače, zabeležite njen dejanski odgovor. Predhodno evidentiranje pošiljanja ni potrebno."}
+      {syntheticQa?"Ta sintetični DEV preizkus evidentira samo simulirano QA odobritev ali zavrnitev. Ne potrjuje dejanske strankine odločitve.":demo ? "Demo – uporabljajte samo sintetično referenco QA-SIM-." : "Če je stranka odgovorila osebno, po telefonu ali drugače, zabeležite njen dejanski odgovor. Predhodno evidentiranje pošiljanja ni potrebno."}
       {delivered && apiDispatch ? " Quibi je sporočilo predal poštnemu strežniku; prejem ni potrjen." : ""}
     </p>
     <label className="block text-sm">{demo ? "Referenca odgovora QA-SIM-" : "Referenca dejanskega odgovora stranke"}
@@ -61,7 +63,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
     </label>
     <div className="flex flex-wrap gap-2">
       <button type="button" disabled={pending || !decisionReady} onClick={() => submit("approved")}
-        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">Stranka je potrdila popravilo</button>
+        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">{syntheticQa?"Evidentiraj simulirano QA odobritev":"Stranka je potrdila popravilo"}</button>
       <button type="button" disabled={pending || !decisionReady} onClick={() => submit("rejected")}
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">Stranka je zavrnila predračun</button>
     </div>

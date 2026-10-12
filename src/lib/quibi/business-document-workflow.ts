@@ -1,3 +1,4 @@
+import {isDefinitiveQuibiRejection} from './send-outcome.ts';
 import {quibiSourceNotes} from './business-source-lines.ts';
 import {createHash} from 'node:crypto';
 import {buildEstimateBody,stableEstimatePayload,type CreateEstimateInput,type EstimateBody} from './write-contract.ts';
@@ -46,7 +47,7 @@ export async function createBusinessDocument(args:{kind:BusinessKind;orderId:str
   await journal.patch(op.id,'dispatching',{state:'uncertain',quibiId:result.id,documentNumber:result.number});
   const doc=await reread(result.id);if(doc.number!==result.number)throw Error('QUIBI_DOCUMENT_NUMBER_MISMATCH');
   return journal.patch(op.id,'uncertain',{state:'verified',quibiContentSha256:doc.contentSha256});
- }catch(cause){await journal.patch(op.id,'dispatching',{state:'uncertain'}).catch(()=>undefined);throw cause}
+ }catch(cause){const uncertain=await journal.patch(op.id,'dispatching',{state:'uncertain'}).catch(()=>null);if(uncertain&&isDefinitiveQuibiRejection(cause))await journal.patch(op.id,'uncertain',{state:'failed'}).catch(()=>undefined);throw cause}
 }
 
 /** Only changed business lines justify a write; unchanged data is not WRITE evidence. */

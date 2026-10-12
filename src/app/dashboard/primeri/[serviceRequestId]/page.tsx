@@ -1,3 +1,4 @@
+import {syntheticCaseEvidenceAllowed} from '@/lib/quibi/synthetic-case-evidence';
 import {loadEstimateCatalog,exactEstimateCatalogMatch,type EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
 import {AutomaticIntakeSync} from '@/components/dashboard/AutomaticIntakeSync';
 import {previewDevActivationReadiness} from '@/lib/quibi/hosted-activation-requirements';
@@ -196,7 +197,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     }
     const internalOrdersEnabled=internalWorkOrdersEnabled(process.env);
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
-    const step = nextCaseStep({ customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
+    const step = nextCaseStep({quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
@@ -304,7 +305,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
                 reviewDetail?.externalId !== "selan-service-request:" + serviceRequestId} />}
           {internalOrdersEnabled && request.status === "appointment_confirmed" && <CreateWorkOrder caseId={serviceRequestId} />}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
-            <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} realDevWrite={realDevMode} apiDispatch={approval?.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
+            <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} syntheticQa={syntheticCaseEvidenceAllowed(process.env,{description:request.problem_description,name:customer?.display_name,email:customer?.email,vin:vehicle?.vin})} realDevWrite={realDevMode} apiDispatch={approval?.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
         <details id="termini" className="rounded-xl border bg-white p-4 space-y-2">
@@ -314,7 +315,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <p className="text-xs text-amber-800">Termine uredite in preverite ročno. Potrjen termin ni pogoj za pripravo Quibi poslovnega naloga.</p>
         </details>
       </div>
-      {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
+      {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations syntheticQa={syntheticCaseEvidenceAllowed(process.env,{description:request.problem_description,name:customer?.display_name,email:customer?.email,vin:vehicle?.vin})} organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
       {activation&&(activation.missing.length>0||!activation.writeEnabled||activation.localOverrideEnabled)&&["owner","admin"].includes(access.role)&&<aside className="space-y-2 rounded border bg-amber-50 p-4 text-sm"><h2 className="font-semibold">Aktivacija poslovnih dejanj DEV</h2>{activation.missing.length>0&&<p>Manjkajo ali niso veljavne nastavitve: {activation.missing.join(", ")}. Skrivnosti ostanejo na strežniku.</p>}{!activation.writeEnabled&&<p>WRITE/SEND sta izključena. Priprava in pregled ne ustvarita dokumenta. Aktivacija zahteva odobreno DEV journal migracijo in dovoljenje za izbrano dejanje.</p>}{activation.localOverrideEnabled&&<p role="alert">Lokalni override ne sme biti omogočen v Preview.</p>}</aside>}
       {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
       {fixedPriceEnabled && (fixedPrice || (!writeRequested && request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&

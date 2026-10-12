@@ -271,6 +271,7 @@ export async function recordManualEstimateDecision(
   quoteId: string, decision: "approved" | "rejected", reference: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const access = await requirePhase1OperationalAccess();
+  if(reference.trim().startsWith('QA-SIM-')&&(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'))return error('Simulirana QA odločitev je dovoljena samo v Quibi DEV Preview.');
   if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
       || !["approved", "rejected"].includes(decision)

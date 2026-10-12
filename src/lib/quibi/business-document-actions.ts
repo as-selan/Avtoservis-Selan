@@ -1,4 +1,5 @@
 "use server";
+import {syntheticCaseEvidenceAllowed} from './synthetic-case-evidence';
 import {hasRecordedCustomerApproval,businessHeaderSelection} from './business-form-state';
 import {assertBusinessCreationNamespace} from './case-business-policy';
 import {loadCaseBusinessContext} from './case-business-context';
@@ -76,7 +77,8 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    return {...review,ok:true,headerSelectionRequired:true,message:'Postavke so prebrane iz preverjenega Quibi dokumenta. Izberite veljavno številčenje in vrsto prodaje; priprava se nato samodejno preveri.'};
   }
   if(kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Potrdite opravljeno popravilo in dejanski datum; Selan nato samodejno preveri pripravo za CREATE.'};
-  let body=businessDocumentBody(kind,orderId,{serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}${directCase&&kind==='invoice'?'; popravilo opravljeno, potrjeno: '+access.userId:''}`},String(form.get('serviceDate')??''));
+  const syntheticQa=syntheticCaseEvidenceAllowed(process.env,{description:caseContext?.order.problem_description,name:customer.display_name,email:customer.email,vin:vehicle.vin});
+  let body=businessDocumentBody(kind,orderId,{serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`${syntheticQa?'QA-SIM ':''}Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}${directCase&&kind==='invoice'?(syntheticQa?'; QA-SIM: simulirani zaključek, dejanskega popravila ni; potrjeno: ':'; popravilo opravljeno, potrjeno: ')+access.userId:''}`},String(form.get('serviceDate')??''));
   let baselineSha:string|undefined;
   if(updating){
    const {data:sendAttempt,error:sendError}=await db.from(environment==='dev'?'quibi_dev_operation_journal':'quibi_production_operation_journal').select('quibi_id,request_body').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('kind','send').not('attempted_at','is',null);

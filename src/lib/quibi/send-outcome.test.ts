@@ -13,3 +13,6 @@ test("immediate sent response preserves accepted provider ID and status",async()
 import {assertLocalQuibiRequest} from "./local-send-policy.ts";
 import {quibiWorkflowConfig} from "./workflow-config.ts";
 test("write-disabled local app retains same-origin login and status actions but rejects send",()=>{assertLocalQuibiRequest(localRead,new Headers({host:"127.0.0.1:3002",origin:"http://127.0.0.1:3002"}),true);assert.equal(quibiWorkflowConfig(localRead,"read").mode,"dev");assert.throws(()=>quibiWorkflowConfig(localRead,"send"),/QUIBI_WORKFLOW_DISABLED/)});
+
+import {quibiRejectionDiagnostics} from './write-http.ts';
+test('rejection diagnostics expose categories without provider messages or private values',()=>{const diagnostic=quibiRejectionDiagnostics({message:'Stranka test@example.test password-secret cena',errors:['private-value']});assert.deepEqual(diagnostic.reasons,['customer','price']);assert.equal(JSON.stringify(diagnostic).includes('secret'),false);assert.equal(JSON.stringify(diagnostic).includes('example.test'),false);});

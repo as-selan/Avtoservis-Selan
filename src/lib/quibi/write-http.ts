@@ -10,6 +10,11 @@ import { quibiWorkflowConfig, actualCustomerEmail } from "./workflow-config.ts";
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string;
   statusOnly?: boolean; environment?: Record<string, string | undefined> };
 
+export function quibiRejectionDiagnostics(value:Record<string,unknown>){
+ const text=JSON.stringify({message:value.message,errors:value.errors}).toLocaleLowerCase('sl-SI');
+ const reasons=[['customer','strank|customer'],['vehicle','vozil|vehicle'],['numbering','številčen|stevilcen|numbering'],['permission','pravic|permission|dovoljen|forbidden'],['line','postavk|artikel|article'],['price','cen[ae]|price'],['vat','ddv|(^|[^a-z])vat([^a-z]|$)']].filter(([,pattern])=>new RegExp(pattern).test(text)).map(([code])=>code);
+ return {reasons,errorShape:Array.isArray(value.errors)?'array':typeof value.errors};
+}
 function responseData(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object") throw new Error("QUIBI_INVALID_RESPONSE");
   const envelope = value as Record<string, unknown>;
@@ -51,7 +56,7 @@ function createTransport(config: Config, workflow: boolean) {
     });
     if (!response.ok){console.error(JSON.stringify({event:'quibi_transport_failure',path:path.split('?')[0],status:response.status}));throw new Error(`QUIBI_HTTP_${response.status}`);}
     const payload:unknown=await response.json();
-    if(payload&&typeof payload==='object'&&(payload as Record<string,unknown>).error===true){const errors=(payload as Record<string,unknown>).errors;const fields=errors&&typeof errors==='object'?Object.keys(errors).filter(k=>/^[A-Za-z][A-Za-z0-9_.]{0,80}$/.test(k)):[];console.error(JSON.stringify({event:'quibi_api_rejection',path:path.split('?')[0],status:response.status,fields}));throw new Error('QUIBI_API_REJECTED');}
+    if(payload&&typeof payload==='object'&&(payload as Record<string,unknown>).error===true){const errors=(payload as Record<string,unknown>).errors;const fields=errors&&typeof errors==='object'?Object.keys(errors).filter(k=>/^[A-Za-z][A-Za-z0-9_.]{0,80}$/.test(k)):[];console.error(JSON.stringify({event:'quibi_api_rejection',path:path.split('?')[0],status:response.status,fields,...quibiRejectionDiagnostics(payload as Record<string,unknown>)}));throw new Error('QUIBI_API_REJECTED');}
     return payload;
   }
 
@@ -90,11 +95,13 @@ function createTransport(config: Config, workflow: boolean) {
     async createEstimate(body: EstimateBody) {
       if ("id" in body.Glavadokumenta || !body.Glavadokumenta.external_id ||
           Object.keys(body.Postavkedokumenta).length === 0) throw new Error("QUIBI_INVALID_ESTIMATE_INPUT");
+      if(body.Stranka&&body.Stranka.id!==body.Glavadokumenta.stranka_id)throw Error('QUIBI_DOCUMENT_CUSTOMER_MISMATCH');
       return parseQuibiWriteResponse(await call("/api2/glavadokumenta/form", "POST", body));
     },
     async updateEstimate(id: string, body: EstimateBody) {
       if (body.Glavadokumenta.id !== Number(validQuibiId(id)) ||
           Object.keys(body.Postavkedokumenta).length === 0) throw new Error("QUIBI_INVALID_ESTIMATE_INPUT");
+      if(body.Stranka&&body.Stranka.id!==body.Glavadokumenta.stranka_id)throw Error('QUIBI_DOCUMENT_CUSTOMER_MISMATCH');
       return parseQuibiWriteResponse(await call(`/api2/glavadokumenta/form/${id}`, "POST", body));
     },
     async sendDocument(id: string, email: string, subject?: string, content?: string) {

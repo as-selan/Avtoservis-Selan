@@ -210,3 +210,5 @@ test('CREATE accepts reviewed request SHA and rejects drift before journal inser
  assert.ok(results.some(r=>r.status==='fulfilled'));assert.equal(f.events.filter(e=>e==='create').length,1);
  await createAndVerifyEstimate({...f,input,expectedRequestSha256:sha});assert.equal(f.events.filter(e=>e==='create').length,1);
 });
+
+test('definitive estimate rejection is failed and never redispatched, unlike an unknown response',async()=>{for(const [code,state] of [['QUIBI_API_REJECTED','failed'],['QUIBI_HTTP_403','failed'],['QUIBI_HTTP_500','uncertain'],['QUIBI_INVALID_RESPONSE','uncertain']]){const f=fixture();let posts=0;f.write.createEstimate=async()=>{posts++;throw Error(code)};await assert.rejects(createAndVerifyEstimate({...f,input}),new RegExp(code));assert.equal((await f.journal.get('estimate',caseId))?.state,state);await assert.rejects(createAndVerifyEstimate({...f,input}),/RECONCILIATION/);assert.equal(posts,1);}});

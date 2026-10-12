@@ -1,3 +1,4 @@
+import {isDefinitiveQuibiRejection} from './send-outcome.ts';
 import { createHash } from "node:crypto";
 import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient, validQuibiId, buildEstimateBody, stableEstimatePayload, withDocumentId,
   type CreateEstimateInput, type EstimateBody } from "./write-contract.ts";
@@ -106,7 +107,8 @@ export async function createAndVerifyEstimate(args: {
     return journal.patch(dispatched.id, "uncertain", { state: "verified", quibiContentSha256: detail.contentSha256 });
   } catch (cause) {
     // A timeout may mean Quibi committed the document. Preserve uncertain state.
-    await journal.patch(op.id, "dispatching", { state: "uncertain" }).catch(() => undefined);
+    const uncertain=await journal.patch(op.id, "dispatching", { state: "uncertain" }).catch(() => null);
+    if(uncertain&&isDefinitiveQuibiRejection(cause))await journal.patch(op.id,'uncertain',{state:'failed'}).catch(()=>undefined);
     throw cause;
   }
 }

@@ -32,6 +32,7 @@ export type CreateEstimateInput = {
 };
 
 export type EstimateBody = {
+  Stranka?: {id:number};
   Glavadokumenta: {
     stevilcenje_id: number; vrstaprodaje: number; stranka_id: number;
     vozila_id: number; external_id: string; opomba?: string; id?: number; datstod?: string;
@@ -55,6 +56,7 @@ export function buildEstimateBody(input: CreateEstimateInput): EstimateBody {
     lines[String(index + 1)] = line;
   });
   return {
+    Stranka:{id:Number(numericId(input.customerId))},
     Glavadokumenta: {
       stevilcenje_id: Number(numericId(input.numberingId)),
       vrstaprodaje: Number(numericId(input.saleTypeId)),
@@ -73,7 +75,7 @@ export function stableEstimatePayload(body: EstimateBody): { json: string; sha25
 }
 
 export function withDocumentId(body: EstimateBody, documentId: string): EstimateBody {
-  return { Glavadokumenta: { ...body.Glavadokumenta, id: Number(numericId(documentId)) },
+  return { ...(body.Stranka?{Stranka:body.Stranka}:{}), Glavadokumenta: { ...body.Glavadokumenta, id: Number(numericId(documentId)) },
     Postavkedokumenta: body.Postavkedokumenta };
 }
 

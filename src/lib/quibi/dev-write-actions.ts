@@ -76,7 +76,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
       : `Dokument #${op.quibiId} obstaja v Quibiju, povezava s primerom pa zahteva pregled: ${linked.message}. Ne ustvarjajte novega dokumenta.`};
   } catch(error) {
     const code=error instanceof Error&&/^QUIBI_[A-Z_]+(?:_\d{3})?$/.test(error.message)?error.message:"QUIBI_UNCLASSIFIED_FAILURE";console.error(JSON.stringify({event:"quibi_estimate_create_failure",caseId:serviceRequestId,code}));
-    return fail(createdId ? `Quibi dokument #${createdId} je ustvarjen, ponovno preverjanje ali povezava pa ni potrjena. Ne ustvarjajte drugega dokumenta.` : "Quibi operacija ni potrjena. Pred ponovnim poskusom preverite dnevnik; ne ustvarjajte drugega dokumenta.");
+    return fail(code==='QUIBI_API_REJECTED'?'Quibi je zavrnil ustvarjanje predračuna. Poskus ostaja zaklenjen; preverite razlog zavrnitve, ne ponavljajte CREATE.':createdId ? `Quibi dokument #${createdId} je ustvarjen, ponovno preverjanje ali povezava pa ni potrjena. Ne ustvarjajte drugega dokumenta.` : "Quibi operacija ni potrjena. Pred ponovnim poskusom preverite dnevnik; ne ustvarjajte drugega dokumenta.");
   }
 }
 

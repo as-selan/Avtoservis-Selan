@@ -44,3 +44,5 @@ test('reread rejects changed units, VAT, discount or amount',async()=>{
  await assert.rejects(createBusinessDocument({...f.args,expectedAmount:'123'}),/AMOUNT/);
  assert.equal(f.count(),1);assert.equal(f.state(),'uncertain');
 });
+
+test('definitive business CREATE rejection is failed, locked and never redispatched',async()=>{const f=fixture();let posts=0;f.args.write.createEstimate=async()=>{posts++;throw Error('QUIBI_API_REJECTED')};await assert.rejects(createBusinessDocument(f.args),/API_REJECTED/);assert.equal(f.state(),'failed');await assert.rejects(createBusinessDocument(f.args),/RECONCILIATION/);assert.equal(posts,1);});
