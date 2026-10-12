@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {businessFormStart,businessDispatchMayContinue,businessPreparationCanAutoload,hasRecordedCustomerApproval} from './business-form-state.ts';
+import {businessFormStart,businessDispatchMayContinue,businessPreparationCanAutoload,hasRecordedCustomerApproval,businessDispatchConfirmation} from './business-form-state.ts';
 test('case proceeds from Quibi work order to invoice without a local order',()=>{
  assert.deepEqual(businessFormStart([]),{kind:'work_order',operation:'create'});
  assert.deepEqual(businessFormStart([{document_kind:'work_order'}]),{kind:'invoice',operation:'create'});
@@ -21,4 +21,9 @@ test('recorded approval requires immutable decision evidence and matching SHA, i
  const row={customer_decision:'approved',decided_at:'2026-10-12T10:00:00Z',decision_evidence_reference:'Telefon: potrjeno naročilo',revoked_at:null,content_sha256:'approved-sha'};
  assert.equal(hasRecordedCustomerApproval(row,'approved-sha'),true);
  for(const change of [{customer_decision:'rejected'},{decided_at:null},{decided_at:'invalid'},{decision_evidence_reference:null},{decision_evidence_reference:' '},{revoked_at:'2026-10-12'},{content_sha256:'changed'}])assert.equal(hasRecordedCustomerApproval({...row,...change},'approved-sha'),false);
+});
+
+test('one explicit business click binds confirmation to the fresh reviewed request SHA',()=>{
+ const sha='a'.repeat(64);assert.deepEqual(businessDispatchConfirmation(sha),{dispatch:'yes',confirmed:'yes',expectedSha:sha});
+ for(const invalid of [undefined,'','unreviewed','a'.repeat(63)])assert.throws(()=>businessDispatchConfirmation(invalid),/PREPARATION_REQUIRED/);
 });

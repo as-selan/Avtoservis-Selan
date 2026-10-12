@@ -43,3 +43,13 @@ export function computeManualIntakeCompleteness(input: {
 export function computeIntakeCompleteness(input: Parameters<typeof computeManualIntakeCompleteness>[0]): IntakeCompleteness {
   return computeManualIntakeCompleteness(input, "web");
 }
+
+/** Use current linked data, while preserving unknown requirements from the saved snapshot. */
+export function currentIntakeCompleteness(input:Parameters<typeof computeManualIntakeCompleteness>[0]&{registration?:string|null},origin:{source:string;channel:string|null;intakeRequestId?:string|null},recordedMissing:string[]=[]){
+ const manual=origin.source==='manual'&&['manual','phone','sms'].includes(origin.channel??'');
+ const computed=computeManualIntakeCompleteness(input,manual?'manual':'web');
+ const known=new Set(['phone','email','vin','make','model']);
+ const preserved=recordedMissing.filter(field=>!known.has(field)&&!(field==='registration'&&blankToNull(input.registration??null)));
+ const missing_fields=[...new Set([...computed.missing_fields,...preserved])];
+ return {missing_fields,status:missing_fields.length?'needs_data' as const:'new' as const,next_action:missing_fields.length?'Pridobi manjkajoče podatke stranke ali vozila.':'Preveri podatke pred pripravo ponudbe.'};
+}

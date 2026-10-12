@@ -15,3 +15,9 @@ export function businessPreparationCanAutoload(input:{caseId?:string;kind:string
 export function hasRecordedCustomerApproval(row:{customer_decision:string|null;decided_at:string|null;decision_evidence_reference:string|null;revoked_at:string|null;content_sha256:string},sha:string){
  return row.customer_decision==='approved'&&row.revoked_at===null&&row.content_sha256===sha&&!!row.decided_at&&Number.isFinite(Date.parse(row.decided_at))&&!!row.decision_evidence_reference&&row.decision_evidence_reference.trim().length>=4;
 }
+
+/** Called only for the explicit business submit button, never automatic READ preparation. */
+export function businessDispatchConfirmation(sha:string|undefined){
+ if(!sha||! /^[a-f0-9]{64}$/.test(sha))throw Error('BUSINESS_PREPARATION_REQUIRED');
+ return {dispatch:'yes',confirmed:'yes',expectedSha:sha};
+}

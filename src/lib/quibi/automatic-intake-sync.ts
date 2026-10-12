@@ -1,4 +1,5 @@
 import 'server-only';
+import {currentIntakeCompleteness} from '../intake/completeness';
 import {after} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
 import {quibiWorkflowConfig} from './workflow-config';
@@ -18,7 +19,7 @@ export async function processIntakeSynchronization(caseId:string){
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data:org,error:orgError}=await db.from('organizations').select('id').eq('slug','avtoservis-selan').single();
  if(orgError||!org)return;
- const {data:request,error}=await db.from('service_requests').select('id,customer_id,vehicle_id,attention_reason').eq('organization_id',org.id).eq('id',caseId).is('archived_at',null).single();
+ const {data:request,error}=await db.from('service_requests').select('id,customer_id,vehicle_id,attention_reason,status,source,channel,intake_request_id,missing_fields').eq('organization_id',org.id).eq('id',caseId).is('archived_at',null).single();
  if(error||!request?.customer_id)return;
  async function status(message:string|null){
   // Do not clear or replace attention raised by other business steps.
@@ -70,6 +71,14 @@ export async function processIntakeSynchronization(caseId:string){
     const {error}=await db.from('quibi_vehicle_links').insert(row);
     if(error){const {data:existing,error:readError}=await db.from('quibi_vehicle_links').select('quibi_vehicle_id,quibi_customer_id,local_fingerprint,external_fingerprint,quibi_environment').eq('organization_id',org.id).eq('vehicle_id',request.vehicle_id).single();if(readError||!existing||existing.quibi_vehicle_id!==row.quibi_vehicle_id||existing.quibi_customer_id!==row.quibi_customer_id||existing.local_fingerprint!==row.local_fingerprint||existing.external_fingerprint!==row.external_fingerprint||existing.quibi_environment!=='dev')throw Error('INTAKE_LINK_STORAGE_FAILED')}
    }});
+  if(request.status==='needs_data'&&result.vehicleId&&localVehicle){
+   const completeness=currentIntakeCompleteness({phone:localCustomer.phone,email:localCustomer.email,...localVehicle},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id},Array.isArray(request.missing_fields)?request.missing_fields:[]);
+   if(completeness.status==='new'){
+    // Filling data does not approve the intake: the existing owner/admin review is still required.
+    const {error}=await db.from('service_requests').update(completeness).eq('organization_id',org.id).eq('id',caseId).eq('customer_id',request.customer_id).eq('vehicle_id',request.vehicle_id).eq('status','needs_data').is('archived_at',null);
+    if(error)throw Error('INTAKE_COMPLETENESS_STORAGE_FAILED');
+   }
+  }
   await status(result.vehicleId?null:'Stranka je povezana. Za povezavo vozila dopolnite VIN, registracijo, znamko in model.');return result;
  }catch(error){
   const code=error instanceof Error?error.message:'';

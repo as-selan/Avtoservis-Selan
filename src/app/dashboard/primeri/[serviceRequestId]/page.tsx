@@ -7,6 +7,9 @@ import {QuibiCaseDocuments} from '@/components/dashboard/QuibiCaseDocuments';
 import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate";
 import {estimateLineDescription} from "@/lib/quibi/estimate-line-description";
+import {currentIntakeCompleteness} from '@/lib/intake/completeness';
+import {configuredIntakeProvider} from '@/lib/assistance/configured-intake-provider';
+import {intakeAiConfiguration} from '@/lib/assistance/openai-intake-provider';
 import {analyzeIntake} from '@/lib/assistance/intake-analysis';
 import { CreateWorkOrder } from "@/components/dashboard/WorkOrderEditor";
 import { localQaIdentityExceptionAvailable } from "@/lib/quibi/local-send-policy";
@@ -51,7 +54,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
 
     const db = await createClient();
     const { data: request, error: requestError } = await db.from("service_requests")
-      .select("id, customer_id, vehicle_id, status, source, summary, problem_description, service_wanted, missing_fields, next_action, attention_needed, attention_reason, has_error, error_reason, created_at, updated_at")
+      .select("id, customer_id, vehicle_id, status, source, channel, intake_request_id, summary, problem_description, service_wanted, missing_fields, next_action, attention_needed, attention_reason, has_error, error_reason, created_at, updated_at")
       .eq("organization_id", access.organizationId).eq("id", serviceRequestId)
       .is("archived_at", null).maybeSingle();
     if (requestError || !request) return unavailable;
@@ -198,8 +201,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       fixedPriceStatus: fixedPrice?.status,
       inspectionRepairDecision: inspectionResult.data?.repair_decision,
       syntheticAppointment: serviceOffer?.booking_reference?.startsWith("QA-SIM-"), slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady, quibiSendStatus: sendOperation?.sendStatus, quibiSendAttempted: !!sendOperation });
-    const missing = Array.isArray(request.missing_fields) ? request.missing_fields : [];
-    const assistance=await analyzeIntake({summary:request.summary,missingFields:missing});
+    const missing = currentIntakeCompleteness({phone:customer?.phone??null,email:customer?.email??null,vin:vehicle?.vin??null,make:vehicle?.make??null,model:vehicle?.model??null,registration:vehicle?.registration_current??null},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id},Array.isArray(request.missing_fields)?request.missing_fields:[]).missing_fields;
+    const assistance=await analyzeIntake({summary:request.summary,missingFields:missing,serviceWanted:request.service_wanted??undefined},configuredIntakeProvider(access.organizationId));
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = request.status === "needs_data" && missing.length > 0
       ? { title: "Dopolnitev podatkov", body: `Pozdravljeni, ${recipient}. Za nadaljevanje vašega servisnega povpraševanja potrebujemo še: ${missing.join(", ")}. Prosimo, dopolnite podatke prek povezave, ki vam jo bomo poslali posebej. Lep pozdrav, Avtoservis Selan` }
@@ -228,8 +231,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           !inspectionResult.data?.repair_decision &&
           <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
       </section>
-      {assistance.status==='unavailable' && <p className="text-xs text-slate-500">AI ponudnik ni povezan. Manjkajoči podatki so preverjeni s pravili aplikacije; besedila so predloge za pregled, ne AI rezultati ali poslana sporočila.</p>}
-      {communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft key={communicationDraft.body} title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
+      {assistance.status==='unavailable' && <div className="text-xs text-slate-500"><p>AI še ni povezan. Preverjanje podatkov in priprava iz Quibija sta na voljo.</p>{['owner','admin'].includes(access.role)&&<details><summary>Podrobnosti povezave AI</summary><p>Manjkajo strežniške nastavitve: {intakeAiConfiguration(process.env).missing.join(', ')}.</p></details>}</div>}
+      {assistance.status==='failed'&&<p role="status" className="text-xs text-slate-500">AI analize trenutno ni mogoče pridobiti. Nadaljujte s preverjenimi podatki Quibija.</p>}
+      {assistance.status==='draft'&&<><section className="space-y-2 rounded-xl border bg-white p-4"><h2 className="font-semibold">AI analiza za pregled</h2>{assistance.analysis&&<p className="whitespace-pre-wrap text-sm">{assistance.analysis}</p>}{assistance.serviceSuggestions.length>0&&<><p className="text-sm">Predlogi storitev — preverite z dejanskimi artikli v Quibiju:</p><ul className="list-disc pl-5 text-sm">{assistance.serviceSuggestions.map((suggestion,i)=><li key={i}>{suggestion}</li>)}</ul></>}</section><CommunicationDraft key={assistance.draft!} title="AI osnutek za pregled" body={assistance.draft!}/></>}
+      {assistance.status!=='draft' && communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft key={communicationDraft.body} title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
       {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
         ["owner", "admin"].includes(access.role) &&
         <ReviewIntakeButton serviceRequestId={serviceRequestId} />}
