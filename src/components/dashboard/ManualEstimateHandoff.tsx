@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordManualEstimateDelivery, recordManualEstimateDecision } from "@/lib/quibi/manual-estimate-action";
 
-export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false, apiDispatch = false }: {
+export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWrite = false, apiDispatch = false, mode = "decision" }: {
   quoteId: string;
   delivered: boolean;
   decision: string | null;
-  realDevWrite?: boolean; apiDispatch?: boolean;
+  realDevWrite?: boolean; apiDispatch?: boolean; mode?: "decision" | "delivery";
 }) {
   const router = useRouter();
+  const deliveryMode = mode === "delivery";
   const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
   const [channel, setChannel] = useState("email");
   const [reference, setReference] = useState("");
@@ -30,25 +31,25 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
       if (result.ok) { setAttested(false); setReference(""); router.refresh(); }
     });
   }
-  if (decision) return <p className="text-sm">Strankina odločitev: {decision}. Evidentirano za to različico predračuna.</p>;
+  if (decision && !deliveryMode) return <p className="text-sm">Strankina odločitev: {decision}. Evidentirano za to različico predračuna.</p>;
   return <div className="space-y-2 border-t pt-3">
-    <h3 className="font-medium">{delivered ? "Odgovor stranke" : demo ? "Simulirano pošiljanje" : "Dejansko ročno pošiljanje"}</h3>
-    <p className="text-xs text-amber-800">{demo ? "Demo – ni poslano. Uporabite samo sintetično referenco QA-SIM-." : delivered && apiDispatch ? "Quibi API je predal sporočilo poštnemu strežniku; prejem ni potrjen. Tukaj zabeležite samo dejanski odgovor stranke." : "Ta zapis je ročno dokazilo zaposlenega za zunanjo dostavo."}</p>
-    {!delivered && <label className="block text-sm">Uporabljen kanal
+    <h3 className="font-medium">{!deliveryMode ? "Odgovor stranke" : demo ? "Simulirano pošiljanje" : "Dejansko ročno pošiljanje"}</h3>
+    <p className="text-xs text-amber-800">{demo ? "Demo – ni poslano. Uporabite samo sintetično referenco QA-SIM-." : delivered && apiDispatch ? "Quibi API je predal sporočilo poštnemu strežniku; prejem ni potrjen. Tukaj zabeležite samo dejanski odgovor stranke." : deliveryMode ? "Neobvezno ročno dokazilo za dejansko zunanjo dostavo. To ni odločitev stranke." : "Zabeležite dejansko odobritev ali zavrnitev tega predračuna. Predhodna evidenca dostave ni potrebna."}</p>
+    {deliveryMode && <label className="block text-sm">Uporabljen kanal
       <select className="mt-1 block rounded border px-2 py-1" value={channel} onChange={(event) => setChannel(event.target.value)}>
         <option value="email">E-pošta</option><option value="sms">SMS</option>
         <option value="in_person">Osebno</option><option value="other">Drugo</option>
       </select>
     </label>}
-    <label className="block text-sm">{demo ? "Sintetična referenca QA-SIM" : delivered ? "Referenca dejanskega odgovora" : "Referenca poslanega sporočila"}
+    <label className="block text-sm">{demo ? "Sintetična referenca QA-SIM" : !deliveryMode ? "Referenca dejanskega odgovora" : "Referenca poslanega sporočila"}
       <input className="mt-1 block w-full rounded border px-2 py-1" value={reference} maxLength={200}
         onChange={(event) => setReference(event.target.value)} placeholder="ID sporočila ali sledljiv zapis" />
     </label>
     <label className="flex gap-2 text-sm"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-      {demo ? "Potrjujem simulacijo brez dejanske komunikacije." : delivered ? "Prejel sem dejanski odgovor stranke za to različico." : "Ta predračun sem dejansko poslal stranki po navedenem kanalu."}
+      {demo ? "Potrjujem simulacijo brez dejanske komunikacije." : !deliveryMode ? "Prejel sem dejanski odgovor stranke za to različico." : "Ta predračun sem dejansko poslal stranki po navedenem kanalu."}
     </label>
     <div className="flex flex-wrap gap-2">
-      {delivered ? <>
+      {!deliveryMode ? <>
         <button type="button" disabled={pending || !attested || reference.trim().length < 4} onClick={() => submit("approved")}
           className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">Stranka potrdi popravilo</button>
         <button type="button" disabled={pending || !attested || reference.trim().length < 4} onClick={() => submit("rejected")}
