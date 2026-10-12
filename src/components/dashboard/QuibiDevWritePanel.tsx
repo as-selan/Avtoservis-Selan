@@ -64,7 +64,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     if(!['prepare','create'].includes(mode)||historyPending||historyReading.current||!formElement.current||(!selectedSource&&!selectedHistory)||operationState==='uncertain'||operationState==='dispatching'||dispatchStarted||lock.current)return;
     const data=new FormData(formElement.current);data.delete('createConfirmed');data.delete('serviceMatchConfirmed');
     if(!choices?.saleTypes.some(s=>s.id===data.get('saleTypeId')))return;
-    const signature=JSON.stringify([...data.entries()]);if(automaticPreparation.current===signature)return;
+    const signature=JSON.stringify({fields:[...data.entries()],catalogSha:selectedSource?.sourceSha,historySha:selectedHistory?.sourceSha});if(automaticPreparation.current===signature)return;
     automaticPreparation.current=signature;lock.current=true;data.set('serviceRequestId',serviceRequestId);
     // READ preview only. CREATE is exclusively the explicitly confirmed submit action.
     startTransition(async()=>{try{const result=await prepareQuibiEstimate(data);setMessage(result.ok?result.detail:result.message);setPreparedSha(result.ok?result.sha??null:null);setSourceSha(result.ok?result.sourceSha??null:null);setReview(result.ok?result.review??null:null);setConfirmed(false)}catch{setMessage('Priprave ni mogoče preveriti. Poskusite ponovno pregledati predračun.')}finally{lock.current=false}});
