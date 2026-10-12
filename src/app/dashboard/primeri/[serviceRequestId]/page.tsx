@@ -301,15 +301,15 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} realDevWrite={realDevMode} apiDispatch={approval?.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
         </section>
-        <section id="termini" className="rounded-xl border bg-white p-4 space-y-2">
-          <h2 className="font-semibold">Termini</h2>
+        <details id="termini" className="rounded-xl border bg-white p-4 space-y-2">
+          <summary className="cursor-pointer font-semibold">Ročno urejanje terminov (ločeno od poslovnega naloga)</summary>
           {appointments.length === 0 ? <p className="text-sm text-slate-600">Potrjen interni termin še ni zabeležen. Ponujene možnosti so prikazane spodaj.</p> : <ul className="space-y-1 text-sm">{appointments.map((item) =>
             <li key={item.id}>{new Date(item.starts_at).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })} · {item.appointment_type} · interno: {item.status}</li>)}</ul>}
-          <p className="text-xs text-amber-800">Google Koledar in MyPlanly nista avtomatsko potrjena. Zunanje usklajevanje opravite in preverite ročno.</p>
-        </section>
+          <p className="text-xs text-amber-800">Termine uredite in preverite ročno. Potrjen termin ni pogoj za pripravo Quibi poslovnega naloga.</p>
+        </details>
       </div>
       {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
-      {activation&&["owner","admin"].includes(access.role)&&<aside className="space-y-2 rounded border bg-amber-50 p-4 text-sm"><h2 className="font-semibold">Aktivacija poslovnih dejanj DEV</h2>{activation.missing.length>0&&<p>Manjkajo ali niso veljavne nastavitve: {activation.missing.join(", ")}. Skrivnosti ostanejo na strežniku.</p>}{!activation.writeEnabled&&<p>WRITE/SEND sta izključena. Priprava in pregled ne ustvarita dokumenta. Aktivacija zahteva odobreno DEV journal migracijo in dovoljenje za izbrano dejanje.</p>}{activation.localOverrideEnabled&&<p role="alert">Lokalni override ne sme biti omogočen v Preview.</p>}</aside>}
+      {activation&&(activation.missing.length>0||!activation.writeEnabled||activation.localOverrideEnabled)&&["owner","admin"].includes(access.role)&&<aside className="space-y-2 rounded border bg-amber-50 p-4 text-sm"><h2 className="font-semibold">Aktivacija poslovnih dejanj DEV</h2>{activation.missing.length>0&&<p>Manjkajo ali niso veljavne nastavitve: {activation.missing.join(", ")}. Skrivnosti ostanejo na strežniku.</p>}{!activation.writeEnabled&&<p>WRITE/SEND sta izključena. Priprava in pregled ne ustvarita dokumenta. Aktivacija zahteva odobreno DEV journal migracijo in dovoljenje za izbrano dejanje.</p>}{activation.localOverrideEnabled&&<p role="alert">Lokalni override ne sme biti omogočen v Preview.</p>}</aside>}
       {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
       {fixedPriceEnabled && (fixedPrice || (!writeRequested && request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
         <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} realDevWrite={realDevMode} />}

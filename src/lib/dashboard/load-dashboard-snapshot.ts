@@ -133,6 +133,8 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null }>();
     const inspectionByRequest = new Map<string, string | null>();
     const requestIds = requests.map((row) => row.id);
+    const uncertainEstimateRequests = new Set<string>();
+    const quoteSendByRequest = new Map<string,{status:string|null}>();
     if (customerIds.length > 0) {
       const { data, error } = await supabase.from("integration_links")
         .select("entity_id, sync_status").eq("organization_id", access.organizationId)
@@ -156,6 +158,17 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       for (const row of quotes.data ?? []) if (!quoteByRequest.has(row.service_request_id)) quoteByRequest.set(row.service_request_id, row);
       for (const row of approvals.data ?? []) if (!approvalByRequest.has(row.service_request_id)) approvalByRequest.set(row.service_request_id, row);
       for (const row of inspections.data ?? []) inspectionByRequest.set(row.service_request_id, row.repair_decision);
+    }
+    if (requestIds.length && process.env.APP_ENV === 'preproduction' && process.env.QUIBI_MODE === 'dev' && ['owner','admin'].includes(access.role)) {
+      const {data,error} = await supabase.from('quibi_dev_operation_journal')
+        .select('service_request_id,kind,state,local_entity_id,attempted_at,send_status').eq('organization_id',access.organizationId)
+        .in('service_request_id',requestIds).in('kind',['estimate','send']);
+      if(error) return {ok:false,message:LOAD_ERROR_MESSAGE,generatedAt};
+      for(const operation of data ?? []) {
+        if(!operation.service_request_id)continue;
+        if(operation.kind==='estimate'&&['uncertain','dispatching'].includes(operation.state))uncertainEstimateRequests.add(operation.service_request_id);
+        if(operation.kind==='send'&&operation.attempted_at&&operation.local_entity_id===quoteByRequest.get(operation.service_request_id)?.id)quoteSendByRequest.set(operation.service_request_id,{status:operation.send_status});
+      }
     }
     const priceRequestIds = requests.filter((row) => row.status === "preparing_offer").map((row) => row.id);
     const slotRequestIds = requests.filter((row) => ["awaiting_slot_selection", "appointment_confirmed"].includes(row.status)).map((row) => row.id);
@@ -204,6 +217,10 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
+            quibiCreateUncertain: uncertainEstimateRequests.has(row.id),
+            quibiSendAttempted: quoteSendByRequest.has(row.id),
+            quibiSendStatus: quoteSendByRequest.get(row.id)?.status,
+            directQuibiBusiness: process.env.APP_ENV === 'preproduction' && process.env.QUIBI_MODE === 'dev' && process.env.VERCEL_ENV === 'preview',
             workOrderStatus: workOrderByRequest.get(row.id),
             offerPrepared: preparedRequestIds.has(row.id),
             quibiLinked: !!(row.customer_id && linkByCustomer.has(row.customer_id)),

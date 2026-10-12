@@ -15,7 +15,8 @@ export function estimateCatalogOption(article:QuibiArticle,list:QuibiPriceList):
 export function exactEstimateCatalogMatch(wanted:string,options:EstimateCatalogOption[]):string|null {
  const normalize=(s:string)=>s.trim().normalize('NFKC').toLocaleLowerCase('sl-SI').replace(/\s+/g,' ');
  const matches=options.filter(o=>normalize(o.name)===normalize(wanted));
- return wanted.trim()&&matches.length===1?matches[0].key:null;
+ const identities=new Set(matches.map(o=>[o.articleId,o.code,o.unitId,o.vatId].join(':')));
+ return wanted.trim()&&identities.size===1?matches[0].key:null;
 }
 export async function loadEstimateCatalog(read:{priceLists():Promise<QuibiPriceList[]>;article(id:string):Promise<QuibiArticle>}) {
  const lists=await read.priceLists();

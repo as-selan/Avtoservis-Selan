@@ -6,3 +6,11 @@ test('unknown customer policy, unavailable list and unsupported stock override s
 
 import {parseCustomerDetail,parseCustomers} from './contracts.ts';
 test('both customer list and detail preserve explicit null and assigned price list IDs',()=>{for(const value of [null,'189']){const row={Stranka:{id:'2',naziv:'TEST',cenik_id:value}};const detail=parseCustomerDetail({error:false,data:{Stranke:row}}),list=parseCustomers({error:false,data:{Stranke:[row]}});assert.equal(detail.priceListId,value);assert.equal(list[0].priceListId,value)}const missing=parseCustomerDetail({error:false,data:{Stranke:{Stranka:{id:'2',naziv:'TEST'}}}});assert.equal(missing.priceListId,undefined)});
+
+test('unrelated price lists never invalidate the approved base price; actual assigned changes do',()=>{
+ const another={...list,id:'190',lines:[{articleId:'11',netPrice:'999',discount:'20'}]};
+ const first=customerCatalogPricing(article,list,[list,another],{priceListId:null});
+ assert.equal(customerCatalogPricing(article,another,[list,another],{priceListId:null}).option.sourceSha,first.option.sourceSha);
+ const assigned=customerCatalogPricing(article,list,[list,another],{priceListId:'189'});
+ assert.notEqual(customerCatalogPricing(article,list,[{...list,lines:[{articleId:'11',netPrice:'81',discount:'5'}]},another],{priceListId:'189'}).option.sourceSha,assigned.option.sourceSha);
+});
