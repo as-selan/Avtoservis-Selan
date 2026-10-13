@@ -18,10 +18,10 @@ function nestedChoices(data: Record<string, unknown>, key: string, inner: string
 }
 
 export async function quibiDevEstimateChoices(write = configuredQuibiWorkflowWriteClient()): Promise<{
-  saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[];
+  saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[]; warehouses: QuibiChoice[];
 }> {
-  const [saleTypesRaw, unitsRaw, vatRaw] = await Promise.all([
-    write.getSaleTypes(), write.getUnits(), write.getVatRates(),
+  const [saleTypesRaw, unitsRaw, vatRaw, warehouseRaw] = await Promise.all([
+    write.getSaleTypes(), write.getUnits(), write.getVatRates(), write.getWarehouses(),
   ]);
   const saleTypes = Object.entries(saleTypesRaw).map(([id, label]) => {
     if (!/^\d+$/.test(id) || typeof label !== "string" || !label.trim())
@@ -31,5 +31,5 @@ export async function quibiDevEstimateChoices(write = configuredQuibiWorkflowWri
   const units = nestedChoices(unitsRaw, "Enote", "Enota");
   const vatRates = nestedChoices(vatRaw, "DDV", "Ddv");
   if (!saleTypes.length || !units.length || !vatRates.length) throw new Error("QUIBI_EMPTY_CATALOG");
-  return { saleTypes, units, vatRates };
+  return { saleTypes, units, vatRates, warehouses:nestedChoices(warehouseRaw,"Skladisca","Skladisca") };
 }

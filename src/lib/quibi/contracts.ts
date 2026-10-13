@@ -9,7 +9,7 @@ export type QuibiVehicle = {
 export type QuibiDocument = { id: string; customerId: string; numberingId: string; status: string; amount?: string };
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
-  vehicleId?: string; externalId?: string; number?: string; numberingId?: string; date?: string; saleTypeId?: string;
+  vehicleId?: string; warehouseId?: string; externalId?: string; number?: string; numberingId?: string; date?: string; saleTypeId?: string;
   lines: { description: string; quantity: string; grossPrice: string; unitId?: string; vatId?: string; discount?: string; articleId?: string; articleCode?: string; unitNetPrice?: string; unitGrossPrice?: string; lineNetAmount?: string; historicalVatLabel?: string; pricingVerified?: boolean; lineType?: string; stockManaged?: boolean }[];
   contentSha256: string;
 };
@@ -149,6 +149,7 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
   if (!amount || !Array.isArray(lines) || lines.length > 200) throw new Error("QUIBI_INVALID_RESPONSE");
   return {
     id, customerId: owner, amount,
+    ...(field(header.skladisca_id) ? { warehouseId: field(header.skladisca_id) } : {}),
     ...(field(header.vozila_id) ? { vehicleId: field(header.vozila_id) } : {}),
     ...(field(header.external_id) ? { externalId: field(header.external_id) } : {}),
     ...(field(header.ZapSt) ? { number: field(header.ZapSt) } : {}),

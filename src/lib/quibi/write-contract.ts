@@ -29,13 +29,14 @@ export type CreateEstimateInput = {
   serviceRequestId: string;
   lines: DocumentLine[];
   note?: string;
+  warehouseId?: string;
 };
 
 export type EstimateBody = {
   Stranka?: {id:number};
   Glavadokumenta: {
     stevilcenje_id: number; vrstaprodaje: number; stranka_id: number;
-    vozila_id: number; external_id: string; opomba?: string; id?: number; datstod?: string;
+    vozila_id: number; skladisca_id?: number; external_id: string; opomba?: string; id?: number; datstod?: string;
   };
   Postavkedokumenta: Record<string, DocumentLine>;
 };
@@ -56,12 +57,12 @@ export function buildEstimateBody(input: CreateEstimateInput): EstimateBody {
     lines[String(index + 1)] = line;
   });
   return {
-    Stranka:{id:Number(numericId(input.customerId))},
     Glavadokumenta: {
       stevilcenje_id: Number(numericId(input.numberingId)),
       vrstaprodaje: Number(numericId(input.saleTypeId)),
       stranka_id: Number(numericId(input.customerId)),
       vozila_id: Number(numericId(input.vehicleId)),
+      ...(input.warehouseId ? {skladisca_id:Number(numericId(input.warehouseId))} : {}),
       external_id: externalId,
       ...(input.note?.trim() ? { opomba: input.note.trim().slice(0, 500) } : {}),
     },

@@ -10,6 +10,34 @@ import { quibiWorkflowConfig, actualCustomerEmail } from "./workflow-config.ts";
 type Config = { username: string; password: string; fetcher?: typeof fetch; origin?: string;
   statusOnly?: boolean; environment?: Record<string, string | undefined> };
 
+/** Only bounded validation text; never store the raw provider envelope or request. */
+export function safeQuibiValidation(value:Record<string,unknown>,secrets:string[]=[]){
+ const clean=(value:unknown):string=>{
+  if(typeof value!=='string'&&typeof value!=='number')return '';
+  let text=String(value).replace(/<[^>]*>/g,' ').replace(/[\r\n\t]+/g,' ');
+  for(const secret of secrets.filter(Boolean))text=text.split(secret).join('[redacted]');
+  return text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[email]')
+   .replace(/(?:password|geslo|token|authorization|api[_ -]?key)\s*[:=]\s*[^\s,;]+/gi,'[credential]')
+   .replace(/\beyJ[A-Za-z0-9_.-]+/g,'[token]').replace(/\b(?:\+?\d[ ()-]*){9,}\b/g,'[number]').slice(0,400).trim();
+ };
+ const errors:Record<string,string>={};
+ const collect=(item:unknown,path:string,depth=0)=>{
+  if(depth>3||Object.keys(errors).length>=15)return;
+  if(typeof item==='string'||typeof item==='number'){const text=clean(item);if(text)errors[path||'document']=text;return}
+  if(item&&typeof item==='object')for(const [key,v] of Object.entries(item).slice(0,15)){
+   if(!/^[A-Za-z0-9_.]{1,80}$/.test(key)||/password|geslo|token|email|emajl|naslov|telst|username/i.test(key))continue;
+   collect(v,path?path+'.'+key:key,depth+1);
+  }
+ };
+ collect(value.errors,'');
+ const message=clean(value.message);
+ return {message,errors,summary:[message,...Object.entries(errors).map(([field,reason])=>field+': '+reason)].filter(Boolean).join(' ').slice(0,1200)};
+}
+export class QuibiValidationError extends Error {
+ readonly validation:ReturnType<typeof safeQuibiValidation>;
+ constructor(value:Record<string,unknown>,secrets:string[]=[]){super('QUIBI_API_REJECTED');this.name='QuibiValidationError';this.validation=safeQuibiValidation(value,secrets)}
+}
+
 export function quibiRejectionDiagnostics(value:Record<string,unknown>){
  const text=JSON.stringify({message:value.message,errors:value.errors}).toLocaleLowerCase('sl-SI');
  const reasons=[['customer','strank|customer'],['vehicle','vozil|vehicle'],['numbering','številčen|stevilcen|numbering'],['permission','pravic|permission|dovoljen|forbidden'],['line','postavk|artikel|article'],['price','cen[ae]|price'],['vat','ddv|(^|[^a-z])vat([^a-z]|$)']].filter(([,pattern])=>new RegExp(pattern).test(text)).map(([code])=>code);
@@ -54,9 +82,9 @@ function createTransport(config: Config, workflow: boolean) {
       body: body ? JSON.stringify(body) : undefined,
       cache: "no-store", redirect: "error", signal: AbortSignal.timeout(12000),
     });
-    if (!response.ok){console.error(JSON.stringify({event:'quibi_transport_failure',path:path.split('?')[0],status:response.status}));throw new Error(`QUIBI_HTTP_${response.status}`);}
+    if (!response.ok){const rejection:unknown=await response.json().catch(()=>null);console.error(JSON.stringify({event:'quibi_transport_failure',path:path.split('?')[0],status:response.status,...(rejection&&typeof rejection==='object'?{validation:safeQuibiValidation(rejection as Record<string,unknown>,[config.username,config.password])}:{})}));if([400,401,403,404,405,410,422].includes(response.status)&&rejection&&typeof rejection==='object'&&(rejection as Record<string,unknown>).error===true)throw new QuibiValidationError(rejection as Record<string,unknown>,[config.username,config.password]);throw new Error(`QUIBI_HTTP_${response.status}`);}
     const payload:unknown=await response.json();
-    if(payload&&typeof payload==='object'&&(payload as Record<string,unknown>).error===true){const errors=(payload as Record<string,unknown>).errors;const fields=errors&&typeof errors==='object'?Object.keys(errors).filter(k=>/^[A-Za-z][A-Za-z0-9_.]{0,80}$/.test(k)):[];console.error(JSON.stringify({event:'quibi_api_rejection',path:path.split('?')[0],status:response.status,fields,...quibiRejectionDiagnostics(payload as Record<string,unknown>)}));throw new Error('QUIBI_API_REJECTED');}
+    if(payload&&typeof payload==='object'&&(payload as Record<string,unknown>).error===true){const errors=(payload as Record<string,unknown>).errors;const fields=errors&&typeof errors==='object'?Object.keys(errors).filter(k=>/^[A-Za-z][A-Za-z0-9_.]{0,80}$/.test(k)):[];console.error(JSON.stringify({event:'quibi_api_rejection',path:path.split('?')[0],status:response.status,fields,...quibiRejectionDiagnostics(payload as Record<string,unknown>),validation:safeQuibiValidation(payload as Record<string,unknown>,[config.username,config.password])}));throw new QuibiValidationError(payload as Record<string,unknown>,[config.username,config.password]);}
     return payload;
   }
 
@@ -88,6 +116,7 @@ function createTransport(config: Config, workflow: boolean) {
       if (!Array.isArray(data.Stevilcenje)) throw new Error("QUIBI_INVALID_RESPONSE");
       return data.Stevilcenje as Array<{ Stevilcenje: { id: string; naziv: string; glava_id: string } }>;
     },
+    async getWarehouses() { return responseData(await call("/api2/skladisca", "GET")); },
     async getSaleTypes() { return responseData(await call("/api2/glavadokumenta/vrstaprodaje", "GET")); },
     async getUnits() { return responseData(await call("/api2/enota", "GET")); },
     async getVatRates() { return responseData(await call("/api2/ddv", "GET")); },

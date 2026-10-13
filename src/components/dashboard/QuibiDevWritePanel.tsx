@@ -14,7 +14,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   writeEnabled?:boolean;
   catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;
   lineDescription?: string;
-  choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[] };
+  choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[]; warehouses?: QuibiChoice[] };
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
 }) {
   const router = useRouter();
@@ -147,6 +147,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
           <option value="">Izberite vrsto prodaje, če je vir ne določa</option>{choices?.saleTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
+      {!!choices?.warehouses?.length&&<label className="block text-sm">Skladišče v Quibiju<select name="warehouseId" defaultValue={choices.warehouses.length===1?choices.warehouses[0].id:''} required className="mt-1 block w-full rounded border px-3 py-2"><option value="">Izberite skladišče</option>{choices.warehouses.map(w=><option key={w.id} value={w.id}>{w.label}</option>)}</select></label>}
       {selectedHistory?<><input type="hidden" name="unitId" value={choices?.units.find(u=>u.label===selectedHistory.reviewedLines[0]?.unit)?.id??''}/><input type="hidden" name="vatId" value={selectedHistory.payloadLines[0]?.ddv_id??''}/></>:<div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-sm">Enota
           <select key={`unit-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.unitId??''} name="unitId" disabled={!!selectedSource&&!selectedHistory} required className="mt-1 block w-full rounded border px-3 py-2">
