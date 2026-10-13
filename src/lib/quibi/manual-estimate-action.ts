@@ -11,8 +11,8 @@ import { customerFingerprint } from "@/lib/quibi/contracts";
 import { verifiedVehicleLink } from "@/lib/quibi/price-suggestion";
 import { demoEvidenceAllowed } from "@/lib/demo/evidence";
 
-type Result = { ok: true; quoteId: string; versionNo: number } | { ok: false; message: string };
-const error = (message: string): { ok: false; message: string } => ({ ok: false, message });
+type Result = { ok: true; quoteId: string; versionNo: number } | { ok: false; message: string; refreshed?: boolean };
+const error = (message: string): { ok: false; message: string; refreshed?: boolean } => ({ ok: false, message });
 
 async function caseVehicleIsCurrent(
   db: Awaited<ReturnType<typeof createClient>>,
@@ -121,14 +121,14 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
 export async function reviewManualQuibiEstimate(
   quoteId: string,
   decision: "approve" | "reject",
-): Promise<{ ok: true; reviewStatus: string } | { ok: false; message: string }> {
+): Promise<{ ok: true; reviewStatus: string } | { ok: false; message: string; refreshed?: boolean }> {
   const access = await requirePhase1OperationalAccess();
   if (!["owner", "admin"].includes(access.role)) return error("Samo Tadej oziroma skrbnik lahko odloči o ceni.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
       || !["approve", "reject"].includes(decision)) return error("Neveljaven predračun ali odločitev.");
   const db = await createClient();
   const { data: quote, error: quoteError } = await db.from("quotes")
-    .select("service_request_id, content_sha256, evidence_kind, evidence_payload")
+    .select("service_request_id, content_sha256, evidence_kind, evidence_payload, internal_review_status")
     .eq("organization_id", access.organizationId).eq("id", quoteId).maybeSingle();
   const evidence = quote?.evidence_payload as { external_id?: unknown; customer_external_id?: unknown } | null;
   if (quoteError || !quote || quote.evidence_kind !== "quibi_manual_estimate"
@@ -165,6 +165,10 @@ export async function reviewManualQuibiEstimate(
       return error("Predračun pripada drugemu Quibijevemu vozilu. Preverite dokument.");
     }
     if (detail.contentSha256 !== quote.content_sha256 || detail.lines.length === 0) {
+      if(detail.lines.length && quote.internal_review_status === "unreviewed") {
+        const refreshed=await linkManualQuibiEstimate(quote.service_request_id,evidence.external_id,true);
+        if(refreshed.ok)return {ok:false,refreshed:true,message:"Vsebina dokumenta se je spremenila. Osvežena je nova različica istega predračuna; ponovno preglejte postavke in potrdite ceno. Quibi CREATE ali SEND ni izveden."};
+      }
       return error("Vsebina predračuna se je spremenila. Povežite novo različico pred pregledom.");
     }
   } catch {
@@ -190,7 +194,7 @@ export async function reviewManualQuibiEstimate(
 
 export async function recordManualEstimateDelivery(
   quoteId: string, channel: string, reference: string,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<{ ok: true } | { ok: false; message: string; refreshed?: boolean }> {
   const access = await requirePhase1OperationalAccess();
   if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
@@ -270,7 +274,7 @@ export async function recordManualEstimateDelivery(
 
 export async function recordManualEstimateDecision(
   quoteId: string, decision: "approved" | "rejected", reference: string,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<{ ok: true } | { ok: false; message: string; refreshed?: boolean }> {
   const access = await requirePhase1OperationalAccess();
   if(reference.trim().startsWith('QA-SIM-')&&(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'))return error('Simulirana QA odločitev je dovoljena samo v Quibi DEV Preview.');
   if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");

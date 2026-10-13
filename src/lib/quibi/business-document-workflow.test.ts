@@ -46,3 +46,6 @@ test('reread rejects changed units, VAT, discount or amount',async()=>{
 });
 
 test('definitive business CREATE rejection is failed, locked and never redispatched',async()=>{const f=fixture();let posts=0;f.args.write.createEstimate=async()=>{posts++;throw Error('QUIBI_API_REJECTED')};await assert.rejects(createBusinessDocument(f.args),/API_REJECTED/);assert.equal(f.state(),'failed');await assert.rejects(createBusinessDocument(f.args),/RECONCILIATION/);assert.equal(posts,1);});
+
+test('PDF issuance is finalized before capturing business SHA; one CREATE only',async()=>{const f=fixture();let printed=false;const original=f.args.read.documentDetail;const read={...f.args.read,documentPdf:async()=>{printed=true},documentDetail:async()=>({...await original(),contentSha256:(printed?'b':'a').repeat(64)})};const op=await createBusinessDocument({...f.args,read});assert.equal(op.quibiContentSha256,'b'.repeat(64));assert.equal(f.count(),1);await createBusinessDocument({...f.args,read});assert.equal(f.count(),1)});
+test('failed PDF keeps accepted document uncertain and never repeats CREATE',async()=>{const f=fixture();const read={...f.args.read,documentPdf:async()=>{throw Error('PDF_UNAVAILABLE')}};await assert.rejects(createBusinessDocument({...f.args,read}),/PDF_UNAVAILABLE/);assert.equal(f.state(),'uncertain');assert.equal(f.count(),1)});

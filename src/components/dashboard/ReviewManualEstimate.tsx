@@ -14,7 +14,7 @@ export function ReviewManualEstimate({ quoteId, realDevWrite = false }: { quoteI
     startTransition(async () => {
       const result = await reviewManualQuibiEstimate(quoteId, decision);
       setMessage(result.ok ? (decision === "approve" ? realDevWrite ? "Cena je odobrena za preverjeno pošiljanje." : "Cena je odobrena za ročno pošiljanje." : "Različica je zavrnjena za popravek.") : result.message);
-      if (result.ok) router.refresh();
+      if (result.ok || (!result.ok && result.refreshed)) { setAttested(false); router.refresh(); }
     });
   }
   return <div className="space-y-2 border-t pt-3">

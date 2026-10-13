@@ -24,6 +24,7 @@ export interface OperationJournal {
 }
 
 export interface EstimateRead {
+  documentPdf?(id:string):Promise<unknown>;
   estimates(customerId: string): Promise<Array<{ id: string }>>;
   estimateDetail(id: string, customerId: string): Promise<{
     id: string; customerId: string; vehicleId?: string; externalId?: string;
@@ -102,6 +103,9 @@ export async function createAndVerifyEstimate(args: {
     const dispatched = await journal.patch(op.id, "dispatching", {
       state: "uncertain", quibiId: result.id, documentNumber: result.number,
     });
+    await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, result.id, numberingId, result.number);
+    // PDF generation can set Quibi issuance metadata. Capture the final SHA afterwards.
+    if(read.documentPdf)await read.documentPdf(result.id);
     const detail = await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, result.id, numberingId,
       result.number);
     return journal.patch(dispatched.id, "uncertain", { state: "verified", quibiContentSha256: detail.contentSha256 });
