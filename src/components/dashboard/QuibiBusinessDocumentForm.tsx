@@ -47,3 +47,5 @@ export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEn
  {result&&<p role={result.ok?'status':'alert'} className="text-sm">{result.message}</p>}
  </fieldset></form>;
 }
+
+export function QuibiBusinessReadReconcile({caseId,operationId}:{caseId:string;operationId:string}){const router=useRouter();const [pending,start]=useTransition();const [message,setMessage]=useState('');return <div className="space-y-2"><button type="button" disabled={pending} className="rounded border px-3 py-2 disabled:opacity-50" onClick={()=>start(async()=>{const form=new FormData();for(const [key,value] of Object.entries({caseId,operationId,kind:'invoice',reconcile:'yes'}))form.set(key,value);const result=await prepareQuibiBusinessDocument(form);setMessage(result.message);if(result.ok)router.refresh();})}>{pending?'Preverjam račun…':'Ponovno preveri ustvarjeni račun (brez ponovitve)'}</button>{message&&<p role="status">{message}</p>}</div>;}

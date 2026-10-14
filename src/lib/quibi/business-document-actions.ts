@@ -12,7 +12,7 @@ import {configuredQuibiReadClient} from './client';
 import {quibiLinkEnvironment} from './workflow-config';
 import {customerFingerprint,vehicleFingerprint} from './contracts';
 import {loadQuibiDocument} from './document-read';
-import {assertBusinessStage,businessDocumentBody,createBusinessDocument,assertBusinessUpdateChanges,updateBusinessDocument,businessUpdatePayload,type BusinessKind} from './business-document-workflow';
+import {assertBusinessStage,businessDocumentBody,createBusinessDocument,assertBusinessUpdateChanges,updateBusinessDocument,businessUpdatePayload,type BusinessKind,confirmBusinessContent} from './business-document-workflow';
 import {businessSourceLines,quibiSourceNotes} from './business-source-lines';
 import {stableEstimatePayload,withDocumentId} from './write-contract';
 import {configuredQuibiWorkflowWriteClient} from './write-client';
@@ -23,13 +23,15 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
  let dispatchStarted=false;
  const access=await requirePhase1OperationalAccess();
  if(!['owner','admin'].includes(access.role))return {ok:false,message:'Pripravo poslovnih dokumentov lahko potrdi skrbnik.'};
+ const reconciling=form.get('reconcile')==='yes';
+ if(reconciling&&form.get('dispatch')==='yes')return {ok:false,message:'Razrešitev uporablja samo READ. CREATE in SEND nista dovoljena.'};
  const updating=form.get('operation')==='update';
  const directCase=typeof form.get('caseId')==='string';
  const orderId=String(form.get(directCase?'caseId':'orderId')??''),kind=String(form.get('kind')??'') as BusinessKind;
  if(!/^[a-f0-9-]{36}$/i.test(orderId)||!['work_order','invoice'].includes(kind)||(form.get('dispatch')==='yes'&&form.get('confirmed')!=='yes'))return {ok:false,message:'Izrecno potrdite pripravo dokumenta za ta nalog.'};
  try{
   const db=await createClient(),environment=quibiLinkEnvironment(process.env);
-  const caseContext=directCase?await loadCaseBusinessContext(db,access.organizationId,orderId,kind,form.get('repairCompleted')==='yes',form.get('dispatch')!=='yes'):null;
+  const caseContext=directCase?await loadCaseBusinessContext(db,access.organizationId,orderId,kind,form.get('repairCompleted')==='yes',form.get('dispatch')!=='yes',reconciling):null;
   const {data:order,error:orderError}=caseContext?{data:caseContext.order,error:null}:await db.from('work_orders').select('id,service_request_id,customer_id,vehicle_id,status').eq('organization_id',access.organizationId).eq('id',orderId).single();
   if(orderError||!order||order.service_request_id==='9d40c42f-b6a8-473b-983f-f9620df97d10')throw Error('CASE_BLOCKED');
   assertBusinessStage(kind,order.status);
@@ -74,11 +76,28 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const expectedUnitNetPrices=source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>Number(line.unitNetPrice));
   if(source.vehicleId!==vehicleLink.quibi_vehicle_id||!source.lines.length)throw Error('IDENTITY_UNVERIFIED');
   const review={sourceId:source.id,sourceSha:source.contentSha256,amount:source.amount,lines:source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>({description:line.description,quantity:line.quantity,unit:units.find(u=>u.id===line.unitId)!.label,vat:vat.find(v=>v.id===line.vatId)!.label,unitGrossPrice:line.unitGrossPrice!,discount:line.discount!})),notes:quibiSourceNotes(source).map(line=>line.description)};
-  if(!header.ready){
+  if(!header.ready&&!reconciling){
    if(form.get('dispatch')==='yes')throw Error('CATALOG_INVALID');
    return {...review,ok:true,headerSelectionRequired:true,message:'Postavke so prebrane iz preverjenega Quibi dokumenta. Izberite veljavno številčenje in vrsto prodaje; priprava se nato samodejno preveri.'};
   }
-  if(kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Potrdite opravljeno popravilo in dejanski datum; Selan nato samodejno preveri pripravo za CREATE.'};
+  if(!reconciling&&kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Potrdite opravljeno popravilo in dejanski datum; Selan nato samodejno preveri pripravo za CREATE.'};
+  if(reconciling){
+   if(!directCase||kind!=='invoice')throw Error('RECONCILIATION_FORBIDDEN');
+   const opId=String(form.get('operationId')??'');
+   const {data:row,error:oe}=await db.from('quibi_dev_operation_journal').select('id,local_entity_id').eq('organization_id',access.organizationId).eq('service_request_id',orderId).eq('kind','invoice').eq('state','uncertain').eq('id',opId).not('quibi_id','is',null).single();
+   if(oe||!row)throw Error('RECONCILIATION_UNVERIFIED');
+   const journal=quibiWorkflowJournal(access.organizationId,access.userId),op=await journal.get('invoice',row.local_entity_id);
+   if(!op||op.id!==opId||op.state!=='uncertain'||!op.quibiId)throw Error('RECONCILIATION_UNVERIFIED');
+   const body=JSON.parse(op.requestBody);
+   if(stableEstimatePayload(body).sha256!==op.requestSha256||String(body.Glavadokumenta.stranka_id)!==link.external_id||String(body.Glavadokumenta.vozila_id)!==vehicleLink.quibi_vehicle_id||body.Glavadokumenta.external_id!=='selan-work-order:'+row.local_entity_id+':invoice')throw Error('RECONCILIATION_UNVERIFIED');
+   const doc=await loadQuibiDocument(read,'invoice',op.quibiId,link.external_id);
+   confirmBusinessContent(doc,body,expectedUnitNetPrices,expectedUnitIds);
+   if(Number(doc.amount)!==Number(source.amount)||!doc.number||doc.number==='Osnutek'||(op.documentNumber!==doc.number&&op.documentNumber!=='Osnutek'))throw Error('QUIBI_DOCUMENT_NUMBER_MISMATCH');
+   await journal.patch(op.id,'uncertain',{state:'verified',documentNumber:doc.number,quibiContentSha256:doc.contentSha256});
+   console.info(JSON.stringify({event:'quibi_invoice_read_reconciled',operationId:op.id,documentId:doc.id,previousNumber:op.documentNumber,number:doc.number}));
+   revalidatePath('/dashboard/primeri/'+orderId);
+   return {ok:true,message:'Račun je ponovno prebran in preverjen. CREATE in SEND nista ponovljena.',documentId:doc.id};
+  }
   const invoiceHeader=kind==='invoice'?await verifiedInvoiceHeader(read,numberingId):undefined;
   const journalForRetry=quibiWorkflowJournal(access.organizationId,access.userId);
   const rejected=directCase&&!updating?await journalForRetry.get(kind,orderId):null;

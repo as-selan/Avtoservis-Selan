@@ -8,7 +8,7 @@ import {assertBusinessCreationNamespace,caseBusinessReference,type JournalRefere
 import {loadQuibiDocument} from '@/lib/quibi/document-read';
 import {quibiWorkflowJournal} from '@/lib/quibi/write-journal';
 import {businessSendKey} from '@/lib/quibi/business-send-workflow';
-import {QuibiBusinessDocumentForm} from './QuibiBusinessDocumentForm';
+import {QuibiBusinessDocumentForm,QuibiBusinessReadReconcile} from './QuibiBusinessDocumentForm';
 import {QuibiBusinessSend} from './QuibiBusinessSend';
 export async function QuibiCaseBusinessOperations({organizationId,userId,caseId,customerId,status,syntheticQa=false}:{organizationId:string;userId:string;caseId:string;customerId:string;status:string;syntheticQa?:boolean}){
  if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview')return null;
@@ -30,6 +30,8 @@ export async function QuibiCaseBusinessOperations({organizationId,userId,caseId,
  db.from('quibi_dev_operation_journal').select('id,kind,state,quibi_id,quibi_content_sha256,request_body,created_at,local_entity_id').eq('organization_id',organizationId).eq('service_request_id',caseId).in('kind',['work_order','invoice','work_order_update','invoice_update'])]);
  if(le||ce||oe||!link||!customer||link.sync_status!=='ok'||link.quibi_environment!=='dev')return <p role="alert">Poslovne operacije zahtevajo preverjeno povezavo stranke in dostopen journal.</p>;
  const quibiCustomerId=link.external_id,localEmail=customer.email;
+ const pendingInvoice=operations?.find(r=>r.kind==='invoice'&&r.state==='uncertain'&&r.quibi_id);
+ if(pendingInvoice)return <section className="space-y-3 rounded-xl border border-amber-300 bg-white p-4"><h2 className="font-semibold">Preveri že ustvarjeni račun</h2><p>Quibi je vrnil račun #{pendingInvoice.quibi_id}. Končno preverjanje zahteva pregled; nov CREATE in SEND sta ustavljena.</p><QuibiBusinessReadReconcile caseId={caseId} operationId={pendingInvoice.id}/></section>;
  async function prepare(){
  const read=configuredQuibiReadClient(),rows=(operations??[]) as JournalReferenceRow[];
  for(const kind of ['work_order','invoice'])assertBusinessCreationNamespace(operations??[],caseId,kind);
