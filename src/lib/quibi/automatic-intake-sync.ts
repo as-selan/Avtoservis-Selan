@@ -1,3 +1,4 @@
+import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from './intake-sync-configuration';
 import 'server-only';
 import {revalidatePath} from 'next/cache';
 import {currentIntakeCompleteness} from '../intake/completeness';
@@ -30,12 +31,10 @@ export async function processIntakeSynchronization(caseId:string){
   revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+caseId);
  }
  for(let attempt=0;attempt<3;attempt++)try{
-  if(process.env.QUIBI_DEV_INTAKE_SYNC_ENABLED!=='1'||process.env.VERCEL_ENV!=='preview'||process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.QUIBI_DEV_LOCAL_WRITE_ENABLED==='1'||process.env.QUIBI_DEV_LOCAL_SEND_ENABLED==='1')throw Error('INTAKE_SYNC_DISABLED');
-  const config=quibiWorkflowConfig(process.env,'write');if(config.mode!=='dev'||config.origin!=='https://dev.quibi.net')throw Error('INTAKE_SYNC_DISABLED');
-  const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID;
-  if(!actor||!uuid.test(actor))throw Error('INTAKE_SYNC_DISABLED');
+  const configurationProblem=intakeSyncConfigurationProblem(process.env);if(configurationProblem)throw Error('INTAKE_CONFIG:'+configurationProblem);
+  const config=quibiWorkflowConfig(process.env,'write');const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!;
   const {data:membership,error:membershipError}=await db.from('organization_memberships').select('role').eq('organization_id',org.id).eq('profile_id',actor).eq('is_active',true).single();
-  if(membershipError||!membership||!['owner','admin'].includes(membership.role))throw Error('INTAKE_SYNC_DISABLED');
+  if(membershipError||!membership||!['owner','admin'].includes(membership.role))throw Error('INTAKE_CONFIG:'+INTAKE_ACTOR_ACCESS_PROBLEM);
   const [{data:customer,error:ce},{data:vehicle,error:ve},{data:link,error:le},{data:vehicleLink,error:vle}]=await Promise.all([
    db.from('customers').select('display_name,phone,email').eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null).single(),
    request.vehicle_id?db.from('vehicles').select('vin,registration_current,make,model').eq('organization_id',org.id).eq('customer_id',request.customer_id).eq('id',request.vehicle_id).is('archived_at',null).single():Promise.resolve({data:null,error:null}),
@@ -85,8 +84,8 @@ export async function processIntakeSynchronization(caseId:string){
  }catch(error){
   const code=error instanceof Error?error.message:'';
   const review=/REVIEW|MISMATCH|CHANGED|REJECTED/.test(code);
-  await status(code==='INTAKE_SYNC_DISABLED'?'Samodejna povezava še ni omogočena za strežniškega uporabnika.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
-  if(review||code==='INTAKE_SYNC_DISABLED')return;
+  await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
+  if(review||code.startsWith('INTAKE_CONFIG:'))return;
  }
 }
 

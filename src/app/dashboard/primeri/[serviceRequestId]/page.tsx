@@ -1,3 +1,4 @@
+import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from '@/lib/quibi/intake-sync-configuration';
 import {CaseWorkPanel} from '@/components/dashboard/CaseWorkPanel';
 import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
 import {syntheticCaseEvidenceAllowed} from '@/lib/quibi/synthetic-case-evidence';
@@ -100,6 +101,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     ]);
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
+    let syncConfigurationProblem=intakeSyncConfigurationProblem(process.env);
+    if(!syncConfigurationProblem){const actor=await db.from('organization_memberships').select('role,is_active').eq('organization_id',access.organizationId).eq('profile_id',process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!).maybeSingle();if(actor.error||!actor.data?.is_active||!['owner','admin'].includes(actor.data.role))syncConfigurationProblem=INTAKE_ACTOR_ACCESS_PROBLEM;}
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
     const prep = prepResult.data;
@@ -253,7 +256,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
-      {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null}/>}
+      {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
       {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border bg-white p-4 space-y-2">
