@@ -87,7 +87,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const warehouses=await read.catalog('warehouses');
   if(warehouses.length&&!warehouses.some(w=>w.id===source.warehouseId))throw Error('WAREHOUSE_UNVERIFIED');
   let body=businessDocumentBody(kind,orderId,{spaceId:invoiceHeader?.spaceId,paymentMethod:invoiceHeader?.paymentMethod,warehouseId:source.warehouseId,serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`${syntheticQa?'QA-SIM ':''}Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}${directCase&&kind==='invoice'?(syntheticQa?'; QA-SIM: simulirani zaključek, dejanskega popravila ni; potrjeno: ':'; popravilo opravljeno, potrjeno: ')+access.userId:''}`},String(form.get('serviceDate')??''));
-  if(retryOperationId)body.Glavadokumenta.external_id+=':retry:'+retryOperationId;
+  if(retryOperationId)body.Glavadokumenta.external_id='selan-work-order:'+retryOperationId+':'+kind;
   let baselineSha:string|undefined;
   if(updating){
    const {data:sendAttempt,error:sendError}=await db.from(environment==='dev'?'quibi_dev_operation_journal':'quibi_production_operation_journal').select('quibi_id,request_body').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('kind','send').not('attempted_at','is',null);
@@ -99,7 +99,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    body=withDocumentId(body,existing!.quibi_document_id);
    if(form.get('dispatch')!=='yes')assertBusinessUpdateChanges(current,body,expectedUnitNetPrices,expectedUnitIds);
   }
-  if(retryOperationId){const listed=await (kind==='invoice'?read.invoices(link.external_id):read.workOrders(link.external_id));for(const item of listed){const current=await read.documentDetail(item.id,link.external_id);if(current.externalId?.startsWith('selan-work-order:'+orderId+':'+kind))throw Error('QUIBI_RETRY_DOCUMENT_EXISTS')}}
+  if(retryOperationId){const listed=await (kind==='invoice'?read.invoices(link.external_id):read.workOrders(link.external_id));for(const item of listed){const current=await read.documentDetail(item.id,link.external_id);if(current.externalId===body.Glavadokumenta.external_id||current.externalId?.startsWith('selan-work-order:'+orderId+':'+kind))throw Error('QUIBI_RETRY_DOCUMENT_EXISTS')}}
   const payload=updating?businessUpdatePayload(body,baselineSha!):stableEstimatePayload(body);
   if(form.get('dispatch')!=='yes')return {ok:true,message:'Priprava preverjena. Ni bilo Quibi zapisa ali pošiljanja.'+(invoiceHeader?' Način plačila: '+invoiceHeader.paymentMethod+'; poslovni prostor #'+invoiceHeader.spaceId+'; konfiguracija iz Quibi računa #'+invoiceHeader.sourceDocumentId+'.':'')+(retryOperationId?' Prejšnji zahtevek je dokončno zavrnjen. Potrditev ustvari ločen popravljen poskus; zavrnjeni zapis ostane ohranjen.':''),sha:payload.sha256,baselineSha,...review};
   if(form.get('expectedSha')!==payload.sha256)throw Error('SOURCE_CHANGED');

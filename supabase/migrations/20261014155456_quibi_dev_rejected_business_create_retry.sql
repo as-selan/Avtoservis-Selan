@@ -1,4 +1,5 @@
--- Pending approval: DEV journal only. Do not alter or delete operation evidence.
+-- Approved and applied to Selan DEV on 2026-10-14; version matches hosted migration history.
+-- DEV journal only. Do not alter or delete operation evidence.
 -- Exactly one potentially accepted CREATE per case and kind remains enforced.
 -- Only definitive failures without a remote document may have a separately reviewed correction.
 begin;
