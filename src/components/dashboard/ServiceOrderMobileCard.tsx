@@ -52,6 +52,7 @@ export function ServiceOrderMobileCard({ order }: ServiceOrderMobileCardProps) {
         ) : null}
       </div>
 
+      {order.intakeConnectionLabel&&<p className="mt-2 text-xs text-slate-600">{order.intakeConnectionLabel}</p>}
       <p className="mt-2 line-clamp-2 text-sm text-slate-600">
         {order.requestSummary}
       </p>

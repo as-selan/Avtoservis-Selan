@@ -37,7 +37,7 @@ export function nextCaseStep(input: {
       if (input.fixedPriceStatus === "prepared") return step("review_estimate", "Tadej naj preveri objavljeno končno ceno in vir.");
       if (input.fixedPriceStatus === "approved") return step("send_estimate", "Odobreno končno ceno dejansko sporočite stranki in zabeležite dokazilo.");
       if (input.fixedPriceStatus) return step("await_customer", "Preverite dejansko odločitev stranke o objavljeni končni ceni.");
-      if (!input.quibiLinked) return step("link_quibi", "Ročno potrdi obstoječo stranko v Quibiju.");
+      if (!input.quibiLinked) return step("link_quibi", "Preveri samodejno povezavo stranke in vozila s Quibijem; pri nejasnem ujemanju potrdi identiteto.");
       if (input.quibiSyncStatus && !["ok", "never_checked"].includes(input.quibiSyncStatus))
         return step("review_quibi_mismatch", "Preveri spremembe ali napako Quibijeve povezave pred nadaljevanjem.");
       if (!input.offerPrepared) return step("prepare_offer", "Pripravi podatke za predračun.");

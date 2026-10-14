@@ -1,4 +1,5 @@
 import 'server-only';
+import {revalidatePath} from 'next/cache';
 import {currentIntakeCompleteness} from '../intake/completeness';
 import {after} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
@@ -26,6 +27,7 @@ export async function processIntakeSynchronization(caseId:string){
   if(request!.attention_reason&&!request!.attention_reason.startsWith('Quibi povezava:'))return;
   const {error}=await db.from('service_requests').update({attention_needed:!!message,attention_reason:message?'Quibi povezava: '+message:null}).eq('organization_id',org!.id).eq('id',caseId).eq('customer_id',request!.customer_id);
   if(error)throw Error('INTAKE_STATUS_STORAGE_FAILED');
+  revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+caseId);
  }
  for(let attempt=0;attempt<3;attempt++)try{
   if(process.env.QUIBI_DEV_INTAKE_SYNC_ENABLED!=='1'||process.env.VERCEL_ENV!=='preview'||process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.QUIBI_DEV_LOCAL_WRITE_ENABLED==='1'||process.env.QUIBI_DEV_LOCAL_SEND_ENABLED==='1')throw Error('INTAKE_SYNC_DISABLED');

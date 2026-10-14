@@ -59,7 +59,7 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status">,
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {intakeConnectionLabel?:string},
 ): ServiceOrderDemo {
   const uiStatus = mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
 
@@ -71,6 +71,7 @@ export function adaptServiceRequestToOrder(
     vehicleMakeModel: vehicleMakeModel(vehicle),
     registration: vehicle?.registration_current?.trim() || undefined,
     requestSummary: row.summary,
+    intakeConnectionLabel:stepInput.intakeConnectionLabel,
     status: uiStatus,
     nextActionLabel: nextCaseStep({ ...stepInput, status: row.status }).label,
     offerPreparationReady: stepInput.offerPrepared,

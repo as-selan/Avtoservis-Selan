@@ -33,6 +33,7 @@ export interface ServiceOrderDemo {
   vehicleMakeModel: string;
   registration?: string;
   requestSummary: string;
+  intakeConnectionLabel?:string;
   status: WorkflowStatusId;
   nextActionLabel: string;
   locationLabel?: string;

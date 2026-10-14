@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import {useRouter} from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type { DashboardPeriodId, DashboardSnapshot, WorkflowStatusId } from "@/lib/dashboard/types";
 import {
   isDateInPeriod,
@@ -21,6 +23,9 @@ interface DashboardPageClientProps {
 
 export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   const { setOpen: setManualOpen } = useManualEntry();
+  const router=useRouter();const [refreshing,startRefresh]=useTransition();
+  useEffect(()=>{let lastRefresh=Date.now();const refresh=()=>{const active=document.activeElement;if(document.visibilityState!=='visible'||active?.matches('input,textarea,select,[contenteditable="true"]')||Date.now()-lastRefresh<15000)return;lastRefresh=Date.now();startRefresh(()=>router.refresh());};const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh)}},[router]);
+  const incoming=initialData.ok?initialData.orders.filter(o=>['novo','manjkajo_podatki','potreben_pregled'].includes(o.status)):[];
   const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusId | "all">(
     "all",
@@ -98,6 +103,11 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
         <DashboardPeriodFilter value={period} onChange={setPeriod} />
       </div>
 
+      <section aria-labelledby="incoming-heading" className="rounded-xl border border-blue-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="incoming-heading" className="font-semibold">Prejeta povpraševanja · {incoming.length}</h2><button disabled={refreshing} onClick={()=>startRefresh(()=>router.refresh())} className="rounded border px-3 py-2 text-sm disabled:opacity-50">{refreshing?'Osvežujem…':'Osveži povpraševanja'}</button></div>
+        <p className="mt-1 text-sm text-slate-600">Nova in nepopolna povpraševanja iz vseh obdobij. Povezava s Quibijem poteka samodejno; sprejem in poslovne odločitve potrdi Tadej. Seznam se osvežuje samodejno.</p>
+        {incoming.length?<ul className="mt-3 max-h-80 space-y-2 overflow-y-auto">{incoming.map(o=><li key={o.serviceRequestId??o.id} className="rounded border p-3"><p className="font-medium">{o.customerName} · {o.vehicleMakeModel}{o.registration?' · '+o.registration:''}</p><p className="text-sm text-slate-600">{o.requestSummary}</p>{o.intakeConnectionLabel&&<p className="text-sm">{o.intakeConnectionLabel}</p>}{o.serviceRequestId&&<Link className="mt-2 inline-block py-1 font-medium text-blue-700" href={'/dashboard/primeri/'+o.serviceRequestId}>{o.status==='manjkajo_podatki'?'Dopolni podatke istega primera':'Preglej in sprejmi povpraševanje'} →</Link>}</li>)}</ul>:<p className="mt-3 text-sm text-slate-600">Ni novih povpraševanj za sprejem ali dopolnitev.</p>}
+      </section>
       <WorkflowStatusSummary
         items={workflowCounts}
         attentionCount={attention.length}

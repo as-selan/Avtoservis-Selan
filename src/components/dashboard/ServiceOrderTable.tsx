@@ -73,7 +73,7 @@ export function ServiceOrderTable({ orders }: ServiceOrderTableProps) {
                 ) : null}
               </td>
               <td className="max-w-[180px] truncate px-3 py-3 text-slate-700">
-                {order.requestSummary}
+                {order.requestSummary}{order.intakeConnectionLabel&&<span className="mt-1 block text-xs text-slate-500">{order.intakeConnectionLabel}</span>}
               </td>
               <td className="px-3 py-3">
                 <span

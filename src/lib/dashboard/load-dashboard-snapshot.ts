@@ -1,3 +1,4 @@
+import {intakeConnection} from './intake-connection';
 import {quibiBusinessNextAction,type BusinessStepRecord} from '@/lib/cases/next-step';
 import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
@@ -130,7 +131,8 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const fixedPriceByRequest = new Map<string, string>();
     const slotByRequest = new Map<string, string>();
     const syntheticAppointments = new Set<string>();
-    const linkByCustomer = new Map<string, { sync_status: string }>();
+    const linkByCustomer = new Map<string, { external_id:string;sync_status: string;quibi_environment:string }>();
+    const vehicleLinkById=new Map<string,{customer_id:string;quibi_customer_id:string;sync_status:string;quibi_environment:string}>();
     const quoteByRequest = new Map<string, { id: string; internal_review_status: string; content_sha256:string }>();
     const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null;content_sha256:string;decided_at:string|null;decision_evidence_reference:string|null;revoked_at:string|null }>();
     const inspectionByRequest = new Map<string, string | null>();
@@ -141,11 +143,12 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const quoteSendByRequest = new Map<string,{status:string|null}>();
     if (customerIds.length > 0) {
       const { data, error } = await supabase.from("integration_links")
-        .select("entity_id, sync_status").eq("organization_id", access.organizationId)
+        .select("entity_id, external_id, sync_status, quibi_environment").eq("organization_id", access.organizationId)
         .eq("provider", "quibi").eq("entity_type", "customer").in("entity_id", customerIds);
       if (error) return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
-      for (const row of data ?? []) linkByCustomer.set(row.entity_id, { sync_status: row.sync_status });
+      for (const row of data ?? []) linkByCustomer.set(row.entity_id, row);
     }
+    if(vehicleIds.length>0){const {data,error}=await supabase.from('quibi_vehicle_links').select('vehicle_id,customer_id,quibi_customer_id,sync_status,quibi_environment').eq('organization_id',access.organizationId).in('vehicle_id',vehicleIds);if(error)return {ok:false,message:LOAD_ERROR_MESSAGE,generatedAt};for(const row of data??[])vehicleLinkById.set(row.vehicle_id,row);}
     if (requestIds.length > 0) {
       const [quotes, approvals, inspections] = await Promise.all([
         supabase.from("quotes").select("id, service_request_id, internal_review_status, version_no, content_sha256")
@@ -216,6 +219,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
         ? vehiclesById.get(row.vehicle_id)
         : undefined;
 
+      const connection=intakeConnection(row.customer_id,row.customer_id?linkByCustomer.get(row.customer_id):undefined,row.vehicle_id?vehicleLinkById.get(row.vehicle_id):undefined,process.env.QUIBI_MODE??'dev');
       orders.push(
         adaptServiceRequestToOrder(
           row,
@@ -232,7 +236,8 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
             directQuibiBusiness: process.env.APP_ENV === 'preproduction' && process.env.QUIBI_MODE === 'dev' && process.env.VERCEL_ENV === 'preview',
             workOrderStatus: workOrderByRequest.get(row.id),
             offerPrepared: preparedRequestIds.has(row.id),
-            quibiLinked: !!(row.customer_id && linkByCustomer.has(row.customer_id)),
+            quibiLinked: connection.linked,
+            intakeConnectionLabel:connection.label,
             quibiSyncStatus: row.customer_id ? linkByCustomer.get(row.customer_id)?.sync_status : undefined,
             quoteReviewStatus: quoteByRequest.get(row.id)?.internal_review_status,
             deliveryStatus: approvalByRequest.get(row.id)?.quote_id === quoteByRequest.get(row.id)?.id
