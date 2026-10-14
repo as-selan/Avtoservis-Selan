@@ -145,10 +145,10 @@ function createTransport(config: Config, workflow: boolean) {
       if (workflow) {
         guard("send");
         if (selected?.mode === "production") actualCustomerEmail(email, email);
-        else if (email !== quibiDevTestRecipient(env)) throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");
+        else {try {if (email !== quibiDevTestRecipient(env, undefined, email)) throw Error("RECIPIENT");} catch {throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");}}
       } else assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-          (selected?.mode !== "production" && email !== env.QUIBI_DEV_TEST_RECIPIENT))
+          (!workflow && email !== env.QUIBI_DEV_TEST_RECIPIENT))
         throw new Error("QUIBI_TEST_RECIPIENT_REQUIRED");
       const value = await call(`/api2/glavadokumenta/send/${validQuibiId(id)}`, "POST", {
         email, ...(subject ? { zadeva: subject } : {}), ...(content ? { vsebina: content } : {}),

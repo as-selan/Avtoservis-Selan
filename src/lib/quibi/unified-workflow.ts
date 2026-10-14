@@ -62,6 +62,7 @@ export async function approveAndSendEstimate(args: Dependencies & {
     displayedAmount: string;
     manualReference: string;
     qaIdentityLimitationConfirmed?: boolean;
+    selectedRecipient?: string;
 }) {
     const config = quibiWorkflowConfig(args.environment, "send");
     if (await args.journal.get("send", args.quoteId))
@@ -69,7 +70,7 @@ export async function approveAndSendEstimate(args: Dependencies & {
     const s = await args.authorize();
     validateSendSnapshot(s, args.caseId, args.quoteId);
     assertLocalQuibiSendTarget(args.environment, s);
-    const recipient = workflowRecipient(args.environment, s.customerEmail, s.remoteEmail);
+    const recipient = workflowRecipient(args.environment, s.customerEmail, s.remoteEmail, args.selectedRecipient);
     if (!args.reviewConfirmed || args.displayedSha256 !== s.sha256 || Number(args.displayedAmount) !== Number(s.detail.amount))
         throw Error("QUIBI_REVIEW_REQUIRED");
     const explicitIdentity = s.detail.vehicleId === s.vehicleId && s.detail.externalId === "selan-service-request:" + args.caseId;
@@ -99,7 +100,7 @@ export async function approveAndSendEstimate(args: Dependencies & {
         const final = await args.authorize();
         validateSendSnapshot(final, args.caseId, args.quoteId);
         if (final.reviewStatus !== "approved_for_send" || JSON.stringify(identity(final)) !== JSON.stringify(identity(s)) ||
-            workflowRecipient(args.environment, final.customerEmail, final.remoteEmail) !== recipient)
+            workflowRecipient(args.environment, final.customerEmail, final.remoteEmail, recipient) !== recipient)
             throw Error("QUIBI_APPROVAL_CHANGED");
     }
     catch (e) {

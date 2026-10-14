@@ -1,3 +1,4 @@
+import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
 import {syntheticCaseEvidenceAllowed} from '@/lib/quibi/synthetic-case-evidence';
 import {loadEstimateCatalog,exactEstimateCatalogMatch,type EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
 import {AutomaticIntakeSync} from '@/components/dashboard/AutomaticIntakeSync';
@@ -230,6 +231,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
 
       <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
         <h2 className="font-semibold text-blue-950">Naslednji korak</h2>
+        {process.env.QUIBI_MODE==='dev'&&<details className="mt-3 rounded border bg-white p-3"><summary className="cursor-pointer font-medium">Celoten servisni postopek · kaj opravi Selan in kaj potrdiš ti</summary><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm"><li>Povpraševanje: spletni ali ročni vnos. Selan shrani primer in preveri povezavo stranke ter vozila.</li><li>Predračun: Selan pridobi preverjene Quibijeve postavke in cene. Pregledaš manjkajoče podatke in potrdiš ustvarjanje v Quibiju.</li><li>Pošiljanje predračuna: izbereš dovoljen testni naslov in potrdiš enkratno pošiljanje. Selan shrani referenco ter preverja status.</li><li>Odobritev: zabeležiš dejansko odločitev in njeno referenco, tudi po telefonu. Status pošiljanja ni odobritev.</li><li>Delovni nalog: Selan pripravi podatke iz odobrenega predračuna. Potrdiš ustvarjanje Quibijevega naloga.</li><li>Popravilo: potrdiš, da je opravljeno, in dejanski datum storitve. QA simulacijo vedno označiš posebej.</li><li>Račun: Selan prevzame postavke iz preverjenega naloga. Pregledaš račun in potrdiš ustvarjanje, nato ločeno pošiljanje.</li><li>Prevzem: preveriš dejansko plačilo in prevzem. Status »sent« ne potrjuje prejema, plačila ali zaključka.</li></ol><p className="mt-3 text-sm">AI je pripravljen, vendar neaktiven. Quibi povezave delujejo brez AI ključa. Termini se urejajo ročno.</p></details>}
         <p className="mt-1 text-sm text-blue-900">{step.label}</p>
         {request.next_action && ["new", "needs_data", "preparing_offer"].includes(request.status) &&
           !inspectionResult.data?.repair_decision &&
@@ -298,7 +300,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
             <QuibiEstimateWorkflowPanel key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
               reviewStatus={quote.internal_review_status} sha256={quote.content_sha256} amount={proposedPrice?.amount}
-              lines={reviewDetail?.lines ?? []} recipient={operationRecipient ?? testRecipient} dev={process.env.QUIBI_MODE === "dev"}
+              allowedRecipients={process.env.QUIBI_MODE==="dev"&&testRecipient?quibiDevTestRecipients(process.env).filter(email=>email!==customer?.email?.toLowerCase()):[]} lines={reviewDetail?.lines ?? []} recipient={operationRecipient ?? testRecipient} dev={process.env.QUIBI_MODE === "dev"}
               operationId={sendOperation?.id} attemptedAt={sendOperation?.attemptedAt}
               operationState={sendOperation?.state} sendId={sendOperation?.sendId} sendStatus={sendOperation?.sendStatus}
               alreadyDelivered={approval?.delivery_status === "delivered"}

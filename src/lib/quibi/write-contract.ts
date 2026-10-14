@@ -100,12 +100,15 @@ export function assertQuibiDevTestSendAllowed(env: Record<string, string | undef
   if (env.VERCEL_ENV !== "preview") throw new Error("QUIBI_DEV_TEST_SEND_DISABLED");
 }
 
-export function quibiDevTestRecipient(env: Record<string, string | undefined>, customerEmail?: string | null): string {
-  const email = env.QUIBI_DEV_TEST_RECIPIENT ?? "";
-  const domain = email.split("@")[1]?.toLowerCase() ?? "";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-      /(^|\.)(example\.(test|com|org|net)|test|localhost)$/.test(domain) ||
-      domain.includes("example.test") || email.toLowerCase() === customerEmail?.trim().toLowerCase())
-    throw new Error("QUIBI_TEST_RECIPIENT");
-  return email;
+/** Approved server-side allowlist. No arbitrary recipient may be posted by a browser. */
+export function quibiDevTestRecipients(env: Record<string,string|undefined>):string[]{
+ const configured=env.QUIBI_DEV_TEST_RECIPIENTS;
+ const values=configured===undefined?[env.QUIBI_DEV_TEST_RECIPIENT??'']:configured.split(',').map(v=>v.trim());
+ if(!values.length||values.length>10||values.some(email=>! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||/(^|\.)(example\.(test|com|org|net)|test|invalid|localhost)$/.test(email.split('@')[1].toLowerCase())||email.split('@')[1].toLowerCase().includes('example.test')))throw Error('QUIBI_TEST_RECIPIENT');
+ return [...new Set(values.map(v=>v.toLowerCase()))];
+}
+export function quibiDevTestRecipient(env:Record<string,string|undefined>,customerEmail?:string|null,selected?:string|null):string{
+ const allowed=quibiDevTestRecipients(env),email=(selected??env.QUIBI_DEV_TEST_RECIPIENT??allowed[0]).trim().toLowerCase();
+ if(!allowed.includes(email)||email===customerEmail?.trim().toLowerCase())throw Error('QUIBI_TEST_RECIPIENT');
+ return email;
 }

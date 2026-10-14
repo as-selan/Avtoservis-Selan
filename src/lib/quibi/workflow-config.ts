@@ -52,14 +52,14 @@ export function actualCustomerEmail(local: string | null, remote: string): strin
         throw Error("QUIBI_CUSTOMER_EMAIL_UNVERIFIED");
     return email;
 }
-export function workflowRecipient(env: Record<string, string | undefined>, local: string | null, remote: string): string {
+export function workflowRecipient(env: Record<string, string | undefined>, local: string | null, remote: string, selected?:string|null): string {
     const config = quibiWorkflowConfig(env, "send");
     if (config.mode === "production")
-        return actualCustomerEmail(local, remote);
+        {const actual=actualCustomerEmail(local, remote);if(selected&&selected!==actual)throw Error("QUIBI_TEST_RECIPIENT");return actual;}
     // DEV may identify a synthetic customer, but never transports to that address.
     const customerEmail = matchingCustomerEmail(local, remote);
-    const test = quibiDevTestRecipient(env, customerEmail);
-    quibiDevTestRecipient(env, remote);
+    const test = quibiDevTestRecipient(env, customerEmail, selected);
+    quibiDevTestRecipient(env, remote, test);
     return test;
 }
 /** Legacy local/demo fixtures remain DEV; production links require verified production read configuration. */

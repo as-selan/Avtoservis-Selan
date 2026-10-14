@@ -57,7 +57,7 @@ export async function sendLinkedQuibiBusinessDocument(form:FormData):Promise<{ok
   const read=configuredQuibiReadClient();
   const [remoteCustomer,remoteVehicle,doc]=await Promise.all([read.customer(link.external_id),read.vehicle(vl.quibi_vehicle_id,link.external_id),loadQuibiDocument(read,kind as 'work_order'|'invoice',documentId,link.external_id)]);
   if(remoteVehicle.disabled||doc.vehicleId!==vl.quibi_vehicle_id||doc.contentSha256!==sha||doc.amount!==String(form.get('amount')??'')||!doc.lines.length||customerFingerprint({name:customer.display_name,email:customer.email??'',phone:customer.phone??''})!==link.local_fingerprint||customerFingerprint(remoteCustomer)!==link.external_fingerprint||vehicleFingerprint({vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''})!==vl.local_fingerprint||vehicleFingerprint(remoteVehicle)!==vl.external_fingerprint)throw Error('IDENTITY_CHANGED');
-  const recipient=workflowRecipient(process.env,customer.email,remoteCustomer.email);
+  const recipient=workflowRecipient(process.env,customer.email,remoteCustomer.email,String(form.get("recipient")??""));
   if(recipient!==form.get('recipient'))throw Error('RECIPIENT_CHANGED');
   const op=await sendBusinessDocument({caseId:order.service_request_id,documentId,sha,amount:doc.amount,recipient,journal,write:configuredQuibiWorkflowWriteClient()});
   return {ok:op.state==='verified',message:sendPresentation(op).message,sendId:op.sendId??undefined,status:op.sendStatus??undefined,locked:op.state!=='prepared'};
