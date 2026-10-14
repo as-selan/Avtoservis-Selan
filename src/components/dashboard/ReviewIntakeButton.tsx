@@ -1,21 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { reviewServiceRequestIntake } from "@/lib/cases/review-intake-action";
 
-export function ReviewIntakeButton({ serviceRequestId }: { serviceRequestId: string }) {
+export function ReviewIntakeButton({ serviceRequestId, blockedReason }: { serviceRequestId: string; blockedReason?:string|null }) {
   const router = useRouter();
+  const lock=useRef(false);
   const [confirmed, setConfirmed] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
   function review() {
-    if (pending || !confirmed) return;
+    if (lock.current || pending || !confirmed || blockedReason) return;
+    lock.current=true;
     startTransition(async () => {
-      const result = await reviewServiceRequestIntake(serviceRequestId);
+      try{const result = await reviewServiceRequestIntake(serviceRequestId);
       setMessage(result.message);
-      if (result.ok) router.refresh();
+      if (result.ok) router.refresh();}catch{setMessage("Sprejem ni potrjen. Podatki povpraševanja ostajajo shranjeni; osvežite stran in preverite stanje.")}finally{lock.current=false}
     });
   }
 
@@ -26,10 +28,11 @@ export function ReviewIntakeButton({ serviceRequestId }: { serviceRequestId: str
       onChange={(event) => setConfirmed(event.target.checked)} />
       Preveril sem podatke tega primera in ga sprejemam za pripravo ponudbe.
     </label>
-    <button type="button" disabled={pending || !confirmed} onClick={review}
+    <button type="button" disabled={pending || !confirmed || !!blockedReason} onClick={review}
       className="rounded bg-blue-700 px-3 py-2 font-medium text-white disabled:opacity-50">
       Sprejmi primer za pripravo ponudbe
     </button>
+    {blockedReason&&<p role="status">{blockedReason}</p>}
     {message && <p role={message.startsWith("Primer je sprejet") ? "status" : "alert"}>{message}</p>}
   </div>;
 }

@@ -251,7 +251,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {assistance.status!=='draft' && communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft key={communicationDraft.body} title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
       {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
         ["owner", "admin"].includes(access.role) &&
-        <ReviewIntakeButton serviceRequestId={serviceRequestId} />}
+        <ReviewIntakeButton key={request.updated_at} serviceRequestId={serviceRequestId} blockedReason={process.env.APP_ENV==='preproduction'&&process.env.QUIBI_MODE==='dev'&&!(link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok')?'Najprej preverite povezavo stranke in pravega vozila v spodnjem razdelku. Če vozila ni, njegovo ustvarjanje potrdi lastnik. Nato sprejmite primer za pripravo ponudbe.':null} />}
       {(request.has_error || request.attention_needed || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>
         {request.has_error && <p>{request.error_reason || "Primer ima zabeleženo napako."}</p>}

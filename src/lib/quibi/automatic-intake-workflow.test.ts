@@ -10,7 +10,7 @@ function fixture(){
  const read={customers:async()=>customers,customer:async(id:string)=>customers.find(c=>c.id===id)!,vehicles:async(id:string)=>vehicles.filter(v=>v.customerId===id),allVehicles:async()=>vehicles,vehicle:async(id:string)=>vehicles.find(v=>v.id===id)!};
  const write={createCustomer:async(body:{remote_id:string})=>{writes++;customers.push({...customer,id:'91',remoteId:body.remote_id})},createVehicle:async()=>{writes++;vehicles.push({...vehicle,id:'92',customerId:'91',disabled:false});return '92'}};
  const saved:string[]=[];
- const args={...ids,customer,vehicle,read,write,journal,linkedCustomerId:null,linkedVehicleId:null,saveCustomer:async(c:{id:string})=>{saved.push(c.id)},saveVehicle:async(v:{id:string})=>{saved.push(v.id)}};
+ const args={allowVehicleCreate:true,...ids,customer,vehicle,read,write,journal,linkedCustomerId:null,linkedVehicleId:null,saveCustomer:async(c:{id:string})=>{saved.push(c.id)},saveVehicle:async(v:{id:string})=>{saved.push(v.id)}};
  return {args,customers,vehicles,saved,count:()=>writes};
 }
 test('automatic intake creates both parties, rereads, persists IDs and never duplicates replay',async()=>{
@@ -80,3 +80,5 @@ test('four intake scenarios: existing/existing, existing/new, new/new and mismat
  const bothNew=fixture();assert.deepEqual(await synchronizeIntakeParties(bothNew.args),{customerId:'91',vehicleId:'92'});assert.equal(bothNew.count(),2);await synchronizeIntakeParties(bothNew.args);assert.equal(bothNew.count(),2);
  const mismatch=fixture();mismatch.customers.push({...customer,id:'91'});mismatch.vehicles.push({...vehicle,id:'93',customerId:'other',disabled:false});await assert.rejects(synchronizeIntakeParties(mismatch.args),/REVIEW|CONFLICT|MISMATCH/);assert.equal(mismatch.count(),0);assert.ok(!mismatch.saved.includes('93'));
 });
+
+test('background intake requires owner approval for a new vehicle; matching existing vehicles still link with zero writes',async()=>{const f=fixture();f.customers.push({...customer,id:'91'});await assert.rejects(synchronizeIntakeParties({...f.args,allowVehicleCreate:false}),/APPROVAL/);assert.equal(f.count(),0);assert.equal(f.saved.includes('92'),false);await synchronizeIntakeParties({...f.args,allowVehicleCreate:true});assert.equal(f.count(),1);await synchronizeIntakeParties({...f.args,allowVehicleCreate:false});assert.equal(f.count(),1)});

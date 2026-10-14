@@ -21,7 +21,7 @@ export function automaticVehicleMatch(customerId:string,local:Pick<QuibiVehicle,
  if(candidates.length!==1||candidates[0].disabled||candidates[0].customerId!==customerId||!compatibleIntakeVehicle(local,candidates[0]))throw Error('INTAKE_IDENTITY_REVIEW');
  return candidates[0].id;
 }
-export async function synchronizeIntakeParties(args:{caseId:string;customerId:string;vehicleId:string|null;customer:Pick<QuibiCustomer,'name'|'phone'|'email'>;vehicle:Pick<QuibiVehicle,'vin'|'registration'|'make'|'model'>|null;read:CustomerCreateRead&VehicleCreateRead;write:CustomerCreateWrite&VehicleCreateWrite;journal:OperationJournal;linkedCustomerId:string|null;linkedVehicleId:string|null;saveCustomer:(remote:QuibiCustomer)=>Promise<void>;saveVehicle:(remote:QuibiVehicle)=>Promise<void>;enrichVehicle?:(remote:QuibiVehicle)=>Promise<void>;enrichCustomer?:(remote:QuibiCustomer)=>Promise<void>}){
+export async function synchronizeIntakeParties(args:{allowVehicleCreate?:boolean;caseId:string;customerId:string;vehicleId:string|null;customer:Pick<QuibiCustomer,'name'|'phone'|'email'>;vehicle:Pick<QuibiVehicle,'vin'|'registration'|'make'|'model'>|null;read:CustomerCreateRead&VehicleCreateRead;write:CustomerCreateWrite&VehicleCreateWrite;journal:OperationJournal;linkedCustomerId:string|null;linkedVehicleId:string|null;saveCustomer:(remote:QuibiCustomer)=>Promise<void>;saveVehicle:(remote:QuibiVehicle)=>Promise<void>;enrichVehicle?:(remote:QuibiVehicle)=>Promise<void>;enrichCustomer?:(remote:QuibiCustomer)=>Promise<void>}){
  const {read,write,journal}=args;
  let customerId=args.linkedCustomerId;
  // An existing operation always goes through its immutable request and reconciliation.
@@ -45,9 +45,10 @@ export async function synchronizeIntakeParties(args:{caseId:string;customerId:st
  const input={serviceRequestId:args.caseId,vehicleId:args.vehicleId,quibiCustomerId:customerId,...args.vehicle};
  if(!vehicleId){
   const prior=await journal.get('vehicle',args.vehicleId);
-  if(prior)vehicleId=(await createOrReconcileVehicle({read,write,journal,input})).quibiId;
+  if(prior){if(prior.state==='prepared'&&args.allowVehicleCreate!==true)throw Error('INTAKE_VEHICLE_CREATE_APPROVAL_REVIEW_REQUIRED');vehicleId=(await createOrReconcileVehicle({read,write,journal,input})).quibiId;}
   else vehicleId=automaticVehicleMatch(customerId,args.vehicle,await read.vehicles(customerId));
   if(!vehicleId&&(!args.vehicle.vin||!args.vehicle.registration||!args.vehicle.make||!args.vehicle.model))return {customerId,vehicleId:null};
+  if(!vehicleId&&args.allowVehicleCreate!==true){const existing=read.allVehicles?await read.allVehicles():await read.vehicles(customerId);if(existing.some(v=>v.vin.trim().toLowerCase()===input.vin.trim().toLowerCase()||v.registration.replace(/[^a-z0-9]/gi,'').toLowerCase()===input.registration.replace(/[^a-z0-9]/gi,'').toLowerCase()))throw Error('INTAKE_IDENTITY_REVIEW');throw Error('INTAKE_VEHICLE_CREATE_APPROVAL_REVIEW_REQUIRED');}
   if(!vehicleId)vehicleId=(await createOrReconcileVehicle({read,write,journal,input})).quibiId;
  }
  if(!vehicleId)throw Error('INTAKE_UNCERTAIN');

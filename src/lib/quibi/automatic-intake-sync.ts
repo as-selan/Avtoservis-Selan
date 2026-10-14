@@ -49,7 +49,7 @@ export async function processIntakeSynchronization(caseId:string){
   const localCustomer={name:customer.display_name,phone:customer.phone??'',email:customer.email??''};
   const localVehicle=vehicle?{vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''}:null;
   if(link&&(link.local_fingerprint!==customerFingerprint(localCustomer)||link.external_fingerprint!==customerFingerprint(localCustomer))||vehicleLink&&localVehicle&&(vehicleLink.local_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.external_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.quibi_customer_id!==link?.external_id))throw Error('INTAKE_IDENTITY_REVIEW');
-  const result=await synchronizeIntakeParties({caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:configuredQuibiWorkflowWriteClient(),journal:quibiDevOperationJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
+  const result=await synchronizeIntakeParties({allowVehicleCreate:false,caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:configuredQuibiWorkflowWriteClient(),journal:quibiDevOperationJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
    enrichCustomer:async remote=>{
     if(link)throw Error('INTAKE_IDENTITY_REVIEW');
     let update=db.from('customers').update({display_name:localCustomer.name||remote.name,phone:localCustomer.phone||remote.phone||null,email:localCustomer.email||remote.email||null}).eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null);
@@ -88,7 +88,7 @@ export async function processIntakeSynchronization(caseId:string){
  }catch(error){
   const code=error instanceof Error?error.message:'';
   const review=/REVIEW|MISMATCH|CHANGED|REJECTED/.test(code);
-  await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):code==='INTAKE_RESOLUTION_REVIEW_REQUIRED'?'Po popravku povpraševanja izberite in potrdite pravo Quibi vozilo v tem primeru. Če ga ni, novo vozilo izrecno potrdi lastnik; samodejni CREATE je ustavljen.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
+  await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):code==='INTAKE_VEHICLE_CREATE_APPROVAL_REVIEW_REQUIRED'?'Vozila v Quibiju ni mogoče potrditi. V tem primeru pripravite novo vozilo in pridobite izrecno potrditev lastnika. Samodejni CREATE ni dovoljen.':code==='INTAKE_RESOLUTION_REVIEW_REQUIRED'?'Po popravku povpraševanja izberite in potrdite pravo Quibi vozilo v tem primeru. Če ga ni, novo vozilo izrecno potrdi lastnik; samodejni CREATE je ustavljen.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
   if(review||code.startsWith('INTAKE_CONFIG:'))return;
  }
 }
