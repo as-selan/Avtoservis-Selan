@@ -11,6 +11,7 @@ create unique index team_invitation_pending on public.team_invitations(organizat
 create table public.service_case_assignments (
  case_id uuid primary key references public.service_requests(id), organization_id uuid not null references public.organizations(id),
  mechanic_id uuid not null references public.profiles(id), assigned_by uuid not null references public.profiles(id),
+ vehicle_id uuid not null references public.vehicles(id), quibi_customer_id text not null, quibi_vehicle_id text not null,
  quibi_work_order_id text not null check(quibi_work_order_id ~ '^[1-9][0-9]*$'), quibi_content_sha256 text not null check(quibi_content_sha256 ~ '^[a-f0-9]{64}$'),
  status text not null default 'assigned' check(status in ('assigned','in_progress','awaiting_parts','work_completed')),
  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
@@ -33,7 +34,7 @@ create function public.team_has_role(p_org uuid,p_roles text[]) returns boolean 
 create function public.can_read_case_work(p_case uuid) returns boolean language sql stable security definer set search_path='' as $$
  select exists(select 1 from public.service_case_assignments a join public.service_requests s on s.id=a.case_id and s.organization_id=a.organization_id
  join public.organization_memberships m on m.organization_id=a.organization_id and m.profile_id=auth.uid() and m.is_active
- where a.case_id=p_case and s.archived_at is null and (m.role in ('owner','admin') or (m.role='mechanic' and a.mechanic_id=auth.uid())));$$;
+ where a.case_id=p_case and s.archived_at is null and s.vehicle_id=a.vehicle_id and (m.role in ('owner','admin') or (m.role='mechanic' and a.mechanic_id=auth.uid())));$$;
 alter table public.team_invitations enable row level security;
 alter table public.service_case_assignments enable row level security;
 alter table public.service_case_notes enable row level security;
@@ -69,16 +70,18 @@ create function public.change_team_access(p_org uuid,p_target uuid,p_cancel bool
  if p_cancel then update public.team_invitations set state='cancelled' where id=p_target and organization_id=p_org and state in ('dispatching','sent','uncertain');
  else update public.organization_memberships set is_active=false,disabled_at=now(),updated_at=now() where organization_id=p_org and profile_id=p_target and role='mechanic' and is_active;end if;
  if not found then raise exception 'TARGET_UNAVAILABLE';end if;end;$$;
-create function public.assign_service_case(p_case uuid,p_mechanic uuid,p_document text,p_sha text) returns void language plpgsql security definer set search_path='' as $$declare s public.service_requests;begin
+create function public.assign_service_case(p_case uuid,p_mechanic uuid,p_document text,p_sha text) returns void language plpgsql security definer set search_path='' as $$declare s public.service_requests; v_customer text; v_vehicle text;begin
  select * into s from public.service_requests where id=p_case and archived_at is null for update;
  if not found or not public.team_has_role(s.organization_id,array['owner','admin']) then raise exception 'FORBIDDEN';end if;
  if not exists(select 1 from public.organization_memberships where organization_id=s.organization_id and profile_id=p_mechanic and is_active and role='mechanic') then raise exception 'MECHANIC_UNAVAILABLE';end if;
- if not exists(select 1 from public.quibi_dev_operation_journal j where j.organization_id=s.organization_id and j.service_request_id=p_case and j.kind in ('work_order','work_order_update') and j.state='verified' and j.quibi_id=p_document and j.quibi_content_sha256=p_sha) then raise exception 'QUIBI_REFERENCE_UNVERIFIED';end if;
- insert into public.service_case_assignments(case_id,organization_id,mechanic_id,assigned_by,quibi_work_order_id,quibi_content_sha256) values(p_case,s.organization_id,p_mechanic,auth.uid(),p_document,p_sha)
- on conflict(case_id) do update set mechanic_id=excluded.mechanic_id,assigned_by=auth.uid(),updated_at=now() where service_case_assignments.quibi_work_order_id=excluded.quibi_work_order_id and service_case_assignments.quibi_content_sha256=excluded.quibi_content_sha256;
+ select quibi_customer_id,quibi_vehicle_id into v_customer,v_vehicle from public.quibi_vehicle_links where organization_id=s.organization_id and vehicle_id=s.vehicle_id and customer_id=s.customer_id and sync_status='ok' and quibi_environment='dev';
+ if not found then raise exception 'VEHICLE_LINK_UNVERIFIED';end if;
+ if not exists(select 1 from public.quibi_dev_operation_journal j where j.organization_id=s.organization_id and j.service_request_id=p_case and j.kind in ('work_order','work_order_update') and j.state='verified' and j.quibi_id=p_document and j.quibi_content_sha256=p_sha and coalesce(j.request_body::jsonb->'body',j.request_body::jsonb)->'Glavadokumenta'->>'stranka_id'=v_customer and coalesce(j.request_body::jsonb->'body',j.request_body::jsonb)->'Glavadokumenta'->>'vozila_id'=v_vehicle) then raise exception 'QUIBI_REFERENCE_UNVERIFIED';end if;
+ insert into public.service_case_assignments(case_id,organization_id,mechanic_id,assigned_by,quibi_work_order_id,quibi_content_sha256,vehicle_id,quibi_customer_id,quibi_vehicle_id) values(p_case,s.organization_id,p_mechanic,auth.uid(),p_document,p_sha,s.vehicle_id,v_customer,v_vehicle)
+ on conflict(case_id) do update set mechanic_id=excluded.mechanic_id,assigned_by=auth.uid(),updated_at=now() where service_case_assignments.vehicle_id=excluded.vehicle_id and service_case_assignments.quibi_customer_id=excluded.quibi_customer_id and service_case_assignments.quibi_vehicle_id=excluded.quibi_vehicle_id and service_case_assignments.quibi_work_order_id=excluded.quibi_work_order_id and service_case_assignments.quibi_content_sha256=excluded.quibi_content_sha256;
  if not found then raise exception 'QUIBI_REFERENCE_CHANGED';end if;end;$$;
 create function public.case_work_snapshot(p_case uuid default null) returns jsonb language plpgsql security definer set search_path='' as $$begin
- return coalesce((select jsonb_agg(jsonb_build_object('caseId',a.case_id,'mechanicId',a.mechanic_id,'quibiId',a.quibi_work_order_id,'sha',a.quibi_content_sha256,'status',a.status,'problem',s.problem_description,'service',s.service_wanted,'vehicle',jsonb_build_object('vin',v.vin,'registration',v.registration_current,'make',v.make,'model',v.model),'customerQuibiId',l.quibi_customer_id,'vehicleQuibiId',l.quibi_vehicle_id)) from public.service_case_assignments a join public.service_requests s on s.id=a.case_id left join public.vehicles v on v.id=s.vehicle_id left join public.quibi_vehicle_links l on l.organization_id=a.organization_id and l.vehicle_id=s.vehicle_id and l.customer_id=s.customer_id and l.sync_status='ok' and l.quibi_environment='dev' where (p_case is null or a.case_id=p_case) and public.can_read_case_work(a.case_id)),'[]');end;$$;
+ return coalesce((select jsonb_agg(jsonb_build_object('caseId',a.case_id,'mechanicId',a.mechanic_id,'quibiId',a.quibi_work_order_id,'sha',a.quibi_content_sha256,'status',a.status,'problem',s.problem_description,'service',s.service_wanted,'vehicle',jsonb_build_object('vin',v.vin,'registration',v.registration_current,'make',v.make,'model',v.model),'customerQuibiId',a.quibi_customer_id,'vehicleQuibiId',a.quibi_vehicle_id)) from public.service_case_assignments a join public.service_requests s on s.id=a.case_id left join public.vehicles v on v.id=a.vehicle_id left join public.quibi_vehicle_links l on l.organization_id=a.organization_id and l.vehicle_id=s.vehicle_id and l.customer_id=s.customer_id and l.sync_status='ok' and l.quibi_environment='dev' where (p_case is null or a.case_id=p_case) and public.can_read_case_work(a.case_id)),'[]');end;$$;
 create function public.update_case_work(p_case uuid,p_status text,p_note text default '') returns void language plpgsql security definer set search_path='' as $$begin
  if not public.can_read_case_work(p_case) then raise exception 'FORBIDDEN';end if;
  if p_status not in ('assigned','in_progress','awaiting_parts','work_completed') or length(p_note)>3000 then raise exception 'INVALID_INPUT';end if;
