@@ -27,3 +27,13 @@ export async function sendBusinessDocument(args:{caseId:string;documentId:string
   return uncertain;
  }
 }
+
+/** A single controlled synthetic DEV attempt can be resolved by the documented latest-status READ. */
+export async function recoverSingleBusinessSend(args:{operation:import('./write-workflow.ts').Operation;documentId:string;caseId:string;attemptCount:number;journal:import('./write-workflow.ts').OperationJournal;status:{getLatestSendStatus:(id:string)=>Promise<{sendId:string;status:'queued'|'sent'|'failed'}>}}){
+ const op=args.operation;
+ if(args.attemptCount!==1||op.state!=='uncertain'||op.sendId||op.serviceRequestId!==args.caseId||op.quibiId!==args.documentId||!op.attemptedAt)throw Error('QUIBI_SEND_RECOVERY_UNVERIFIED');
+ const request=JSON.parse(op.requestBody);if(request.documentId!==args.documentId)throw Error('QUIBI_SEND_RECOVERY_UNVERIFIED');
+ const result=await args.status.getLatestSendStatus(args.documentId);
+ if(!/^[A-Za-z0-9_-]{1,128}$/.test(result.sendId)||!['queued','sent','failed'].includes(result.status))throw Error('QUIBI_SEND_RECOVERY_UNVERIFIED');
+ return args.journal.patch(op.id,'uncertain',{state:'verified',sendId:result.sendId,sendStatus:result.status});
+}

@@ -1,4 +1,5 @@
 "use server";
+import {syntheticCaseEvidenceAllowed} from './synthetic-case-evidence';
 import {loadCaseBusinessContext} from './case-business-context';
 import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
 import {createClient} from '@/lib/supabase/server';
@@ -8,7 +9,7 @@ import {configuredQuibiWorkflowWriteClient,configuredQuibiWorkflowStatusClient} 
 import {quibiWorkflowJournal} from './write-journal';
 import {loadQuibiDocument} from './document-read';
 import {customerFingerprint,vehicleFingerprint} from './contracts';
-import {sendBusinessDocument,businessSendKey} from './business-send-workflow';
+import {sendBusinessDocument,businessSendKey,recoverSingleBusinessSend} from './business-send-workflow';
 import {sendPresentation} from './send-outcome';
 export async function sendLinkedQuibiBusinessDocument(form:FormData):Promise<{ok:boolean;message:string;sendId?:string;status?:string;locked?:boolean}>{
  const access=await requirePhase1OperationalAccess();
@@ -26,7 +27,19 @@ export async function sendLinkedQuibiBusinessDocument(form:FormData):Promise<{ok
   const journal=quibiWorkflowJournal(access.organizationId,access.userId),key=businessSendKey(order.service_request_id,documentId,sha);
   if(form.get('poll')==='yes'){
    const op=await journal.get('send',key);
-   if(!op||op.serviceRequestId!==order.service_request_id||op.quibiId!==documentId||!op.sendId)return {ok:false,message:'Brez potrjenega send_id izida ni mogoče razrešiti. Ponovno pošiljanje je ustavljeno.',locked:true};
+   if(!op||op.serviceRequestId!==order.service_request_id||op.quibiId!==documentId)return {ok:false,message:'Brez potrjenega send_id izida ni mogoče razrešiti. Ponovno pošiljanje je ustavljeno.',locked:true};
+   if(!op.sendId){
+    if(!directCase||!caseContext)throw Error('RECOVERY_FORBIDDEN');
+    const [{data:customer},{data:vehicle},{data:attempts,error:ae}]=await Promise.all([
+     db.from('customers').select('display_name,email').eq('organization_id',access.organizationId).eq('id',order.customer_id).single(),
+     db.from('vehicles').select('vin').eq('organization_id',access.organizationId).eq('id',order.vehicle_id).single(),
+     db.from('quibi_dev_operation_journal').select('id,request_body,attempted_at').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('kind','send').not('attempted_at','is',null)]);
+    if(ae||!customer||!vehicle||!syntheticCaseEvidenceAllowed(process.env,{description:caseContext.order.problem_description,name:customer.display_name,email:customer.email,vin:vehicle.vin}))throw Error('RECOVERY_FORBIDDEN');
+    const count=(attempts??[]).filter(r=>{try{return JSON.parse(r.request_body).documentId===documentId}catch{throw Error('RECOVERY_UNVERIFIED')}}).length;
+    const recovered=await recoverSingleBusinessSend({operation:op,documentId,caseId:order.service_request_id,attemptCount:count,journal,status:configuredQuibiWorkflowStatusClient()});
+    console.info(JSON.stringify({event:'quibi_send_read_reconciled',operationId:op.id,documentId,sendId:recovered.sendId,status:recovered.sendStatus}));
+    return {ok:true,message:sendPresentation(recovered).message,sendId:recovered.sendId!,status:recovered.sendStatus!,locked:true};
+   }
    const status=await configuredQuibiWorkflowStatusClient().getSendStatus(documentId,op.sendId);
    const updated=await journal.patch(op.id,op.state,{sendStatus:status.status});
    return {ok:true,message:sendPresentation(updated).message,sendId:updated.sendId!,status:updated.sendStatus!,locked:true};

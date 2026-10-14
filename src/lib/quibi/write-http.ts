@@ -52,6 +52,13 @@ function responseData(value: unknown): Record<string, unknown> {
   if (!envelope.data || typeof envelope.data !== "object") throw new Error("QUIBI_INVALID_RESPONSE");
   return envelope.data as Record<string, unknown>;
 }
+export function quibiSendData(value:unknown):Record<string,unknown>{
+ if(!value||typeof value!=='object')throw Error('QUIBI_INVALID_RESPONSE');
+ const root=value as Record<string,unknown>;if(root.error!==false)throw Error(root.error===true?'QUIBI_API_REJECTED':'QUIBI_INVALID_RESPONSE');
+ const nested=root.data&&typeof root.data==='object'?root.data as Record<string,unknown>:null;
+ if(nested&&['send_id','status'].some(k=>root[k]!=null&&nested[k]!=null&&String(root[k])!==String(nested[k])))throw Error('QUIBI_INVALID_RESPONSE');
+ return nested??root;
+}
 export function createQuibiDevWriteClient(config: Config) { return createTransport(config, false); }
 export function createQuibiWorkflowWriteClient(config: Config) { return createTransport(config, true); }
 function createTransport(config: Config, workflow: boolean) {
@@ -146,16 +153,22 @@ function createTransport(config: Config, workflow: boolean) {
       const value = await call(`/api2/glavadokumenta/send/${validQuibiId(id)}`, "POST", {
         email, ...(subject ? { zadeva: subject } : {}), ...(content ? { vsebina: content } : {}),
       });
-      const data = responseData(value);
+      const data = quibiSendData(value);
       const sendId = String(data.send_id ?? "");
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(sendId) || !["queued", "sent"].includes(String(data.status))) throw new Error("QUIBI_INVALID_RESPONSE");
       return { sendId, status: data.status as "queued" | "sent" };
+    },
+    async getLatestSendStatus(id:string){
+      const data=quibiSendData(await call('/api2/glavadokumenta/send_status/'+validQuibiId(id),'GET'));
+      const sendId=String(data.send_id??'');
+      if(!/^[A-Za-z0-9_-]{1,128}$/.test(sendId)||!['queued','sent','failed'].includes(String(data.status)))throw Error('QUIBI_INVALID_RESPONSE');
+      return {sendId,status:data.status as 'queued'|'sent'|'failed'};
     },
     async getSendStatus(id: string, sendId: string) {
       if (workflow) guard("send");
       else assertQuibiDevTestSendAllowed({ ...env, QUIBI_DEV_USERNAME: config.username, QUIBI_DEV_PASSWORD: config.password }, origin);
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(sendId)) throw new Error("QUIBI_INVALID_SEND_ID");
-      const data = responseData(await call(`/api2/glavadokumenta/send_status/${validQuibiId(id)}?send_id=${encodeURIComponent(sendId)}`, "GET"));
+      const data = quibiSendData(await call(`/api2/glavadokumenta/send_status/${validQuibiId(id)}?send_id=${encodeURIComponent(sendId)}`, "GET"));
       if (!["queued", "sent", "failed"].includes(String(data.status))) throw new Error("QUIBI_INVALID_RESPONSE");
       return { status: data.status as "queued" | "sent" | "failed",
         error: typeof data.napaka === "string" ? data.napaka.slice(0, 200) : null };

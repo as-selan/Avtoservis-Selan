@@ -17,5 +17,5 @@ export function configuredQuibiWorkflowWriteClient() {
 export function configuredQuibiWorkflowStatusClient() {
  const config=quibiWorkflowConfig(process.env,"read");
  const client=createQuibiWorkflowWriteClient({username:config.username,password:config.password,origin:config.origin,statusOnly:true});
- return {getSendStatus:client.getSendStatus};
+ return {getSendStatus:client.getSendStatus,getLatestSendStatus:client.getLatestSendStatus};
 }
