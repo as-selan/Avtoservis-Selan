@@ -8,3 +8,5 @@
 6. Preglej predogled, postavke in znesek. CREATE in pošiljanje sta ločeni potrditvi; v tem P1 preverjanju ju ne izvajamo.
 
 Trenutna omejitev: status new, priprava še ne obstaja in identiteta vozila ni potrjena. Testi konfiguracije ali uspešen build niso dokaz, da je na tem primeru že mogoče pripraviti varen predogled.
+
+Na objavljenem P1 preverjanju je bila trenutna strežniška konfiguracija veljavna, actor pa aktiven owner pravilne organizacije. Staro opozorilo ne dokazuje trenutno manjkajočega vklopa. Nepreverjena obstoječa povezava vozila sproži INTAKE_IDENTITY_REVIEW pred kakršnimkoli Quibi CREATE; najprej je potreben pregled identitete.

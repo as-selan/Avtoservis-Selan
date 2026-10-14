@@ -251,12 +251,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {(request.has_error || request.attention_needed || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>
         {request.has_error && <p>{request.error_reason || "Primer ima zabeleženo napako."}</p>}
-        {request.attention_needed && <p>{request.attention_reason || "Primer potrebuje pregled."}</p>}
+        {request.attention_needed && <p>{request.attention_reason?.includes('Samodejna povezava še ni omogočena')?(syncConfigurationProblem??'Prejšnji poskus povezave je bil blokiran. Trenutna konfiguracija je pripravljena; obstoječo povezavo vozila je treba preveriti.'):(request.attention_reason || "Primer potrebuje pregled.")}</p>}
         {link?.sync_status === "error" && <p>Quibi: {link.last_error_code || "QUIBI_READ_FAILED"}. Odprite povezavo in ponovite branje.</p>}
         {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
-      {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
+      {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
       {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border bg-white p-4 space-y-2">
