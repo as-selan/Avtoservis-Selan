@@ -1,3 +1,4 @@
+import {requiresResolvedVehicleConfirmation} from '@/lib/quibi/vehicle-identity';
 import {VehicleResolutionPanel} from '@/components/dashboard/VehicleResolutionPanel';
 import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from '@/lib/quibi/intake-sync-configuration';
 import {CaseWorkPanel} from '@/components/dashboard/CaseWorkPanel';
@@ -111,6 +112,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const quote = quoteResult.data?.[0] ?? null;
     const fixedPrice = fixedPriceResult.data;
     const vehicleLink = vehicleLinkResult.data;
+    const vehicleResolution=await db.from('case_vehicle_resolution_events').select('id').eq('organization_id',access.organizationId).eq('case_id',serviceRequestId).limit(1);
+    const resolvedVehicleNeedsReview=requiresResolvedVehicleConfirmation(!!vehicleResolution.data?.length,vehicleLink?.sync_status);
     const quoteEvidence = quote?.evidence_payload as { external_id?: unknown } | null;
     const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
@@ -257,7 +260,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
-      {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
+      {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={resolvedVehicleNeedsReview||!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
       <VehicleResolutionPanel caseId={serviceRequestId}/>
       {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
       <div className="grid gap-4 lg:grid-cols-2">

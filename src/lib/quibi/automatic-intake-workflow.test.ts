@@ -73,3 +73,10 @@ test('registration formatting identifies the same owned vehicle but fresh data m
  await synchronizeIntakeParties({...f.args,vehicle:local,enrichVehicle:async remote=>{persisted=true;local.registration=remote.registration}});
  assert.equal(persisted,true);assert.equal(local.registration,vehicle.registration);assert.equal(f.count(),0);
 });
+
+test('four intake scenarios: existing/existing, existing/new, new/new and mismatched identity',async()=>{
+ const existing=fixture();existing.customers.push({...customer,id:'91'});existing.vehicles.push({...vehicle,id:'92',customerId:'91',disabled:false});assert.deepEqual(await synchronizeIntakeParties(existing.args),{customerId:'91',vehicleId:'92'});assert.equal(existing.count(),0);
+ const newVehicle=fixture();newVehicle.customers.push({...customer,id:'91'});assert.deepEqual(await synchronizeIntakeParties(newVehicle.args),{customerId:'91',vehicleId:'92'});assert.equal(newVehicle.count(),1);await synchronizeIntakeParties(newVehicle.args);assert.equal(newVehicle.count(),1);
+ const bothNew=fixture();assert.deepEqual(await synchronizeIntakeParties(bothNew.args),{customerId:'91',vehicleId:'92'});assert.equal(bothNew.count(),2);await synchronizeIntakeParties(bothNew.args);assert.equal(bothNew.count(),2);
+ const mismatch=fixture();mismatch.customers.push({...customer,id:'91'});mismatch.vehicles.push({...vehicle,id:'93',customerId:'other',disabled:false});await assert.rejects(synchronizeIntakeParties(mismatch.args),/REVIEW|CONFLICT|MISMATCH/);assert.equal(mismatch.count(),0);assert.ok(!mismatch.saved.includes('93'));
+});

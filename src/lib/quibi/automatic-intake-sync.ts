@@ -1,3 +1,4 @@
+import {requiresResolvedVehicleConfirmation} from './vehicle-identity';
 import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from './intake-sync-configuration';
 import 'server-only';
 import {revalidatePath} from 'next/cache';
@@ -41,6 +42,9 @@ export async function processIntakeSynchronization(caseId:string){
    db.from('integration_links').select('*').eq('organization_id',org.id).eq('entity_type','customer').eq('provider','quibi').eq('entity_id',request.customer_id).maybeSingle(),
    request.vehicle_id?db.from('quibi_vehicle_links').select('*').eq('organization_id',org.id).eq('vehicle_id',request.vehicle_id).maybeSingle():Promise.resolve({data:null,error:null})]);
   if(ce||ve||le||vle||!customer)throw Error('INTAKE_READ_FAILED');
+  const resolution=await db.from('case_vehicle_resolution_events').select('id').eq('organization_id',org.id).eq('case_id',caseId).limit(1);
+  if(resolution.error&&!['42P01','PGRST205'].includes(resolution.error.code))throw Error('INTAKE_READ_FAILED');
+  if(requiresResolvedVehicleConfirmation(!!resolution.data?.length,vehicleLink?.sync_status))throw Error('INTAKE_RESOLUTION_REVIEW_REQUIRED');
   if(link&&(link.quibi_environment!=='dev'||link.sync_status!=='ok')||vehicleLink&&(vehicleLink.quibi_environment!=='dev'||vehicleLink.sync_status!=='ok'||vehicleLink.customer_id!==request.customer_id))throw Error('INTAKE_IDENTITY_REVIEW');
   const localCustomer={name:customer.display_name,phone:customer.phone??'',email:customer.email??''};
   const localVehicle=vehicle?{vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''}:null;
@@ -84,7 +88,7 @@ export async function processIntakeSynchronization(caseId:string){
  }catch(error){
   const code=error instanceof Error?error.message:'';
   const review=/REVIEW|MISMATCH|CHANGED|REJECTED/.test(code);
-  await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
+  await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):code==='INTAKE_RESOLUTION_REVIEW_REQUIRED'?'Po popravku povpraševanja izberite in potrdite pravo Quibi vozilo v tem primeru. Če ga ni, novo vozilo izrecno potrdi lastnik; samodejni CREATE je ustavljen.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
   if(review||code.startsWith('INTAKE_CONFIG:'))return;
  }
 }
