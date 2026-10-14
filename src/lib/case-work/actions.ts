@@ -15,8 +15,11 @@ export async function caseWorkAction(form:FormData){try{dev();const access=await
   const prepared=await db.rpc('prepare_case_photo',{p_case:caseId,p_id:id,p_caption:caption,p_ext:ext});if(prepared.error||typeof prepared.data!=='string')throw Error('PHOTO_ACCESS_DENIED');
   const uploaded=await db.storage.from('service-case-evidence').upload(prepared.data,bytes,{contentType:file.type,upsert:false});if(uploaded.error)throw Error('PHOTO_UPLOAD_FAILED');
   const completed=await db.rpc('complete_case_photo',{p_id:id});if(completed.error)throw Error('PHOTO_RECONCILIATION_REQUIRED');
+ }else if(action==='photoComplete'){
+  const photoId=String(form.get('photoId')??'');const existing=await db.from('service_case_photos').select('id').eq('id',photoId).eq('case_id',caseId).eq('author_id',access.userId).eq('state','pending').maybeSingle();if(existing.error||!existing.data)throw Error('PHOTO_ACCESS_DENIED');
+  const completed=await db.rpc('complete_case_photo',{p_id:photoId});if(completed.error)throw Error('PHOTO_RECONCILIATION_REQUIRED');
  }else if(action==='photoApproval'){
   if(access.role!=='owner')throw Error('FORBIDDEN');const r=await db.rpc('approve_case_photo',{p_id:String(form.get('photoId')),p_approved:form.get('approved')==='yes'});if(r.error)throw Error('FORBIDDEN');
  }else throw Error('INVALID_ACTION');
  revalidatePath('/dashboard/mehanik');revalidatePath('/dashboard/mehanik/'+caseId);revalidatePath('/dashboard/primeri/'+caseId);return {ok:true,message:'Podatki so shranjeni. Poslovni dokument ali sporočilo ni ustvarjeno.'};
- }catch{return {ok:false,message:'Shranjevanje ni potrjeno. Preverite dodelitev, dovoljenja in namestitev migracije. Pri napaki fotografije preverite seznam pred ponovnim nalaganjem.'}}}
+ }catch(e){if(e instanceof Error&&e.message==='PHOTO_RECONCILIATION_REQUIRED')return {ok:false,message:'Fotografija še ni potrjena. V seznamu nedokončanih nalaganj preverite že shranjeno datoteko; ne nalagajte je znova.'};return {ok:false,message:'Shranjevanje ni potrjeno. Preverite dodelitev, dovoljenja in namestitev migracije. Pri napaki fotografije preverite seznam pred ponovnim nalaganjem.'}}}
