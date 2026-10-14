@@ -93,3 +93,5 @@ test("explicit provider rejection is persisted as failed and cannot dispatch aga
  await assert.rejects(send(f));assert.equal(f.state()?.state,"failed");assert.equal(f.state()?.sendStatus,"failed");
  await assert.rejects(send(f),/QUIBI_SEND_ALREADY_ATTEMPTED/);assert.equal(f.events.filter(e=>e.startsWith("send:")).length,1);
 });
+
+test("approved estimate can be sent after telephone approval without reverting case or delivery",async()=>{for(const caseStatus of ["awaiting_customer_approval","awaiting_slot_selection","appointment_confirmed","converted"]){const f=fixture("approved_for_send");f.set({caseStatus});await send(f);assert.equal(f.events.filter(e=>e.startsWith("send:")).length,1);assert.equal(f.events.includes("acceptance"),false);await assert.rejects(send(f),/QUIBI_SEND_ALREADY_ATTEMPTED/)}for(const caseStatus of ["new","needs_data","closed","cancelled","declined"]){const f=fixture("approved_for_send");f.set({caseStatus});await assert.rejects(send(f),/QUIBI_SEND_AUTHORIZATION/);assert.equal(f.events.some(e=>e.startsWith("send:")),false)}});

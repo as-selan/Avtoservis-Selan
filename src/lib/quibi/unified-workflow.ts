@@ -42,7 +42,7 @@ type Dependencies = {
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function validateSendSnapshot(s: SendSnapshot, caseId: string, quoteId: string) {
     if (![s.actorId, s.organizationId, caseId, quoteId].every(x => uuid.test(x)) || !["owner", "admin"].includes(s.role) ||
-        s.caseId !== caseId || s.quoteId !== quoteId || s.latestQuoteId !== quoteId || s.caseStatus !== "preparing_offer" ||
+        s.caseId !== caseId || s.quoteId !== quoteId || s.latestQuoteId !== quoteId || !["preparing_offer", "awaiting_customer_approval", "awaiting_slot_selection", "appointment_confirmed", "converted"].includes(s.caseStatus) ||
         !["unreviewed", "approved_for_send"].includes(s.reviewStatus) || !s.serviceWanted.trim() ||
         ![s.customerId, s.vehicleId, s.documentId].every(x => /^[1-9]\d*$/.test(x) && Number.isSafeInteger(Number(x))) ||
         !/^[0-9a-f]{64}$/.test(s.sha256))

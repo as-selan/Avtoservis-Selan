@@ -29,9 +29,10 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  const sendAllowed=!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
  return <section className="space-y-3 border-t pt-3">
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
-  {p.dev&&<p className="text-sm text-amber-800">DEV: isti postopek pošlje samo na testni naslov. Stranki se ne pošlje in dostava stranki se ne evidentira.</p>}
+  {p.dev&&<p className="text-sm text-amber-800">DEV: predračun pošlje samo na prikazani testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
   {p.amount&&<p className="font-medium">Znesek: {Number(p.amount).toLocaleString("sl-SI",{style:"currency",currency:"EUR"})}</p>}
   <ul className="space-y-1 text-sm">{p.lines.map((line,i)=><li key={i}>{line.description} · količina {line.quantity} · cena na enoto z DDV {line.pricingVerified?line.unitGrossPrice:"ni preverljiva"}</li>)}</ul>
+  <p className="text-sm">Predračun praviloma pošlji pred popravilom. Dejanska odobritev stranke je ločena in je lahko potrjena po telefonu; račun se pripravi šele po opravljenem popravilu.</p>
   <p className="text-sm">Prejemnik: {p.recipient??"pošiljanje ni konfigurirano ali naslov ni potrjen"}</p>
   {sendAllowed&&<form className="space-y-3" onSubmit={e=>{
    e.preventDefault();if(lock.current)return;lock.current=true;setAttempted(true);

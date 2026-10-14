@@ -9,7 +9,7 @@ import { configuredQuibiWorkflowWriteClient } from "./write-client";
 import { quibiWorkflowConfig } from "./workflow-config";
 import { quibiWorkflowJournal } from "./write-journal";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export async function quibiEstimatePreparationContext(serviceRequestId: string) {
+export async function quibiEstimatePreparationContext(serviceRequestId: string, purpose: "prepare" | "send" = "prepare") {
     const access = await requirePhase1OperationalAccess();
     if (!["owner", "admin"].includes(access.role) || !uuid.test(serviceRequestId))
         throw new Error("QUIBI_WRITE_FORBIDDEN");
@@ -19,7 +19,7 @@ export async function quibiEstimatePreparationContext(serviceRequestId: string) 
     const { data: request, error: requestError } = await db.from("service_requests")
         .select("customer_id,vehicle_id,status,service_wanted,problem_description").eq("organization_id", access.organizationId)
         .eq("id", serviceRequestId).is("archived_at", null).maybeSingle();
-    if (requestError || !request || request.status !== "preparing_offer" || !request.customer_id ||
+    if (requestError || !request || !(purpose === "send" ? ["preparing_offer", "awaiting_customer_approval", "awaiting_slot_selection", "appointment_confirmed", "converted"].includes(request.status) : request.status === "preparing_offer") || !request.customer_id ||
         !request.vehicle_id || !estimateLineDescription(request))
         throw new Error("QUIBI_CASE_NOT_READY");
     const [customerResult, vehicleResult, linkResult, vehicleLinkResult, prepResult, fixedResult] = await Promise.all([
@@ -70,6 +70,6 @@ export async function quibiEstimatePreparationContext(serviceRequestId: string) 
 
 export async function quibiWorkflowContext(serviceRequestId: string) {
     const write = configuredQuibiWorkflowWriteClient();
-    const ctx = await quibiEstimatePreparationContext(serviceRequestId);
+    const ctx = await quibiEstimatePreparationContext(serviceRequestId, "send");
     return {...ctx,write,journal:quibiWorkflowJournal(ctx.access.organizationId,ctx.access.userId)};
 }

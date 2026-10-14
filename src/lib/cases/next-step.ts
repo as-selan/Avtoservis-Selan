@@ -56,7 +56,7 @@ export function nextCaseStep(input: {
         : "Poveži obstoječi predračun ali konfiguriraj preverjeno ustvarjanje prek Quibi API-ja.");
     case "awaiting_customer_approval": return step("await_customer", input.fixedPriceStatus
       ? "Po dejanskem sporočilu objavljene cene počakajte na odločitev stranke."
-      : "Po dejanski dostavi počakaj na odločitev stranke.");
+      : "Pošlji predračun, če še ni poslan, in zabeleži dejansko odločitev stranke. Odobritev po telefonu ne zahteva potrjene dostave.");
     case "awaiting_slot_selection":
       if(input.directQuibiBusiness&&input.customerDecision==="approved")return step("manual_external_handoff","Po potrditvi popravila nadaljujte s Quibi nalogom in nato računom v poslovnem postopku spodaj. Termin uredite ločeno po potrebi.");
       if (input.slotOfferStatus === "selected") return step("manual_scheduling",
