@@ -85,7 +85,7 @@ export async function requireWorkshopAccess(): Promise<WorkshopAccess> {
     resolveLookupFailure(orgError, Boolean(organization?.id));
   }
 
-  let { data: membership, error: membershipError } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from("organization_memberships")
     .select("role")
     .eq("organization_id", organization.id)
@@ -93,7 +93,6 @@ export async function requireWorkshopAccess(): Promise<WorkshopAccess> {
     .eq("is_active", true)
     .maybeSingle();
 
-  if(!membershipError&&!membership){const accepted=await supabase.rpc('accept_team_invitation');if(!accepted.error&&accepted.data===true){const lookup=await supabase.from('organization_memberships').select('role').eq('organization_id',organization.id).eq('profile_id',userId).eq('is_active',true).maybeSingle();membership=lookup.data;membershipError=lookup.error;}}
   if (membershipError || !membership?.role || !isWorkshopRole(membership.role)) {
     console.error('WORKSHOP_ACCESS_LOOKUP', {stage:'membership', code:membershipError?.code?.replace(/[^A-Za-z0-9_]/g,'').slice(0,40)??'no_active_role'});
     resolveLookupFailure(membershipError, Boolean(membership?.role && isWorkshopRole(membership.role)));

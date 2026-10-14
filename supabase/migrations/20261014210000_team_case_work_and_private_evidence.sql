@@ -59,7 +59,8 @@ create function public.finish_team_invitation(p_id uuid,p_user uuid,p_state text
  update public.team_invitations set state=p_state,auth_user_id=p_user where id=p_id and state='dispatching';
  if not found then raise exception 'INVITATION_CHANGED';end if;end;$$;
 create function public.accept_team_invitation() returns boolean language plpgsql security definer set search_path='' as $$declare i public.team_invitations;begin
- select t.* into i from public.team_invitations t join auth.users u on u.id=auth.uid() and lower(u.email)=t.email and u.email_confirmed_at is not null
+ select t.* into i from public.team_invitations t join auth.users u on u.id=auth.uid() and lower(u.email)=t.email and u.email_confirmed_at is not null and coalesce(u.encrypted_password,'')<>''
+ join public.organizations o on o.id=t.organization_id and o.slug='avtoservis-selan'
  where t.auth_user_id=auth.uid() and t.state='sent' and t.expires_at>now() order by t.created_at limit 1 for update of t;
  if not found then return false;end if;
  if exists(select 1 from public.organization_memberships where profile_id=auth.uid()) then raise exception 'MEMBERSHIP_ALREADY_EXISTS';end if;
