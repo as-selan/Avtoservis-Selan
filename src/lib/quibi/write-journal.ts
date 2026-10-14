@@ -59,6 +59,7 @@ function operationJournal(organizationId: string, actorId: string, tableName: "q
         const existing = await this.get(entry.kind, entry.localEntityId);
         if (existing) return existing;
       }
+      if(error?.code === "23505" && error.message.includes("quibi_dev_one_business_create_per_case"))throw new Error("QUIBI_CASE_CREATE_RETRY_SCHEMA_REQUIRED");
       throw new Error("QUIBI_JOURNAL_INSERT_FAILED");
     },
     async claim(id, expected) {
