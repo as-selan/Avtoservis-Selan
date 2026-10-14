@@ -23,6 +23,7 @@ export function safeQuibiValidation(value:Record<string,unknown>,secrets:string[
  const errors:Record<string,string>={};
  const collect=(item:unknown,path:string,depth=0)=>{
   if(depth>3||Object.keys(errors).length>=15)return;
+  if(typeof item==='string'&&item.length<=4000&&item.trim().startsWith('{')){try{const parsed:unknown=JSON.parse(item);if(parsed&&typeof parsed==='object'){collect(parsed,path,depth+1);return}}catch{}}
   if(typeof item==='string'||typeof item==='number'){const text=clean(item);if(text)errors[path||'document']=text;return}
   if(item&&typeof item==='object')for(const [key,v] of Object.entries(item).slice(0,15)){
    if(!/^[A-Za-z0-9_.]{1,80}$/.test(key)||/password|geslo|token|email|emajl|naslov|telst|username/i.test(key))continue;

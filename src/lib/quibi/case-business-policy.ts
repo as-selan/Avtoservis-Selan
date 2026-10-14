@@ -5,7 +5,7 @@ export function assertCaseBusinessScope(env:Record<string,string|undefined>,stat
 }
 export type JournalReferenceRow={id:string;kind:string;state:string;quibi_id:string|null;quibi_content_sha256:string|null;request_body:string;created_at:string};
 export function caseBusinessReference(rows:JournalReferenceRow[],kind:string):BusinessReference|null{
- const related=rows.filter(r=>r.kind===kind||r.kind===kind+'_update');
+ const related=rows.filter(r=>(r.kind===kind||r.kind===kind+'_update')&&!(r.state==='failed'&&!r.quibi_id));
  if(related.some(r=>r.state!=='verified'))throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');
  if(!related.length)return null;
  const creates=related.filter(r=>r.kind===kind);if(creates.length!==1)throw Error('CASE_DOCUMENT_CONFLICT');
@@ -15,4 +15,4 @@ export function caseBusinessReference(rows:JournalReferenceRow[],kind:string):Bu
  return {id:latest.id,quibi_document_id:latest.quibi_id,content_sha256:latest.quibi_content_sha256,quibi_environment:'dev',quibi_customer_id:String(body.Glavadokumenta.stranka_id),quibi_vehicle_id:String(body.Glavadokumenta.vozila_id)};
 }
 
-export function assertBusinessCreationNamespace(rows:{local_entity_id:string;kind:string}[],scopeId:string,kind:string){if(rows.some(r=>r.kind===kind&&r.local_entity_id!==scopeId))throw Error('CASE_DOCUMENT_CONFLICT')}
+export function assertBusinessCreationNamespace(rows:{local_entity_id:string;kind:string;id?:string;state?:string;quibi_id?:string|null;request_body?:string}[],scopeId:string,kind:string){if(rows.some(r=>{if(r.kind!==kind||r.local_entity_id===scopeId)return false;const rejected=rows.find(p=>p.kind===kind&&p.local_entity_id===scopeId&&p.id===r.local_entity_id&&p.state==='failed'&&p.quibi_id===null);if(!rejected||!r.request_body)return true;try{return JSON.parse(r.request_body).Glavadokumenta.external_id!=='selan-work-order:'+scopeId+':'+kind+':retry:'+rejected.id}catch{return true}}))throw Error('CASE_DOCUMENT_CONFLICT')}

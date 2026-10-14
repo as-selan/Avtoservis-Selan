@@ -18,3 +18,6 @@ test('invoice READ preview never implies completion or allows an unconfirmed dis
  assert.throws(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',false,false));
  assert.throws(()=>assertCaseBusinessScope({...env,QUIBI_MODE:'production'},'awaiting_slot_selection','invoice',false,true));
 });
+
+test('definitive rejection without a document does not erase verified earlier business references',()=>{assert.equal(caseBusinessReference([{...create,state:'failed',quibi_id:null}],'work_order'),null);assert.equal(caseBusinessReference([create,{...create,kind:'invoice',state:'failed',quibi_id:null}],'work_order')?.quibi_document_id,'123');assert.throws(()=>caseBusinessReference([{...create,state:'uncertain',quibi_id:null}],'work_order'))});
+test('corrected invoice namespace requires preserved failed original and exact retry reference',()=>{const original={kind:'invoice',local_entity_id:'case',id:'rejection',state:'failed',quibi_id:null};const retry={kind:'invoice',local_entity_id:'rejection',request_body:JSON.stringify({Glavadokumenta:{external_id:'selan-work-order:case:invoice:retry:rejection'}})};assert.doesNotThrow(()=>assertBusinessCreationNamespace([original,retry],'case','invoice'));assert.throws(()=>assertBusinessCreationNamespace([{...original,state:'uncertain'},retry],'case','invoice'))});
