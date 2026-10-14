@@ -1,3 +1,4 @@
+import {CaseWorkPanel} from '@/components/dashboard/CaseWorkPanel';
 import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
 import {syntheticCaseEvidenceAllowed} from '@/lib/quibi/synthetic-case-evidence';
 import {loadEstimateCatalog,exactEstimateCatalogMatch,type EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
@@ -333,5 +334,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" offer={diagnosisOffer} realDevWrite={realDevMode} />}
       {(request.status === "awaiting_slot_selection" || serviceOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" syntheticQaAllowed={localSyntheticQaAllowed(process.env)} offer={serviceOffer} realDevWrite={realDevMode} />}
-    </div>;
+    {['owner','admin'].includes(access.role)&&<CaseWorkPanel caseId={serviceRequestId} role={access.role}/>}
+</div>;
 }

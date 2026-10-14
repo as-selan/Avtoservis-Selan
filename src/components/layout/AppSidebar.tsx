@@ -76,6 +76,7 @@ export function AppSidebar({ user, mobileOpen, onMobileClose }: AppSidebarProps)
             </Link>
           );
         })}
+      {['Lastnik','Administrator'].includes(user.role)&&<Link href="/dashboard/nastavitve/ekipa" onClick={onMobileClose} className="block rounded px-3 py-2 text-sm text-slate-300 hover:bg-white/5">Nastavitve · Ekipa</Link>}
       </nav>
 
       <div className="shrink-0 border-t border-white/10 p-3">

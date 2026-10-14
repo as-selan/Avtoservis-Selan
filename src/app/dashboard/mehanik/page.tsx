@@ -1,12 +1,2 @@
-import Link from 'next/link';
-import {redirect} from 'next/navigation';
-import {requireWorkshopAccess} from '@/lib/auth/requireWorkshopAccess';
-import {createClient} from '@/lib/supabase/server';
-import {scopedMechanicOrders} from '@/lib/work-orders/mechanic-access';
-import {workOrderLabels} from '@/lib/work-orders/policy';
-export const dynamic='force-dynamic';
-export default async function MechanicOrders(){
- const access=await requireWorkshopAccess();if(access.role!=='mechanic')redirect('/dashboard/nalogi');const db=await createClient();const {data,error}=await db.rpc('mechanic_work_orders');
- if(error)return <p role="alert">Dodeljenih nalogov ni mogoče preveriti. Preverite povezavo z bazo in namestitev migracije za dodelitve.</p>;
- const orders=scopedMechanicOrders(data,access);return <section className="space-y-4"><h1 className="text-2xl font-semibold">Moji servisni nalogi</h1><p>Prikazani so samo vam dodeljeni nalogi. Poslovne dokumente in zaključek ureja skrbnik.</p>{!orders.length&&<p>Trenutno nimate dodeljenega naloga.</p>}<ul className="grid gap-3 sm:grid-cols-2">{orders.map(o=><li key={o.id}><Link className="block rounded border bg-white p-4" href={`/dashboard/mehanik/${o.id}`}><p className="font-semibold">Nalog #{o.id.slice(0,8).toUpperCase()} · {workOrderLabels[o.status]}</p><p>{o.vehicle.make} {o.vehicle.model} · {o.vehicle.registration}</p></Link></li>)}</ul></section>;
-}
+import Link from 'next/link';import {redirect} from 'next/navigation';import {requireWorkshopAccess} from '@/lib/auth/requireWorkshopAccess';import {loadCaseWork} from '@/lib/case-work/read';import {CASE_WORK_LABELS} from '@/lib/case-work/policy';
+export default async function MechanicCases(){const access=await requireWorkshopAccess();if(access.role!=='mechanic')redirect('/dashboard');const {rows,error}=await loadCaseWork();return <section className="space-y-4"><h1 className="text-2xl font-semibold">Moje dodeljeno delo</h1><p>Poslovni nalogi ostajajo v Quibiju. Tukaj dokumentiraš popravilo, opombe in zasebne fotografije.</p>{error?<p role="alert">Dodelitev ni mogoče prebrati. Potrebna je namestitev odobrene migracije.</p>:!rows.length?<p>Nimaš dodeljenega primera.</p>:<ul className="grid gap-3 sm:grid-cols-2">{rows.map(w=><li key={w.caseId}><Link className="block rounded border bg-white p-4" href={'/dashboard/mehanik/'+w.caseId}><p className="font-semibold">Quibi nalog #{w.quibiId}</p><p>{w.vehicle.make} {w.vehicle.model} · {w.vehicle.registration}</p><p>{CASE_WORK_LABELS[w.status]}</p></Link></li>)}</ul>}</section>}
