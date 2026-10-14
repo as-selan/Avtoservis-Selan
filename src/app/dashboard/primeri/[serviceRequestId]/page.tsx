@@ -22,7 +22,7 @@ import { canQueryCustomerId } from "@/lib/customers/present";
 import { toPresentationRef } from "@/lib/dashboard/adapt-dashboard";
 import { mapDbStatusToUiStatus } from "@/lib/dashboard/db-status";
 import { getStatusLabel } from "@/lib/dashboard/statuses";
-import { nextCaseStep } from "@/lib/cases/next-step";
+import { nextCaseStep,quibiBusinessNextAction,type CaseStep } from "@/lib/cases/next-step";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimateForm";
@@ -197,7 +197,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     }
     const internalOrdersEnabled=internalWorkOrdersEnabled(process.env);
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
-    const step = nextCaseStep({quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
+    let businessNextAction:CaseStep|undefined;
+    if(realDevMode&&!internalOrdersEnabled&&['owner','admin'].includes(access.role)){const {data,error}=await db.from('quibi_dev_operation_journal').select('kind,state,quibi_id,quibi_content_sha256,request_body,send_status,created_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).in('kind',['work_order','invoice','work_order_update','invoice_update','send']);if(!error)businessNextAction=quibiBusinessNextAction(data??[]);}
+    const step = nextCaseStep({businessNextAction,quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,

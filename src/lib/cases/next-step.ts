@@ -7,7 +7,7 @@ export type CaseStepKind =
 export type CaseStep = { kind: CaseStepKind; label: string; externalConfirmed: false };
 
 export function nextCaseStep(input: {
-  quibiCreateRejected?:boolean;customerApprovalVerified?:boolean;quibiCreateUncertain?:boolean;directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
+  businessNextAction?:CaseStep; quibiCreateRejected?:boolean;customerApprovalVerified?:boolean;quibiCreateUncertain?:boolean;directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
   offerPrepared: boolean;
   quibiLinked: boolean;
   quibiSyncStatus?: string;
@@ -20,6 +20,7 @@ export function nextCaseStep(input: {
   quibiDevWriteEnabled?: boolean; quibiSendStatus?: string | null; quibiSendAttempted?: boolean;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
+  if(input.directQuibiBusiness&&input.businessNextAction&&input.quibiLinked&&(!input.quibiSyncStatus||input.quibiSyncStatus==='ok')&&!['closed','cancelled','new','needs_data'].includes(input.status))return input.businessNextAction;
   if (input.inspectionRepairDecision === "not_ordered") {
     return step("manual_inspection_billing",
       "Popravilo ni naročeno: predhodni pregled je plačljiv. Znesek, račun in plačilo preverite ročno v Quibiju; tukaj niso potrjeni.");
@@ -71,4 +72,25 @@ export function nextCaseStep(input: {
     case "declined": return step("closed", "Stranka je zavrnila storitev. Primer je zaključen brez termina.");
     default: return step("closed", "Preveri stanje primera in morebitne odprte napake.");
   }
+}
+
+export type BusinessStepRecord={kind:string;state:string;quibi_id:string|null;quibi_content_sha256?:string|null;request_body?:string;send_status?:string|null;created_at?:string};
+/** UI progress only: never closes a case, confirms receipt or changes Quibi data. */
+export function quibiBusinessNextAction(rows:BusinessStepRecord[]):CaseStep|undefined{
+ const step=(kind:CaseStepKind,label:string):CaseStep=>({kind,label,externalConfirmed:false});
+ if(rows.some(r=>['work_order','invoice','work_order_update','invoice_update'].includes(r.kind)&&['prepared','dispatching','uncertain'].includes(r.state)))return step('review_quibi_mismatch','Preveri obstoječi Quibi dokument in njegov izid. Nov CREATE ali SEND je ustavljen do preverljive razrešitve.');
+ const invoiceCreates=rows.filter(r=>r.kind==='invoice'&&r.state==='verified'&&r.quibi_id);
+ if(invoiceCreates.length>1)return step('review_quibi_mismatch','Povezava računa zahteva pregled; ne ustvarjaj novega dokumenta.');
+ if(invoiceCreates.length===1){const invoice=[...rows.filter(r=>(r.kind==='invoice'||r.kind==='invoice_update')&&r.state==='verified'&&r.quibi_id===invoiceCreates[0].quibi_id)].sort((a,b)=>(b.created_at??'').localeCompare(a.created_at??''))[0];
+  const sends=rows.filter(r=>r.kind==='send'&&r.quibi_id===invoice.quibi_id);
+  if(sends.some(r=>['dispatching','uncertain'].includes(r.state)))return step('review_quibi_mismatch','Izid pošiljanja računa #'+invoice.quibi_id+' zahteva READ preverjanje. Ne pošiljaj ponovno.');
+  const current=sends.filter(r=>{try{return JSON.parse(r.request_body??'{}').sha===invoice.quibi_content_sha256}catch{return false}});
+  if(current.some(r=>r.send_status==='sent'))return step('manual_external_handoff','Račun #'+invoice.quibi_id+' je predan poštnemu strežniku. Prejem, plačilo in prevzem vozila niso potrjeni.');
+  if(current.some(r=>r.send_status==='queued'))return step('manual_external_handoff','Račun #'+invoice.quibi_id+' je v Quibijevi čakalni vrsti. Preveri status brez ponovnega pošiljanja.');
+  if(current.some(r=>r.send_status==='failed'))return step('review_quibi_mismatch','Pošiljanje računa #'+invoice.quibi_id+' je zavrnjeno. Preveri razlog; ne ponavljaj samodejno.');
+  return step('manual_external_handoff','Račun #'+invoice.quibi_id+' je ustvarjen. Preglej dokument in PDF ter potrdi pošiljanje.');
+ }
+ const orders=rows.filter(r=>r.kind==='work_order'&&r.state==='verified'&&r.quibi_id);
+ if(orders.length===1)return step('manual_external_handoff','Quibi nalog #'+orders[0].quibi_id+' je ustvarjen. Po opravljenem popravilu potrdi datum storitve in pripravi račun iz naloga.');
+ return undefined;
 }

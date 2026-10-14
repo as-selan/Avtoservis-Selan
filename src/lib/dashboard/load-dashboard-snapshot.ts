@@ -1,3 +1,4 @@
+import {quibiBusinessNextAction,type BusinessStepRecord} from '@/lib/cases/next-step';
 import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
 import { createClient } from "@/lib/supabase/server";
@@ -136,6 +137,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const requestIds = requests.map((row) => row.id);
     const uncertainEstimateRequests = new Set<string>();
     const rejectedEstimateRequests = new Set<string>();
+    const businessRowsByRequest=new Map<string,BusinessStepRecord[]>();
     const quoteSendByRequest = new Map<string,{status:string|null}>();
     if (customerIds.length > 0) {
       const { data, error } = await supabase.from("integration_links")
@@ -163,11 +165,12 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     }
     if (requestIds.length && process.env.APP_ENV === 'preproduction' && process.env.QUIBI_MODE === 'dev' && ['owner','admin'].includes(access.role)) {
       const {data,error} = await supabase.from('quibi_dev_operation_journal')
-        .select('service_request_id,kind,state,local_entity_id,attempted_at,send_status').eq('organization_id',access.organizationId)
-        .in('service_request_id',requestIds).in('kind',['estimate','send']);
+        .select('service_request_id,kind,state,local_entity_id,attempted_at,send_status,quibi_id,quibi_content_sha256,request_body,created_at').eq('organization_id',access.organizationId)
+        .in('service_request_id',requestIds).in('kind',['estimate','send','work_order','invoice','work_order_update','invoice_update']);
       if(error) return {ok:false,message:LOAD_ERROR_MESSAGE,generatedAt};
       for(const operation of data ?? []) {
         if(!operation.service_request_id)continue;
+        const businessRows=businessRowsByRequest.get(operation.service_request_id)??[];businessRows.push(operation);businessRowsByRequest.set(operation.service_request_id,businessRows);
         if(operation.kind==='estimate'&&['uncertain','dispatching'].includes(operation.state))uncertainEstimateRequests.add(operation.service_request_id);
         if(operation.kind==='estimate'&&operation.state==='failed')rejectedEstimateRequests.add(operation.service_request_id);
         if(operation.kind==='send'&&operation.attempted_at&&operation.local_entity_id===quoteByRequest.get(operation.service_request_id)?.id)quoteSendByRequest.set(operation.service_request_id,{status:operation.send_status});
@@ -220,6 +223,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
+            businessNextAction:quibiBusinessNextAction(businessRowsByRequest.get(row.id)??[]),
             customerApprovalVerified: (()=>{const approval=approvalByRequest.get(row.id),quote=quoteByRequest.get(row.id);return !!approval&&!!quote&&approval.quote_id===quote.id&&hasRecordedCustomerApproval(approval,quote.content_sha256)})(),
             quibiCreateRejected:rejectedEstimateRequests.has(row.id),
             quibiCreateUncertain: uncertainEstimateRequests.has(row.id),
