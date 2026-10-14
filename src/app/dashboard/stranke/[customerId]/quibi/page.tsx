@@ -188,7 +188,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
               <p>Selanovo vozilo: {registration || "brez registracije"} · VIN/šasija {vin || "ni navedena"}</p>
               {!registration || !vin ? <p role="alert">Za ustvarjanje v Quibiju sta potrebni registracija in številka šasije.</p>
                 : matching ? <p>Možno ujemanje že obstaja; najprej preverite in povežite prikazano vozilo.</p>
-                  : <QuibiDevPartyCreate customerId={customerId} vehicleId={vehicle.id} />}
+                  : access.role!=='owner'?<p>Ustvarjanje novega vozila mora izrecno potrditi lastnik.</p>:<QuibiDevPartyCreate customerId={customerId} vehicleId={vehicle.id} />}
             </div>;
           })}
       </section>
