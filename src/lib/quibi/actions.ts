@@ -1,4 +1,5 @@
 "use server";
+import {assertSamePhysicalVehicle} from './vehicle-identity';
 
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
@@ -153,6 +154,8 @@ export async function confirmQuibiVehicleLink(form: FormData): Promise<void> {
         outcome = "customer_changed";
       } else {
         const remoteVehicle = await quibi.vehicle(externalId, link.external_id);
+        assertSamePhysicalVehicle(vehicle,remoteVehicle);
+        if (vehicleFingerprint({vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''})!==vehicleFingerprint(remoteVehicle))throw Error('VEHICLE_IDENTITY_MISMATCH');
         if (remoteVehicle.disabled) outcome = "disabled";
         else if (vehicleFingerprint(remoteVehicle) !== expectedFingerprint) outcome = "changed";
         else {
@@ -163,13 +166,13 @@ export async function confirmQuibiVehicleLink(form: FormData): Promise<void> {
               vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
               make: vehicle.make ?? "", model: vehicle.model ?? "",
             }),
-            external_fingerprint: expectedFingerprint, confirmed_by: access.userId,
+            external_fingerprint: expectedFingerprint, confirmed_by: access.userId, sync_status: 'ok', last_checked_at: new Date().toISOString(),
           });
           if (error?.code === "23505") {
             const { data: stored } = await db.from("quibi_vehicle_links")
-              .select("quibi_customer_id, quibi_vehicle_id, quibi_environment").eq("organization_id", access.organizationId)
+              .select("quibi_customer_id, quibi_vehicle_id, quibi_environment, sync_status, local_fingerprint, external_fingerprint").eq("organization_id", access.organizationId)
               .eq("customer_id", customerId).eq("vehicle_id", vehicleId).maybeSingle();
-            outcome = stored?.quibi_customer_id === link.external_id && stored?.quibi_vehicle_id === externalId && stored?.quibi_environment === quibiLinkEnvironment(process.env) ? "linked" : "already";
+            outcome = stored?.sync_status==='ok' && stored.external_fingerprint===expectedFingerprint && stored.local_fingerprint===expectedFingerprint && stored.quibi_customer_id === link.external_id && stored?.quibi_vehicle_id === externalId && stored?.quibi_environment === quibiLinkEnvironment(process.env) ? "linked" : "already";
           } else outcome = error ? "error" : "linked";
         }
       }

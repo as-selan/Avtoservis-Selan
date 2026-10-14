@@ -1,3 +1,4 @@
+import {VehicleResolutionPanel} from '@/components/dashboard/VehicleResolutionPanel';
 import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from '@/lib/quibi/intake-sync-configuration';
 import {CaseWorkPanel} from '@/components/dashboard/CaseWorkPanel';
 import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
@@ -257,6 +258,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       </section>}
 
       {customer && ['owner','admin'].includes(access.role) && process.env.APP_ENV==='preproduction' && process.env.QUIBI_MODE==='dev' && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
+      <VehicleResolutionPanel caseId={serviceRequestId}/>
       {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border bg-white p-4 space-y-2">

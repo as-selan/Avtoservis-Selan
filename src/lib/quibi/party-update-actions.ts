@@ -1,4 +1,5 @@
 "use server";
+import {assertSamePhysicalVehicle} from './vehicle-identity';
 import {headers} from 'next/headers';
 import {assertLocalPartyWriteRequest} from './local-write-policy';
 import {revalidatePath} from 'next/cache';
@@ -46,6 +47,7 @@ export async function updateLinkedQuibiParty(form:FormData):Promise<PartyUpdateR
   }else{
    const [{data:vehicle,error:ve},{data:vl,error:vle}]=await Promise.all([db.from('vehicles').select('vin,registration_current,make,model').eq('organization_id',access.organizationId).eq('customer_id',customerId).eq('id',vehicleId).is('archived_at',null).single(),db.from('quibi_vehicle_links').select('*').eq('organization_id',access.organizationId).eq('customer_id',customerId).eq('vehicle_id',vehicleId).single()]);
    if(ve||vle||!vehicle||!vl||vl.quibi_environment!==environment||vl.quibi_customer_id!==link.external_id||!vehicle.vin?.trim()||!vehicle.registration_current?.trim()||customerFingerprint(await read.customer(link.external_id))!==link.external_fingerprint)throw Error('IDENTITY_UNVERIFIED');
+   assertSamePhysicalVehicle(vehicle,await read.vehicle(vl.quibi_vehicle_id,link.external_id));
    await rejectUnresolvedRevision('vehicle_update',vl.quibi_vehicle_id);
    const body={registrskastevilka:vehicle.registration_current,internastevilka:vehicle.vin,proizvajalec:vehicle.make??'',model:vehicle.model??''};
    await updatePartyAndVerify({kind:'vehicle_update',revisionId,caseId:serviceCase.id,quibiId:vl.quibi_vehicle_id,baseline,target:vehicleFingerprint({vin:body.internastevilka,registration:body.registrskastevilka,make:body.proizvajalec,model:body.model}),body,journal,readFingerprint:async()=>{const remote=await read.vehicle(vl.quibi_vehicle_id,link.external_id);if(remote.disabled)throw Error('VEHICLE_DISABLED');return vehicleFingerprint(remote)},write:()=>write.updateVehicle(vl.quibi_vehicle_id,body)});

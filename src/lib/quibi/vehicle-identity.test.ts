@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {assertSamePhysicalVehicle} from './vehicle-identity.ts';
+test('wrong or absent VIN blocks vehicle UPDATE before dispatch',()=>{for(const vin of [null,'','DIFFERENT'])assert.throws(()=>assertSamePhysicalVehicle({vin},{vin:'TESTSELANAX202601',disabled:false}),/VEHICLE_IDENTITY_MISMATCH/)});
+test('same physical VIN can proceed; disabled vehicle cannot',()=>{assert.doesNotThrow(()=>assertSamePhysicalVehicle({vin:' testselanax202601 '},{vin:'TESTSELANAX202601',disabled:false}));assert.throws(()=>assertSamePhysicalVehicle({vin:'TESTSELANAX202601'},{vin:'TESTSELANAX202601',disabled:true}))});

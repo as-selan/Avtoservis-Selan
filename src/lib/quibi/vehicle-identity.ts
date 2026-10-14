@@ -1,0 +1,1 @@
+export function assertSamePhysicalVehicle(local:{vin:string|null},remote:{vin:string;disabled:boolean}){const vin=local.vin?.trim().toUpperCase();if(!vin||vin!==remote.vin.trim().toUpperCase()||remote.disabled)throw Error('VEHICLE_IDENTITY_MISMATCH');}
