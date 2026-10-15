@@ -1,3 +1,4 @@
+import {quibiReadRejection} from './read-rejection.ts';
 import {extraDocumentPaths,type ExtraDocumentKind} from './document-read.ts';
 import {parseVehicleInfo,parseAddresses,parseLots,parseStock,parsePaymentMethods,parseDocumentPayments} from './operational-read.ts';
 import {parseQuibiArticle,parseQuibiPriceLists} from './pricing-read.ts';
@@ -27,6 +28,7 @@ export function createQuibiReadClient(config: Config) {
           signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) {
+          if ([401,403,429].includes(response.status)) console.warn(JSON.stringify(await quibiReadRejection(response,path,method)));
           if (response.status >= 500 && attempt === 0) continue;
           throw new Error(`QUIBI_HTTP_${response.status}`);
         }
