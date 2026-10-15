@@ -10,7 +10,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{customerId:
  try{
  const db=await createClient();const {data:link}=await db.from('integration_links').select('external_id,quibi_environment').eq('organization_id',access.organizationId).eq('entity_id',customerId).eq('provider','quibi').eq('entity_type','customer').single();
  if(!link||link.quibi_environment!==quibiLinkEnvironment(process.env))return new Response('Povezava ni potrjena.',{status:403});
- const client=configuredQuibiReadClient();await loadQuibiDocument(client,kind as QuibiDocumentKind,documentId,link.external_id);
+ const client=configuredQuibiReadClient();const doc=await loadQuibiDocument(client,kind as QuibiDocumentKind,documentId,link.external_id);if(kind==='invoice'&&doc.number==='Osnutek')return new Response('Osnutek zahteva izrecno potrditev izdaje.',{status:409,headers:{'Cache-Control':'no-store'}});
  const bytes=await client.documentPdf(documentId);
  return new Response(bytes.buffer,{headers:{'Content-Type':'application/pdf','Content-Disposition':`inline; filename="quibi-${documentId}.pdf"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
  }catch{return new Response('PDF dokumenta ni mogoče preverjeno pridobiti.',{status:502,headers:{'Cache-Control':'no-store'}})}

@@ -1,14 +1,11 @@
-import type {QuibiEstimateDetail} from './contracts.ts';
-type Reader={paymentMethods:()=>Promise<string[]>;historyDocuments?:(kind:'invoice')=>Promise<{id:string;customerId:string;numberingId:string}[]>;documentDetail:(id:string,customerId:string)=>Promise<QuibiEstimateDetail>};
-/** Use only existing Quibi invoice configuration; never borrow customer or line data. */
-export async function verifiedInvoiceHeader(read:Reader,numberingId:string){
- if(!read.historyDocuments)throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');
- const [methods,listed]=await Promise.all([read.paymentMethods(),read.historyDocuments('invoice')]);
- const candidates=listed.filter(d=>d.numberingId===numberingId).slice(0,12);
- if(!candidates.length)throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');
- const details=await Promise.all(candidates.map(d=>read.documentDetail(d.id,d.customerId)));
- if(details.some((d,i)=>d.id!==candidates[i].id||d.customerId!==candidates[i].customerId||d.numberingId!==numberingId||!d.spaceId||!/^[1-9]\d*$/.test(d.spaceId)))throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');
- const spaces=new Set(details.map(d=>d.spaceId));if(spaces.size!==1)throw Error('QUIBI_INVOICE_CONFIGURATION_AMBIGUOUS');
- const latest=details[0];if(!latest.paymentMethod||!methods.includes(latest.paymentMethod))throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');
- return {spaceId:latest.spaceId!,paymentMethod:latest.paymentMethod,sourceDocumentId:latest.id};
+import type {QuibiCatalogKind} from './catalog-read.ts';
+type Reader={paymentMethods:()=>Promise<string[]>;catalog:(kind:QuibiCatalogKind)=>Promise<{id:string;label:string}[]>};
+/** Fresh company catalogs, never a payment method or space borrowed from another invoice. */
+export async function verifiedInvoiceHeader(read:Reader,numberingId:string,selected:{spaceId?:string;paymentMethod?:string}={}){
+ if(!/^[1-9]\d*$/.test(numberingId))throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');
+ const methods=await read.paymentMethods(),spaces=await read.catalog('spaces');
+ if(!methods.length||!spaces.length)throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');
+ const spaceId=selected.spaceId||(spaces.length===1?spaces[0].id:''),paymentMethod=selected.paymentMethod||(methods.length===1?methods[0]:'');
+ if(spaceId&&!spaces.some(s=>s.id===spaceId)||paymentMethod&&!methods.includes(paymentMethod))throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');
+ return {spaceId,paymentMethod,spaces,paymentMethods:methods,ready:!!spaceId&&!!paymentMethod};
 }

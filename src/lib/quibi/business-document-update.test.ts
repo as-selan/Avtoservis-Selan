@@ -9,10 +9,10 @@ function fixture(kind:BusinessKind='work_order'){
  const body=withDocumentId(businessDocumentBody(kind,id,{numberingId:'2',saleTypeId:'1',customerId:'7',vehicleId:'8',serviceRequestId:id,lines:[{opis:'Novo popravilo',enota_id:'1',ddv_id:'5',kolicina:1,cenaZDDV:122,popust:0}]},'2026-10-11'),'42');
  const baselineSha='a'.repeat(64),payload=businessUpdatePayload(body,baselineSha);
  let row:Operation|null=null,count=0;
- let doc={id:'42',customerId:'7',vehicleId:'8',number:'DOC-1',numberingId:'2',externalId:body.Glavadokumenta.external_id,amount:'122',status:'',contentSha256:baselineSha,lines:[{description:'Staro popravilo',quantity:'1',grossPrice:'100',unitNetPrice:'100',pricingVerified:true,unitId:'1',vatId:'5',discount:'0'}]};
+ let doc={id:'42',customerId:'7',vehicleId:'8',number:kind==='invoice'?'Osnutek':'DOC-1',numberingId:'2',externalId:body.Glavadokumenta.external_id,amount:'122',status:'',contentSha256:baselineSha,lines:[{description:'Staro popravilo',quantity:'1',grossPrice:'100',unitNetPrice:'100',pricingVerified:true,unitId:'1',vatId:'5',discount:'0'}]};
  const journal:OperationJournal={get:async()=>row,insertOnce:async entry=>row?{...row}:(row={...entry,id:'op',state:'prepared',quibiId:null,quibiContentSha256:null,documentNumber:null,sendId:null,sendStatus:null}),claim:async(_,state)=>{if(row?.state!==state)return false;row={...row,state:'dispatching'};return true},patch:async(_,state,patch)=>{if(!row||row.state!==state)throw Error('CONCURRENT');row={...row,...patch};return {...row}}};
  const read={workOrders:async()=>[{id:'42'}],invoices:async()=>[{id:'42'}],estimates:async()=>[],documentDetail:async()=>({...doc})};
- const write={updateEstimate:async(target:string,value:typeof body)=>{count++;assert.equal(target,'42');assert.equal(value.Glavadokumenta.id,42);doc={...doc,contentSha256:'b'.repeat(64),lines:[{...doc.lines[0],description:'Novo popravilo',grossPrice:'122',unitNetPrice:'122',pricingVerified:true}]};return {id:'42',number:'DOC-1'}}};
+ const write={updateEstimate:async(target:string,value:typeof body)=>{count++;assert.equal(target,'42');assert.equal(value.Glavadokumenta.id,42);doc={...doc,contentSha256:'b'.repeat(64),lines:[{...doc.lines[0],description:'Novo popravilo',grossPrice:'122',unitNetPrice:'122',pricingVerified:true}]};return {id:'42',number:doc.number}}};
  return {args:{kind,orderId:id,caseId:id,documentId:'42',baselineSha,expectedSha:payload.sha256,expectedAmount:'122',body,journal,read,write},count:()=>count,state:()=>row?.state,change:(patch:Partial<typeof doc>)=>{doc={...doc,...patch}}};
 }
 for(const kind of ['work_order','invoice'] as const){
@@ -27,3 +27,6 @@ test('unchanged reread is not evidence of a successful UPDATE',async()=>{const f
 test('provider returning a different document cannot be accepted',async()=>{const f=fixture();f.args.write.updateEstimate=async()=>({id:'99',number:'DOC-1'});await assert.rejects(updateBusinessDocument(f.args),/REREAD|LINES_MISMATCH/);assert.equal(f.state(),'uncertain')});
 
 test('already matching business lines do not justify a WRITE',async()=>{const f=fixture();f.change({lines:[{description:'Novo popravilo',quantity:'1',grossPrice:'122',unitNetPrice:'122',pricingVerified:true,unitId:'1',vatId:'5',discount:'0'}]});await assert.rejects(updateBusinessDocument(f.args),/NO_BUSINESS_CHANGES/);assert.equal(f.count(),0)});
+
+
+test('issued and fiscalized invoices cannot be overwritten by the normal update flow',async()=>{for(const patch of [{number:'DELAVNICA-A-1'},{number:'Osnutek',fiscalized:true}]){const f=fixture('invoice');f.change(patch);await assert.rejects(updateBusinessDocument(f.args),/ISSUED_INVOICE_READ_ONLY/);assert.equal(f.count(),0)}});

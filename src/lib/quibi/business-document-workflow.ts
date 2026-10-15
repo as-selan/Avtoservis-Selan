@@ -1,3 +1,4 @@
+import {assertInvoiceEditable,verifyReturnedInvoiceDates} from './invoice-review.ts';
 import {isDefinitiveQuibiRejection} from './send-outcome.ts';
 import {quibiSourceNotes} from './business-source-lines.ts';
 import {createHash} from 'node:crypto';
@@ -21,6 +22,7 @@ export function assertBusinessStage(kind:BusinessKind,status:string){
 }
 export function confirmBusinessContent(doc:QuibiEstimateDetail,body:EstimateBody,expectedUnitNetPrices?:number[],expectedUnitIds?:string[]){
  if((body.Glavadokumenta.space_id&&doc.spaceId!==String(body.Glavadokumenta.space_id))||(body.Glavadokumenta.nacinPlacila&&doc.paymentMethod!==body.Glavadokumenta.nacinPlacila)||doc.customerId!==String(body.Glavadokumenta.stranka_id)||doc.vehicleId!==String(body.Glavadokumenta.vozila_id)||doc.externalId!==body.Glavadokumenta.external_id||doc.numberingId!==String(body.Glavadokumenta.stevilcenje_id)||!doc.number||!/^[a-f0-9]{64}$/.test(doc.contentSha256))throw Error('QUIBI_DOCUMENT_REREAD_MISMATCH');
+ verifyReturnedInvoiceDates(doc,body.Glavadokumenta);
  const lines=Object.values(body.Postavkedokumenta),actual=doc.lines.filter(l=>!quibiSourceNotes(doc).includes(l));
  if(lines.length!==actual.length||lines.some((line,i)=>{
  const current=actual[i];if(!current.pricingVerified||current.unitNetPrice==null||line.kolicina!==Number(current.quantity)||line.ddv_id!==current.vatId||current.discount==null||Number(current.discount)!==(line.popust??0))return true;
@@ -79,7 +81,7 @@ export async function updateBusinessDocument(args:{kind:BusinessKind;orderId:str
  if(op.state==='verified'){const doc=await verify();if(doc.contentSha256!==op.quibiContentSha256)throw Error('QUIBI_DOCUMENT_CHANGED');return op}
  if(op.state==='uncertain'){if(op.quibiId!==args.documentId)throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');const doc=await verify();return journal.patch(op.id,'uncertain',{state:'verified',quibiContentSha256:doc.contentSha256})}
  if(op.state!=='prepared')throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');
- const before=await load();
+ const before=await load();if(kind==='invoice')assertInvoiceEditable(before);
  if(before.contentSha256!==args.baselineSha||before.customerId!==String(body.Glavadokumenta.stranka_id)||before.vehicleId!==String(body.Glavadokumenta.vozila_id)||before.numberingId!==String(body.Glavadokumenta.stevilcenje_id)||before.externalId!==body.Glavadokumenta.external_id||!before.number)throw Error('QUIBI_DOCUMENT_CHANGED');
  assertBusinessUpdateChanges(before,body,args.expectedUnitNetPrices,args.expectedUnitIds);
  // Bind before dispatch: the database's active-document index serializes every revision.

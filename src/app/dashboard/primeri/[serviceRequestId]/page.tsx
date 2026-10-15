@@ -9,7 +9,7 @@ import {loadEstimateCatalog,exactEstimateCatalogMatch,type EstimateCatalogOption
 import {AutomaticIntakeSync} from '@/components/dashboard/AutomaticIntakeSync';
 import {previewDevActivationReadiness} from '@/lib/quibi/hosted-activation-requirements';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
-import {QuibiCaseBusinessOperations} from '@/components/dashboard/QuibiCaseBusinessOperations';
+import {QuibiCaseBusinessOperations,QuibiInspectionInvoicePreparation} from '@/components/dashboard/QuibiCaseBusinessOperations';
 import {QuibiCaseDocuments} from '@/components/dashboard/QuibiCaseDocuments';
 import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate";
@@ -341,6 +341,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}
         findings={inspectionResult.data?.findings ?? null}
         repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} realDevWrite={realDevMode} />}
+      {inspectionResult.data?.status === "completed" && inspectionResult.data.repair_decision === "not_ordered" && ["owner","admin"].includes(access.role) && <QuibiInspectionInvoicePreparation caseId={serviceRequestId}/>}
       {(inspectionResult.data?.status === "requested" || diagnosisOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" inactiveReason={inspectionResult.data?.status === "requested" ? undefined : "Predhodni pregled je že opravljen ali ni več naročen. Stare možnosti ne potrjujejo rezervacije; po potrebi umaknite ponudbo."} offer={diagnosisOffer} realDevWrite={realDevMode} />}
       {(request.status === "awaiting_slot_selection" || serviceOffer) &&

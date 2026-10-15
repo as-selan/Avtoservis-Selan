@@ -10,6 +10,8 @@ export type QuibiDocument = { id: string; customerId: string; numberingId: strin
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
   vehicleId?: string; warehouseId?: string; spaceId?: string; paymentMethod?: string; externalId?: string; number?: string; numberingId?: string; date?: string; saleTypeId?: string;
+  taxTotals?: {base:string;vat:string;total:string;vatId:string}[];
+  serviceDate?: string; serviceEndDate?: string; dueDate?: string; paymentReference?: string; issuerName?: string; buyerName?: string; fiscalized?: boolean;
   lines: { description: string; quantity: string; grossPrice: string; unitId?: string; vatId?: string; discount?: string; articleId?: string; articleCode?: string; unitNetPrice?: string; unitGrossPrice?: string; lineNetAmount?: string; historicalVatLabel?: string; pricingVerified?: boolean; lineType?: string; stockManaged?: boolean }[];
   contentSha256: string;
 };
@@ -149,6 +151,7 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
   if (!amount || !Array.isArray(lines) || lines.length > 200) throw new Error("QUIBI_INVALID_RESPONSE");
   return {
     id, customerId: owner, amount,
+    ...(Array.isArray(entry.Ddvglavadokumenta) ? {taxTotals:entry.Ddvglavadokumenta.map(value=>{const row=object(value);if(field(row.glavadokumenta_id)!==id||![row.osnova,row.ddv,row.vrednost].every(v=>/^-?\d+(?:\.\d+)?$/.test(field(v))&&Number.isFinite(Number(v))))throw Error("QUIBI_TAX_TOTALS_UNVERIFIED");return {base:field(row.osnova),vat:field(row.ddv),total:field(row.vrednost),vatId:field(row.ddv_id)}})} : {}),
     ...(field(header.space_id) ? {spaceId:field(header.space_id)} : {}),
     ...(field(header.nacinPlacila) ? {paymentMethod:field(header.nacinPlacila)} : {}),
     ...(field(header.skladisca_id) ? { warehouseId: field(header.skladisca_id) } : {}),
@@ -156,6 +159,13 @@ export function parseEstimateDetail(value: unknown, expectedId: string, customer
     ...(field(header.external_id) ? { externalId: field(header.external_id) } : {}),
     ...(field(header.ZapSt) ? { number: field(header.ZapSt) } : {}),
     ...(field(header.stevilcenje_id) ? { numberingId: field(header.stevilcenje_id) } : {}),
+    ...(field(header.datstod) ? {serviceDate:field(header.datstod)} : {}),
+    ...(field(header.datstdo) ? {serviceEndDate:field(header.datstdo)} : {}),
+    ...(field(header.datValute) ? {dueDate:field(header.datValute)} : {}),
+    ...(field(header.sklic) ? {paymentReference:field(header.sklic)} : {}),
+    ...(field(header.uNaziv) ? {issuerName:field(header.uNaziv)} : {}),
+    ...(field(header.sNaziv) ? {buyerName:field(header.sNaziv)} : {}),
+    ...(field(header.eor) ? {fiscalized:true} : {}),
     ...(field(header.datIzdRac) ? {date:field(header.datIzdRac)} : {}),
     ...(field(header.vrstaprodaje) ? {saleTypeId:field(header.vrstaprodaje)} : {}),
     status: statusFromDocument(entry),

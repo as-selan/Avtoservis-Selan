@@ -10,7 +10,7 @@ import {loadQuibiDocument,documentKindLabels,type QuibiDocumentKind} from './doc
   const customer=await read.customer(scope.customerId);if(customer.id!==scope.customerId)throw Error('QUIBI_DOCUMENT_CUSTOMER_MISMATCH');
   return loadQuibiDocument(read,scope.kind as QuibiDocumentKind,scope.documentId,scope.customerId);
  }
- export async function loadDirectDevPdf(read:Reader,scope:DirectDocumentScope){await loadDirectDevDocument(read,scope);return read.documentPdf(scope.documentId);}
+ export async function loadDirectDevPdf(read:Reader,scope:DirectDocumentScope){const doc=await loadDirectDevDocument(read,scope);if(scope.kind==='invoice'&&doc.number==='Osnutek')throw Error('QUIBI_DRAFT_PDF_REQUIRES_ISSUE_CONFIRMATION');return read.documentPdf(scope.documentId);}
 
 export function assertDirectDevVehicleRead(env:Record<string,string|undefined>,role:string,customerId:string,vehicleId:string){
  if(!isHostedQuibiEnvironment(env)||!['owner','admin','reception'].includes(role))throw Error('QUIBI_DIRECT_READ_FORBIDDEN');

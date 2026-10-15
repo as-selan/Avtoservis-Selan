@@ -1,0 +1,7 @@
+import type {QuibiEstimateDetail} from '@/lib/quibi/contracts';
+import {invoiceReadMissing} from '@/lib/quibi/invoice-payments';
+export function QuibiInvoiceDetails({doc}:{doc:QuibiEstimateDetail}){
+ const money=(s:string)=>Number(s).toLocaleString('sl-SI',{style:'currency',currency:'EUR'});
+ const rows=[['Izdajatelj',doc.issuerName],['Kupec',doc.buyerName],['Datum izdaje',doc.date],['Datum opravljene storitve',doc.serviceDate],['Datum zapadlosti',doc.dueDate],['Način plačila',doc.paymentMethod],['Plačilni sklic',doc.paymentReference],['Številčenje',doc.numberingId],['Poslovni prostor',doc.spaceId]];
+ return <section className="space-y-3 rounded border bg-white p-4"><h2 className="font-semibold">Podatki računa iz Quibija</h2>{doc.number==='Osnutek'&&<p role="status">Osnutek — račun še ni izdan. Informativni pregled ga ne izda.</p>}<dl className="grid gap-3 sm:grid-cols-2">{rows.map(([label,value])=><div key={label}><dt className="text-sm text-slate-600">{label}</dt><dd className="break-words">{value||'Quibi API podatka ni vrnil'}</dd></div>)}</dl>{doc.taxTotals?.length?<div className="space-y-2">{doc.taxTotals.map((tax,i)=><p key={i}>Davčna osnova {money(tax.base)} · DDV {money(tax.vat)} · skupaj {money(tax.total)}</p>)}</div>:<p>Quibi API ni vrnil povzetka davčnih osnov in DDV.</p>}{invoiceReadMissing(doc).length>0&&<p className="text-sm text-amber-800">V API odgovoru manjkajo: {invoiceReadMissing(doc).join(', ')}. Preverite dejanski PDF oziroma dokument v Quibiju; Selan teh podatkov ne ugiba.</p>}</section>;
+}

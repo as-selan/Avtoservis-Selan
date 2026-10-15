@@ -1,3 +1,4 @@
+import {QuibiInvoiceDetails} from '@/components/dashboard/QuibiInvoiceDetails';
 import {QuibiDocumentPayments} from '@/components/dashboard/QuibiDocumentPayments';
 import {QuibiBusinessSend} from '@/components/dashboard/QuibiBusinessSend';
 import {businessSendKey} from '@/lib/quibi/business-send-workflow';
@@ -41,13 +42,14 @@ export default async function QuibiDocument({params,searchParams}:{params:Promis
  {referenceError&&<p role="alert">Potrjene povezave v tej bazi ni mogoče preveriti.</p>}
  {referenceState==='changed'&&<p role="alert" className="rounded border border-amber-300 bg-amber-50 p-4">Vsebina Quibi dokumenta se je po potrditvi povezave spremenila. Prejšnja potrditev ne velja kot pregled trenutne vsebine. Ponovno preglejte dokument; zgodovinska povezava ostaja ohranjena.</p>}
  {referenceState==='unchanged'&&<p className="text-sm text-green-800">SHA trenutne vsebine se ujema z vsebino ob potrditvi povezave tega naloga.</p>}
- <a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/${kind}/${documentId}/pdf`}>{simulated ? 'Odpri simuliran PDF QA-SIM' : 'Odpri dejanski PDF iz Quibija'}</a>
+ {kind==='invoice'&&doc.number==='Osnutek'?<p>Osnutek še ni izdan. PDF zahteva ločeno potrditev izdaje.</p>:<a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/${kind}/${documentId}/pdf`}>{simulated ? 'Odpri simuliran PDF QA-SIM' : 'Odpri dejanski PDF iz Quibija'}</a>}
  <section className="space-y-2 rounded-xl border bg-white p-4"><p>Številka: {doc.number??'API je ne vrača'}</p><p>Status: {quibiDocumentStatusLabel(doc.status)}</p><p>Znesek po Quibiju: {doc.amount}</p><p>Quibi stranka: {doc.customerId}</p><p>Quibi vozilo: {doc.vehicleId??'API ga ne vrača; povezava z vozilom ni neodvisno dokazana.'}</p><p className="break-all text-xs">SHA-256 vsebine: {doc.contentSha256}</p>
  <h2 className="font-semibold">Postavke dokumenta</h2><ul className="space-y-2 text-sm">{doc.lines.map((line,i)=><li key={i} className="border-t pt-2">{line.description||'Postavka brez opisa'} · količina {line.quantity||'ni navedena'} · neto vrednost postavke {line.lineNetAmount??line.grossPrice??'ni navedena'} · cena na enoto z DDV {line.pricingVerified?line.unitGrossPrice:'ni preverljiva'} · enota ID {line.unitId??'API je ne vrača'} · DDV ID {line.vatId??'API ga ne vrača'} · popust {line.discount??'API ga ne vrača'}</li>)}</ul>{!doc.lines.length&&<p>API ne vrača postavk.</p>}</section>
  <p className="text-sm text-amber-800">Ista stranka in vozilo še ne dokazujeta istega naročila. Povezavo s servisnim primerom mora potrditi skrbnik po pregledu postavk. Lokalno stanje dela ne spreminja poslovnega statusa dokumenta v Quibiju.</p>
  {order&&order.status!=='closed'&&kind!=='estimate'&&['owner','admin'].includes(access.role)&&(doc.vehicleId?<QuibiWorkOrderLink orderId={order.id} documentId={doc.id} kind={kind} sha={doc.contentSha256}/>:<p role="alert">Povezovanje je ustavljeno, ker Quibi ne vrača vozila dokumenta. Sintetična izjema predračuna tukaj ne velja.</p>)}
  {order&&reference&&kind!=='estimate'&&['owner','admin'].includes(access.role)&&<QuibiBusinessSend dev={environment==='dev'} orderId={order.id} documentId={doc.id} kind={kind} sha={reference.content_sha256} amount={sendAmount} recipient={recipient} allowedRecipients={environment==='dev'&&recipient?quibiDevTestRecipients(process.env):[]} enabled={sendEnabled} initialState={storedSend?{state:storedSend.state,sendId:storedSend.send_id,sendStatus:storedSend.send_status,attemptedAt:storedSend.attempted_at}:null}/>}
- {['invoice','advance_invoice','credit_note'].includes(kind)&&<QuibiDocumentPayments documentId={doc.id}/>}
+ {kind==='invoice'&&<QuibiInvoiceDetails doc={doc}/>}
+ {['invoice','advance_invoice','credit_note'].includes(kind)&&<QuibiDocumentPayments documentId={doc.id} amount={doc.amount} dueDate={doc.dueDate}/>}
  <DocumentCommunicationDraft kind={documentKindLabels[kind as QuibiDocumentKind]} id={doc.id} amount={doc.amount}/>
  </div>;
 

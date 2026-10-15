@@ -37,7 +37,7 @@ export type EstimateBody = {
   Stranka?: {id:number};
   Glavadokumenta: {
     stevilcenje_id: number; vrstaprodaje: number; stranka_id: number;
-    vozila_id: number; skladisca_id?: number; space_id?: number; nacinPlacila?: string; external_id: string; opomba?: string; id?: number; datstod?: string;
+    vozila_id: number; skladisca_id?: number; space_id?: number; nacinPlacila?: string; external_id: string; opomba?: string; id?: number; datstod?: string; datIzdRac?:string; datValute?:string;
   };
   Postavkedokumenta: Record<string, DocumentLine>;
 };
