@@ -20,11 +20,11 @@ export function nextCaseStep(input: {
   quibiDevWriteEnabled?: boolean; quibiSendStatus?: string | null; quibiSendAttempted?: boolean;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
-  if(input.directQuibiBusiness&&input.businessNextAction&&input.quibiLinked&&(!input.quibiSyncStatus||input.quibiSyncStatus==='ok')&&!['closed','cancelled','new','needs_data'].includes(input.status))return input.businessNextAction;
   if (input.inspectionRepairDecision === "not_ordered") {
     return step("manual_inspection_billing",
       "Popravilo ni naročeno: predhodni pregled je plačljiv. Znesek, račun in plačilo preverite ročno v Quibiju; tukaj niso potrjeni.");
   }
+  if(input.directQuibiBusiness&&input.businessNextAction&&input.quibiLinked&&(!input.quibiSyncStatus||input.quibiSyncStatus==='ok')&&!['closed','cancelled','new','needs_data'].includes(input.status))return input.businessNextAction;
   if(input.directQuibiBusiness&&input.customerApprovalVerified&&input.quoteReviewStatus==='approved_for_send'&&input.quibiLinked&&(!input.quibiSyncStatus||input.quibiSyncStatus==='ok')&&!input.quibiCreateUncertain&&['preparing_offer','awaiting_customer_approval'].includes(input.status))return step('manual_external_handoff','Stranka je potrdila predračun. Nadaljujte s pripravo Quibi naloga spodaj; dostava in termin nista pogoja.');
   switch (input.status) {
     case "needs_data": return step("request_data", "Zahtevaj manjkajoče podatke in nadaljuj isti primer.");
@@ -51,7 +51,9 @@ export function nextCaseStep(input: {
         return step("review_estimate", "Tadej naj pregleda postavke in znesek v Selanu ter odobri in pošlje predračun.");
       if (input.quoteReviewStatus === "approved_for_send" && input.deliveryStatus !== "delivered")
         return step("send_estimate", "Pošlji odobreni predračun iz Selana prek Quibi API-ja; stanje se shrani samodejno.");
-      return step("manual_quibi_estimate", input.quibiDevWriteEnabled
+      return step("manual_quibi_estimate", input.quibiDevWriteEnabled === undefined
+        ? "Odpri primer in preglej ponudbo s svežimi Quibijevimi postavkami in cenami. Ustvarjanje potrdiš ločeno."
+        : input.quibiDevWriteEnabled
         ? "Pripravi in preveri predračun prek Quibi API-ja. Tadej mora pred pošiljanjem odobriti dejansko ceno."
         : "Poveži obstoječi predračun ali konfiguriraj preverjeno ustvarjanje prek Quibi API-ja.");
     case "awaiting_customer_approval": return step("await_customer", input.fixedPriceStatus

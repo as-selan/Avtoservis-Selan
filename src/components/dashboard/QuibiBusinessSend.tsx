@@ -13,6 +13,6 @@ export function QuibiBusinessSend({orderId,caseId,documentId,kind,sha,amount,rec
  {!pollOnly&&canDispatch&&<label className="flex gap-2 text-sm"><input name="confirmed" type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} required value="yes"/>Pregledal sem dokument, znesek in prejemnika. Potrjujem enkratno pošiljanje te vsebine.</label>}
  <button disabled={pending||(!pollOnly&&!canDispatch)} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{pending?'Preverjam…':pollOnly?'Preveri status brez ponovnega pošiljanja':'Pošlji dokument'}</button>
  {initialState?.attemptedAt&&<p className="text-xs">Zabeležen poskus: {initialState.attemptedAt}</p>}
- {!canDispatch&&<p className="text-sm">Dejansko pošiljanje je izključeno. Dokument ni poslan; prejemnika in vsebino lahko pregledate.</p>}{sendId&&<p className="break-all text-xs">send_id: {sendId}</p>}{message&&<p role="status">{message}</p>}
+ {!canDispatch&&<p className="text-sm">Nova pošiljanja so izključena. Prejemnika in vsebino lahko pregledate; stanje morebitnega prejšnjega poskusa je prikazano spodaj.</p>}{sendId&&<p className="break-all text-xs">send_id: {sendId}</p>}{message&&<p role="status">{message}</p>}
  </form>;
 }

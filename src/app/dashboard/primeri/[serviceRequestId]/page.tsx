@@ -342,9 +342,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         findings={inspectionResult.data?.findings ?? null}
         repairDecision={inspectionResult.data?.repair_decision as "pending" | "ordered" | "not_ordered" | undefined ?? null} realDevWrite={realDevMode} />}
       {(inspectionResult.data?.status === "requested" || diagnosisOffer) &&
-        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" offer={diagnosisOffer} realDevWrite={realDevMode} />}
+        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" inactiveReason={inspectionResult.data?.status === "requested" ? undefined : "Predhodni pregled je že opravljen ali ni več naročen. Stare možnosti ne potrjujejo rezervacije; po potrebi umaknite ponudbo."} offer={diagnosisOffer} realDevWrite={realDevMode} />}
       {(request.status === "awaiting_slot_selection" || serviceOffer) &&
-        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" syntheticQaAllowed={localSyntheticQaAllowed(process.env)} offer={serviceOffer} realDevWrite={realDevMode} />}
+        <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" inactiveReason={request.status === "awaiting_slot_selection" ? undefined : "Stanje primera se je spremenilo. Stare možnosti ne potrjujejo rezervacije; preverite nadaljevanje primera."} syntheticQaAllowed={localSyntheticQaAllowed(process.env)} offer={serviceOffer} realDevWrite={realDevMode} />}
     {['owner','admin'].includes(access.role)&&<CaseWorkPanel caseId={serviceRequestId} role={access.role}/>}
 </div>;
 }

@@ -13,7 +13,7 @@ export function PrepareOfferButton({
   serviceRequestId,
   alreadyPrepared = false,
   compact = false,
-  providerReady = false,
+  providerReady,
 }: {
   serviceRequestId: string;
   alreadyPrepared?: boolean;
@@ -50,7 +50,7 @@ export function PrepareOfferButton({
           <p className="text-xs font-medium text-slate-700">
             {OFFER_PREP_READY_NEXT_ACTION}
           </p>
-          {!providerReady && <p className="text-xs text-slate-600">Ponudbo lahko informativno pregledate. Ustvarjanje dokumenta trenutno ni omogočeno.</p>}
+          {providerReady === false && <p className="text-xs text-slate-600">Ponudbo lahko informativno pregledate. Ustvarjanje dokumenta trenutno ni omogočeno.</p>}
         </div>
       ) : (
         <button

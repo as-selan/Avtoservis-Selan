@@ -90,3 +90,13 @@ const invoice={kind:'invoice',state:'verified',quibi_id:'2176902',quibi_content_
 test('verified invoice replaces stale appointment next action without claiming receipt or closure',()=>{const progress=quibiBusinessNextAction([invoice,{kind:'send',state:'verified',quibi_id:'2176902',send_status:'sent',request_body:JSON.stringify({sha:'a'.repeat(64)})}])!;const step=nextCaseStep({status:'awaiting_slot_selection',offerPrepared:true,quibiLinked:true,directQuibiBusiness:true,businessNextAction:progress});assert.match(step.label,/2176902.*predan poštnemu strežniku/);assert.match(step.label,/niso potrjeni/);assert.equal(step.externalConfirmed,false);assert.notEqual(step.kind,'closed')});
 test('rejected empty CREATE preserves verified invoice progress; unknown SEND blocks new send',()=>{assert.match(quibiBusinessNextAction([{...invoice,state:'failed',quibi_id:null},invoice])!.label,/je ustvarjen/);assert.match(quibiBusinessNextAction([invoice,{kind:'send',state:'uncertain',quibi_id:'2176902'}])!.label,/Ne pošiljaj ponovno/)});
 test('old-version SEND does not confirm current invoice version',()=>assert.match(quibiBusinessNextAction([invoice,{kind:'send',state:'verified',quibi_id:'2176902',send_status:'sent',request_body:JSON.stringify({sha:'b'.repeat(64)})}])!.label,/je ustvarjen/));
+
+
+test('unpaid preliminary inspection is not hidden by existing Quibi business progress',()=>{
+ const step=nextCaseStep({status:'declined',offerPrepared:true,quibiLinked:true,directQuibiBusiness:true,inspectionRepairDecision:'not_ordered',businessNextAction:{kind:'manual_external_handoff',label:'Existing document',externalConfirmed:false}});
+ assert.equal(step.kind,'manual_inspection_billing');assert.match(step.label,/plačljiv/);
+});
+test('dashboard without case-specific write readiness offers preview without inventing a configuration failure',()=>{
+ const step=nextCaseStep({status:'preparing_offer',offerPrepared:true,quibiLinked:true});
+ assert.match(step.label,/preglej ponudbo/);assert.doesNotMatch(step.label,/konfiguriraj/);
+});

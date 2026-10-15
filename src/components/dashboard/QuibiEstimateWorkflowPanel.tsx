@@ -30,7 +30,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  const sendAllowed=!p.dev&&p.sendEnabled===true&&!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
  return <section className="space-y-3 border-t pt-3">
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
-  {p.dev&&<p className="text-sm text-amber-800">DEV: predračun pošlje samo na prikazani testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
+  {p.dev&&<p className="text-sm text-amber-800">DEV uporablja samo dovoljen testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
   {p.amount&&<p className="font-medium">Znesek: {Number(p.amount).toLocaleString("sl-SI",{style:"currency",currency:"EUR"})}</p>}
   <ul className="space-y-1 text-sm">{p.lines.map((line,i)=><li key={i}>{line.description} · količina {line.quantity} · cena na enoto z DDV {line.pricingVerified?line.unitGrossPrice:"ni preverljiva"}</li>)}</ul>
   <p className="text-sm">Predračun praviloma pošlji pred popravilom. Dejanska odobritev stranke je ločena in je lahko potrjena po telefonu; račun se pripravi šele po opravljenem popravilu.</p>
@@ -56,7 +56,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
     {pending?"Preverjam in pošiljam…":p.reviewStatus==="approved_for_send"?"Pošlji stranki":"Odobri in pošlji stranki"}
    </button>
   </form>}
-  {p.dev&&<p className="text-sm">DEV: preverite dokument in prejemnika. Dejanska dostava je izključena; dokument ni poslan. SMTP-ja za Quibi DEV ne nastavljamo.</p>}
+  {p.dev&&<p className="text-sm">DEV: nova pošiljanja so izključena. Preverite dokument in prejemnika; stanje morebitnega prejšnjega poskusa je prikazano spodaj.</p>}
   {p.dev&&!!p.allowedRecipients?.length&&<label className="block text-sm">Prejemnik za pregled<select value={recipient} onChange={e=>setRecipient(e.target.value)} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
   {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<div className="space-y-2"><button disabled className="rounded border px-3 py-2 text-sm">Pošiljanje čaka na potrjeno vsebino in konfiguracijo</button><p className="text-sm text-amber-800">Za pošiljanje sta potrebna potrjena vsebina in varna konfiguracija. DEV zahteva konfiguriran testni naslov. Ob neznanem izidu preverite dnevnik.</p></div>}
   {p.reviewStatus==="unreviewed"&&!p.operationState&&sendAllowed&&<button type="button" disabled={pending} className="rounded border px-3 py-2 text-sm" onClick={()=>startTransition(async()=>{const r=await reviewManualQuibiEstimate(p.quoteId,"reject");setMessage(r.ok?"Predračun je zavrnjen za popravek.":r.message);router.refresh()})}>Zavrni za popravek</button>}

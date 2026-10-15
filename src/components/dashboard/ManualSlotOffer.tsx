@@ -12,8 +12,8 @@ type Offer = {
   booking_reference: string | null;
 };
 
-export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, realDevWrite = false, syntheticQaAllowed = false }: {
-  serviceRequestId: string; appointmentType: "diagnosis" | "service"; offer: Offer | null; realDevWrite?: boolean; syntheticQaAllowed?: boolean;
+export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, realDevWrite = false, syntheticQaAllowed = false, inactiveReason }: {
+  serviceRequestId: string; appointmentType: "diagnosis" | "service"; offer: Offer | null; realDevWrite?: boolean; syntheticQaAllowed?: boolean; inactiveReason?: string;
 }) {
   const router = useRouter();
   const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
@@ -25,14 +25,19 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
   const [cancelAttested, setCancelAttested] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+  const [checkedAt] = useState(() => Date.now());
+  const expired = !!offer && offer.status !== "confirmed" && (offer.status === "selected"
+    ? Date.parse([offer.slot_1, offer.slot_2, offer.slot_3][(offer.selected_slot ?? 1) - 1]) <= checkedAt
+    : Math.min(...[offer.slot_1, offer.slot_2, offer.slot_3].map(Date.parse)) <= checkedAt);
+  const blocked = offer?.status !== "confirmed" && (!!inactiveReason || expired);
   const title = appointmentType === "diagnosis" ? "Termin predhodnega pregleda" : "Termin popravila";
-  const statusMessage = offer?.status === "proposed" ? "Tri možnosti so pripravljene, niso še poslane ali rezervirane."
+  const statusMessage = blocked ? inactiveReason ?? "Termini so potekli. To ni potrjena rezervacija. Umaknite staro ponudbo in preverite nove možnosti." : offer?.status === "proposed" ? "Tri možnosti so pripravljene, niso še poslane ali rezervirane."
     : offer?.status === "offered" ? demo ? "Pošiljanje možnosti je simulirano; nobena ni rezervirana." : "Tri možnosti so bile ročno poslane; nobena ni začasno rezervirana."
       : offer?.status === "selected" ? "Stranka je izbrala termin; rezervacija v MyPlanlyju še ni potrjena."
         : offer?.status === "confirmed" && offer.booking_reference?.startsWith("QA-SIM-") ? "QA-SIM: simuliran interni termin. To NI rezervacija v MyPlanlyju." : offer?.status === "confirmed" ? "Termin je interno potrjen na podlagi ročno zabeležene rezervacije v MyPlanlyju. Samodejne sinhronizacije ni."
           : "Tri možnosti je treba dejansko preveriti v MyPlanlyju. Aplikacija ne preverja razpoložljivosti sama.";
   function create() {
-    if (pending || !attested) return;
+    if (pending || !attested || blocked) return;
     const converted = slots.map(ljubljanaWallTimeToIso);
     if (converted.some((value) => !value)) {
       setMessage("Neveljaven ali dvoumen lokalni čas Europe/Ljubljana. Izberite drug čas.");
@@ -45,11 +50,11 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
     });
   }
   function advance(action: "send" | "select" | "confirm" | "confirm_synthetic" | "cancel") {
-    if (!offer || pending || !attested) return;
+    if (!offer || pending || !attested || blocked) return;
     startTransition(async () => {
       const result = await advanceManualSlotOffer(offer.id, action, reference,
         action === "select" ? selected : undefined);
-      setMessage(result.ok ? demo ? "Demo korak je shranjen; nič ni poslano ali rezervirano." : "Dejanski ročni korak termina je shranjen." : result.message);
+      setMessage(result.ok ? action === "confirm_synthetic" ? "QA-SIM: simuliran termin je shranjen; zunanje rezervacije ni." : demo ? "Demo korak je shranjen; nič ni poslano ali rezervirano." : "Dejanski ročni korak termina je shranjen." : result.message);
       if (result.ok) { setAttested(false); setReference(""); router.refresh(); }
     });
   }
@@ -70,18 +75,18 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
     {offer && <ol className="list-decimal pl-5 text-sm space-y-1">{[offer.slot_1,offer.slot_2,offer.slot_3].map((slot, index) =>
       <li key={index}>{new Date(slot).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana", dateStyle: "medium", timeStyle: "short" })}
         {offer.selected_slot === index + 1 ? " · izbrano" : ""}</li>)}</ol>}
-    {!offer && <div className="space-y-2">
+    {!offer && !blocked && <div className="space-y-2">
       {[0,1,2].map((index) => <label key={index} className="block text-sm">Možnost {index + 1} · Europe/Ljubljana
         <input type="datetime-local" className="mt-1 block rounded border px-2 py-1" value={slots[index]}
           onChange={(event) => setSlots((current) => current.map((value, position) => position === index ? event.target.value : value))} />
       </label>)}
     </div>}
-    {offer?.status === "offered" && <label className="block text-sm">Izbrana možnost
+    {!blocked && offer?.status === "offered" && <label className="block text-sm">Izbrana možnost
       <select className="mt-1 block rounded border px-2 py-1" value={selected}
         onChange={(event) => setSelected(Number(event.target.value))}>
         <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
       </select></label>}
-    {offer?.status !== "confirmed" && !(demo && !syntheticQaAllowed && offer?.status === "selected") && <>
+    {!blocked && offer?.status !== "confirmed" && !(demo && !syntheticQaAllowed && offer?.status === "selected") && <>
       <label className="block text-sm">{!offer ? "Referenca preverjanja razpoložljivosti" : offer.status === "proposed" ? demo ? "Referenca simuliranega pošiljanja" : "Referenca dejansko poslanih možnosti" : offer.status === "offered" ? "Referenca strankine izbire" : syntheticQaAllowed ? "Sintetična referenca potrditve QA-SIM" : "Referenca dejanske rezervacije v MyPlanlyju"}
         <input className="mt-1 block w-full rounded border px-2 py-1" value={reference} maxLength={200}
           onChange={(event) => setReference(event.target.value)} placeholder="Sledljiv ID ali zapis" />

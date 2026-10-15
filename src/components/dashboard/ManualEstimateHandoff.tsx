@@ -45,8 +45,9 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
     });
   }
 
+
   if (decision) {
-    return <p className="text-sm">{syntheticQa?"Simulirana QA odločitev":"Strankina odločitev"}: {decision}. Evidentirana je za to različico predračuna.</p>;
+    return <p className="text-sm">{syntheticQa?"Simulirana QA odločitev":"Strankina odločitev"}: {decision === "approved" ? "odobreno" : decision === "rejected" ? "zavrnjeno" : decision}. Evidentirana je za to različico predračuna.</p>;
   }
 
   const decisionReady = decisionReference.trim().length >= 4 && decisionReference.trim().length <= 200;
@@ -65,7 +66,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
       <button type="button" disabled={pending || !decisionReady} onClick={() => submit("approved")}
         className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">{syntheticQa?"Evidentiraj simulirano QA odobritev":"Stranka je potrdila popravilo"}</button>
       <button type="button" disabled={pending || !decisionReady} onClick={() => submit("rejected")}
-        className="rounded border px-3 py-2 text-sm disabled:opacity-50">Stranka je zavrnila predračun</button>
+        className="rounded border px-3 py-2 text-sm disabled:opacity-50">{syntheticQa?"Evidentiraj simulirano QA zavrnitev":"Stranka je zavrnila predračun"}</button>
     </div>
     {!delivered && <details className="space-y-2 rounded border p-3 text-sm">
       <summary className="cursor-pointer">Ločeno evidentiraj dejansko dostavo predračuna (neobvezno)</summary>
