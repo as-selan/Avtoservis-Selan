@@ -284,6 +284,7 @@ export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
     const code=error instanceof Error && /^QUIBI_[A-Z_0-9]{1,80}$/.test(error.message)?error.message:'PREVIEW_UNAVAILABLE';
     const errorType=error instanceof Error && ['Error','TypeError','TimeoutError','AbortError'].includes(error.name)?error.name:'other';
     console.error(JSON.stringify({event:'quibi_preview_failed',caseId:id,stage,code,errorType}));
+    if(code==='QUIBI_HTTP_401'||code==='QUIBI_HTTP_403')return fail('Quibi ne dovoli branja podatkov. Poskusite pozneje; če se napaka ponavlja, preverite dostop do Quibi DEV. Noben dokument ni ustvarjen ali poslan.');
     if(code==='QUIBI_CUSTOMER_PRICING_UNVERIFIED')return fail('Quibi ni zanesljivo potrdil cenovne politike stranke ali dovoljenega prenosa posebne cene. Preverite dodeljeni cenik in artikel v Quibiju.');
     if(['QUIBI_CASE_NOT_READY','QUIBI_CASE_LINKS_NOT_READY','QUIBI_CUSTOMER_CHANGED','QUIBI_LINK_CHANGED','QUIBI_ENVIRONMENT_MISMATCH','QUIBI_WRITE_FORBIDDEN'].includes(code))return fail('Preverite pregled primera ter potrjeno povezavo stranke in pravega vozila. Noben dokument ni ustvarjen.');
     return fail('Predogleda trenutno ni mogoče preveriti. Ponovno kliknite Preglej ponudbo. Noben dokument ni ustvarjen ali poslan.');
