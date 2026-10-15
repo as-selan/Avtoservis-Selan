@@ -5,17 +5,17 @@ import {runInNewContext} from 'node:vm';
 import ts from 'typescript';
 
 type Element = {type:unknown;props:Record<string,unknown>};
-function panel(state:string){
- const calls:string[]=[],effects:(()=>unknown)[]=[];let slot=0;
+function panel(state:string, readFails=false){
+ const calls:string[]=[],effects:(()=>unknown)[]=[];let slot=0,refreshes=0;
  const jsx=(type:unknown,props:Record<string,unknown>)=>({type,props});
- const actions=Object.fromEntries(['prepareQuibiEstimate','prepareQuibiEstimateHistory','createQuibiDevEstimate','reconcileQuibiEstimate'].map(name=>[name,async()=>{calls.push(name);return name==='prepareQuibiEstimateHistory'?{proposals:[],issues:[]}:{ok:true,sha:'a'.repeat(64),detail:'Priprava preverjena'};}]));
+ const actions=Object.fromEntries(['prepareQuibiEstimate','prepareQuibiEstimateHistory','createQuibiDevEstimate','reconcileQuibiEstimate'].map(name=>[name,async()=>{calls.push(name);if(readFails&&name==='prepareQuibiEstimate')throw Error('READ unavailable');return name==='prepareQuibiEstimateHistory'?{proposals:[],issues:[]}:{ok:true,sha:'a'.repeat(64),detail:'Priprava preverjena'};}]));
  const react={useRef:(value:unknown)=>({current:value}),useState:(value:unknown)=>{const i=slot++;return [i===7?'a'.repeat(64):i===10?true:i===5?false:value,()=>{}]},useEffect:(effect:()=>unknown)=>effects.push(effect),useTransition:()=>[false,(fn:()=>Promise<void>)=>fn()]};
  const exports:Record<string,unknown>={};
  const code=ts.transpileModule(readFileSync(new URL('./QuibiDevWritePanel.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  class Form extends FormData{constructor(){super();this.set('createConfirmed','yes')}}
- runInNewContext(code,{exports,require:(name:string)=>name==='react'?react:name==='react/jsx-runtime'?{jsx,jsxs:jsx}:name==='next/navigation'?{useRouter:()=>({refresh:()=>{}})}:actions,FormData:Form,HTMLInputElement:class{},JSON,Map,Set});
+ runInNewContext(code,{exports,require:(name:string)=>name==='react'?react:name==='react/jsx-runtime'?{jsx,jsxs:jsx}:name==='next/navigation'?{useRouter:()=>({refresh:()=>{refreshes++}})}:actions,FormData:Form,HTMLInputElement:class{},JSON,Map,Set});
  const element=(exports.QuibiDevWritePanel as (p:unknown)=>Element)({serviceRequestId:'case',mode:'create',operationState:state,choices:{saleTypes:[{id:'1',label:'Sale'}],units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]}});
- return {element,calls,effects};
+ return {element,calls,effects,refreshes:()=>refreshes};
 }
 for(const state of ['failed','uncertain','dispatching','verified']){
  test(`${state}: READ preview remains available while confirmed CREATE cannot dispatch`,async()=>{
@@ -29,3 +29,5 @@ for(const state of ['failed','uncertain','dispatching','verified']){
 }
 test('failed CREATE no longer suppresses history READ',async()=>{const p=panel('failed');p.effects[0]();await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['prepareQuibiEstimateHistory'])});
 test('normal confirmed CREATE still uses its original action',async()=>{const p=panel('prepared');(p.element.props.onSubmit as (e:unknown)=>void)({preventDefault(){},currentTarget:{},nativeEvent:{submitter:{getAttribute:()=> 'yes'}}});await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['createQuibiDevEstimate'])});
+
+test('temporary READ failure can be retried and does not refresh the case or dispatch',async()=>{const p=panel('uncertain',true);const submit=p.element.props.onSubmit as (e:unknown)=>void;const event={preventDefault(){},currentTarget:{},nativeEvent:{submitter:null}};submit(event);await new Promise(r=>setImmediate(r));submit(event);await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['prepareQuibiEstimate','prepareQuibiEstimate']);assert.equal(p.refreshes(),0)});

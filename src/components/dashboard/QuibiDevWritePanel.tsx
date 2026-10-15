@@ -18,7 +18,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
 }) {
   const router = useRouter();
-  const createLocked = ['failed','uncertain','dispatching','verified'].includes(operationState ?? '');
+  const createLocked = (mode === 'create' || mode === 'prepare') && ['failed','uncertain','dispatching','verified'].includes(operationState ?? '');
   const formElement=useRef<HTMLFormElement>(null),automaticPreparation=useRef('');
   const [revision,setRevision]=useState(0);
   const [pending, startTransition] = useTransition();
@@ -90,8 +90,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       if(result.ok && result.document) setDocument(result.document);
       if(!dispatch) {setSourceSha(result.ok?result.sourceSha??null:null);setReview(result.ok ? result.review ?? null : null);setConfirmed(false);}
       if (!dispatch && (mode === "create" || mode === "prepare" || mode === "update")) setPreparedSha(result.ok ? result.sha ?? null : null);
-      router.refresh();
-      } catch {setMessage("Izid ni potrjen. Preverite dnevnik; pošiljanja ali ustvarjanja ne ponavljajte.")} finally {lock.current = false}
+      if (dispatch || mode === "send") router.refresh();
+      } catch {setMessage(dispatch || mode === "send" ? "Izid ni potrjen. Preverite stanje; pošiljanja ali ustvarjanja ne ponavljajte." : "Pregleda trenutno ni mogoče pridobiti. Ponovno kliknite Preglej ponudbo; dokument ni ustvarjen ali poslan.")} finally {lock.current = false}
     });
   }}><fieldset disabled={pending} className="space-y-3">
     {(mode === "create" || mode === "prepare") && createLocked && <section className="space-y-2 rounded border border-amber-300 p-3 text-sm">
@@ -194,7 +194,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         <p className="font-semibold">Skupaj z DDV: {money(review.total)}</p>
       </section>}
       <details className="text-xs"><summary>Podrobnosti preverjanja</summary><p className="break-all">Prstni odtis: {preparedSha}</p></details>
-      <label className="flex gap-2 text-sm"><input name={mode==="update"?"updateConfirmed":"createConfirmed"} type="checkbox" value="yes" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} disabled={dispatchStarted||mode==="prepare"||!writeEnabled||createLocked}/>Potrjujem {mode==="update"?"posodobitev":"ustvarjanje"} pregledanega predračuna v Quibi DEV za prikazano stranko, vozilo in storitev tega primera.</label>
+      {mode !== "prepare" && !createLocked && <label className="flex gap-2 text-sm"><input name={mode==="update"?"updateConfirmed":"createConfirmed"} type="checkbox" value="yes" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} disabled={dispatchStarted||!writeEnabled}/>Potrjujem {mode==="update"?"posodobitev":"ustvarjanje"} pregledanega predračuna v Quibi DEV za prikazano stranko, vozilo in storitev tega primera.</label>}
       <button data-dispatch="yes" disabled={pending || dispatchStarted || !confirmed || mode==="prepare" || !writeEnabled || (mode==="create" && createLocked)} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{mode==='create'&&createLocked?'Ponovno ustvarjanje ustavljeno':mode==='prepare'||!writeEnabled?'Ustvarjanje trenutno ni omogočeno':dispatchStarted ? 'Dispatch sprožen; pred nadaljevanjem preverite dnevnik' : mode==='update'?'Posodobi pregledani predračun v Quibiju':'Ustvari pregledani predračun v Quibiju'}</button>
     </div>}
     {message && <p role={message.startsWith("Priprava preverjena") || message.startsWith("Quibi DEV") || message.startsWith("Quibi je") ? "status" : "alert"} className="whitespace-pre-wrap break-all text-sm">{message.split("\n")[0]}</p>}
