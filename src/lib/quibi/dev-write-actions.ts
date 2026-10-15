@@ -261,21 +261,33 @@ export async function checkQuibiDevTestEstimateStatus(form: FormData): Promise<R
 export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
   const id=form.get('serviceRequestId'),sale=form.get('saleTypeId'),unit=form.get('unitId'),vat=form.get('vatId'),price=validPrice(form.get('unitPrice'));
   if(typeof id!=='string'||typeof sale!=='string'||typeof unit!=='string'||typeof vat!=='string'||(price==null&&!form.get('catalogSource')&&!form.get('historySource')))return fail('Preverite ceno, storitev in identiteto.');
+  let stage="identity";
   try {
     const ctx=await quibiEstimatePreparationContext(id);
     const {data:quotes,error}=await ctx.db.from('quotes').select('id').eq('organization_id',ctx.access.organizationId).eq('service_request_id',id).limit(1);
     if(error||quotes?.length)return fail('Predračun je že povezan ali njegove evidence ni mogoče preveriti.');
+    stage="catalogs";
     const [numberings,sales,units,vatRates,warehouses]=await Promise.all(['numberings','saleTypes','units','vat','warehouses'].map(kind=>ctx.read.catalog(kind as 'numberings'|'saleTypes'|'units'|'vat'|'warehouses')));
     const warehouseId=String(form.get('warehouseId')??'');
     if(warehouses.length&&!warehouses.some(w=>w.id===warehouseId))return fail('Izberite veljavno Quibi skladišče.');
+    stage="pricing";
     const source=await estimateCatalogSource(form,ctx.read,{units,vatRates},ctx.remoteCustomer);
     if(form.get('historySource')&&ctx.remoteCustomer.priceListId===undefined)throw Error('QUIBI_CUSTOMER_PRICING_UNVERIFIED');
+    stage="history";
     const history=form.get('historySource') ? await freshHistorySource(form,historyRead(ctx.read),{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code,priceListId:ctx.remoteCustomer.priceListId}) : null;
     if(history)verifyHistoryCatalogReferences(history,{units,vatRates});
+    stage="review";
     const payload=estimatePreparationPayload({serviceRequestId:id,customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,saleTypeId:sale,warehouseId:warehouseId||undefined,lines:history?history.payloadLines:source?[source.line]:[{opis:ctx.lineDescription,enota_id:unit,ddv_id:vat,kolicina:1,cenaZDDV:unitNetFromGross(price!,vat,vatRates),popust:0}],note:`${quibiWorkflowConfig(process.env,'read').mode==='dev'?'TEST-AUTOSERVIS-SELAN':'AVTOSERVIS-SELAN'} ${id}`},{numberings,saleTypes:sales,units,vatRates},history?history.reviewedLines:source?[source.reviewedLine]:undefined);
     payload.review.pricingSource=history?(ctx.remoteCustomer.priceListId?'Aktualni Quibi cenik stranke #'+ctx.remoteCustomer.priceListId+'; postavke iz dokumenta #':'Aktualne osnovne cene Quibi artiklov; postavke iz dokumenta #')+history.documentId:source?(ctx.remoteCustomer.priceListId?'Quibi cenik #'+ctx.remoteCustomer.priceListId+' je dodeljen tej stranki.':'Quibi stranka nima dodeljenega posebnega cenika; uporabljene so osnovne cene artiklov.'):'Ročno pregledana cena in sveži Quibi šifranti.';
     return {ok:true,sha:payload.sha256,sourceSha:history?.sourceSha??source?.option.sourceSha,review:payload.review,detail:`Priprava preverjena; dokument ni ustvarjen ali poslan. Pravica WRITE številčenja še ni preizkušena. Pred ustvarjanjem je potreben ponoven pregled.\nSHA-256: ${payload.sha256}\n${JSON.stringify(payload.body,null,2)}`};
-  } catch(error) {return fail(error instanceof Error&&error.message==='QUIBI_CUSTOMER_PRICING_UNVERIFIED'?'Quibi ni zanesljivo potrdil cenovne politike stranke ali dovoljenega prenosa posebne cene. Priprava je ustavljena; preverite dodeljeni cenik in artikel v Quibiju.':'Priprava ni potrjena. Preverite pregled primera ter povezavo stranke in vozila. Noben dokument ni ustvarjen.');}
+  } catch(error) {
+    const code=error instanceof Error && /^QUIBI_[A-Z_0-9]{1,80}$/.test(error.message)?error.message:'PREVIEW_UNAVAILABLE';
+    const errorType=error instanceof Error && ['Error','TypeError','TimeoutError','AbortError'].includes(error.name)?error.name:'other';
+    console.error(JSON.stringify({event:'quibi_preview_failed',caseId:id,stage,code,errorType}));
+    if(code==='QUIBI_CUSTOMER_PRICING_UNVERIFIED')return fail('Quibi ni zanesljivo potrdil cenovne politike stranke ali dovoljenega prenosa posebne cene. Preverite dodeljeni cenik in artikel v Quibiju.');
+    if(['QUIBI_CASE_NOT_READY','QUIBI_CASE_LINKS_NOT_READY','QUIBI_CUSTOMER_CHANGED','QUIBI_LINK_CHANGED','QUIBI_ENVIRONMENT_MISMATCH','QUIBI_WRITE_FORBIDDEN'].includes(code))return fail('Preverite pregled primera ter potrjeno povezavo stranke in pravega vozila. Noben dokument ni ustvarjen.');
+    return fail('Predogleda trenutno ni mogoče preveriti. Ponovno kliknite Preglej ponudbo. Noben dokument ni ustvarjen ali poslan.');
+  }
 }
 
 /** READ-only revision preparation; WRITE stays behind a separate explicit confirmation. */
