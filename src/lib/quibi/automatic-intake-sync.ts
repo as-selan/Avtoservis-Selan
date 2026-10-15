@@ -1,3 +1,4 @@
+import {isHostedQuibiEnvironment} from './deployment-policy';
 import {requiresResolvedVehicleConfirmation} from './vehicle-identity';
 import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from './intake-sync-configuration';
 import 'server-only';
@@ -8,15 +9,15 @@ import {createClient} from '@supabase/supabase-js';
 import {quibiWorkflowConfig} from './workflow-config';
 import {createQuibiReadClient} from './client';
 import {configuredQuibiWorkflowWriteClient} from './write-client';
-import {quibiDevOperationJournal} from './write-journal';
+import {quibiWorkflowJournal} from './write-journal';
 import {customerFingerprint,vehicleFingerprint} from './contracts';
 import {synchronizeIntakeParties} from './automatic-intake-workflow';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function scheduleIntakeSynchronization(caseId:string){
- if(process.env.APP_ENV==='preproduction'&&process.env.QUIBI_MODE==='dev'&&process.env.VERCEL_ENV==='preview'&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId)});
+ if(isHostedQuibiEnvironment(process.env)&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId)});
 }
 export async function processIntakeSynchronization(caseId:string){
- if(!uuid.test(caseId)||process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview')return;
+ if(!uuid.test(caseId)||!isHostedQuibiEnvironment(process.env))return;
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -45,11 +46,11 @@ export async function processIntakeSynchronization(caseId:string){
   const resolution=await db.from('case_vehicle_resolution_events').select('id').eq('organization_id',org.id).eq('case_id',caseId).limit(1);
   if(resolution.error&&!['42P01','PGRST205'].includes(resolution.error.code))throw Error('INTAKE_READ_FAILED');
   if(requiresResolvedVehicleConfirmation(!!resolution.data?.length,vehicleLink?.sync_status))throw Error('INTAKE_RESOLUTION_REVIEW_REQUIRED');
-  if(link&&(link.quibi_environment!=='dev'||link.sync_status!=='ok')||vehicleLink&&(vehicleLink.quibi_environment!=='dev'||vehicleLink.sync_status!=='ok'||vehicleLink.customer_id!==request.customer_id))throw Error('INTAKE_IDENTITY_REVIEW');
+  if(link&&(link.quibi_environment!==config.mode||link.sync_status!=='ok')||vehicleLink&&(vehicleLink.quibi_environment!==config.mode||vehicleLink.sync_status!=='ok'||vehicleLink.customer_id!==request.customer_id))throw Error('INTAKE_IDENTITY_REVIEW');
   const localCustomer={name:customer.display_name,phone:customer.phone??'',email:customer.email??''};
   const localVehicle=vehicle?{vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''}:null;
   if(link&&(link.local_fingerprint!==customerFingerprint(localCustomer)||link.external_fingerprint!==customerFingerprint(localCustomer))||vehicleLink&&localVehicle&&(vehicleLink.local_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.external_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.quibi_customer_id!==link?.external_id))throw Error('INTAKE_IDENTITY_REVIEW');
-  const result=await synchronizeIntakeParties({allowVehicleCreate:false,caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:configuredQuibiWorkflowWriteClient(),journal:quibiDevOperationJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
+  const result=await synchronizeIntakeParties({allowVehicleCreate:false,caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:configuredQuibiWorkflowWriteClient(),journal:quibiWorkflowJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
    enrichCustomer:async remote=>{
     if(link)throw Error('INTAKE_IDENTITY_REVIEW');
     let update=db.from('customers').update({display_name:localCustomer.name||remote.name,phone:localCustomer.phone||remote.phone||null,email:localCustomer.email||remote.email||null}).eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null);
@@ -67,14 +68,14 @@ export async function processIntakeSynchronization(caseId:string){
     Object.assign(localVehicle,{vin:localVehicle.vin||remote.vin,registration:remote.registration,make:localVehicle.make||remote.make,model:localVehicle.model||remote.model});
    },saveCustomer:async remote=>{
     if(link)return;
-    const row={organization_id:org.id,provider:'quibi',entity_type:'customer',entity_id:request.customer_id,external_id:remote.id,quibi_environment:'dev',local_fingerprint:customerFingerprint(localCustomer),external_fingerprint:customerFingerprint(remote),confirmed_by:actor,sync_status:'ok',last_checked_at:new Date().toISOString()};
+    const row={organization_id:org.id,provider:'quibi',entity_type:'customer',entity_id:request.customer_id,external_id:remote.id,quibi_environment:config.mode,local_fingerprint:customerFingerprint(localCustomer),external_fingerprint:customerFingerprint(remote),confirmed_by:actor,sync_status:'ok',last_checked_at:new Date().toISOString()};
     const {error}=await db.from('integration_links').insert(row);
-    if(error){const {data:existing,error:readError}=await db.from('integration_links').select('external_id,local_fingerprint,external_fingerprint,quibi_environment').eq('organization_id',org.id).eq('provider','quibi').eq('entity_type','customer').eq('entity_id',request.customer_id).single();if(readError||!existing||existing.external_id!==row.external_id||existing.local_fingerprint!==row.local_fingerprint||existing.external_fingerprint!==row.external_fingerprint||existing.quibi_environment!=='dev')throw Error('INTAKE_LINK_STORAGE_FAILED')}
+    if(error){const {data:existing,error:readError}=await db.from('integration_links').select('external_id,local_fingerprint,external_fingerprint,quibi_environment').eq('organization_id',org.id).eq('provider','quibi').eq('entity_type','customer').eq('entity_id',request.customer_id).single();if(readError||!existing||existing.external_id!==row.external_id||existing.local_fingerprint!==row.local_fingerprint||existing.external_fingerprint!==row.external_fingerprint||existing.quibi_environment!==config.mode)throw Error('INTAKE_LINK_STORAGE_FAILED')}
    },saveVehicle:async remote=>{
     if(vehicleLink)return;
-    const row={organization_id:org.id,customer_id:request.customer_id,vehicle_id:request.vehicle_id,quibi_customer_id:remote.customerId,quibi_vehicle_id:remote.id,quibi_environment:'dev',local_fingerprint:vehicleFingerprint(localVehicle!),external_fingerprint:vehicleFingerprint(remote),confirmed_by:actor,sync_status:'ok',last_checked_at:new Date().toISOString()};
+    const row={organization_id:org.id,customer_id:request.customer_id,vehicle_id:request.vehicle_id,quibi_customer_id:remote.customerId,quibi_vehicle_id:remote.id,quibi_environment:config.mode,local_fingerprint:vehicleFingerprint(localVehicle!),external_fingerprint:vehicleFingerprint(remote),confirmed_by:actor,sync_status:'ok',last_checked_at:new Date().toISOString()};
     const {error}=await db.from('quibi_vehicle_links').insert(row);
-    if(error){const {data:existing,error:readError}=await db.from('quibi_vehicle_links').select('quibi_vehicle_id,quibi_customer_id,local_fingerprint,external_fingerprint,quibi_environment').eq('organization_id',org.id).eq('vehicle_id',request.vehicle_id).single();if(readError||!existing||existing.quibi_vehicle_id!==row.quibi_vehicle_id||existing.quibi_customer_id!==row.quibi_customer_id||existing.local_fingerprint!==row.local_fingerprint||existing.external_fingerprint!==row.external_fingerprint||existing.quibi_environment!=='dev')throw Error('INTAKE_LINK_STORAGE_FAILED')}
+    if(error){const {data:existing,error:readError}=await db.from('quibi_vehicle_links').select('quibi_vehicle_id,quibi_customer_id,local_fingerprint,external_fingerprint,quibi_environment').eq('organization_id',org.id).eq('vehicle_id',request.vehicle_id).single();if(readError||!existing||existing.quibi_vehicle_id!==row.quibi_vehicle_id||existing.quibi_customer_id!==row.quibi_customer_id||existing.local_fingerprint!==row.local_fingerprint||existing.external_fingerprint!==row.external_fingerprint||existing.quibi_environment!==config.mode)throw Error('INTAKE_LINK_STORAGE_FAILED')}
    }});
   if(request.status==='needs_data'&&result.vehicleId&&localVehicle){
    const completeness=currentIntakeCompleteness({phone:localCustomer.phone,email:localCustomer.email,...localVehicle},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id},Array.isArray(request.missing_fields)?request.missing_fields:[]);
@@ -95,7 +96,7 @@ export async function processIntakeSynchronization(caseId:string){
 
 /** Called only after successful token-authorized completion, never from raw browser IDs. */
 export function scheduleCompletedIntakeSynchronization(tokenHash:string){
- if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'||!/^[a-f0-9]{64}$/.test(tokenHash))return;
+ if(!isHostedQuibiEnvironment(process.env)||!/^[a-f0-9]{64}$/.test(tokenHash))return;
  after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data,error}=await db.from('service_request_completion_links').select('service_request_id').eq('token_hash',tokenHash).is('revoked_at',null).not('last_used_at','is',null).single();
@@ -105,7 +106,7 @@ export function scheduleCompletedIntakeSynchronization(tokenHash:string){
 
 /** Hosted web RPC intentionally returns no IDs. Resolve only the just-persisted server-authorized request. */
 export function schedulePersistedWebIntakeSynchronization(clientRequestId:string){
- if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'||!uuid.test(clientRequestId))return;
+ if(!isHostedQuibiEnvironment(process.env)||!uuid.test(clientRequestId))return;
  after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data:org,error:orgError}=await db.from('organizations').select('id').eq('slug','avtoservis-selan').single();if(orgError||!org)return;

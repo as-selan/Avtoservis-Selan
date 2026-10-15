@@ -1,10 +1,11 @@
 "use server";
+import {hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {revalidatePath} from 'next/cache';import {requireWorkshopAccess} from '@/lib/auth/requireWorkshopAccess';import {createClient} from '@/lib/supabase/server';import {configuredQuibiReadClient} from '@/lib/quibi/client';import {loadQuibiDocument} from '@/lib/quibi/document-read';import {photoExtension,workInput} from './policy';
-function dev(){if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev')throw Error('ENVIRONMENT_DISABLED');}
-export async function caseWorkAction(form:FormData){try{dev();const access=await requireWorkshopAccess(),db=await createClient(),action=String(form.get('action')),caseId=String(form.get('caseId')??'');
+function workEnvironment(){return hostedQuibiEnvironment(process.env)}
+export async function caseWorkAction(form:FormData){try{const environment=workEnvironment();const access=await requireWorkshopAccess(),db=await createClient(),action=String(form.get('action')),caseId=String(form.get('caseId')??'');
  if(action==='assign'){
   if(!['owner','admin'].includes(access.role))throw Error('FORBIDDEN');
-  const {data:rows,error}=await db.from('quibi_dev_operation_journal').select('quibi_id,quibi_content_sha256,request_body').eq('organization_id',access.organizationId).eq('service_request_id',caseId).in('kind',['work_order','work_order_update']).eq('state','verified').order('created_at',{ascending:false}).limit(1);
+  const {data:rows,error}=await db.from(quibiJournalTable(environment)).select('quibi_id,quibi_content_sha256,request_body').eq('organization_id',access.organizationId).eq('service_request_id',caseId).in('kind',['work_order','work_order_update']).eq('state','verified').order('created_at',{ascending:false}).limit(1);
   if(error||!rows?.[0])throw Error('REFERENCE_REQUIRED');const ref=rows[0],payload=JSON.parse(ref.request_body),body=payload.body??payload,customer=String(body.Glavadokumenta.stranka_id),vehicle=String(body.Glavadokumenta.vozila_id),doc=await loadQuibiDocument(configuredQuibiReadClient(),'work_order',ref.quibi_id,customer);
   if(doc.vehicleId!==vehicle||doc.contentSha256!==ref.quibi_content_sha256)throw Error('REFERENCE_CHANGED');
   const r=await db.rpc('assign_service_case',{p_case:caseId,p_mechanic:String(form.get('mechanicId')),p_document:ref.quibi_id,p_sha:ref.quibi_content_sha256});if(r.error)throw Error('ASSIGNMENT_FAILED');

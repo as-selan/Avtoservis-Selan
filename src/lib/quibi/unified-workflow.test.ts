@@ -4,7 +4,7 @@ import * as w from "./unified-workflow.ts";
 import type { Operation, OperationJournal } from "./write-workflow.ts";
 const caseId="9d40c42f-b6a8-473b-983f-f9620df97d10",quoteId="ab9f75b2-e6f3-45c7-82de-e36c82faab7b";
 const dev={APP_ENV:"preproduction",QUIBI_MODE:"dev",VERCEL_ENV:"preview",QUIBI_DEV_WRITE_ENABLED:"1",QUIBI_DEV_USERNAME:"fixture",QUIBI_DEV_PASSWORD:"fixture",QUIBI_DEV_TEST_RECIPIENT:"qa@fixture.mail"};
-const production={APP_ENV:"production",QUIBI_MODE:"production",VERCEL_ENV:"production",QUIBI_PRODUCTION_READ_ENABLED:"1",QUIBI_PRODUCTION_WRITE_ENABLED:"1",QUIBI_PRODUCTION_SEND_ENABLED:"1",QUIBI_PRODUCTION_USERNAME:"fixture-production",QUIBI_PRODUCTION_PASSWORD:"fixture-production"};
+const production={SELAN_PRODUCTION_SUPABASE_PROJECT_REF:"fixture-production",SELAN_DEV_SUPABASE_PROJECT_REF:"fixture-dev",NEXT_PUBLIC_SUPABASE_URL:"https://fixture-production.supabase.co",APP_ENV:"production",QUIBI_MODE:"production",VERCEL_ENV:"production",QUIBI_PRODUCTION_READ_ENABLED:"1",QUIBI_PRODUCTION_WRITE_ENABLED:"1",QUIBI_PRODUCTION_SEND_ENABLED:"1",QUIBI_PRODUCTION_USERNAME:"fixture-production",QUIBI_PRODUCTION_PASSWORD:"fixture-production"};
 function fixture(reviewStatus="unreviewed") {
  const events:string[]=[];let op:Operation|null=null;
  let snapshot:w.SendSnapshot={actorId:caseId,organizationId:quoteId,role:"owner",caseId,quoteId,latestQuoteId:quoteId,caseStatus:"preparing_offer",reviewStatus,

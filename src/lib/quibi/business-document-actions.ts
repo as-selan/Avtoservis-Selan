@@ -1,4 +1,5 @@
 "use server";
+import {quibiJournalTable} from './deployment-policy';
 import {verifiedInvoiceHeader} from './invoice-header';
 import {QuibiValidationError} from './write-http';
 import {syntheticCaseEvidenceAllowed} from './synthetic-case-evidence';
@@ -35,7 +36,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const {data:order,error:orderError}=caseContext?{data:caseContext.order,error:null}:await db.from('work_orders').select('id,service_request_id,customer_id,vehicle_id,status').eq('organization_id',access.organizationId).eq('id',orderId).single();
   if(orderError||!order||order.service_request_id==='9d40c42f-b6a8-473b-983f-f9620df97d10')throw Error('CASE_BLOCKED');
   assertBusinessStage(kind,order.status);
-  if(environment==='dev'){const {data:prior,error}=await db.from('quibi_dev_operation_journal').select('id,local_entity_id,kind,state,quibi_id,request_body').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('kind',kind);if(error)throw Error('QUIBI_JOURNAL_READ_FAILED');assertBusinessCreationNamespace(prior??[],orderId,kind);}
+  {const {data:prior,error}=await db.from(quibiJournalTable(environment)).select('id,local_entity_id,kind,state,quibi_id,request_body').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('kind',kind);if(error)throw Error('QUIBI_JOURNAL_READ_FAILED');assertBusinessCreationNamespace(prior??[],orderId,kind);}
   const [{data:link,error:le},{data:vehicleLink,error:ve},{data:customer,error:ce},{data:vehicle,error:vre},{data:existing,error:ee}]=await Promise.all([
    db.from('integration_links').select('*').eq('organization_id',access.organizationId).eq('entity_id',order.customer_id).eq('entity_type','customer').eq('provider','quibi').single(),
    db.from('quibi_vehicle_links').select('*').eq('organization_id',access.organizationId).eq('vehicle_id',order.vehicle_id).eq('customer_id',order.customer_id).single(),

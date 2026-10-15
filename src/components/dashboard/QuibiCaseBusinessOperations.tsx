@@ -1,3 +1,4 @@
+import {isHostedQuibiEnvironment,hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {sendPresentation} from '@/lib/quibi/send-outcome';
 import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
 import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
@@ -13,11 +14,12 @@ import {businessSendKey} from '@/lib/quibi/business-send-workflow';
 import {QuibiBusinessDocumentForm,QuibiBusinessReadReconcile} from './QuibiBusinessDocumentForm';
 import {QuibiBusinessSend} from './QuibiBusinessSend';
 export async function QuibiCaseBusinessOperations({organizationId,userId,caseId,customerId,status,syntheticQa=false}:{organizationId:string;userId:string;caseId:string;customerId:string;status:string;syntheticQa?:boolean}){
- if(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview')return null;
+ if(!isHostedQuibiEnvironment(process.env))return null;
+ const environment=hostedQuibiEnvironment(process.env);
  const db=await createClient();
  const phase=quibiCaseProcessStage(status);if(!phase)return null;
  if(!phase.businessReady){
-  const {data:quote,error}=await db.from('quotes').select('id,evidence_kind,evidence_payload,content_sha256,internal_review_status').eq('organization_id',organizationId).eq('service_request_id',caseId).eq('quibi_environment','dev').order('version_no',{ascending:false}).limit(1).maybeSingle();
+  const {data:quote,error}=await db.from('quotes').select('id,evidence_kind,evidence_payload,content_sha256,internal_review_status').eq('organization_id',organizationId).eq('service_request_id',caseId).eq('quibi_environment',environment).order('version_no',{ascending:false}).limit(1).maybeSingle();
   const evidence=quote?.evidence_payload as {external_id?:string}|null;
   let approved=false;
   if(!error&&quote?.internal_review_status==='approved_for_send'&&quote.evidence_kind==='quibi_manual_estimate'&&evidence?.external_id&&evidence.external_id!=='2176888'){
@@ -29,18 +31,18 @@ export async function QuibiCaseBusinessOperations({organizationId,userId,caseId,
  const [{data:link,error:le},{data:customer,error:ce},{data:operations,error:oe}]=await Promise.all([
  db.from('integration_links').select('external_id,sync_status,quibi_environment').eq('organization_id',organizationId).eq('entity_id',customerId).eq('entity_type','customer').eq('provider','quibi').single(),
  db.from('customers').select('email').eq('organization_id',organizationId).eq('id',customerId).is('archived_at',null).single(),
- db.from('quibi_dev_operation_journal').select('id,kind,state,quibi_id,quibi_content_sha256,request_body,created_at,local_entity_id,send_id,send_status,attempted_at,send_status_checked_at').eq('organization_id',organizationId).eq('service_request_id',caseId).in('kind',['work_order','invoice','work_order_update','invoice_update','send'])]);
- if(le||ce||oe||!link||!customer||link.sync_status!=='ok'||link.quibi_environment!=='dev')return <p role="alert">Poslovne operacije zahtevajo preverjeno povezavo stranke in dostopen journal.</p>;
+ db.from(quibiJournalTable(environment)).select('id,kind,state,quibi_id,quibi_content_sha256,request_body,created_at,local_entity_id,send_id,send_status,attempted_at,send_status_checked_at').eq('organization_id',organizationId).eq('service_request_id',caseId).in('kind',['work_order','invoice','work_order_update','invoice_update','send'])]);
+ if(le||ce||oe||!link||!customer||link.sync_status!=='ok'||link.quibi_environment!==environment)return <p role="alert">Poslovne operacije zahtevajo preverjeno povezavo stranke in dostopen journal.</p>;
  const quibiCustomerId=link.external_id,localEmail=customer.email;
  const pendingInvoice=operations?.find(r=>r.kind==='invoice'&&r.state==='uncertain'&&r.quibi_id);
  if(pendingInvoice)return <section className="space-y-3 rounded-xl border border-amber-300 bg-white p-4"><h2 className="font-semibold">Preveri že ustvarjeni račun</h2><p>Quibi je vrnil račun #{pendingInvoice.quibi_id}. Končno preverjanje zahteva pregled; nov CREATE in SEND sta ustavljena.</p><QuibiBusinessReadReconcile caseId={caseId} operationId={pendingInvoice.id}/></section>;
  async function prepare(){
  const read=configuredQuibiReadClient(),rows=(operations??[]) as JournalReferenceRow[];
  for(const kind of ['work_order','invoice'])assertBusinessCreationNamespace(operations??[],caseId,kind);
- const references=(['work_order','invoice'] as const).flatMap(kind=>{const ref=caseBusinessReference(rows,kind);return ref?[{...ref,document_kind:kind}]:[]});
+ const references=(['work_order','invoice'] as const).flatMap(kind=>{const ref=caseBusinessReference(rows,kind,environment);return ref?[{...ref,document_kind:kind}]:[]});
  const [numberings,saleTypes,units,vat]=await Promise.all([read.catalog('numberings'),read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat')]);
  let writeEnabled=false;try{quibiWorkflowConfig(process.env,'write');writeEnabled=process.env.QUIBI_DEV_LOCAL_WRITE_ENABLED!=='1'&&process.env.QUIBI_DEV_LOCAL_SEND_ENABLED!=='1'}catch{}
- const remoteCustomer=await read.customer(quibiCustomerId);let recipient='',allowedRecipients:string[]=[];try{recipient=workflowRecipient(process.env,localEmail,remoteCustomer.email);allowedRecipients=quibiDevTestRecipients(process.env).filter(email=>email!==localEmail?.toLowerCase()&&email!==remoteCustomer.email.toLowerCase())}catch{}
+ const remoteCustomer=await read.customer(quibiCustomerId);let recipient='',allowedRecipients:string[]=[];try{recipient=workflowRecipient(process.env,localEmail,remoteCustomer.email);allowedRecipients=(environment==='dev'?quibiDevTestRecipients(process.env):[recipient]).filter(email=>email!==localEmail?.toLowerCase()&&email!==remoteCustomer.email.toLowerCase())}catch{}
  const docs=await Promise.all(references.map(async ref=>{try{const doc=await loadQuibiDocument(read,ref.document_kind,ref.quibi_document_id,quibiCustomerId);if(doc.contentSha256!==ref.content_sha256||doc.vehicleId!==ref.quibi_vehicle_id||doc.customerId!==ref.quibi_customer_id)throw Error('CASE_DOCUMENT_CHANGED');const op=await quibiWorkflowJournal(organizationId,userId).get('send',businessSendKey(caseId,doc.id,doc.contentSha256));const storedRecipient=op?JSON.parse(op.requestBody).recipient:recipient;if(typeof storedRecipient!=="string")throw Error("SEND_RECIPIENT_UNVERIFIED");return {ref,doc,op,recipient:storedRecipient,error:false as const}}catch{return {ref,error:true as const}}}));
  return {numberings,saleTypes,units,vat,references,docs,recipient,allowedRecipients,writeEnabled};
  }

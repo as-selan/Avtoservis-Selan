@@ -1,6 +1,7 @@
+import {hostedQuibiEnvironment} from './deployment-policy.ts';
 import {assertLocalPartyWriteConfiguration} from './local-write-policy.ts';
 import { assertApprovedLocalDevSendConfiguration } from "./local-send-policy.ts";
-import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient } from "./write-contract.ts";
+import { assertQuibiDevTestSendAllowed, assertQuibiDevWriteAllowed, quibiDevTestRecipient } from "./write-contract.ts";
 export type WorkflowConfig = {
     mode: "dev" | "production";
     origin: string;
@@ -18,7 +19,7 @@ export function quibiWorkflowConfig(env: Record<string, string | undefined>, cap
         env.QUIBI_PRODUCTION_READ_ENABLED === "1" && env.QUIBI_PRODUCTION_USERNAME && env.QUIBI_PRODUCTION_PASSWORD &&
         (capability === "read" || env.QUIBI_PRODUCTION_WRITE_ENABLED === "1") &&
         (capability !== "send" || env.QUIBI_PRODUCTION_SEND_ENABLED === "1"))
-        return { mode: "production", origin: "https://si.quibi.net", username: env.QUIBI_PRODUCTION_USERNAME, password: env.QUIBI_PRODUCTION_PASSWORD };
+        { hostedQuibiEnvironment(env); return { mode: "production", origin: "https://si.quibi.net", username: env.QUIBI_PRODUCTION_USERNAME, password: env.QUIBI_PRODUCTION_PASSWORD }; }
     // Status reconciliation is read-only and must survive disabling dispatch.
     if(capability==='read'&&env.APP_ENV==='preproduction'&&env.QUIBI_MODE==='dev'&&!demo&&env.QUIBI_DEV_USERNAME&&env.QUIBI_DEV_PASSWORD)
         return {mode:'dev',origin:'https://dev.quibi.net',username:env.QUIBI_DEV_USERNAME,password:env.QUIBI_DEV_PASSWORD};
@@ -30,7 +31,8 @@ export function quibiWorkflowConfig(env: Record<string, string | undefined>, cap
     if (env.APP_ENV === "preproduction" && env.QUIBI_MODE === "dev" && !demo) {
         try {
             if (env.QUIBI_DEV_LOCAL_SEND_ENABLED === "1") assertApprovedLocalDevSendConfiguration(env, "https://dev.quibi.net", capability !== "read");
-            else assertQuibiDevTestSendAllowed(env);
+            else if(capability==='send') assertQuibiDevTestSendAllowed(env);
+            else assertQuibiDevWriteAllowed(env);
         }
         catch {
             throw Error("QUIBI_WORKFLOW_DISABLED");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {quibiWorkflowConfig,workflowRecipient} from "./workflow-config.ts";
 import {createQuibiWorkflowWriteClient} from "./write-http.ts";
-const env={APP_ENV:"production",QUIBI_MODE:"production",VERCEL_ENV:"production",QUIBI_PRODUCTION_READ_ENABLED:"1",QUIBI_PRODUCTION_WRITE_ENABLED:"1",QUIBI_PRODUCTION_SEND_ENABLED:"1",QUIBI_PRODUCTION_USERNAME:"fixture-user",QUIBI_PRODUCTION_PASSWORD:"fixture-password"};
+const env={SELAN_PRODUCTION_SUPABASE_PROJECT_REF:"fixture-production",SELAN_DEV_SUPABASE_PROJECT_REF:"fixture-dev",NEXT_PUBLIC_SUPABASE_URL:"https://fixture-production.supabase.co",APP_ENV:"production",QUIBI_MODE:"production",VERCEL_ENV:"production",QUIBI_PRODUCTION_READ_ENABLED:"1",QUIBI_PRODUCTION_WRITE_ENABLED:"1",QUIBI_PRODUCTION_SEND_ENABLED:"1",QUIBI_PRODUCTION_USERNAME:"fixture-user",QUIBI_PRODUCTION_PASSWORD:"fixture-password"};
 test("production transport uses only exact documented origin and send/send_status",async()=>{
  const requests:{url:string;body:unknown}[]=[];
  const client=createQuibiWorkflowWriteClient({username:env.QUIBI_PRODUCTION_USERNAME,password:env.QUIBI_PRODUCTION_PASSWORD,environment:env,
