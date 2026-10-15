@@ -9,7 +9,7 @@ const actorId = "00000000-0000-4000-8000-000000000001";
 const orgId = "00000000-0000-4000-8000-000000000002";
 // Synthetic test-only environment; no process environment or live HTTP is used.
 const environment = { APP_ENV: "preproduction", QUIBI_MODE: "dev", VERCEL_ENV: "preview",
-  QUIBI_DEV_WRITE_ENABLED: "1", QUIBI_DEV_USERNAME: "fixture-only-user", QUIBI_DEV_PASSWORD: "fixture-only-password",
+  QUIBI_DEV_WRITE_ENABLED: "1", QUIBI_DEV_SEND_ENABLED: '1', QUIBI_DEV_USERNAME: "fixture-only-user", QUIBI_DEV_PASSWORD: "fixture-only-password",
   QUIBI_DEV_TEST_RECIPIENT: "online.gold100@gmail.com" };
 const authority = {
   actorId, organizationId: orgId, role: "owner", serviceRequestId: caseId, caseStatus: "preparing_offer",

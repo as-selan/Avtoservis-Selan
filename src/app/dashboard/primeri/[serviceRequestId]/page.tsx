@@ -129,6 +129,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     try { quibiWorkflowConfig(process.env, "write"); writeRequested = true; } catch { /* disabled */ }
     const realDevMode = writeRequested && process.env.QUIBI_E2E_WRITE_ENABLED !== "1" && process.env.SELAN_REMOTE_DEMO !== "1" &&
       process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1";
+    let sendReady=false;try{sendReady=quibiWorkflowConfig(process.env,'send').mode==='production'}catch{}
     let testRecipient: string | null = null;
     let reviewDetail: QuibiEstimateDetail | null = null;
     let writeReady = false;
@@ -306,10 +307,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
             <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} writeEnabled={writeReady} />}
-          {quote?.internal_review_status === "unreviewed" && ["owner", "admin"].includes(access.role) && <ReviewManualEstimate key={quote.id} quoteId={quote.id} />}
+          {quote?.internal_review_status === "unreviewed" && !sendReady && ["owner", "admin"].includes(access.role) && <ReviewManualEstimate key={quote.id} quoteId={quote.id} />}
           {quote && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
-            <QuibiEstimateWorkflowPanel key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
+            <QuibiEstimateWorkflowPanel sendEnabled={sendReady} key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
               reviewStatus={quote.internal_review_status} sha256={quote.content_sha256} amount={proposedPrice?.amount}
               allowedRecipients={process.env.QUIBI_MODE==="dev"&&testRecipient?quibiDevTestRecipients(process.env).filter(email=>email!==customer?.email?.toLowerCase()):[]} lines={reviewDetail?.lines ?? []} recipient={operationRecipient ?? testRecipient} dev={process.env.QUIBI_MODE === "dev"}
               operationId={sendOperation?.id} attemptedAt={sendOperation?.attemptedAt}

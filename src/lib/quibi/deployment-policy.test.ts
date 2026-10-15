@@ -5,7 +5,7 @@ import {quibiWorkflowConfig,workflowRecipient} from './workflow-config.ts';
 import {intakeSyncConfigurationProblem} from './intake-sync-configuration.ts';
 import {assertCaseBusinessScope,caseBusinessReference} from './case-business-policy.ts';
 import {assertDirectDevRead,assertDirectDevVehicleRead} from './direct-document-read.ts';
-const dev={APP_ENV:'preproduction',QUIBI_MODE:'dev',VERCEL_ENV:'preview',QUIBI_DEV_WRITE_ENABLED:'1',QUIBI_DEV_USERNAME:'fixture',QUIBI_DEV_PASSWORD:'fixture'};
+const dev={APP_ENV:'preproduction',QUIBI_MODE:'dev',VERCEL_ENV:'preview',QUIBI_DEV_WRITE_ENABLED:'1',QUIBI_DEV_SEND_ENABLED:'1',QUIBI_DEV_USERNAME:'fixture',QUIBI_DEV_PASSWORD:'fixture'};
 const production={APP_ENV:'production',QUIBI_MODE:'production',VERCEL_ENV:'production',SELAN_DEV_SUPABASE_PROJECT_REF:'fixture-dev',SELAN_PRODUCTION_SUPABASE_PROJECT_REF:'fixture-prod',NEXT_PUBLIC_SUPABASE_URL:'https://fixture-prod.supabase.co',QUIBI_PRODUCTION_READ_ENABLED:'1',QUIBI_PRODUCTION_WRITE_ENABLED:'1',QUIBI_PRODUCTION_SEND_ENABLED:'1',QUIBI_PRODUCTION_USERNAME:'fixture',QUIBI_PRODUCTION_PASSWORD:'fixture'};
 test('same case stages and direct document permissions in both environments',()=>{for(const env of [dev,production]){
  const mode=hostedQuibiEnvironment(env);assert.equal(quibiWorkflowConfig(env,'write').mode,mode);

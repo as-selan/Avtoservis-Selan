@@ -6,6 +6,11 @@ export type EstimateReview = {
  lines:Array<{description:string;quantity:number;unit:string;vat:string;unitPrice:number;discount:number}>;
  total:number;pricingSource?:string;
 };
+export function estimateReviewTotal(lines:EstimateReview['lines']){
+ const cents=lines.reduce((sum,line)=>sum+Math.round((line.quantity*line.unitPrice*(1-line.discount/100)+Number.EPSILON)*100),0);
+ if(!Number.isSafeInteger(cents)||cents<0)throw Error('QUIBI_INVALID_ESTIMATE_TOTAL');
+ return cents/100;
+}
 export function estimatePreparationPayload(input:Omit<CreateEstimateInput,'numberingId'>,catalogs:{numberings:Choice[];saleTypes:Choice[];units:Choice[];vatRates:Choice[]},catalogLines?:EstimateReview['lines']) {
  const matches=catalogs.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')==='predračun');
  if(matches.length!==1||!catalogs.saleTypes.some(n=>n.id===input.saleTypeId)||input.lines.some(line=>!('sifra' in line) ? !catalogs.units.some(n=>n.id===line.enota_id)||!catalogs.vatRates.some(n=>n.id===line.ddv_id) : !catalogs.vatRates.some(n=>n.id===line.ddv_id)))throw Error('QUIBI_PREPARATION_CATALOG_MISMATCH');
@@ -20,6 +25,6 @@ export function estimatePreparationPayload(input:Omit<CreateEstimateInput,'numbe
  });});
  const review:EstimateReview={customerId:input.customerId,vehicleId:input.vehicleId,
  numbering:matches[0].label,saleType:catalogs.saleTypes.find(n=>n.id===input.saleTypeId)!.label,
- lines,total:Math.round(lines.reduce((sum,line)=>sum+line.quantity*line.unitPrice*(1-line.discount/100),0)*100)/100};
+ lines,total:estimateReviewTotal(lines)};
  return {...stableEstimatePayload(body),body,review};
 }

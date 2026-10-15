@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { assertQuibiDevWriteAllowed, buildEstimateBody, stableEstimatePayload, withDocumentId } from "./write-contract.ts";
 import { createQuibiDevWriteClient } from "./write-http.ts";
 
-const env = { APP_ENV: "preproduction", QUIBI_MODE: "dev", QUIBI_DEV_WRITE_ENABLED: "1",
+const env = { APP_ENV: "preproduction", QUIBI_MODE: "dev", QUIBI_DEV_WRITE_ENABLED: "1", QUIBI_DEV_SEND_ENABLED: '1',
   VERCEL_ENV: "preview", QUIBI_DEV_USERNAME: "synthetic-user", QUIBI_DEV_PASSWORD: "synthetic-password",
   QUIBI_DEV_TEST_RECIPIENT: "test@example.invalid" };
 const input = { numberingId: "2061", saleTypeId: "1", customerId: "405956", vehicleId: "2387",

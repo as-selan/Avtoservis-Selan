@@ -14,6 +14,7 @@ export function quibiWorkflowConfig(env: Record<string, string | undefined>, cap
         if(env.APP_ENV!=='local'||env.CI!=='true'||env.SELAN_ISOLATED_E2E!=='1'||env.VERCEL==='1'||env.VERCEL_ENV||env.QUIBI_DEV_WRITE_ENABLED==='1'||env.QUIBI_DEV_LOCAL_SEND_ENABLED==='1'||!loopback(env.QUIBI_E2E_ORIGIN)||!loopback(env.NEXT_PUBLIC_SUPABASE_URL)||!loopback(env.PUBLIC_APP_ORIGIN)||env.QUIBI_DEV_USERNAME!=='selan-isolated-fixture'||env.QUIBI_DEV_PASSWORD!=='selan-isolated-fixture'||capability==='send')throw Error('QUIBI_FIXTURE_WRITE_DISABLED');
         return {mode:'dev',origin:env.QUIBI_E2E_ORIGIN!,username:'selan-isolated-fixture',password:'selan-isolated-fixture'};
     }
+    if(capability==='send'&&env.QUIBI_MODE==='dev'&&env.QUIBI_DEV_SEND_ENABLED!=='1')throw Error('QUIBI_WORKFLOW_DISABLED');
     const demo = env.SELAN_REMOTE_DEMO === "1" || env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || env.SELAN_LOCAL_REVIEW === "1";
     if (env.APP_ENV === "production" && env.QUIBI_MODE === "production" && env.VERCEL_ENV === "production" && !demo &&
         env.QUIBI_PRODUCTION_READ_ENABLED === "1" && env.QUIBI_PRODUCTION_USERNAME && env.QUIBI_PRODUCTION_PASSWORD &&
@@ -55,7 +56,7 @@ export function actualCustomerEmail(local: string | null, remote: string): strin
     return email;
 }
 export function workflowRecipient(env: Record<string, string | undefined>, local: string | null, remote: string, selected?:string|null): string {
-    const config = quibiWorkflowConfig(env, "send");
+    const config = quibiWorkflowConfig(env, "read");
     if (config.mode === "production")
         {const actual=actualCustomerEmail(local, remote);if(selected&&selected!==actual)throw Error("QUIBI_TEST_RECIPIENT");return actual;}
     // DEV may identify a synthetic customer, but never transports to that address.

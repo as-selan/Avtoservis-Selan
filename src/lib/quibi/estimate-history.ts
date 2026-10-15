@@ -1,3 +1,4 @@
+import {estimateReviewTotal} from './estimate-preparation.ts';
 import {customerCatalogPricing} from './customer-catalog-pricing.ts';
 import {vatFactor} from './line-pricing.ts';
 import {quibiSourceNotes} from './business-source-lines.ts';
@@ -28,7 +29,7 @@ export function historyProposal(detail:QuibiEstimateDetail,kind:HistoryKind,inpu
   payloadLines.push(catalogDocumentLine(o,quantity));
   reviewedLines.push({description:o.name,quantity,unit:o.unitLabel,vat:o.vatLabel,unitPrice:o.grossPrice,discount:o.discount});
  }
- const total=Math.round(reviewedLines.reduce((sum,l)=>sum+l.quantity*l.unitPrice*(1-l.discount/100),0)*100)/100;
+ const total=estimateReviewTotal(reviewedLines);
  const ready=issues.length===0&&payloadLines.length===chargeable.length&&detail.lines.length<=100;
  if(detail.lines.length>100)issues.push('Dokument ima več kot 100 postavk.');
  return {key:kind+':'+detail.customerId+':'+detail.id,kind,documentId:detail.id,date:detail.date??'Datum ni vrnjen',saleTypeId:detail.saleTypeId,scope:detail.customerId===input.customerId&&detail.vehicleId===input.vehicleId?'vehicle':'other',ready,issues,sourceSha:createHash('sha256').update(JSON.stringify({document:detail.contentSha256,sources,payloadLines,reviewedLines})).digest('hex'),lines,payloadLines,reviewedLines,total};

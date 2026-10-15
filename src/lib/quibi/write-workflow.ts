@@ -54,7 +54,7 @@ export async function discoverEstimateNumbering(write: Pick<EstimateWrite, "getN
 }
 
 async function verifyDocument(read: EstimateRead, customerId: string, vehicleId: string,
-  externalId: string, id: string, numberingId: string, expectedNumber?: string | null) {
+  externalId: string, id: string, numberingId: string, expectedNumber?: string | null, verifyContent?: (detail:Awaited<ReturnType<EstimateRead["estimateDetail"]>>)=>void) {
   const listed = await read.estimates(customerId);
   if (!listed.some((item) => item.id === id)) throw new Error("QUIBI_DOCUMENT_NOT_LISTED_FOR_CUSTOMER");
   const detail = await read.estimateDetail(id, customerId);
@@ -63,13 +63,14 @@ async function verifyDocument(read: EstimateRead, customerId: string, vehicleId:
       !/^[0-9a-f]{64}$/.test(detail.contentSha256) ||
       (expectedNumber != null && detail.number !== expectedNumber))
     throw new Error("QUIBI_DOCUMENT_REREAD_MISMATCH");
+  verifyContent?.(detail);
   return detail;
 }
 
 /** No network write can happen before insertOnce has durably stored the exact body. */
 export async function createAndVerifyEstimate(args: {
   journal: OperationJournal; read: EstimateRead; write: EstimateWrite;
-  input: Omit<CreateEstimateInput, "numberingId">; expectedRequestSha256?: string;
+  input: Omit<CreateEstimateInput, "numberingId">; expectedRequestSha256?: string; verifyContent?:(detail:Awaited<ReturnType<EstimateRead["estimateDetail"]>>,body:EstimateBody)=>void;
 }) {
   const { journal, read, write, input } = args;
   if (!uuid.test(input.serviceRequestId)) throw new Error("QUIBI_INVALID_CASE_ID");
@@ -92,7 +93,7 @@ export async function createAndVerifyEstimate(args: {
   if (op.state === "dispatching" || op.state === "failed" || (op.state === "uncertain" && !op.quibiId)) throw new Error("QUIBI_OPERATION_REQUIRES_RECONCILIATION");
   if (op.quibiId) {
     const detail = await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, op.quibiId, numberingId,
-      op.documentNumber);
+      op.documentNumber,detail=>args.verifyContent?.(detail,body));
     return journal.patch(op.id, op.state, { state: "verified", quibiContentSha256: detail.contentSha256 });
   }
   if (!await journal.claim(op.id, op.state)) throw new Error("QUIBI_OPERATION_CONCURRENT");
@@ -103,11 +104,11 @@ export async function createAndVerifyEstimate(args: {
     const dispatched = await journal.patch(op.id, "dispatching", {
       state: "uncertain", quibiId: result.id, documentNumber: result.number,
     });
-    await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, result.id, numberingId, result.number);
+    await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, result.id, numberingId, result.number,detail=>args.verifyContent?.(detail,body));
     // PDF generation can set Quibi issuance metadata. Capture the final SHA afterwards.
     if(read.documentPdf)await read.documentPdf(result.id);
     const detail = await verifyDocument(read, input.customerId, input.vehicleId, op.externalId, result.id, numberingId,
-      result.number);
+      result.number,detail=>args.verifyContent?.(detail,body));
     return journal.patch(dispatched.id, "uncertain", { state: "verified", quibiContentSha256: detail.contentSha256 });
   } catch (cause) {
     // A timeout may mean Quibi committed the document. Preserve uncertain state.

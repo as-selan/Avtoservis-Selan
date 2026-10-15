@@ -97,7 +97,7 @@ export { numericId as validQuibiId };
 export function assertQuibiDevTestSendAllowed(env: Record<string, string | undefined>, origin = QUIBI_DEV_ORIGIN): void {
   try { assertQuibiDevWriteAllowed(env, origin); }
   catch { throw new Error("QUIBI_DEV_TEST_SEND_DISABLED"); }
-  if (env.VERCEL_ENV !== "preview") throw new Error("QUIBI_DEV_TEST_SEND_DISABLED");
+  if (env.VERCEL_ENV !== "preview" || env.QUIBI_DEV_SEND_ENABLED !== "1") throw new Error("QUIBI_DEV_TEST_SEND_DISABLED");
 }
 
 /** Approved server-side allowlist. No arbitrary recipient may be posted by a browser. */

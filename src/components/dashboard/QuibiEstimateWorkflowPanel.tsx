@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation";
 import {approveAndSendQuibiEstimate,pollQuibiEstimateSend} from "@/lib/quibi/unified-actions";
 import {reviewManualQuibiEstimate} from "@/lib/quibi/manual-estimate-action";
 type Props={serviceRequestId:string;quoteId:string;documentId:string;reviewStatus:string;sha256:string;
- allowedRecipients?:string[];amount?:string;lines:{description:string;quantity:string;grossPrice:string;unitGrossPrice?:string;pricingVerified?:boolean}[];recipient:string|null;dev:boolean;
+ sendEnabled?:boolean;allowedRecipients?:string[];amount?:string;lines:{description:string;quantity:string;grossPrice:string;unitGrossPrice?:string;pricingVerified?:boolean}[];recipient:string|null;dev:boolean;
  operationId?:string;attemptedAt?:string|null;operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;qaIdentityExceptionAvailable?:boolean;alreadyDelivered:boolean};
 export function QuibiEstimateWorkflowPanel(p:Props){
  const router=useRouter(),lock=useRef(false),polling=useRef(false);
@@ -27,7 +27,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[p.sendId,status,pollCount,p.serviceRequestId,p.quoteId]);
  const outcome=sendPresentation(p.operationState?{state:p.operationState,sendId:p.sendId??null,sendStatus:status??null}:null);
- const sendAllowed=!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
+ const sendAllowed=!p.dev&&p.sendEnabled===true&&!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
  return <section className="space-y-3 border-t pt-3">
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
   {p.dev&&<p className="text-sm text-amber-800">DEV: predračun pošlje samo na prikazani testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
@@ -56,8 +56,10 @@ export function QuibiEstimateWorkflowPanel(p:Props){
     {pending?"Preverjam in pošiljam…":p.reviewStatus==="approved_for_send"?"Pošlji stranki":"Odobri in pošlji stranki"}
    </button>
   </form>}
+  {p.dev&&<p className="text-sm">DEV: preverite dokument in prejemnika. Dejanska dostava je izključena; dokument ni poslan. SMTP-ja za Quibi DEV ne nastavljamo.</p>}
+  {p.dev&&!!p.allowedRecipients?.length&&<label className="block text-sm">Prejemnik za pregled<select value={recipient} onChange={e=>setRecipient(e.target.value)} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
   {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<div className="space-y-2"><button disabled className="rounded border px-3 py-2 text-sm">Pošiljanje čaka na potrjeno vsebino in konfiguracijo</button><p className="text-sm text-amber-800">Za pošiljanje sta potrebna potrjena vsebina in varna konfiguracija. DEV zahteva konfiguriran testni naslov. Ob neznanem izidu preverite dnevnik.</p></div>}
-  {p.reviewStatus==="unreviewed"&&!p.operationState&&<button type="button" disabled={pending} className="rounded border px-3 py-2 text-sm" onClick={()=>startTransition(async()=>{const r=await reviewManualQuibiEstimate(p.quoteId,"reject");setMessage(r.ok?"Predračun je zavrnjen za popravek.":r.message);router.refresh()})}>Zavrni za popravek</button>}
+  {p.reviewStatus==="unreviewed"&&!p.operationState&&sendAllowed&&<button type="button" disabled={pending} className="rounded border px-3 py-2 text-sm" onClick={()=>startTransition(async()=>{const r=await reviewManualQuibiEstimate(p.quoteId,"reject");setMessage(r.ok?"Predračun je zavrnjen za popravek.":r.message);router.refresh()})}>Zavrni za popravek</button>}
   {p.operationState&&<div role="status" className="space-y-2 text-sm"><p>{outcome.outcome}: {outcome.message}</p>
    <p>Čas poskusa (UTC): {p.attemptedAt??"ni zabeležen"}</p><p>Referenca dnevnika: {p.operationId}</p>
    {p.sendId&&<p>Quibi send_id: {p.sendId}</p>}

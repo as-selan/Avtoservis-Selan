@@ -39,8 +39,12 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const [dispatchStarted, setDispatchStarted] = useState(false);
   const lock = useRef(false);
   const historyInterrupted=useRef(false),historyReading=useRef(mode==='create'||mode==='prepare');
+  const [rows,setRows]=useState<Array<{key:string;quantity:string;discount:string}>|null>(null);
+  function changeRows(next:NonNullable<typeof rows>){historyInterrupted.current=true;historyReading.current=false;manualCatalogChoice.current=true;setHistoryPending(false);setRows(next);setHistorySource('');setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false);setRevision(v=>v+1)}
+  function addRow(){const existing=rows??(selectedHistory?selectedHistory.reviewedLines.map((line,i)=>({key:catalogOptions.find(o=>o.code===('sifra' in selectedHistory.payloadLines[i]?selectedHistory.payloadLines[i].sifra:''))?.key??'',quantity:String(line.quantity),discount:String(line.discount)})):selectedSource?[{key:selectedSource.key,quantity:String(new FormData(formElement.current!).get('quantity')??'1'),discount:''}]:[]);changeRows([...existing,{key:'',quantity:'1',discount:''}])}
   useEffect(()=>{
     if(mode!=='create'&&mode!=='prepare')return;
+    if(rows!==null)return;
     if(manualCatalogChoice.current && catalogSource){historyInterrupted.current=true;historyReading.current=false;setHistoryPending(false);return;}
     let active=true;
     historyInterrupted.current=false;historyReading.current=true;
@@ -60,9 +64,9 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       if(active){const reliable=proposals.filter(p=>p.ready&&p.scope==='vehicle');const automatic=reliable.length===1&&!issues.some(i=>i.includes('ni popoln')||i.includes('največ pet'))?reliable[0].key:'';setHistorySource(automatic);if(automatic){setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false);}}
     })().catch(()=>{if(active)setHistory({proposals:[],issues:['Zgodovine trenutno ni mogoče preveriti.']});}).finally(()=>{if(active){historyReading.current=false;setHistoryPending(false)}});
     return ()=>{active=false};
-  },[serviceRequestId,mode,catalogSource,operationState,router]);
+  },[serviceRequestId,mode,catalogSource,operationState,router,rows]);
   useEffect(()=>{
-    if(!['prepare','create'].includes(mode)||historyPending||historyReading.current||!formElement.current||(!selectedSource&&!selectedHistory)||dispatchStarted||lock.current)return;
+    if(!['prepare','create'].includes(mode)||historyPending||historyReading.current||!formElement.current||(!selectedSource&&!selectedHistory&&!rows?.length)||dispatchStarted||lock.current)return;
     // Honor the same required fields as manual submit before starting a background READ.
     if(!formElement.current.checkValidity())return;
     const data=new FormData(formElement.current);data.delete('createConfirmed');data.delete('serviceMatchConfirmed');
@@ -71,12 +75,12 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     automaticPreparation.current=signature;lock.current=true;data.set('serviceRequestId',serviceRequestId);
     // READ preview only. CREATE is exclusively the explicitly confirmed submit action.
     startTransition(async()=>{try{const result=await prepareQuibiEstimate(data);setMessage(result.ok?result.detail:result.message);setPreparedSha(result.ok?result.sha??null:null);setSourceSha(result.ok?result.sourceSha??null:null);setReview(result.ok?result.review??null:null);setConfirmed(false)}catch{setMessage('Priprave ni mogoče preveriti. Poskusite ponovno pregledati predračun.')}finally{lock.current=false}});
-  },[mode,serviceRequestId,historyPending,historySource,catalogSource,revision,operationState,dispatchStarted,selectedSource,selectedHistory,choices]);
+  },[mode,serviceRequestId,historyPending,historySource,catalogSource,revision,operationState,dispatchStarted,selectedSource,selectedHistory,choices,rows]);
   if ((mode === "create" || mode === "prepare") && (!choices?.saleTypes.length || !choices.units.length || !choices.vatRates.length))
     return <p role="alert" className="text-sm text-amber-800">Quibijevi šifranti niso na voljo; ustvarjanje je ustavljeno.</p>;
   return <form ref={formElement} className="space-y-3 border-t pt-3" onChange={event => {if (!(event.target instanceof HTMLInputElement) || !["createConfirmed","updateConfirmed","serviceMatchConfirmed"].includes(event.target.name)) {setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false);setRevision(v=>v+1)}}} onSubmit={(event) => {
     event.preventDefault();
-    if (lock.current || pending || (historyPending&&!selectedSource&&!selectedHistory) || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
+    if (lock.current || pending || (historyPending&&!selectedSource&&!selectedHistory&&rows===null) || (mode === "send" && operationState && !sendId && operationState !== "prepared")) return;
     const form = new FormData(event.currentTarget);
     form.set("serviceRequestId", serviceRequestId);
     if (quoteId) form.set("quoteId", quoteId);
@@ -113,7 +117,19 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       mode === "update" ? "Popravi zavrnjeni Quibi predračun" : "Pošlji predračun samo na testni naslov"}</h3>
     {(mode === "create" || mode === "prepare") && <>
       {catalogIssues.map(issue=><p key={issue} role="alert" className="text-sm text-amber-800">{issue}</p>)}
-      <label className="block text-sm">Postavka iz Quibija
+      {rows!==null&&<section aria-label="Postavke predračuna" className="space-y-3">
+        <input type="hidden" name="catalogLines" value={JSON.stringify(rows)}/>
+        {rows.map((row,index)=>{const option=catalogOptions.find(o=>o.key===row.key);return <article key={index} className="space-y-2 rounded border bg-white p-3">
+          <label className="block">Postavka {index+1}<select required value={row.key} onChange={e=>changeRows(rows.map((r,i)=>i===index?{...r,key:e.target.value,discount:''}:r))} className="block w-full min-w-0 rounded border p-2"><option value="">Izberite Quibi artikel ali storitev</option>{catalogOptions.map(o=><option key={o.key} value={o.key}>{o.code} · {o.name}</option>)}</select></label>
+          {option&&<p className="text-sm">Enota: {option.unitLabel} · DDV: {option.vatLabel}. Cena in cenik stranke se preverita v predogledu.</p>}
+          <div className="grid grid-cols-2 gap-2"><label>Količina<input aria-label={'Količina postavke '+(index+1)} type="number" min="0.001" max="100000" step="0.001" required value={row.quantity} onChange={e=>changeRows(rows.map((r,i)=>i===index?{...r,quantity:e.target.value}:r))} className="block w-full rounded border p-2"/></label>
+          <label>Popust (%)<input aria-label={'Popust postavke '+(index+1)} type="number" min="0" max="100" step="0.01" placeholder="Iz Quibija" value={row.discount} onChange={e=>changeRows(rows.map((r,i)=>i===index?{...r,discount:e.target.value}:r))} className="block w-full rounded border p-2"/></label></div>
+          <button type="button" className="rounded border px-3 py-2" onClick={()=>changeRows(rows.filter((_,i)=>i!==index))}>Odstrani postavko {index+1}</button>
+        </article>})}
+        {!rows.length&&<p>Dodajte vsaj eno Quibijevo postavko.</p>}
+      </section>}
+      <button type="button" disabled={!!rows&&rows.length>=100} className="rounded border px-3 py-2" onClick={addRow}>Dodaj postavko</button>
+      {!rows&&<><label className="block text-sm">Postavka iz Quibija
         <select name="catalogSource" value={catalogSource} onChange={event=>{manualCatalogChoice.current=!!event.target.value;setCatalogSource(event.target.value);setHistorySource('');setHistory({proposals:[],issues:[]});setHistoryPending(true)}} className="mt-1 block w-full rounded border px-3 py-2">
           <option value="">{catalogOptions.length?'Izberite storitev ali dopolnite manjkajočo postavko spodaj':'Šifrant ni na voljo; dopolnite postavko za pregled'}</option>
           {catalogOptions.map(option=><option key={option.key} value={option.key}>{option.name} · {option.code} · {option.priceListDiffers?'osnovna cena artikla':option.priceListName}</option>)}
@@ -146,6 +162,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       </div>}
       {selectedSource && selectedHistory && <><input type="hidden" name="quantity" value="1"/><input type="hidden" name="unitPrice" value={selectedSource.grossPrice}/></>}
       {lineDescription && !selectedSource && <p className="text-sm">Postavka za pregled: {lineDescription}</p>}
+      </>}
       <p className="text-xs text-amber-800">{mode === "prepare" ? "Priprava uporablja samo Quibi READ; dokumenta ne ustvari in ničesar ne pošlje." : "Pregled ne ustvari dokumenta. Ustvarjanje je ločeno potrjeno dejanje."} {mode === "prepare" ? "Payload in SHA sta samo za pregled in nista shranjen poslovni dokument. Pred ustvarjanjem bo izvedeno novo preverjanje." : "Ponavljanje uporabi isti shranjeni zahtevek. Quibi bo po ustvaritvi ponovno prebran; ceno mora nato potrditi Tadej."}</p>
       <label className="block text-sm">Vrsta prodaje
         <select key={historySource} defaultValue={selectedHistory?.saleTypeId&&choices?.saleTypes.some(s=>s.id===selectedHistory.saleTypeId)?selectedHistory.saleTypeId:choices?.saleTypes.length===1?choices.saleTypes[0].id:''} name="saleTypeId" required className="mt-1 block w-full rounded border px-3 py-2">
@@ -153,7 +170,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         </select>
       </label>
       {!!choices?.warehouses?.length&&<label className="block text-sm">Skladišče v Quibiju<select name="warehouseId" defaultValue={choices.warehouses.length===1?choices.warehouses[0].id:''} required className="mt-1 block w-full rounded border px-3 py-2"><option value="">Izberite skladišče</option>{choices.warehouses.map(w=><option key={w.id} value={w.id}>{w.label}</option>)}</select></label>}
-      {selectedHistory?<><input type="hidden" name="unitId" value={choices?.units.find(u=>u.label===selectedHistory.reviewedLines[0]?.unit)?.id??''}/><input type="hidden" name="vatId" value={selectedHistory.payloadLines[0]?.ddv_id??''}/></>:<div className="grid gap-2 sm:grid-cols-2">
+      {rows?<><input type="hidden" name="unitId" value={catalogOptions.find(o=>o.key===rows[0]?.key)?.unitId??''}/><input type="hidden" name="vatId" value={catalogOptions.find(o=>o.key===rows[0]?.key)?.vatId??''}/></>:selectedHistory?<><input type="hidden" name="unitId" value={choices?.units.find(u=>u.label===selectedHistory.reviewedLines[0]?.unit)?.id??''}/><input type="hidden" name="vatId" value={selectedHistory.payloadLines[0]?.ddv_id??''}/></>:<div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-sm">Enota
           <select key={`unit-${selectedSource?.key??'manual'}`} defaultValue={selectedSource?.unitId??''} name="unitId" disabled={!!selectedSource&&!selectedHistory} required className="mt-1 block w-full rounded border px-3 py-2">
             <option value="">Izberite enoto</option>{choices?.units.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -167,7 +184,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
       </div>}
     </>}
     {(mode === "prepare" || mode === "create" || mode === "update") && <>
-      {!selectedSource && !selectedHistory && <label className="block text-sm">Cena za eno storitev z DDV (€)
+      {!rows && !selectedSource && !selectedHistory && <label className="block text-sm">Cena za eno storitev z DDV (€)
         <input name="unitPrice" type="number" min="0.01" max="1000000" step="0.01" required
           className="mt-1 block w-full rounded border px-3 py-2" />
       </label>}
@@ -182,7 +199,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         Potrjujem pošiljanje samo na konfiguriran testni naslov.
       </label>
     </>}
-    <button disabled={pending || (historyPending&&!selectedSource&&!selectedHistory) || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
+    <button disabled={pending || (rows!==null&&!rows.length) || (historyPending&&!selectedSource&&!selectedHistory&&rows===null) || (mode === "send" && !!operationState && !sendId && operationState !== "prepared")} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
       {pending ? "Preverjam…" : mode === "prepare" ? "Preglej ponudbo" : mode === "create" ? "Preglej ponudbo" : mode === "update" ? "Preglej popravek" : sendId ? "Preveri status brez ponovnega pošiljanja" : "Pošlji testno"}
     </button>
     {(mode === "create" || mode === "prepare" || mode === "update") && preparedSha && <div className="space-y-2">

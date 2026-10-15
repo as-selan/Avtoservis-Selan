@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { reviewManualQuibiEstimate } from "@/lib/quibi/manual-estimate-action";
 
-export function ReviewManualEstimate({ quoteId, realDevWrite = false }: { quoteId: string; realDevWrite?: boolean }) {
+export function ReviewManualEstimate({ quoteId }: { quoteId: string; realDevWrite?: boolean }) {
   const router = useRouter();
   const [attested, setAttested] = useState(false);
   const [message, setMessage] = useState("");
@@ -13,7 +13,7 @@ export function ReviewManualEstimate({ quoteId, realDevWrite = false }: { quoteI
     if (!attested || pending) return;
     startTransition(async () => {
       const result = await reviewManualQuibiEstimate(quoteId, decision);
-      setMessage(result.ok ? (decision === "approve" ? realDevWrite ? "Cena je odobrena za preverjeno pošiljanje." : "Cena je odobrena za ročno pošiljanje." : "Različica je zavrnjena za popravek.") : result.message);
+      setMessage(result.ok ? (decision === "approve" ? "Predračun je odobren. Dokument ni poslan." : "Različica je zavrnjena za popravek.") : result.message);
       if (result.ok || (!result.ok && result.refreshed)) { setAttested(false); router.refresh(); }
     });
   }
@@ -24,10 +24,10 @@ export function ReviewManualEstimate({ quoteId, realDevWrite = false }: { quoteI
     </label>
     <div className="flex flex-wrap gap-2">
       <button type="button" disabled={!attested || pending} onClick={() => decide("approve")}
-        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">Odobri ceno za pošiljanje</button>
+        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">Odobri predračun</button>
       <button type="button" disabled={!attested || pending} onClick={() => decide("reject")}
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">Zavrni za popravek</button>
     </div>
-    {message && <p role={message.startsWith("Cena je") || message.startsWith("Različica je") ? "status" : "alert"} className="text-sm">{message}</p>}
+    {message && <p role={message.startsWith("Predračun je") || message.startsWith("Različica je") ? "status" : "alert"} className="text-sm">{message}</p>}
   </div>;
 }
