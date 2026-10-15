@@ -32,8 +32,8 @@ export function nextCaseStep(input: {
       ? "Po naročenem popravilu je pregled brezplačen. Preveri podatke primera in izrecno sprejmi pripravo predračuna."
       : "Tadej naj preveri stranko, vozilo in podatke povpraševanja pred pripravo ponudbe.");
     case "preparing_offer":
-      if(input.quibiCreateRejected)return step('review_quibi_mismatch','Quibi je zavrnil ustvarjanje predračuna. Poskus je zaklenjen; preverite razlog pri Quibiju pred nadaljevanjem.');
-      if(input.quibiCreateUncertain)return step("review_quibi_mismatch","Preverite izid obstoječega Quibi predračuna. Nov CREATE je ustavljen; primer se nadaljuje samo po preverljivem READ rezultatu.");
+      if(input.quibiCreateRejected)return step('review_quibi_mismatch','Quibi je zavrnil prejšnje ustvarjanje; poskus ostaja zaklenjen. Ponudbo lahko spodaj informativno pregledate brez novega dokumenta.');
+      if(input.quibiCreateUncertain)return step("review_quibi_mismatch","Spodaj lahko informativno pregledate ponudbo. Izid prejšnjega ustvarjanja še ni potrjen; ponovno ustvarjanje ostaja ustavljeno.");
       if (input.fixedPriceStatus === "prepared") return step("review_estimate", "Tadej naj preveri objavljeno končno ceno in vir.");
       if (input.fixedPriceStatus === "approved") return step("send_estimate", "Odobreno končno ceno dejansko sporočite stranki in zabeležite dokazilo.");
       if (input.fixedPriceStatus) return step("await_customer", "Preverite dejansko odločitev stranke o objavljeni končni ceni.");

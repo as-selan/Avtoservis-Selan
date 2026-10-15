@@ -7,7 +7,6 @@ import {
   OFFER_PREP_ACTION_LABEL,
   OFFER_PREP_GENERIC_ERROR,
   OFFER_PREP_READY_NEXT_ACTION,
-  OFFER_PROVIDER_UNCONFIGURED_MESSAGE,
 } from "@/lib/offer-preparation/constants";
 
 export function PrepareOfferButton({
@@ -25,9 +24,6 @@ export function PrepareOfferButton({
   const [pending, setPending] = useState(false);
   const [prepared, setPrepared] = useState(alreadyPrepared);
   const [error, setError] = useState<string | null>(null);
-  const [providerMessage, setProviderMessage] = useState<string | null>(
-    alreadyPrepared ? OFFER_PROVIDER_UNCONFIGURED_MESSAGE : null,
-  );
 
   async function onPrepare() {
     setPending(true);
@@ -39,7 +35,6 @@ export function PrepareOfferButton({
         return;
       }
       setPrepared(true);
-      setProviderMessage(result.unconfiguredMessage);
       router.refresh();
     } catch {
       setError(OFFER_PREP_GENERIC_ERROR);
@@ -55,7 +50,7 @@ export function PrepareOfferButton({
           <p className="text-xs font-medium text-slate-700">
             {OFFER_PREP_READY_NEXT_ACTION}
           </p>
-          {!providerReady && <p className="text-xs text-slate-600">{providerMessage}</p>}
+          {!providerReady && <p className="text-xs text-slate-600">Ponudbo lahko informativno pregledate. Ustvarjanje dokumenta trenutno ni omogočeno.</p>}
         </div>
       ) : (
         <button
