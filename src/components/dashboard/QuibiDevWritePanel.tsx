@@ -63,6 +63,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   },[serviceRequestId,mode,catalogSource,operationState,router]);
   useEffect(()=>{
     if(!['prepare','create'].includes(mode)||historyPending||historyReading.current||!formElement.current||(!selectedSource&&!selectedHistory)||dispatchStarted||lock.current)return;
+    // Honor the same required fields as manual submit before starting a background READ.
+    if(!formElement.current.checkValidity())return;
     const data=new FormData(formElement.current);data.delete('createConfirmed');data.delete('serviceMatchConfirmed');
     if(!choices?.saleTypes.some(s=>s.id===data.get('saleTypeId')))return;
     const signature=JSON.stringify({fields:[...data.entries()],catalogSha:selectedSource?.sourceSha,historySha:selectedHistory?.sourceSha});if(automaticPreparation.current===signature)return;
