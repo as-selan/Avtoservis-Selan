@@ -1,4 +1,4 @@
-import {quibiReadRejection} from './read-rejection.ts';
+import {quibiReadRejection,quibiReadEndpoint} from './read-rejection.ts';
 import {extraDocumentPaths,type ExtraDocumentKind} from './document-read.ts';
 import {parseVehicleInfo,parseAddresses,parseLots,parseStock,parsePaymentMethods,parseDocumentPayments} from './operational-read.ts';
 import {parseQuibiArticle,parseQuibiPriceLists} from './pricing-read.ts';
@@ -19,21 +19,25 @@ export function createQuibiReadClient(config: Config) {
 
   async function read(path: string, method: "GET" | "POST" = "GET", customerId?: string): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt++) {
+      const started=Date.now();
       try {
         const response = await fetcher(`${origin}${path}`, {
           method,
           headers: { username: config.username, password: config.password, "Content-Type": "application/json" },
           body: method === "POST" ? JSON.stringify({ Filtriraj: { ...(customerId ? {stranka: Number(customerId)} : {}) } }) : undefined,
           redirect: "error", cache: "no-store",
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(15000),
         });
         if (!response.ok) {
           if ([401,403,429].includes(response.status)) console.warn(JSON.stringify(await quibiReadRejection(response,path,method)));
           if (response.status >= 500 && attempt === 0) continue;
           throw new Error(`QUIBI_HTTP_${response.status}`);
         }
-        return await response.json();
+        const data=await response.json();
+        if(Date.now()-started>=8000)console.info(JSON.stringify({event:'quibi_read_slow',endpoint:quibiReadEndpoint(path),method,status:response.status,durationMs:Date.now()-started}));
+        return data;
       } catch (error) {
+        if(error instanceof Error&&['TimeoutError','AbortError'].includes(error.name))console.warn(JSON.stringify({event:'quibi_read_transport_failed',endpoint:quibiReadEndpoint(path),method,errorType:error.name,durationMs:Date.now()-started,attempt:attempt+1}));
         if (attempt === 1 || (error instanceof Error && error.message.startsWith("QUIBI_HTTP_"))) throw error;
       }
     }

@@ -1,6 +1,8 @@
+export function quibiReadEndpoint(path:string){return path.split('?')[0].replace(/\/\d+(?=\/|$)/g,'/:id').slice(0,160);}
+
 /** Bounded diagnostic metadata only: never emit response text or credential headers. */
 export async function quibiReadRejection(response:Response,path:string,method:string){
- const endpoint=path.split('?')[0].replace(/\/\d+(?=\/|$)/g,'/:id').slice(0,160);
+ const endpoint=quibiReadEndpoint(path);
  const rawType=response.headers.get('content-type')??'';
  const contentType=rawType.includes('application/json')?'application/json':rawType.includes('text/html')?'text/html':'other';
  let sample='';const reader=response.body?.getReader();
