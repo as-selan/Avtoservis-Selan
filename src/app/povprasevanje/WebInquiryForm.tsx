@@ -11,6 +11,10 @@ import {
 } from "@/lib/intake/web-public";
 import { validateWebIntakeForm } from "@/lib/intake/web-validate";
 
+// Public service categories from https://www.avtoservis-selan.si/ (2026-10-15).
+// These are inquiry choices, not Quibi articles or prices.
+const WEBSITE_SERVICES = ["Chip tuning", "Avtodiagnostika", "Avtomehanika", "Polnjenje avtoklime", "Servis zavor", "Menjava pnevmatik", "Vulkanizerstvo", "Centriranje gum", "Hramba gum", "Prodaja gum"];
+
 type FormState = {
   displayName: string;
   phone: string;
@@ -304,11 +308,12 @@ export function WebInquiryForm() {
             autoComplete="off"
             error={fieldError("vin")}
             value={form.vin}
-            onChange={(v) => update("vin", v)}
+            maxLength={form.nonstandardVin ? 32 : 17}
+            onChange={(v) => update("vin", v.toUpperCase().slice(0, form.nonstandardVin ? 32 : 17))}
           />
           <label className="flex items-start gap-2 text-sm sm:col-span-2">
             <input type="checkbox" className="mt-1" checked={form.nonstandardVin}
-              onChange={(event) => { update("nonstandardVin", event.target.checked); touch("vin"); }} />
+              onChange={(event) => { update("nonstandardVin", event.target.checked); if (!event.target.checked) update("vin", form.vin.slice(0, 17)); touch("vin"); }} />
             Vozilo nima standardnega 17-mestnega VIN. Vpisal/-a sem njegovo nestandardno številko šasije.
           </label>
           <Field
@@ -412,15 +417,18 @@ export function WebInquiryForm() {
         <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
           Servis
         </legend>
-        <Field
-          id={`${formId}-service`}
-          label="Želena storitev"
-          onBlur={() => touch("serviceWanted")}
-          autoComplete="off"
-          error={fieldError("serviceWanted")}
-          value={form.serviceWanted}
-          onChange={(v) => update("serviceWanted", v)}
-        />
+        <div>
+          <label htmlFor={`${formId}-service`} className="mb-1 block text-sm font-medium text-slate-800">Želena storitev</label>
+          <select id={`${formId}-service`} value={form.serviceWanted}
+            onBlur={() => touch("serviceWanted")} onChange={(e) => update("serviceWanted", e.target.value)}
+            aria-invalid={Boolean(fieldError("serviceWanted"))}
+            className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:ring-2 focus:ring-blue-600">
+            <option value="">Izberite storitev ali spodaj opišite težavo</option>
+            {WEBSITE_SERVICES.map((service) => <option key={service} value={service}>{service}</option>)}
+            <option value="Druga storitev">Druga storitev – opišite spodaj</option>
+          </select>
+          {fieldError("serviceWanted") && <p className="mt-1 text-xs text-red-600">{fieldError("serviceWanted")}</p>}
+        </div>
         <div>
           <label
             htmlFor={`${formId}-problem`}
@@ -499,6 +507,7 @@ function Field({
   inputMode,
   autoComplete,
   required,
+  maxLength,
 }: {
   id: string;
   label: string;
@@ -510,6 +519,7 @@ function Field({
   inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
   autoComplete?: string;
   required?: boolean;
+  maxLength?: number;
 }) {
   return (
     <div>
@@ -523,6 +533,7 @@ function Field({
         inputMode={inputMode}
         autoComplete={autoComplete}
         required={required}
+        maxLength={maxLength}
         aria-invalid={Boolean(error)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
