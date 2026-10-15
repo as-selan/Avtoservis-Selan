@@ -19,7 +19,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
 }) {
   const router = useRouter();
   const createLocked = (mode === 'create' || mode === 'prepare') && ['failed','uncertain','dispatching','verified'].includes(operationState ?? '');
-  const formElement=useRef<HTMLFormElement>(null),automaticPreparation=useRef('');
+  const formElement=useRef<HTMLFormElement>(null),automaticPreparation=useRef(''),manualCatalogChoice=useRef(false);
   const [revision,setRevision]=useState(0);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
@@ -41,6 +41,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const historyInterrupted=useRef(false),historyReading=useRef(mode==='create'||mode==='prepare');
   useEffect(()=>{
     if(mode!=='create'&&mode!=='prepare')return;
+    if(manualCatalogChoice.current && catalogSource){historyInterrupted.current=true;historyReading.current=false;setHistoryPending(false);return;}
     let active=true;
     historyInterrupted.current=false;historyReading.current=true;
     const form=new FormData();form.set('serviceRequestId',serviceRequestId);
@@ -111,7 +112,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     {(mode === "create" || mode === "prepare") && <>
       {catalogIssues.map(issue=><p key={issue} role="alert" className="text-sm text-amber-800">{issue}</p>)}
       <label className="block text-sm">Postavka iz Quibija
-        <select name="catalogSource" value={catalogSource} onChange={event=>{setCatalogSource(event.target.value);setHistorySource('');setHistory({proposals:[],issues:[]});setHistoryPending(true)}} className="mt-1 block w-full rounded border px-3 py-2">
+        <select name="catalogSource" value={catalogSource} onChange={event=>{manualCatalogChoice.current=!!event.target.value;setCatalogSource(event.target.value);setHistorySource('');setHistory({proposals:[],issues:[]});setHistoryPending(true)}} className="mt-1 block w-full rounded border px-3 py-2">
           <option value="">{catalogOptions.length?'Izberite storitev ali dopolnite manjkajočo postavko spodaj':'Šifrant ni na voljo; dopolnite postavko za pregled'}</option>
           {catalogOptions.map(option=><option key={option.key} value={option.key}>{option.name} · {option.code} · {option.priceListDiffers?'osnovna cena artikla':option.priceListName}</option>)}
         </select>
@@ -121,7 +122,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         {historyPending?<p role="status">Preverjam Quibijeve dokumente in aktualne cene…</p>:<>
           {history.issues.map(issue=><p key={issue} className="text-amber-800">{issue}</p>)}
           <label className="block">Pripravljene postavke<select name="historySource" value={historySource} onChange={e=>setHistorySource(e.target.value)} className="mt-1 block w-full rounded border p-2">
-            <option value="">{history.proposals.length?'Izberite predlog ali uporabite postavko iz cenika':'Natančnega ujemanja storitve ni v pregledanih dokumentih'}</option>
+            <option value="">{history.proposals.length?'Izberite predlog ali uporabite postavko iz cenika':'Ni pripravljenega zgodovinskega predloga; uporabite postavko iz cenika'}</option>
             {history.proposals.map(p=><option key={p.key} value={p.key} disabled={!p.ready}>{p.kind==='work_order'?'Delovni nalog':p.kind==='invoice'?'Račun':'Predračun'} #{p.documentId} · {p.date} · {p.scope==='vehicle'?'isto vozilo':'drug dokument – potreben pregled'}{!p.ready?' · nepopolne cene ali DDV':''}</option>)}
           </select></label>
           {history.proposals.filter(p=>!p.ready).map(p=><p key={p.key}>Dokument #{p.documentId}: {p.issues.join(' ')}</p>)}
