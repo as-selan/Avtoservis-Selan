@@ -230,7 +230,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
-            repairNextAction:repairsByCase.get(row.id)?.phase?.step,repairUiStatus:repairsByCase.get(row.id)?.phase?.uiStatus,
+            repairNextAction:repairsByCase.get(row.id)?.phase?.step,repairUpdatedAt:repairsByCase.get(row.id)?.lastActivity,repairUiStatus:repairsByCase.get(row.id)?.phase?.uiStatus,
             businessNextAction:quibiBusinessNextAction(businessRowsByRequest.get(row.id)??[]),
             customerApprovalVerified: (()=>{const approval=approvalByRequest.get(row.id),quote=quoteByRequest.get(row.id);return !!approval&&!!quote&&approval.quote_id===quote.id&&hasRecordedCustomerApproval(approval,quote.content_sha256)})(),
             quibiCreateRejected:rejectedEstimateRequests.has(row.id),

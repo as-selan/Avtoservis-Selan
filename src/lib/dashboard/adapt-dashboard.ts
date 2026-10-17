@@ -59,8 +59,9 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId},
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null},
 ): ServiceOrderDemo {
+  const updatedAt=stepInput.repairUpdatedAt??row.updated_at;
   const uiStatus = stepInput.repairUiStatus??mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
 
   return {
@@ -77,8 +78,8 @@ export function adaptServiceRequestToOrder(
     offerPreparationReady: stepInput.offerPrepared,
     locationLabel: undefined,
     appointmentTime: null,
-    updatedAt: row.updated_at,
-    updatedLabel: formatRelativeUpdatedLabel(row.updated_at, now),
+    updatedAt,
+    updatedLabel: formatRelativeUpdatedLabel(updatedAt, now),
   };
 }
 
