@@ -1,3 +1,4 @@
+import {loadCaseWork} from '@/lib/case-work/read';
 import {isHostedQuibiEnvironment,hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {requiresResolvedVehicleConfirmation} from '@/lib/quibi/vehicle-identity';
 import {VehicleResolutionPanel} from '@/components/dashboard/VehicleResolutionPanel';
@@ -210,7 +211,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
     let businessNextAction:CaseStep|undefined;
     if(realDevMode&&!internalOrdersEnabled&&['owner','admin'].includes(access.role)){const {data,error}=await db.from(quibiJournalTable(hostedQuibiEnvironment(process.env))).select('kind,state,quibi_id,quibi_content_sha256,request_body,send_status,created_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).in('kind',['work_order','invoice','work_order_update','invoice_update','send']);if(!error)businessNextAction=quibiBusinessNextAction(data??[]);}
-    const step = nextCaseStep({businessNextAction,quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
+    const repairWork=(await loadCaseWork(serviceRequestId)).rows[0];
+    const step = nextCaseStep({repairNextAction:repairWork?.phase?.step,businessNextAction,quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
       fixedPriceStatus: fixedPrice?.status,
@@ -237,7 +239,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       <Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link>
       <header><h1 className="text-2xl font-semibold text-slate-900">Primer #{toPresentationRef(request.id)}</h1>
         <p className="mt-1 text-sm text-slate-600">{request.summary}</p>
-        <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Stanje: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p></header>
+        <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Poslovna faza: {repairWork?.phase?.label??getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p>{repairWork&&<details className="text-xs text-slate-500"><summary>Ločena izvorna stanja</summary><p>Stanje povpraševanja: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}. To stanje ne potrjuje trenutne faze popravila, računa, plačila ali prevzema.</p></details>}</header>
 
       <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
         <h2 className="font-semibold text-blue-950">Naslednji korak</h2>
@@ -344,7 +346,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {inspectionResult.data?.status === "completed" && inspectionResult.data.repair_decision === "not_ordered" && ["owner","admin"].includes(access.role) && <QuibiInspectionInvoicePreparation caseId={serviceRequestId}/>}
       {(inspectionResult.data?.status === "requested" || diagnosisOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" inactiveReason={inspectionResult.data?.status === "requested" ? undefined : "Predhodni pregled je že opravljen ali ni več naročen. Stare možnosti ne potrjujejo rezervacije; po potrebi umaknite ponudbo."} offer={diagnosisOffer} realDevWrite={realDevMode} />}
-      {(request.status === "awaiting_slot_selection" || serviceOffer) &&
+      {!repairWork && (request.status === "awaiting_slot_selection" || serviceOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" inactiveReason={request.status === "awaiting_slot_selection" ? undefined : "Stanje primera se je spremenilo. Stare možnosti ne potrjujejo rezervacije; preverite nadaljevanje primera."} syntheticQaAllowed={localSyntheticQaAllowed(process.env)} offer={serviceOffer} realDevWrite={realDevMode} />}
     {['owner','admin'].includes(access.role)&&<CaseWorkPanel caseId={serviceRequestId} role={access.role}/>}
 </div>;

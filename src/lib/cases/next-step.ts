@@ -7,7 +7,7 @@ export type CaseStepKind =
 export type CaseStep = { kind: CaseStepKind; label: string; externalConfirmed: false };
 
 export function nextCaseStep(input: {
-  businessNextAction?:CaseStep; quibiCreateRejected?:boolean;customerApprovalVerified?:boolean;quibiCreateUncertain?:boolean;directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
+  repairNextAction?:CaseStep;businessNextAction?:CaseStep; quibiCreateRejected?:boolean;customerApprovalVerified?:boolean;quibiCreateUncertain?:boolean;directQuibiBusiness?:boolean;status: string; workOrderStatus?:string; syntheticAppointment?:boolean;
   offerPrepared: boolean;
   quibiLinked: boolean;
   quibiSyncStatus?: string;
@@ -20,6 +20,7 @@ export function nextCaseStep(input: {
   quibiDevWriteEnabled?: boolean; quibiSendStatus?: string | null; quibiSendAttempted?: boolean;
 }): CaseStep {
   const step = (kind: CaseStepKind, label: string): CaseStep => ({ kind, label, externalConfirmed: false });
+  if(input.repairNextAction)return input.repairNextAction;
   if (input.inspectionRepairDecision === "not_ordered") {
     return step("manual_inspection_billing",
       "Popravilo ni naročeno: predhodni pregled je plačljiv. Znesek, račun in plačilo preverite ročno v Quibiju; tukaj niso potrjeni.");

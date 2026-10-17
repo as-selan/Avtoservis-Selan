@@ -59,9 +59,9 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {intakeConnectionLabel?:string},
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId},
 ): ServiceOrderDemo {
-  const uiStatus = mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
+  const uiStatus = stepInput.repairUiStatus??mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
 
   return {
     id: toPresentationRef(row.id),

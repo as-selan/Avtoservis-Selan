@@ -1,3 +1,4 @@
+import {loadCaseWork} from '@/lib/case-work/read';
 import {intakeConnection} from './intake-connection';
 import {quibiBusinessNextAction,type BusinessStepRecord} from '@/lib/cases/next-step';
 import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
@@ -136,6 +137,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const quoteByRequest = new Map<string, { id: string; internal_review_status: string; content_sha256:string }>();
     const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null;content_sha256:string;decided_at:string|null;decision_evidence_reference:string|null;revoked_at:string|null }>();
     const inspectionByRequest = new Map<string, string | null>();
+    const repairRows=await loadCaseWork();const repairsByCase=new Map(repairRows.rows.map(w=>[w.caseId,w]));
     const requestIds = requests.map((row) => row.id);
     const uncertainEstimateRequests = new Set<string>();
     const rejectedEstimateRequests = new Set<string>();
@@ -227,6 +229,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
+            repairNextAction:repairsByCase.get(row.id)?.phase?.step,repairUiStatus:repairsByCase.get(row.id)?.phase?.uiStatus,
             businessNextAction:quibiBusinessNextAction(businessRowsByRequest.get(row.id)??[]),
             customerApprovalVerified: (()=>{const approval=approvalByRequest.get(row.id),quote=quoteByRequest.get(row.id);return !!approval&&!!quote&&approval.quote_id===quote.id&&hasRecordedCustomerApproval(approval,quote.content_sha256)})(),
             quibiCreateRejected:rejectedEstimateRequests.has(row.id),
@@ -253,9 +256,9 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       );
 
       const attentionItem = adaptServiceRequestToAttention(row, now);
-      if (attentionItem) {
-        attention.push(attentionItem);
-      }
+      const repair=repairsByCase.get(row.id);
+      if(repair?.phase?.attention&&!row.has_error)attention.push({id:row.id,title:repair.phase.label,detail:repair.phase.next,severity:"warning",timeLabel:repair.lastActivity??row.updated_at,primaryAction:"Preglej delo",occurredAt:repair.lastActivity??row.updated_at});
+      else if (attentionItem) attention.push(attentionItem);
     }
 
     const appointments = await loadConfirmedAppointments(
