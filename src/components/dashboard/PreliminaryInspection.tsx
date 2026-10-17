@@ -56,8 +56,8 @@ export function PreliminaryInspection({ serviceRequestId, caseStatus, status, fi
             className="rounded border px-3 py-2 text-sm disabled:opacity-50">Popravilo ni naročeno</button>
         </div>
       </>}
-      {repairDecision === "ordered" && <p className="text-sm text-green-800">Popravilo je naročeno: predhodni pregled je brezplačen.</p>}
-      {repairDecision === "not_ordered" && <p className="text-sm text-amber-800">Popravilo ni naročeno: predhodni pregled je plačljiv. Znesek in izdajo računa uredite po potrjenih pravilih v Quibiju.</p>}
+      {repairDecision === "ordered" && <p className="text-sm text-green-800">Odločitev: popravilo je naročeno. Obračun: predhodni pregled je brezplačen; ločen račun pregleda ni potreben.</p>}
+      {repairDecision === "not_ordered" && <p className="text-sm text-amber-800">Odločitev: popravilo ni naročeno. Obračun: predhodni pregled je plačljiv. Spodaj preverite storitev, količino, ceno in DDV pred nadaljevanjem v Quibiju.</p>}
     </>}
     {status === "requested" && !canAdvancePreliminaryInspection(caseStatus, "complete") && <p className="text-sm text-amber-800">Stanje primera se je spremenilo. Pred nadaljevanjem pregleda je potreben skrbniški pregled.</p>}
     {status === "completed" && repairDecision === "pending" && !canAdvancePreliminaryInspection(caseStatus, "repair_ordered") && <p className="text-sm text-amber-800">Odločitev o popravilu ni zabeležena; stanje primera zahteva skrbniški pregled.</p>}
