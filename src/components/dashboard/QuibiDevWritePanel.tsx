@@ -1,4 +1,5 @@
 "use client";
+import {inspectionCatalogSuggestions} from '@/lib/quibi/inspection-catalog';
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -9,15 +10,16 @@ import type { EstimateReview } from '@/lib/quibi/estimate-preparation';
 import type { CreatedEstimateSummary } from '@/lib/quibi/created-estimate-summary';
 import type { QuibiChoice } from "@/lib/quibi/write-options";
 
-export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, writeEnabled=true }: {
+export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, inspectionFindings, writeEnabled=true }: {
   serviceRequestId: string; mode: "prepare" | "create" | "update" | "send"; quoteId?: string;
-  writeEnabled?:boolean;
+  writeEnabled?:boolean; inspectionFindings?:string|null;
   catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;
   lineDescription?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[]; warehouses?: QuibiChoice[] };
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
 }) {
   const router = useRouter();
+  const inspectionSuggestions=inspectionCatalogSuggestions(inspectionFindings,catalogOptions);
   const createLocked = (mode === 'create' || mode === 'prepare') && ['failed','uncertain','dispatching','verified'].includes(operationState ?? '');
   const formElement=useRef<HTMLFormElement>(null),automaticPreparation=useRef(''),manualCatalogChoice=useRef(false);
   const [revision,setRevision]=useState(0);
@@ -116,6 +118,11 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     <h3 className="font-medium">{mode === "prepare" ? "Pripravi ponudbo za popravilo" : mode === "create" ? "Pripravi ponudbo za popravilo" :
       mode === "update" ? "Popravi zavrnjeni Quibi predračun" : "Pošlji predračun samo na testni naslov"}</h3>
     {(mode === "create" || mode === "prepare") && <>
+      {inspectionFindings&&<section aria-label="Podlaga opravljenega pregleda" className="space-y-2 rounded border bg-blue-50 p-3 text-sm">
+        <p className="font-medium">Ugotovitve opravljenega pregleda</p><p className="whitespace-pre-wrap break-words">{inspectionFindings}</p>
+        {inspectionSuggestions.matches.length>0&&<><ul>{inspectionSuggestions.matches.map(o=><li key={o.key}>{o.code} · {o.name}</li>)}</ul><button type="button" className="rounded border px-3 py-2" onClick={()=>changeRows(inspectionSuggestions.matches.map(o=>({key:o.key,quantity:'',discount:''})))}>Pripravi postavke iz pregleda</button><p>V predlog se prenesejo samo enolično prepoznane Quibi postavke. Dopolnite dejanske količine; cene, DDV in popusti se preverijo v predogledu. Izbira zamenja trenutni predlog, ne spremeni Quibija.</p></>}
+        {(inspectionSuggestions.unmatched.length>0||inspectionSuggestions.ambiguous.length>0)&&<p>Preostale ugotovitve niso enolična Quibi postavka. Izberite ustrezne storitve oziroma dele spodaj; podobnih nazivov ne enačimo.</p>}
+      </section>}
       {catalogIssues.map(issue=><p key={issue} role="alert" className="text-sm text-amber-800">{issue}</p>)}
       {rows!==null&&<section aria-label="Postavke predračuna" className="space-y-3">
         <input type="hidden" name="catalogLines" value={JSON.stringify(rows)}/>
