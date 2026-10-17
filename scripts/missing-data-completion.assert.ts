@@ -31,7 +31,7 @@ function read(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), "utf8").replace(/\r\n/g, "\n");
 }
 
-const forwardSql = read("supabase/migrations/20261008160005_contact_policy_and_completion_review.sql");
+const forwardSql = read("supabase/migrations/20261008192531_contact_policy_and_completion_review.sql");
 const completionSql = forwardSql.slice(
   forwardSql.indexOf("create or replace function public.resolve_service_request_completion"),
   forwardSql.indexOf("create or replace function public.review_service_request_intake"),
