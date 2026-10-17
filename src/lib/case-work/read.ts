@@ -1,4 +1,10 @@
-import 'server-only';import {createClient} from '@/lib/supabase/server';import {configuredQuibiReadClient} from '@/lib/quibi/client';import {loadQuibiDocument} from '@/lib/quibi/document-read';
-export type CaseWork={caseId:string;mechanicId:string;quibiId:string;sha:string;status:string;problem:string;service:string;customerQuibiId:string;vehicleQuibiId:string;vehicle:{vin:string;registration:string;make:string;model:string}};
-export async function loadCaseWork(caseId?:string){const db=await createClient();const r=await db.rpc('case_work_snapshot',{p_case:caseId??null});return {db,rows:(Array.isArray(r.data)?r.data:[]) as CaseWork[],error:r.error};}
+import 'server-only';import {createClient} from '@/lib/supabase/server';import {configuredQuibiReadClient} from '@/lib/quibi/client';import {loadQuibiDocument} from '@/lib/quibi/document-read';import {enrichWork,type WorkActivity} from './overview';
+export type CaseWork=WorkActivity&{quibiId:string;sha:string;problem:string;service:string;customerQuibiId:string;vehicleQuibiId:string;vehicle:{vin:string;registration:string;make:string;model:string}};
+export async function loadCaseWork(caseId?:string){const db=await createClient();const r=await db.rpc('case_work_snapshot',{p_case:caseId??null});const rows=(Array.isArray(r.data)?r.data:[]) as CaseWork[];if(r.error||!rows.length)return {db,rows,error:r.error};
+ const ids=rows.map(w=>w.caseId),mechanics=[...new Set(rows.map(w=>w.mechanicId))];
+ // All queries retain the authenticated client's existing RLS. Never load paths
+ // or image URLs into the overview, only activity metadata for accessible cases.
+ const [assignments,notes,photos,profiles]=await Promise.all([db.from('service_case_assignments').select('case_id,updated_at').in('case_id',ids),db.from('service_case_notes').select('case_id,created_at').in('case_id',ids),db.from('service_case_photos').select('case_id,created_at').in('case_id',ids).eq('state','ready'),db.from('profiles').select('id,full_name,email').in('id',mechanics)]);
+ return {db,rows:enrichWork(rows,assignments.data??[],notes.data??[],photos.data??[],profiles.data??[],!!(assignments.error||notes.error||photos.error)),error:null};
+}
 export async function verifiedRepairLines(work:CaseWork){const read=configuredQuibiReadClient();const [doc,vehicle]=await Promise.all([loadQuibiDocument(read,'work_order',work.quibiId,work.customerQuibiId),read.vehicle(work.vehicleQuibiId,work.customerQuibiId)]);if(doc.contentSha256!==work.sha||doc.vehicleId!==work.vehicleQuibiId||vehicle.vin!==work.vehicle.vin)throw Error('QUIBI_REFERENCE_CHANGED');return doc.lines.filter(l=>l.lineType!=='3').map(l=>({description:l.description,quantity:l.quantity,articleCode:l.articleCode}));}
