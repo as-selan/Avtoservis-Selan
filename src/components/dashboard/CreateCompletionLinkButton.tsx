@@ -1,21 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { issueCompletionLinkAction } from "@/lib/completion/actions";
+
+import { completionMessage } from "@/lib/completion/message";
+import { CommunicationDraft } from "./CommunicationDraft";
 
 export function CreateCompletionLinkButton({
   serviceRequestId,
   compact = false,
+  missingFields = [],
+  contactPolicy = "web",
 }: {
   serviceRequestId: string;
   compact?: boolean;
+  missingFields?: string[];
+  contactPolicy?: "manual" | "web";
 }) {
+  const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function onCreate() {
+    if (inFlight.current || url) return;
+    inFlight.current = true;
     setPending(true);
     setError(null);
     setCopied(false);
@@ -27,7 +37,10 @@ export function CreateCompletionLinkButton({
         return;
       }
       setUrl(result.url);
+    } catch {
+      setError("Povezave ni mogoče pripraviti. Poskusite znova; nič ni bilo poslano.");
     } finally {
+      inFlight.current = false;
       setPending(false);
     }
   }
@@ -47,22 +60,24 @@ export function CreateCompletionLinkButton({
       <button
         type="button"
         onClick={() => void onCreate()}
-        disabled={pending}
+        disabled={pending || !!url}
         className={
           compact
             ? "inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
             : "inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
         }
       >
-        {pending ? "Ustvarjam…" : "Ustvari povezavo za dopolnitev"}
+        {pending ? "Pripravljam…" : url ? "Povezava je pripravljena" : "Pripravi dopolnitev podatkov"}
       </button>
       {error ? (
         <p className="text-xs text-red-700" role="alert">
           {error}
         </p>
       ) : null}
+      {!url && missingFields.length > 0 && <p className="text-xs text-slate-600">{completionMessage(missingFields, contactPolicy).split("\n")[2]}</p>}
       {url ? (
-        <div className="space-y-1">
+        <div className="space-y-2">
+          <CommunicationDraft key={url} title="Dopolnitev podatkov" body={completionMessage(missingFields, contactPolicy, url)} />
           <label className="block">
             <span className="sr-only">Povezava za dopolnitev</span>
             <input

@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import ts from 'typescript';
 import {canAdvancePreliminaryInspection} from '../../lib/inspections/eligibility.ts';
+import {manualSlotDraft,slotProposalMessage} from '../../lib/appointments/manual-slot-draft.ts';
 import {ljubljanaWallTimeToIso} from '../../lib/appointments/ljubljana-time.ts';
 import {sendPresentation} from '../../lib/quibi/send-outcome.ts';
 
@@ -17,7 +18,7 @@ function fixture(file:string,component:string,initialProps:Record<string,unknown
  const actions=Object.fromEntries(['recordManualEstimateDecision','recordManualEstimateDelivery','reviewManualQuibiEstimate','proposeManualSlots','advanceManualSlotOffer','recordPreliminaryInspection'].map(name=>[name,async(...args:any[])=>{calls.push({name,args});return {ok:true}}]));
  const exports:Record<string,any>={};
  const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,Date,Number,JSON,Set,setTimeout,clearTimeout});
+ runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,Date,Number,JSON,Set,setTimeout,clearTimeout});
  let props=initialProps;
  const render=(changes:Record<string,unknown>={})=>{props={...props,...changes};index=0;return exports[component](props)};
  return {render,calls,refreshes:()=>refreshes,flush:async()=>{await Promise.all(pending.splice(0))}};
@@ -44,10 +45,10 @@ test('manual appointment UI progresses proposal, actual choice and booking evide
  const f=fixture('./ManualSlotOffer.tsx','ManualSlotOffer',{serviceRequestId:'case',appointmentType:'service',offer:null,realDevWrite:true});
  const dates=['2030-06-10T09:00','2030-06-11T09:00','2030-06-12T09:00'];
  nodes(f.render()).filter(n=>n.type==='input'&&n.props.type==='datetime-local').forEach((n,i)=>n.props.onChange({target:{value:dates[i]}}));
- fillLabel(f.render(),'Referenca preverjanja razpoložljivosti','isolated-only calendar check');attest(f.render());button(f.render(),'Shrani tri možnosti').props.onClick();await f.flush();
+ fillLabel(f.render(),'Kje in kdaj ste preverili razpoložljivost','isolated-only calendar check');attest(f.render());button(f.render(),'Shrani tri možnosti').props.onClick();await f.flush();
  assert.equal(f.calls[0].name,'proposeManualSlots');assert.equal(f.calls[0].args[2][0],'2030-06-10T07:00:00.000Z');
  const offer={id:'offer',status:'proposed',slot_1:'2030-06-10T07:00:00Z',slot_2:'2030-06-11T07:00:00Z',slot_3:'2030-06-12T07:00:00Z',selected_slot:null,booking_reference:null};
- for(const [status,label,reference,action] of [['proposed','Evidentiraj dejansko pošiljanje','Referenca dejansko poslanih možnosti','send'],['offered','Evidentiraj strankino izbiro','Referenca strankine izbire','select'],['selected','Potrdi ročno rezerviran termin','Referenca dejanske rezervacije v MyPlanlyju','confirm']]){
+ for(const [status,label,reference,action] of [['proposed','Evidentiraj dejansko pošiljanje','Referenca dejansko poslanih možnosti','send'],['offered','Evidentiraj strankino izbiro','Referenca strankine izbire','select'],['selected','Potrdi ročno rezerviran termin','Referenca dejanske ročne rezervacije','confirm']]){
   f.render({offer:{...offer,status,selected_slot:status==='selected'?1:null}});fillLabel(f.render(),reference,'isolated-only evidence');attest(f.render());button(f.render(),label).props.onClick();await f.flush();assert.equal(f.calls.at(-1)?.args[1],action);
  }
  const confirmed=f.render({offer:{...offer,status:'confirmed',booking_reference:'QA-SIM-isolated',selected_slot:1}});assert.match(text(confirmed),/To NI rezervacija/);assert.ok(!nodes(confirmed).some(n=>n.type==='button'&&text(n)==='Potrdi ročno rezerviran termin'));

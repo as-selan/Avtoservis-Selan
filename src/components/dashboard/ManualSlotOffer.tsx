@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { advanceManualSlotOffer, proposeManualSlots } from "@/lib/appointments/manual-slots-actions";
-import { ljubljanaWallTimeToIso } from "@/lib/appointments/ljubljana-time";
+import { manualSlotDraft, slotProposalMessage } from "@/lib/appointments/manual-slot-draft";
+import { CommunicationDraft } from "./CommunicationDraft";
 
 type Offer = {
   id: string; status: string; slot_1: string; slot_2: string; slot_3: string;
@@ -17,6 +18,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
 }) {
   const router = useRouter();
   const demo = !realDevWrite && (process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO === "1" || process.env.NEXT_PUBLIC_SELAN_LOCAL_REVIEW === "1");
+  const inFlight = useRef(false);
   const [slots, setSlots] = useState(["", "", ""]);
   const [reference, setReference] = useState("");
   const [selected, setSelected] = useState(1);
@@ -33,25 +35,35 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
   const title = appointmentType === "diagnosis" ? "Termin predhodnega pregleda" : "Termin popravila";
   const statusMessage = blocked ? inactiveReason ?? "Termini so potekli. To ni potrjena rezervacija. Umaknite staro ponudbo in preverite nove možnosti." : offer?.status === "proposed" ? "Tri možnosti so pripravljene, niso še poslane ali rezervirane."
     : offer?.status === "offered" ? demo ? "Pošiljanje možnosti je simulirano; nobena ni rezervirana." : "Tri možnosti so bile ročno poslane; nobena ni začasno rezervirana."
-      : offer?.status === "selected" ? "Stranka je izbrala termin; rezervacija v MyPlanlyju še ni potrjena."
-        : offer?.status === "confirmed" && offer.booking_reference?.startsWith("QA-SIM-") ? "QA-SIM: simuliran interni termin. To NI rezervacija v MyPlanlyju." : offer?.status === "confirmed" ? "Termin je interno potrjen na podlagi ročno zabeležene rezervacije v MyPlanlyju. Samodejne sinhronizacije ni."
-          : "Tri možnosti je treba dejansko preveriti v MyPlanlyju. Aplikacija ne preverja razpoložljivosti sama.";
+      : offer?.status === "selected" ? "Stranka je izbrala termin; ročna rezervacija še ni potrjena."
+        : offer?.status === "confirmed" && offer.booking_reference?.startsWith("QA-SIM-") ? "QA-SIM: simuliran interni termin. To NI rezervacija v MyPlanlyju." : offer?.status === "confirmed" ? "Termin je interno potrjen na podlagi ročno zabeležene rezervacije v preverjenem koledarju. Samodejne sinhronizacije ni."
+          : "Vnesite tri možnosti iz dejansko preverjenega koledarja. Samodejni vir razpoložljivosti še ni povezan; aplikacija prostih terminov ne ugiba.";
+  const draft = !offer ? manualSlotDraft(slots, checkedAt) : null;
+  function run(operation: () => Promise<void>) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    startTransition(async () => {
+      try { await operation(); }
+      catch { setMessage("Ni bilo mogoče preveriti shranjenega stanja termina. Osvežite primer pred ponovitvijo; vneseni podatki ostanejo prikazani."); }
+      finally { inFlight.current = false; }
+    });
+  }
   function create() {
     if (pending || !attested || blocked) return;
-    const converted = slots.map(ljubljanaWallTimeToIso);
-    if (converted.some((value) => !value)) {
-      setMessage("Neveljaven ali dvoumen lokalni čas Europe/Ljubljana. Izberite drug čas.");
+    const draft = manualSlotDraft(slots);
+    if (!draft.ok) {
+      setMessage(draft.message);
       return;
     }
-    startTransition(async () => {
-      const result = await proposeManualSlots(serviceRequestId, appointmentType, converted as string[], reference);
+    run(async () => {
+      const result = await proposeManualSlots(serviceRequestId, appointmentType, draft.slots, reference);
       setMessage(result.ok ? "Tri ročno preverjene možnosti so shranjene kot predlog." : result.message);
       if (result.ok) { setAttested(false); setReference(""); router.refresh(); }
     });
   }
   function advance(action: "send" | "select" | "confirm" | "confirm_synthetic" | "cancel") {
     if (!offer || pending || !attested || blocked) return;
-    startTransition(async () => {
+    run(async () => {
       const result = await advanceManualSlotOffer(offer.id, action, reference,
         action === "select" ? selected : undefined);
       setMessage(result.ok ? action === "confirm_synthetic" ? "QA-SIM: simuliran termin je shranjen; zunanje rezervacije ni." : demo ? "Demo korak je shranjen; nič ni poslano ali rezervirano." : "Dejanski ročni korak termina je shranjen." : result.message);
@@ -60,7 +72,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
   }
   function cancel() {
     if (!offer || pending || !cancelAttested || cancelReference.trim().length < 4) return;
-    startTransition(async () => {
+    run(async () => {
       const result = await advanceManualSlotOffer(offer.id, "cancel", cancelReference);
       setMessage(result.ok ? "Neveljavna ponudba terminov je umaknjena; pripravite nove možnosti." : result.message);
       if (result.ok) {
@@ -77,28 +89,31 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
         {offer.selected_slot === index + 1 ? " · izbrano" : ""}</li>)}</ol>}
     {!offer && !blocked && <div className="space-y-2">
       {[0,1,2].map((index) => <label key={index} className="block text-sm">Možnost {index + 1} · Europe/Ljubljana
-        <input type="datetime-local" className="mt-1 block rounded border px-2 py-1" value={slots[index]}
+        <input type="datetime-local" className="mt-1 block min-h-11 w-full rounded border px-2 py-1" value={slots[index]}
           onChange={(event) => setSlots((current) => current.map((value, position) => position === index ? event.target.value : value))} />
       </label>)}
     </div>}
+    {!offer && draft && !draft.ok && slots.some(Boolean) && <p role="status" className="text-sm text-amber-800">{draft.message}</p>}
+    {!demo && !blocked && offer?.status === "proposed" && <CommunicationDraft key={offer.id} title="Trije predlogi terminov" body={slotProposalMessage([offer.slot_1, offer.slot_2, offer.slot_3])} />}
+    {!offer && draft?.ok && attested && reference.trim().length >= 4 && !blocked && <CommunicationDraft key={draft.message} title="Trije predlogi terminov · pred shranjevanjem preverite razpoložljivost" body={draft.message} />}
     {!blocked && offer?.status === "offered" && <label className="block text-sm">Izbrana možnost
       <select className="mt-1 block rounded border px-2 py-1" value={selected}
         onChange={(event) => setSelected(Number(event.target.value))}>
         <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
       </select></label>}
     {!blocked && offer?.status !== "confirmed" && !(demo && !syntheticQaAllowed && offer?.status === "selected") && <>
-      <label className="block text-sm">{!offer ? "Referenca preverjanja razpoložljivosti" : offer.status === "proposed" ? demo ? "Referenca simuliranega pošiljanja" : "Referenca dejansko poslanih možnosti" : offer.status === "offered" ? "Referenca strankine izbire" : syntheticQaAllowed ? "Sintetična referenca potrditve QA-SIM" : "Referenca dejanske rezervacije v MyPlanlyju"}
+      <label className="block text-sm">{!offer ? "Kje in kdaj ste preverili razpoložljivost" : offer.status === "proposed" ? demo ? "Referenca simuliranega pošiljanja" : "Referenca dejansko poslanih možnosti" : offer.status === "offered" ? "Referenca strankine izbire" : syntheticQaAllowed ? "Sintetična referenca potrditve QA-SIM" : "Referenca dejanske ročne rezervacije"}
         <input className="mt-1 block w-full rounded border px-2 py-1" value={reference} maxLength={200}
-          onChange={(event) => setReference(event.target.value)} placeholder="Sledljiv ID ali zapis" />
+          onChange={(event) => setReference(event.target.value)} placeholder={!offer ? "Npr. koledar delavnice, datum in čas preverjanja" : "Datum, kanal in zapis dogovora"} />
       </label>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-        {!offer ? demo ? "Za demo sem pripravil tri sintetične možnosti; MyPlanly ni preverjen." : "Tri termine sem dejansko preveril v MyPlanlyju."
+        {!offer ? demo ? "Za demo sem pripravil tri sintetične možnosti; MyPlanly ni preverjen." : "Tri termine sem dejansko preveril v svojem koledarju."
           : offer.status === "proposed" ? demo ? "Simuliram pošiljanje; stranka ne prejme sporočila." : "Te tri možnosti sem dejansko poslal stranki."
             : offer.status === "offered" ? demo ? "Simuliram strankino izbiro." : "Prejel sem dejansko izbiro stranke."
-              : syntheticQaAllowed ? "Potrjujem lokalno simulacijo termina. MyPlanly ni rezerviran." : "Izbrani termin sem dejansko rezerviral v MyPlanlyju."}
+              : syntheticQaAllowed ? "Potrjujem lokalno simulacijo termina. MyPlanly ni rezerviran." : "Izbrani termin sem dejansko rezerviral v svojem koledarju."}
       </label>
       <div className="flex flex-wrap gap-2">
-        {!offer ? <button type="button" disabled={pending || !attested || reference.trim().length < 4 || slots.some((slot) => !slot)}
+        {!offer ? <button type="button" disabled={pending || !attested || reference.trim().length < 4 || !draft?.ok}
           onClick={create} className="rounded border px-3 py-2 text-sm disabled:opacity-50">Shrani tri možnosti</button>
           : offer.status === "proposed" ? <button type="button" disabled={pending || !attested || reference.trim().length < 4}
             onClick={() => advance("send")} className="rounded border px-3 py-2 text-sm disabled:opacity-50">{demo ? "Simuliraj pošiljanje možnosti" : "Evidentiraj dejansko pošiljanje"}</button>

@@ -48,8 +48,8 @@ async function recordThreeManualSlots(page: Page, label: string) {
   for (const [index, days] of [7, 8, 9].entries()) {
     await page.getByLabel(`Možnost ${index + 1} · Europe/Ljubljana`).fill(futureLjubljanaDate(days));
   }
-  await page.getByRole("textbox", { name: "Referenca preverjanja razpoložljivosti" }).fill(`${label}-CHECK`);
-  await page.getByRole("checkbox", { name: "Tri termine sem dejansko preveril v MyPlanlyju." }).check();
+  await page.getByRole("textbox", { name: "Kje in kdaj ste preverili razpoložljivost" }).fill(`${label}-CHECK`);
+  await page.getByRole("checkbox", { name: "Tri termine sem dejansko preveril v svojem koledarju." }).check();
   await page.getByRole("button", { name: "Shrani tri možnosti" }).click();
   await expect(page.getByText("Tri možnosti so pripravljene, niso še poslane ali rezervirane.")).toBeVisible();
   await page.getByRole("textbox", { name: "Referenca dejansko poslanih možnosti" }).fill(`${label}-SENT`);
@@ -60,9 +60,9 @@ async function recordThreeManualSlots(page: Page, label: string) {
   await page.getByRole("textbox", { name: "Referenca strankine izbire" }).fill(`${label}-REPLY`);
   await page.getByRole("checkbox", { name: "Prejel sem dejansko izbiro stranke." }).check();
   await page.getByRole("button", { name: "Evidentiraj strankino izbiro" }).click();
-  await expect(page.getByText("Stranka je izbrala termin; rezervacija v MyPlanlyju še ni potrjena.")).toBeVisible();
-  await page.getByRole("textbox", { name: "Referenca dejanske rezervacije v MyPlanlyju" }).fill(`${label}-BOOKING`);
-  await page.getByRole("checkbox", { name: "Izbrani termin sem dejansko rezerviral v MyPlanlyju." }).check();
+  await expect(page.getByText("Stranka je izbrala termin; ročna rezervacija še ni potrjena.")).toBeVisible();
+  await page.getByRole("textbox", { name: "Referenca dejanske ročne rezervacije" }).fill(`${label}-BOOKING`);
+  await page.getByRole("checkbox", { name: "Izbrani termin sem dejansko rezerviral v svojem koledarju." }).check();
   await page.getByRole("button", { name: "Potrdi ročno rezerviran termin" }).click();
   await expect(page.getByText(`Referenca ročne rezervacije: ${label}-BOOKING`)).toBeVisible();
 }
@@ -387,7 +387,7 @@ test("missing data link completes the original case without exposing the token i
   const caseId = mobile ? seed.incompleteCases.mobile : seed.incompleteCases.desktop;
   await login(page, seed.owner);
   await page.goto(`/dashboard/primeri/${caseId}`);
-  await page.getByRole("button", { name: "Ustvari povezavo za dopolnitev" }).click();
+  await page.getByRole("button", { name: "Pripravi dopolnitev podatkov" }).click();
   const link = await page.getByRole("textbox", { name: "Povezava za dopolnitev" }).inputValue();
   expect(link).toMatch(new RegExp(`^${appOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/dopolnitev#token=`));
 

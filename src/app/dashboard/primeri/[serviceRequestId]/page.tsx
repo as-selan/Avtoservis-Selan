@@ -30,6 +30,7 @@ import { toPresentationRef } from "@/lib/dashboard/adapt-dashboard";
 import { mapDbStatusToUiStatus } from "@/lib/dashboard/db-status";
 import { getStatusLabel } from "@/lib/dashboard/statuses";
 import { nextCaseStep,quibiBusinessNextAction,type CaseStep } from "@/lib/cases/next-step";
+import { intakeFieldLabels } from "@/lib/completion/message";
 import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
 import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 import { LinkManualEstimateForm } from "@/components/dashboard/LinkManualEstimateForm";
@@ -221,16 +222,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const missing = currentIntakeCompleteness({phone:customer?.phone??null,email:customer?.email??null,vin:vehicle?.vin??null,make:vehicle?.make??null,model:vehicle?.model??null,registration:vehicle?.registration_current??null},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id},Array.isArray(request.missing_fields)?request.missing_fields:[]).missing_fields;
     const assistance=await analyzeIntake({summary:request.summary,missingFields:missing,serviceWanted:request.service_wanted??undefined},configuredIntakeProvider(access.organizationId));
     const recipient = customer?.display_name || "stranka";
-    const communicationDraft = request.status === "needs_data" && missing.length > 0
-      ? { title: "Dopolnitev podatkov", body: `Pozdravljeni, ${recipient}. Za nadaljevanje vašega servisnega povpraševanja potrebujemo še: ${missing.join(", ")}. Prosimo, dopolnite podatke prek povezave, ki vam jo bomo poslali posebej. Lep pozdrav, Avtoservis Selan` }
-      : step.kind === "send_estimate" && fixedPrice?.status === "approved" && !!request.service_wanted &&
+    const communicationDraft = step.kind === "send_estimate" && fixedPrice?.status === "approved" && !!request.service_wanted &&
         fixedPrice.service_label.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI") === request.service_wanted.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI")
         ? { title: "Odobrena objavljena cena", body: `Pozdravljeni, ${recipient}. Za storitev ${fixedPrice.service_label} je objavljena končna cena ${Number(fixedPrice.final_price_eur).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}. Vir: ${fixedPrice.published_url}. Prosimo, sporočite, ali storitev naročate. Lep pozdrav, Avtoservis Selan` }
         : step.kind === "send_estimate" && proposedPrice?.state === "approved" && quibiEstimateId
           ? { title: "Odobreni predračun", body: `Pozdravljeni, ${recipient}. Pripravili smo predračun za vaš servisni primer. Odobrena cena predračuna je ${Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}. Predračun Quibi #${quibiEstimateId} priložite po ročnem preverjanju dokumenta. Prosimo, sporočite svojo odločitev. Lep pozdrav, Avtoservis Selan` }
-          : step.kind === "manual_scheduling" && serviceOffer?.status === "proposed"
-            ? { title: "Trije predlagani termini", body: `Pozdravljeni, ${recipient}. Za servis vam predlagamo naslednje termine:\n1. ${new Date(serviceOffer.slot_1).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}\n2. ${new Date(serviceOffer.slot_2).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}\n3. ${new Date(serviceOffer.slot_3).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}\nProsimo, sporočite svojo izbiro. Termini do dejanske potrditve rezervacije niso zagotovljeni. Lep pozdrav, Avtoservis Selan` }
-            : null;
+          : null;
 
     return <div className="space-y-5">
       {process.env.SELAN_LOCAL_REVIEW === "1" && !realDevMode && <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
@@ -272,8 +269,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <h2 className="font-semibold">Povpraševanje in podatki</h2>
           {request.problem_description && <p className="text-sm">Težava: {request.problem_description}</p>}
           {request.service_wanted && <p className="text-sm">Želena storitev: {request.service_wanted}</p>}
-          {missing.length > 0 && <p className="text-sm text-amber-800">Manjka: {missing.join(", ")}</p>}
-          {request.status === "needs_data" && <CreateCompletionLinkButton serviceRequestId={serviceRequestId} />}
+          {missing.length > 0 && <p className="text-sm text-amber-800">Manjka: {missing.map(field => intakeFieldLabels[field] ?? "dodatni podatek").join(", ")}</p>}
+          {request.status === "needs_data" && <CreateCompletionLinkButton serviceRequestId={serviceRequestId} missingFields={missing} contactPolicy={request.source === "manual" && ["manual", "phone", "sms"].includes(request.channel ?? "") ? "manual" : "web"} />}
         </section>
         <section className="rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Stranka in vozilo</h2>
