@@ -19,3 +19,15 @@ export function trustedPublicRequestOrigin(
   if (configured === undefined) return nextOrigin;
   return configuredCompletionOrigin(configured, isolatedLocal);
 }
+
+/** CLI Preview deployments need no Git metadata; their own declared hosts remain mandatory. */
+export function publicIntakeRequestOrigin(env: Record<string, string | undefined>, nextOrigin: string, host: string | null): string | null {
+  const preview = env.VERCEL_ENV === "preview";
+  if (preview && !host) return null;
+  const isolated = (env.CI === "true" && env.SELAN_ISOLATED_E2E === "1") || env.SELAN_LOCAL_REVIEW === "1";
+  const configured = configuredCompletionOrigin(env.PUBLIC_APP_ORIGIN, isolated);
+  if (preview && configured && new URL(configured).host === host) return configured;
+  return trustedPublicRequestOrigin(env.PUBLIC_APP_ORIGIN, nextOrigin,
+    (env.CI === "true" && env.SELAN_ISOLATED_E2E === "1") || env.SELAN_LOCAL_REVIEW === "1",
+    preview ? host : undefined, preview ? [env.VERCEL_URL, env.VERCEL_BRANCH_URL] : []);
+}

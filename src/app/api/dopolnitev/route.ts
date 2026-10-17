@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hashCompletionToken } from "@/lib/completion/token";
 import { COMPLETION_MAX_BODY_BYTES } from "@/lib/completion/constants";
 import { validateCompletionFields } from "@/lib/completion/validate";
-import { trustedPublicRequestOrigin } from "@/lib/intake/trusted-origin";
+import { publicIntakeRequestOrigin } from "@/lib/intake/trusted-origin";
 import {
   isJsonContentType,
   isOversizedCompletionContentLength,
@@ -28,13 +28,7 @@ function json(body: unknown, status = 200): NextResponse {
 }
 
 export async function POST(request: NextRequest) {
-  const preview = process.env.VERCEL_ENV === "preview" &&
-    process.env.VERCEL_GIT_COMMIT_REF === "codex/selan-pr18-manual-qa";
-  const origin = trustedPublicRequestOrigin(process.env.PUBLIC_APP_ORIGIN, request.nextUrl.origin,
-    (process.env.CI === "true" && process.env.SELAN_ISOLATED_E2E === "1") ||
-      process.env.SELAN_LOCAL_REVIEW === "1",
-    preview ? request.headers.get("host") : undefined,
-    preview ? [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL] : []);
+  const origin = publicIntakeRequestOrigin(process.env, request.nextUrl.origin, request.headers.get("host"));
   if (!origin || !isSameOriginRequest(request, origin)) {
     return json(publicCompletionUnavailable(), 400);
   }
