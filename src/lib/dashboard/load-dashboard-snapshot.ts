@@ -1,3 +1,4 @@
+import {formatRelativeUpdatedLabel} from './relative-time';
 import {loadCaseWork} from '@/lib/case-work/read';
 import {intakeConnection} from './intake-connection';
 import {quibiBusinessNextAction,type BusinessStepRecord} from '@/lib/cases/next-step';
@@ -257,7 +258,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
 
       const attentionItem = adaptServiceRequestToAttention(row, now);
       const repair=repairsByCase.get(row.id);
-      if(repair?.phase?.attention&&!row.has_error)attention.push({id:row.id,title:repair.phase.label,detail:repair.phase.next,severity:"warning",timeLabel:repair.lastActivity??row.updated_at,primaryAction:"Preglej delo",occurredAt:repair.lastActivity??row.updated_at});
+      if(repair?.phase?.attention&&!row.has_error)attention.push({id:row.id,title:repair.phase.label,detail:repair.phase.next,severity:"warning",timeLabel:formatRelativeUpdatedLabel(repair.lastActivity??row.updated_at,now),primaryAction:"Preglej delo",occurredAt:repair.lastActivity??row.updated_at});
       else if (attentionItem) attention.push(attentionItem);
     }
 
