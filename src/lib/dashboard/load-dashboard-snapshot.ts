@@ -1,3 +1,4 @@
+import {manualOfferExpired} from "@/lib/appointments/manual-slot-draft";
 import {formatRelativeUpdatedLabel} from './relative-time';
 import {loadCaseWork} from '@/lib/case-work/read';
 import {intakeConnection} from './intake-connection';
@@ -132,6 +133,10 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     );
     const fixedPriceByRequest = new Map<string, string>();
     const slotByRequest = new Map<string, string>();
+    const diagnosisSlotByRequest = new Map<string, string>();
+    const expiredServiceSlots = new Set<string>();
+    const expiredDiagnosisSlots = new Set<string>();
+    const requestedInspections = new Set<string>();
     const syntheticAppointments = new Set<string>();
     const linkByCustomer = new Map<string, { external_id:string;sync_status: string;quibi_environment:string }>();
     const vehicleLinkById=new Map<string,{customer_id:string;quibi_customer_id:string;sync_status:string;quibi_environment:string}>();
@@ -160,14 +165,14 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
         supabase.from("customer_approvals").select("service_request_id, quote_id, delivery_status, customer_decision, created_at, content_sha256, decided_at, decision_evidence_reference, revoked_at")
           .eq("organization_id", access.organizationId).in("service_request_id", requestIds)
           .is("revoked_at",null).order("created_at", { ascending: false }),
-        supabase.from("preliminary_inspections").select("service_request_id, repair_decision")
+        supabase.from("preliminary_inspections").select("service_request_id, repair_decision, status")
           .eq("organization_id", access.organizationId).in("service_request_id", requestIds),
       ]);
       if (quotes.error || approvals.error || inspections.error)
         return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
       for (const row of quotes.data ?? []) if (!quoteByRequest.has(row.service_request_id)) quoteByRequest.set(row.service_request_id, row);
       for (const row of approvals.data ?? []) if (!approvalByRequest.has(row.service_request_id)) approvalByRequest.set(row.service_request_id, row);
-      for (const row of inspections.data ?? []) inspectionByRequest.set(row.service_request_id, row.repair_decision);
+      for (const row of inspections.data ?? []) { inspectionByRequest.set(row.service_request_id, row.repair_decision); if(row.status === "requested") requestedInspections.add(row.service_request_id); }
     }
     if (requestIds.length && process.env.APP_ENV === 'preproduction' && process.env.QUIBI_MODE === 'dev' && ['owner','admin'].includes(access.role)) {
       const {data,error} = await supabase.from('quibi_dev_operation_journal')
@@ -183,7 +188,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       }
     }
     const priceRequestIds = requests.filter((row) => row.status === "preparing_offer").map((row) => row.id);
-    const slotRequestIds = requests.filter((row) => ["awaiting_slot_selection", "appointment_confirmed"].includes(row.status)).map((row) => row.id);
+    const slotRequestIds = requests.filter((row) => ["awaiting_slot_selection", "appointment_confirmed"].includes(row.status) || requestedInspections.has(row.id)).map((row) => row.id);
     if (process.env.SELAN_FIXED_PRICE_V1 === "1" && priceRequestIds.length > 0) {
       const { data, error } = await supabase.from("published_fixed_price_cases")
         .select("service_request_id, status").eq("organization_id", access.organizationId)
@@ -193,11 +198,13 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     }
     if (slotRequestIds.length > 0) {
       const { data, error } = await supabase.from("manual_slot_offers")
-        .select("service_request_id, status, booking_reference").eq("organization_id", access.organizationId)
-        .eq("appointment_type", "service").neq("status", "cancelled")
+        .select("service_request_id, status, booking_reference, appointment_type, slot_1, slot_2, slot_3, selected_slot").eq("organization_id", access.organizationId)
+        .neq("status", "cancelled")
         .in("service_request_id", slotRequestIds);
       if (error) return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
       for (const row of data ?? []) {
+        if(row.appointment_type === "diagnosis") { diagnosisSlotByRequest.set(row.service_request_id, row.status); if(manualOfferExpired(row,now.getTime()))expiredDiagnosisSlots.add(row.service_request_id); continue; }
+        if(manualOfferExpired(row,now.getTime()))expiredServiceSlots.add(row.service_request_id);
         slotByRequest.set(row.service_request_id, row.status);
         if (row.booking_reference?.startsWith("QA-SIM-")) syntheticAppointments.add(row.service_request_id);
       }
@@ -256,6 +263,10 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
         ),
       );
 
+      const queueOrder=orders[orders.length-1];
+      queueOrder.inspectionRequested=requestedInspections.has(row.id);
+      queueOrder.slotOfferStatus=queueOrder.inspectionRequested?diagnosisSlotByRequest.get(row.id):slotByRequest.get(row.id);
+      queueOrder.slotOfferExpired=(queueOrder.inspectionRequested?expiredDiagnosisSlots:expiredServiceSlots).has(row.id);
       const attentionItem = adaptServiceRequestToAttention(row, now);
       const repair=repairsByCase.get(row.id);
       if(repair?.phase?.attention&&!row.has_error)attention.push({id:row.id,title:repair.phase.label,detail:repair.phase.next,severity:"warning",timeLabel:formatRelativeUpdatedLabel(repair.lastActivity??row.updated_at,now),primaryAction:"Preglej delo",occurredAt:repair.lastActivity??row.updated_at});

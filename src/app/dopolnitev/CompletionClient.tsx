@@ -12,6 +12,7 @@ import {
   type CompletionPublicResponse,
 } from "@/lib/completion/public";
 import { readCompletionTokenFromHash } from "@/lib/completion/url";
+import { remainingCompletionDraft } from "@/lib/completion/lifecycle";
 import { validateCompletionFields } from "@/lib/completion/validate";
 
 const FIELD_LABELS: Record<IntakeMissingField, string> = {
@@ -159,21 +160,23 @@ export function CompletionClient() {
         ...payload,
       });
       if (!result.ok) {
-        setUi({ kind: "unavailable" });
+        setUi({kind:'form',missing:ui.missing,notice:'Dopolnitve ni mogoče potrditi. Vnos je ohranjen. Preverite povezavo in poskusite znova ali se obrnite na servis.'});
         return;
       }
       if (result.completed) {
         setUi({ kind: "completed" });
         return;
       }
-      setForm(EMPTY_FORM);
+      setForm(current=>remainingCompletionDraft(current,result.missing_fields));
       setUi({
         kind: "form",
         missing: result.missing_fields,
-        notice: result.message ?? null,
+        notice: result.missing_fields.length === ui.missing.length && result.missing_fields.every(field=>ui.missing.includes(field))
+          ? 'Podatki še niso potrjeni. Servis mora preveriti ujemanje podatkov; vnos je ohranjen. Novega povpraševanja ni treba oddati.'
+          : result.message ?? null,
       });
     } catch {
-      setUi({ kind: "unavailable" });
+      setUi({kind:'form',missing:ui.missing,notice:'Dopolnitve ni mogoče potrditi. Vnos je ohranjen; poskusite znova ali se obrnite na servis.'});
     } finally {
       setPending(false);
     }

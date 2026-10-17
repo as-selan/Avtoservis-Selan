@@ -75,6 +75,8 @@ export function adaptServiceRequestToOrder(
     intakeConnectionLabel:stepInput.intakeConnectionLabel,
     status: uiStatus,
     nextActionLabel: nextCaseStep({ ...stepInput, status: row.status }).label,
+    nextActionKind: nextCaseStep({ ...stepInput, status: row.status }).kind,
+    requiresAttention: row.has_error || row.attention_needed,
     offerPreparationReady: stepInput.offerPrepared,
     locationLabel: undefined,
     appointmentTime: null,

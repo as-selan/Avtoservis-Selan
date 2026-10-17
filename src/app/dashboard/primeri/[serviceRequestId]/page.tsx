@@ -238,7 +238,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <p className="mt-1 text-sm text-slate-600">{request.summary}</p>
         <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Poslovna faza: {repairWork?.phase?.label??getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p>{repairWork&&<details className="text-xs text-slate-500"><summary>Ločena izvorna stanja</summary><p>Stanje povpraševanja: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}. To stanje ne potrjuje trenutne faze popravila, računa, plačila ali prevzema.</p></details>}</header>
 
-      <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+      <section id="naslednji-korak" className="scroll-mt-20 rounded-xl border border-blue-200 bg-blue-50 p-4">
         <h2 className="font-semibold text-blue-950">Naslednji korak</h2>
         {process.env.QUIBI_MODE==='dev'&&<details className="mt-3 rounded border bg-white p-3"><summary className="cursor-pointer font-medium">Celoten servisni postopek · kaj opravi Selan in kaj potrdiš ti</summary><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm"><li>Povpraševanje: spletni ali ročni vnos. Selan shrani primer in preveri povezavo stranke ter vozila.</li><li>Predračun: Selan pridobi preverjene Quibijeve postavke in cene. Pregledaš manjkajoče podatke in potrdiš ustvarjanje v Quibiju.</li><li>Pošiljanje predračuna: izbereš dovoljen testni naslov in potrdiš enkratno pošiljanje. Selan shrani referenco ter preverja status.</li><li>Odobritev: zabeležiš dejansko odločitev in njeno referenco, tudi po telefonu. Status pošiljanja ni odobritev.</li><li>Delovni nalog: Selan pripravi podatke iz odobrenega predračuna. Potrdiš ustvarjanje Quibijevega naloga.</li><li>Popravilo: potrdiš, da je opravljeno, in dejanski datum storitve. QA simulacijo vedno označiš posebej.</li><li>Račun: Selan prevzame postavke iz preverjenega naloga. Pregledaš račun in potrdiš ustvarjanje, nato ločeno pošiljanje.</li><li>Prevzem: preveriš dejansko plačilo in prevzem. Status »sent« ne potrjuje prejema, plačila ali zaključka.</li></ol><p className="mt-3 text-sm">AI je pripravljen, vendar neaktiven. Quibi povezave delujejo brez AI ključa. Termini se urejajo ročno.</p></details>}
         <p className="mt-1 text-sm text-blue-900">{step.label}</p>
@@ -265,7 +265,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       <VehicleResolutionPanel caseId={serviceRequestId}/>
       {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border bg-white p-4 space-y-2">
+        <section id="podatki" className="scroll-mt-20 rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Povpraševanje in podatki</h2>
           {request.problem_description && <p className="text-sm">Težava: {request.problem_description}</p>}
           {request.service_wanted && <p className="text-sm">Želena storitev: {request.service_wanted}</p>}
@@ -279,7 +279,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {vehicle ? <p className="text-sm">{[vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vozilo"} · {vehicle.registration_current || vehicle.vin || "brez oznake"}</p>
             : <p className="text-sm text-amber-800">Vozilo še ni povezano s primerom.</p>}
         </section>
-        <section className="rounded-xl border bg-white p-4 space-y-2">
+        <section id="predracun" className="scroll-mt-20 rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "new" && !fixedPrice && estimateCatalog.options.length>0 && <p className="text-sm">Iz Quibija so pripravljene postavke iz cenikov ({estimateCatalog.options.length}). Po potrditvi pregleda primera bodo na voljo v pripravi predračuna; stranke in vozila ni treba ponovno vnašati.</p>}
@@ -335,6 +335,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
       {fixedPriceEnabled && (fixedPrice || (!writeRequested && request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
         <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} realDevWrite={realDevMode} />}
+      <div id="termini" className="scroll-mt-20 space-y-4">
       {!fixedPrice && (inspectionResult.data || ["new", "preparing_offer"].includes(request.status)) &&
         <PreliminaryInspection serviceRequestId={serviceRequestId} caseStatus={request.status}
         status={inspectionResult.data?.status as "requested" | "completed" | undefined ?? null}
@@ -345,6 +346,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="diagnosis" inactiveReason={inspectionResult.data?.status === "requested" ? undefined : "Predhodni pregled je že opravljen ali ni več naročen. Stare možnosti ne potrjujejo rezervacije; po potrebi umaknite ponudbo."} offer={diagnosisOffer} realDevWrite={realDevMode} />}
       {!repairWork && (request.status === "awaiting_slot_selection" || serviceOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" inactiveReason={request.status === "awaiting_slot_selection" ? undefined : "Stanje primera se je spremenilo. Stare možnosti ne potrjujejo rezervacije; preverite nadaljevanje primera."} syntheticQaAllowed={localSyntheticQaAllowed(process.env)} offer={serviceOffer} realDevWrite={realDevMode} />}
+      </div>
     {['owner','admin'].includes(access.role)&&<CaseWorkPanel caseId={serviceRequestId} role={access.role}/>}
 </div>;
 }

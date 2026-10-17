@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import ts from 'typescript';
 import {canAdvancePreliminaryInspection} from '../../lib/inspections/eligibility.ts';
-import {manualSlotDraft,slotProposalMessage} from '../../lib/appointments/manual-slot-draft.ts';
+import {manualSlotDraft,slotProposalMessage,manualOfferExpired} from '../../lib/appointments/manual-slot-draft.ts';
 import {ljubljanaWallTimeToIso} from '../../lib/appointments/ljubljana-time.ts';
 import {sendPresentation} from '../../lib/quibi/send-outcome.ts';
 
@@ -18,7 +18,7 @@ function fixture(file:string,component:string,initialProps:Record<string,unknown
  const actions=Object.fromEntries(['recordManualEstimateDecision','recordManualEstimateDelivery','reviewManualQuibiEstimate','proposeManualSlots','advanceManualSlotOffer','recordPreliminaryInspection'].map(name=>[name,async(...args:any[])=>{calls.push({name,args});return {ok:true}}]));
  const exports:Record<string,any>={};
  const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,Date,Number,JSON,Set,setTimeout,clearTimeout});
+ runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage,manualOfferExpired}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,Date,Number,JSON,Set,setTimeout,clearTimeout});
  let props=initialProps;
  const render=(changes:Record<string,unknown>={})=>{props={...props,...changes};index=0;return exports[component](props)};
  return {render,calls,refreshes:()=>refreshes,flush:async()=>{await Promise.all(pending.splice(0))}};

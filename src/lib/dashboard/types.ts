@@ -36,6 +36,11 @@ export interface ServiceOrderDemo {
   intakeConnectionLabel?:string;
   status: WorkflowStatusId;
   nextActionLabel: string;
+  nextActionKind?: string;
+  requiresAttention?: boolean;
+  slotOfferStatus?: string;
+  slotOfferExpired?: boolean;
+  inspectionRequested?: boolean;
   locationLabel?: string;
   appointmentTime?: string | null;
   updatedAt: string;

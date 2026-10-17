@@ -37,3 +37,8 @@ export function computeCompletionLifecycle(input: {
     next_action: COMPLETION_NEEDS_DATA_NEXT_ACTION,
   };
 }
+
+/** Keep unresolved input after a partial response; accepted fields need not be resubmitted. */
+export function remainingCompletionDraft(values:Record<IntakeMissingField,string>, missing:IntakeMissingField[]):Record<IntakeMissingField,string> {
+  return {phone:missing.includes('phone')?values.phone:'',email:missing.includes('email')?values.email:'',vin:missing.includes('vin')?values.vin:'',make:missing.includes('make')?values.make:'',model:missing.includes('model')?values.model:''};
+}

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { advanceManualSlotOffer, proposeManualSlots } from "@/lib/appointments/manual-slots-actions";
-import { manualSlotDraft, slotProposalMessage } from "@/lib/appointments/manual-slot-draft";
+import { manualSlotDraft, slotProposalMessage, manualOfferExpired } from "@/lib/appointments/manual-slot-draft";
 import { CommunicationDraft } from "./CommunicationDraft";
 
 type Offer = {
@@ -28,9 +28,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
   const [checkedAt] = useState(() => Date.now());
-  const expired = !!offer && offer.status !== "confirmed" && (offer.status === "selected"
-    ? Date.parse([offer.slot_1, offer.slot_2, offer.slot_3][(offer.selected_slot ?? 1) - 1]) <= checkedAt
-    : Math.min(...[offer.slot_1, offer.slot_2, offer.slot_3].map(Date.parse)) <= checkedAt);
+  const expired = !!offer && manualOfferExpired(offer, checkedAt);
   const blocked = offer?.status !== "confirmed" && (!!inactiveReason || expired);
   const title = appointmentType === "diagnosis" ? "Termin predhodnega pregleda" : "Termin popravila";
   const statusMessage = blocked ? inactiveReason ?? "Termini so potekli. To ni potrjena rezervacija. Umaknite staro ponudbo in preverite nove možnosti." : offer?.status === "proposed" ? "Tri možnosti so pripravljene, niso še poslane ali rezervirane."
@@ -84,6 +82,7 @@ export function ManualSlotOffer({ serviceRequestId, appointmentType, offer, real
   return <section className="rounded-xl border bg-white p-4 space-y-3">
     <h2 className="font-semibold">{title}</h2>
     <p className="text-sm text-amber-800">{statusMessage}</p>
+    {offer?.availability_reference?.startsWith("QA-SIM") && <p role="note" className="text-sm text-amber-800">QA-SIM: testni predlogi terminov. Ne potrjujejo dejanske razpoložljivosti delavnice ali rezervacije.</p>}
     {offer && <ol className="list-decimal pl-5 text-sm space-y-1">{[offer.slot_1,offer.slot_2,offer.slot_3].map((slot, index) =>
       <li key={index}>{new Date(slot).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana", dateStyle: "medium", timeStyle: "short" })}
         {offer.selected_slot === index + 1 ? " · izbrano" : ""}</li>)}</ol>}

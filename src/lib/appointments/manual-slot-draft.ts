@@ -13,3 +13,10 @@ export function manualSlotDraft(values: string[], now = Date.now()): {ok:true;sl
 export function slotProposalMessage(slots: string[]): string {
   return ['Pozdravljeni,','', 'Predlagamo tri ročno preverjene možnosti:',...slots.map((slot,i)=>`${i+1}. ${new Date(slot).toLocaleString('sl-SI',{timeZone:'Europe/Ljubljana',dateStyle:'medium',timeStyle:'short'})}`),'Prosimo, sporočite svojo izbiro. Termin do naše potrditve ni rezerviran.','','Lep pozdrav, Avtoservis Selan'].join('\n');
 }
+
+export function manualOfferExpired(offer: {status:string;slot_1:string;slot_2:string;slot_3:string;selected_slot:number|null}, now:number):boolean {
+  if(offer.status==='confirmed')return false;
+  const all=[offer.slot_1,offer.slot_2,offer.slot_3];
+  const dates=offer.status==='selected'?[all[(offer.selected_slot??1)-1]]:all;
+  return dates.some(slot=>!slot||!Number.isFinite(Date.parse(slot))||Date.parse(slot)<=now);
+}
