@@ -4,3 +4,7 @@ export function photoExtension(type:string,bytes:Uint8Array){if(bytes.length<12|
 export function workInput(caseId:unknown,status:unknown,note:unknown){if(typeof caseId!=='string'||! /^[a-f0-9-]{36}$/i.test(caseId)||typeof status!=='string'||!CASE_WORK_STATUSES.includes(status as typeof CASE_WORK_STATUSES[number])||typeof note!=='string'||note.length>3000)throw Error('INVALID_INPUT');return {caseId,status,note:note.trim()};}
 
 export function replacePhotoWithPreparedJpeg(form:FormData,photo:File){if(photo.type!=='image/jpeg'||photo.size>786432||photo.size===0)throw Error('INVALID_PHOTO');form.set('photo',photo);form.delete('photoGallery');}
+
+export async function decodeRepairPhoto(file: File, decode: (file: Blob) => Promise<ImageBitmap> = createImageBitmap) {
+  try { return await decode(file); } catch { throw new Error("Fotografije ni mogoče prebrati. Izberite drugo fotografijo v obliki JPEG, PNG ali WebP."); }
+}
