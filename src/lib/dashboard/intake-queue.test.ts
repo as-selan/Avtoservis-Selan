@@ -9,8 +9,8 @@ test('real slot progress determines the action, not just the new intake status',
  const rows=intakeQueue([order('a','novo',{inspectionRequested:true,slotOfferStatus:'proposed'}),order('b','novo',{inspectionRequested:true,slotOfferStatus:'offered'}),order('c','novo',{slotOfferStatus:'selected'}),order('d','novo',{requiresAttention:true,slotOfferStatus:'offered'})]);
  assert.equal(rows[0].group,'service');assert.equal(rows[1].group,'slots');assert.match(rows[2].label,/še ni rezerviran/);assert.equal(rows[3].group,'service');assert.equal(rows[3].label,'Preveri podatke');
 });
-test('filters and search preserve all-period queue and oldest-first ordering',()=>{
- const rows=intakeQueue([order('new','novo'),order('old','manjkajo_podatki',{updatedAt:'2025-01-01T00:00:00Z'})]);assert.equal(rows[0].order.id,'old');assert.equal(filterIntakeQueue(rows,'data','qa 11').length,1);assert.equal(filterIntakeQueue(rows,'all','missing').length,0);
+test('filters and search preserve all-period queue and newest-first ordering',()=>{
+ const rows=intakeQueue([order('new','novo'),order('old','manjkajo_podatki',{updatedAt:'2025-01-01T00:00:00Z'})]);assert.equal(rows[0].order.id,'new');assert.equal(filterIntakeQueue(rows,'data','qa 11').length,1);assert.equal(filterIntakeQueue(rows,'all','missing').length,0);
 });
 
 test('expired offer requires service action, never waiting on the customer',()=>{

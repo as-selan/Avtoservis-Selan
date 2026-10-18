@@ -28,7 +28,7 @@ export function intakeQueue(orders:ServiceOrderDemo[]):IntakeQueueItem[]{
   else if(order.status==='novo'){group='new';}
   else if(order.status==='priprava_ponudbe'){anchor='predracun';}
   return [{order,group,label,href:'/dashboard/primeri/'+order.serviceRequestId+'#'+anchor}];
- }).sort((a,b)=>a.order.updatedAt.localeCompare(b.order.updatedAt)||a.order.id.localeCompare(b.order.id));
+ }).sort((a,b)=>b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id));
 }
 export function filterIntakeQueue(rows:IntakeQueueItem[],group:IntakeQueueGroup,search:string){
  const query=search.trim().toLocaleLowerCase('sl-SI');

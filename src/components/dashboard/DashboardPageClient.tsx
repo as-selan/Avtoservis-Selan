@@ -109,7 +109,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
 
       <section aria-labelledby="incoming-heading" className="rounded-xl border border-blue-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="incoming-heading" className="font-semibold">Čakalna vrsta povpraševanj · {queue.length}</h2><button disabled={refreshing} onClick={()=>startRefresh(()=>router.refresh())} className="rounded border px-3 py-2 text-sm disabled:opacity-50">{refreshing?'Osvežujem…':'Osveži povpraševanja'}</button></div>
-        <p className="mt-1 text-sm text-slate-600">Vsi odprti primeri, ne glede na spodnji filter obdobja. Najstarejša aktivnost je na vrhu; vsak primer je prikazan enkrat. Poslovne odločitve potrdi Tadej.</p>
+        <p className="mt-1 text-sm text-slate-600">Vsi odprti primeri, ne glede na spodnji filter obdobja. Najnovejša aktivnost je na vrhu; vsak primer je prikazan enkrat. Poslovne odločitve potrdi Tadej.</p>
         <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Vrsta naslednjega koraka">
           {INTAKE_QUEUE_GROUPS.map(group=><button key={group.id} type="button" aria-pressed={queueGroup===group.id} onClick={()=>setQueueGroup(group.id)} className={'min-h-11 rounded border px-3 py-2 text-sm '+(queueGroup===group.id?'border-blue-700 bg-blue-50 font-semibold text-blue-900':'border-slate-200 text-slate-700')}>{group.label} · {group.id==='all'?queue.length:queue.filter(row=>row.group===group.id).length}</button>)}
         </div>
