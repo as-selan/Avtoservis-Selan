@@ -131,7 +131,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     try { quibiWorkflowConfig(process.env, "write"); writeRequested = true; } catch { /* disabled */ }
     const realDevMode = writeRequested && process.env.QUIBI_E2E_WRITE_ENABLED !== "1" && process.env.SELAN_REMOTE_DEMO !== "1" &&
       process.env.NEXT_PUBLIC_SELAN_REMOTE_DEMO !== "1";
-    let sendReady=false;try{sendReady=quibiWorkflowConfig(process.env,'send').mode==='production'}catch{}
+    let sendReady=false;try{quibiWorkflowConfig(process.env,'send');sendReady=true}catch{}
     let testRecipient: string | null = null;
     let reviewDetail: QuibiEstimateDetail | null = null;
     let writeReady = false;

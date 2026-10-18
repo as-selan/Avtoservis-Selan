@@ -27,7 +27,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[p.sendId,status,pollCount,p.serviceRequestId,p.quoteId]);
  const outcome=sendPresentation(p.operationState?{state:p.operationState,sendId:p.sendId??null,sendStatus:status??null}:null);
- const sendAllowed=!p.dev&&p.sendEnabled===true&&!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
+ const sendAllowed=p.sendEnabled===true&&!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
  return <section className="space-y-3 border-t pt-3">
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
   {p.dev&&<p className="text-sm text-amber-800">DEV uporablja samo dovoljen testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
