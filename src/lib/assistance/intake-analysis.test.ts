@@ -22,3 +22,24 @@ test('oversized intake never invokes a provider',async()=>{
  let calls=0;const result=await analyzeIntake({summary:'Servis',missingFields:[],serviceWanted:'x'.repeat(1001)},{async analyze(){calls++;return {draft:'Osnutek'}}});
  assert.equal(calls,0);assert.equal(result.status,'failed');
 });
+
+test('AI proposes only existing catalog references; prices and approval are never model authority',async()=>{
+ const context={inspectionFindings:'Zamenjati 2 zavorni ploščici.',mechanicNotes:['Izmerjena obraba.'],vehicle:{make:'TEST',model:'QA'},catalog:[{key:'189:11',code:'BRAKE',name:'Zavorna ploščica',unit:'kos'}]};
+ const result=await analyzeIntake({summary:'Zavore',missingFields:[],estimateContext:context},{async analyze(input){assert.deepEqual(input.estimateContext,context);return {draft:'Predlog za pregled',estimateLines:[{key:'189:11',quantity:2,price:0,vat:0}],approved:true}}});
+ assert.equal(result.status,'draft');assert.deepEqual(result.estimateLines,[{key:'189:11',quantity:2}]);assert.equal(result.canSend,false);
+ const unknown=await analyzeIntake({summary:'Zavore',missingFields:[],estimateContext:context},{async analyze(){return {draft:'Pregled',estimateLines:[{key:'189:11',quantity:null}]}}});
+ assert.deepEqual(unknown.estimateLines,[{key:'189:11',quantity:null}]);
+});
+
+test('invented references, duplicate lines, invalid quantities and absent catalog never prefill documents',async()=>{
+ const input={summary:'Servis',missingFields:[],estimateContext:{catalog:[{key:'189:11',code:'QA',name:'Preverjena storitev',unit:'kos'}]}};
+ for(const lines of [[{key:'invented',quantity:1}],[{key:'189:11',quantity:1},{key:'189:11',quantity:1}],[{key:'189:11',quantity:0}],[{key:'189:11',quantity:NaN}],[{key:'189:11',quantity:'1'}]]){
+  const result=await analyzeIntake(input,{async analyze(){return {draft:'Predlog',estimateLines:lines}}});assert.equal(result.status,'failed');assert.deepEqual(result.estimateLines,[]);
+ }
+ const result=await analyzeIntake({summary:'Servis',missingFields:[]},{async analyze(){return {draft:'Predlog',estimateLines:[{key:'189:11',quantity:1}]}}});assert.equal(result.status,'failed');
+});
+
+test('provider cannot mutate canonical catalog or manufacture a supplied reference',async()=>{
+ const input={summary:'Servis',missingFields:[],estimateContext:{catalog:[{key:'189:11',code:'QA',name:'Storitev',unit:'kos'}]}};
+ const result=await analyzeIntake(input,{async analyze(i){i.estimateContext!.catalog[0].key='invented';return {draft:'Predlog',estimateLines:[{key:'invented',quantity:1}]}}});assert.equal(result.status,'failed');assert.equal(input.estimateContext.catalog[0].key,'189:11');
+});

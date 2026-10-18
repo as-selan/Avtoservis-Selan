@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import ts from 'typescript';
+import {inspectionCatalogSuggestions} from '../../lib/quibi/inspection-catalog.ts';
 
 type Element = {type:unknown;props:Record<string,unknown>};
-function panel(state:string, readFails=false, selectedCatalog=false,draftRows?:Array<{key:string;quantity:string;discount:string}>){
+function panel(state:string, readFails=false, selectedCatalog=false,draftRows?:Array<{key:string;quantity:string;discount:string}>,aiEstimateLines?:Array<{key:string;quantity:number|null}>){
  const calls:string[]=[],effects:(()=>unknown)[]=[];let slot=0,refreshes=0;const updates:Record<number,unknown>={};
  const jsx=(type:unknown,props:Record<string,unknown>)=>({type,props});
  const actions=Object.fromEntries(['prepareQuibiEstimate','prepareQuibiEstimateHistory','createQuibiDevEstimate','reconcileQuibiEstimate'].map(name=>[name,async()=>{calls.push(name);if(readFails&&name==='prepareQuibiEstimate')throw Error('READ unavailable');return name==='prepareQuibiEstimateHistory'?{proposals:[],issues:[]}:{ok:true,sha:'a'.repeat(64),detail:'Priprava preverjena'};}]));
@@ -13,8 +14,8 @@ function panel(state:string, readFails=false, selectedCatalog=false,draftRows?:A
  const exports:Record<string,unknown>={};
  const code=ts.transpileModule(readFileSync(new URL('./QuibiDevWritePanel.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  class Form extends FormData{constructor(){super();this.set('createConfirmed','yes');this.set('saleTypeId','1');this.set('warehouseId','626')}}
- runInNewContext(code,{exports,require:(name:string)=>name==='react'?react:name==='react/jsx-runtime'?{jsx,jsxs:jsx}:name==='next/navigation'?{useRouter:()=>({refresh:()=>{refreshes++}})}:actions,FormData:Form,HTMLInputElement:class{},JSON,Map,Set});
- const element=(exports.QuibiDevWritePanel as (p:unknown)=>Element)({serviceRequestId:'case',mode:'create',operationState:state,initialCatalogSource:selectedCatalog?'189:11':undefined,catalogOptions:selectedCatalog?[{key:'189:11',name:'Service',code:'SERVICE',grossPrice:122,unitLabel:'kos',vatLabel:'22 %',discount:0,unitId:'1',vatId:'5'}]:[],choices:{saleTypes:[{id:'1',label:'Sale'}],units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]}});
+ runInNewContext(code,{exports,require:(name:string)=>name==='@/lib/quibi/inspection-catalog'?{inspectionCatalogSuggestions}:name==='react'?react:name==='react/jsx-runtime'?{jsx,jsxs:jsx}:name==='next/navigation'?{useRouter:()=>({refresh:()=>{refreshes++}})}:actions,FormData:Form,HTMLInputElement:class{},JSON,Map,Set});
+ const element=(exports.QuibiDevWritePanel as (p:unknown)=>Element)({serviceRequestId:'case',mode:'create',operationState:state,aiEstimateLines,initialCatalogSource:selectedCatalog?'189:11':undefined,catalogOptions:selectedCatalog?[{key:'189:11',name:'Service',code:'SERVICE',grossPrice:122,unitLabel:'kos',vatLabel:'22 %',discount:0,unitId:'1',vatId:'5'}]:[],choices:{saleTypes:[{id:'1',label:'Sale'}],units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]}});
  return {element,calls,effects,updates,refreshes:()=>refreshes};
 }
 for(const state of ['failed','uncertain','dispatching','verified']){
@@ -56,4 +57,16 @@ test('multi-line editor adds, removes, edits quantities and discounts and clears
  const remove=findNode(p.element,n=>n.type==='button'&&Array.isArray(n.props.children)&&n.props.children[0]==='Odstrani postavko ');assert.ok(remove);(remove.props.onClick as ()=>void)();assert.deepEqual(JSON.parse(JSON.stringify(p.updates[12])),[draft[1]]);
  const add=findNode(p.element,n=>n.type==='button'&&n.props.children==='Dodaj postavko');assert.ok(add);(add.props.onClick as ()=>void)();assert.deepEqual(JSON.parse(JSON.stringify(p.updates[12])),[...draft,{key:'',quantity:'1',discount:''}]);
  p.effects[0]();assert.deepEqual(p.calls,[]);
+});
+
+
+test('AI prepared lines populate the existing editor and bypass history selection, never CREATE',async()=>{
+ const p=panel('uncertain',false,true,undefined,[{key:'189:11',quantity:2}]);
+ const field=findNode(p.element,n=>n.props.name==='catalogLines');assert.ok(field);assert.deepEqual(JSON.parse(field.props.value as string),[{key:'189:11',quantity:'2',discount:''}]);
+ p.effects[0]();assert.deepEqual(p.calls,[]);
+ const ref=p.element.props.ref as {current:unknown};ref.current={checkValidity:()=>true};p.effects[1]();await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['prepareQuibiEstimate']);
+});
+
+test('unknown AI quantity is left empty for review, not guessed',()=>{
+ const p=panel('prepared',false,true,undefined,[{key:'189:11',quantity:null}]);const field=findNode(p.element,n=>n.props.name==='catalogLines');assert.ok(field);assert.equal(JSON.parse(field.props.value as string)[0].quantity,'');
 });

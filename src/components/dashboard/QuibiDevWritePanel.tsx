@@ -10,9 +10,9 @@ import type { EstimateReview } from '@/lib/quibi/estimate-preparation';
 import type { CreatedEstimateSummary } from '@/lib/quibi/created-estimate-summary';
 import type { QuibiChoice } from "@/lib/quibi/write-options";
 
-export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, inspectionFindings, writeEnabled=true }: {
+export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, inspectionFindings, aiEstimateLines=[], writeEnabled=true }: {
   serviceRequestId: string; mode: "prepare" | "create" | "update" | "send"; quoteId?: string;
-  writeEnabled?:boolean; inspectionFindings?:string|null;
+  writeEnabled?:boolean; inspectionFindings?:string|null; aiEstimateLines?:Array<{key:string;quantity:number|null}>;
   catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;
   lineDescription?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[]; warehouses?: QuibiChoice[] };
@@ -29,7 +29,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const selectedSource=catalogOptions.find(option=>option.key===catalogSource);
   const [history,setHistory]=useState<{proposals:EstimateHistoryProposal[];issues:string[]}>({proposals:[],issues:[]});
   const [historySource,setHistorySource]=useState('');
-  const [historyPending,setHistoryPending]=useState(mode==='create'||mode==='prepare');
+  const [historyPending,setHistoryPending]=useState(!aiEstimateLines.length&&(mode==='create'||mode==='prepare'));
   const selectedHistory=history.proposals.find(p=>p.key===historySource&&p.ready);
 
   const [sourceSha,setSourceSha]=useState<string|null>(null);
@@ -40,8 +40,8 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
   const [confirmed, setConfirmed] = useState(false);
   const [dispatchStarted, setDispatchStarted] = useState(false);
   const lock = useRef(false);
-  const historyInterrupted=useRef(false),historyReading=useRef(mode==='create'||mode==='prepare');
-  const [rows,setRows]=useState<Array<{key:string;quantity:string;discount:string}>|null>(null);
+  const historyInterrupted=useRef(false),historyReading=useRef(!aiEstimateLines.length&&(mode==='create'||mode==='prepare'));
+  const [rows,setRows]=useState<Array<{key:string;quantity:string;discount:string}>|null>(aiEstimateLines.length?aiEstimateLines.map(line=>({key:line.key,quantity:line.quantity===null?'':String(line.quantity),discount:''})):null);
   function changeRows(next:NonNullable<typeof rows>){historyInterrupted.current=true;historyReading.current=false;manualCatalogChoice.current=true;setHistoryPending(false);setRows(next);setHistorySource('');setPreparedSha(null);setSourceSha(null);setReview(null);setConfirmed(false);setRevision(v=>v+1)}
   function addRow(){const existing=rows??(selectedHistory?selectedHistory.reviewedLines.map((line,i)=>({key:catalogOptions.find(o=>o.code===('sifra' in selectedHistory.payloadLines[i]?selectedHistory.payloadLines[i].sifra:''))?.key??'',quantity:String(line.quantity),discount:String(line.discount)})):selectedSource?[{key:selectedSource.key,quantity:String(new FormData(formElement.current!).get('quantity')??'1'),discount:''}]:[]);changeRows([...existing,{key:'',quantity:'1',discount:''}])}
   useEffect(()=>{
@@ -123,6 +123,7 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
         {inspectionSuggestions.matches.length>0&&<><ul>{inspectionSuggestions.matches.map(o=><li key={o.key}>{o.code} · {o.name}</li>)}</ul><button type="button" className="rounded border px-3 py-2" onClick={()=>changeRows(inspectionSuggestions.matches.map(o=>({key:o.key,quantity:'',discount:''})))}>Pripravi postavke iz pregleda</button><p>V predlog se prenesejo samo enolično prepoznane Quibi postavke. Dopolnite dejanske količine; cene, DDV in popusti se preverijo v predogledu. Izbira zamenja trenutni predlog, ne spremeni Quibija.</p></>}
         {(inspectionSuggestions.unmatched.length>0||inspectionSuggestions.ambiguous.length>0)&&<p>Preostale ugotovitve niso enolična Quibi postavka. Izberite ustrezne storitve oziroma dele spodaj; podobnih nazivov ne enačimo.</p>}
       </section>}
+      {aiEstimateLines.length>0&&<p className="text-sm text-blue-800">AI je pripravil predlog Quibi postavk za vaš pregled. Cene, DDV in popusti se sveže preverijo v predogledu. Dopolnite le neznane količine.</p>}
       {catalogIssues.map(issue=><p key={issue} role="alert" className="text-sm text-amber-800">{issue}</p>)}
       {rows!==null&&<section aria-label="Postavke predračuna" className="space-y-3">
         <input type="hidden" name="catalogLines" value={JSON.stringify(rows)}/>

@@ -28,3 +28,10 @@ test('oversized inquiry never reaches provider',async()=>{
  let calls=0;const fetcher=(async()=>{calls++;return Response.json(completed);}) as typeof fetch;
  await assert.rejects(createOpenAiIntakeProvider({apiKey:'test-only',model:'test-model',fetcher}).analyze({...input,summary:'x'.repeat(10001)}),/INPUT_INVALID/);assert.equal(calls,0);
 });
+
+test('Responses receives inspection and catalog identity but no catalog prices or customer identifiers',async()=>{
+ const estimateContext={inspectionFindings:'2 kosa za zamenjavo',mechanicNotes:['Obrabljeno'],vehicle:{make:'TEST',model:'QA'},catalog:[{key:'189:11',code:'QA',name:'Preverjena postavka',unit:'kos'}]};
+ const fetcher=(async(_url:unknown,init:RequestInit)=>{const body=JSON.parse(init.body as string);assert.deepEqual(JSON.parse(body.input).estimateContext,estimateContext);assert.equal(body.store,false);assert.deepEqual(body.text.format.schema.required,['analysis','draft','serviceSuggestions','estimateLines']);
+ return Response.json({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify({...payload,estimateLines:[{key:'189:11',quantity:2}]})}]}]});}) as typeof fetch;
+ const result=await analyzeIntake({...input,estimateContext},createOpenAiIntakeProvider({apiKey:'test-only',model:'test-model',fetcher}));assert.equal(result.status,'draft');assert.deepEqual(result.estimateLines,[{key:'189:11',quantity:2}]);
+});
