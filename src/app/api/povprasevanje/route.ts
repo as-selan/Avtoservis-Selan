@@ -51,7 +51,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (parsed.honeypotTriggered) {
-    return json(publicWebIntakeSuccess(), 200);
+    // Never acknowledge an inquiry that has not been persisted.
+    return json(publicWebIntakeFailure({
+      fieldErrors: {
+        companyWebsite: "Oddaja ni bila shranjena. Preverjanje obrazca ni uspelo. Poskusite znova; vaši podatki so ohranjeni.",
+      },
+    }), 400);
   }
 
   const validated = validateWebIntakeForm(parsed.raw);

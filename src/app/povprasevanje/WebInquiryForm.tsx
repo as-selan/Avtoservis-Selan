@@ -171,7 +171,7 @@ export function WebInquiryForm() {
       const publicResult: WebIntakePublicResponse =
         sanitizeWebIntakePublicResponse(payload);
 
-      if (publicResult.ok) {
+      if (response.ok && publicResult.ok) {
         setSuccess(true);
         setFormError(null);
         setErrors({});
@@ -180,13 +180,19 @@ export function WebInquiryForm() {
       }
 
       const mapped: Partial<Record<FieldKey, string>> = {};
-      if (publicResult.fieldErrors) {
+      if (!publicResult.ok && publicResult.fieldErrors) {
         for (const [key, message] of Object.entries(publicResult.fieldErrors)) {
           if (key in INITIAL) mapped[key as FieldKey] = message;
         }
       }
       setErrors(mapped);
-      setFormError(publicResult.message || WEB_INTAKE_GENERIC_ERROR_MESSAGE);
+      const verificationError = !publicResult.ok ? publicResult.fieldErrors?.companyWebsite : undefined;
+      if (verificationError) {
+        // Autofill must not trap legitimate users in an invisible error loop.
+        // Retain their visible inputs and request ID for the explicit retry.
+        setForm((current) => ({ ...current, companyWebsite: "" }));
+      }
+      setFormError(verificationError || (!publicResult.ok ? publicResult.message : WEB_INTAKE_GENERIC_ERROR_MESSAGE));
       submitLockRef.current = false;
     } catch {
       setFormError(WEB_INTAKE_GENERIC_ERROR_MESSAGE);
@@ -231,13 +237,17 @@ export function WebInquiryForm() {
       ) : null}
 
       <div className="pointer-events-none absolute top-0 left-0 h-px w-px overflow-hidden opacity-0" aria-hidden="true">
-        <label htmlFor={`${formId}-company-website`}>Spletna stran</label>
+        <label htmlFor={`${formId}-contact-check`}>Pustite prazno</label>
         <input
-          id={`${formId}-company-website`}
-          name="company_website"
+          id={`${formId}-contact-check`}
+          name={`${formId}-contact-check`}
           type="text"
           tabIndex={-1}
           autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          data-lpignore="true"
+          data-1p-ignore="true"
           value={form.companyWebsite}
           onChange={(e) => update("companyWebsite", e.target.value)}
         />
