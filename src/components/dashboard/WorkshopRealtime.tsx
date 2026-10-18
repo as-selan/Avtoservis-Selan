@@ -21,7 +21,7 @@ export function WorkshopRealtime({ organizationId }: { organizationId: string })
       schedule: (callback, delay) => window.setTimeout(callback, delay),
       cancel: (id) => window.clearTimeout(id),
     });
-    let channel = client.channel(`workshop:${organizationId}`);
+    let channel = client.channel(`workshop:${organizationId}`, { config: { postgres_changes_options: { wait: true } } });
     for (const table of REALTIME_TABLES) {
       channel = channel.on("postgres_changes", {
         event: "*", schema: "public", table,

@@ -1,6 +1,6 @@
--- Pending approval: DEV verxxsjbewmkgoxwqvxo only. No data, grants or RLS changes.
--- The current publication has no tables. Existing RLS SELECT policies restrict events.
--- Apply only this statement, not a general db push.
+-- Applied with explicit approval on 2026-10-18: DEV verxxsjbewmkgoxwqvxo only.
+-- The publication had no tables before activation. Existing RLS policies restrict events.
+-- Activation record only: do not rerun. No data, grants or RLS were changed.
 begin;
 alter publication supabase_realtime add table
   public.service_requests,
