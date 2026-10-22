@@ -1,6 +1,13 @@
 // Explicit operator-run DEV integration check, never imported by the application.
 // Run only inside the existing approved Vercel Preview build environment.
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {businessDocumentBody,createBusinessDocument,confirmBusinessContent as confirmContent} from '../src/lib/quibi/business-document-workflow.ts';
+import {businessSourceLines,quibiSourceNotes} from '../src/lib/quibi/business-source-lines.ts';
+import {loadQuibiDocument} from '../src/lib/quibi/document-read.ts';
+import {verifiedInvoiceHeader} from '../src/lib/quibi/invoice-header.ts';
+import {invoiceSourceChanges,verifyInvoiceSourceTotal,quibiToday} from '../src/lib/quibi/invoice-review.ts';
+import {businessHeaderSelection} from '../src/lib/quibi/business-form-state.ts';
 import {createClient} from '@supabase/supabase-js';
 import {createQuibiReadClient} from '../src/lib/quibi/client.ts';
 import {createQuibiWorkflowWriteClient,safeQuibiValidation} from '../src/lib/quibi/write-http.ts';
@@ -42,6 +49,59 @@ try{
  assert.equal(customerFingerprint({name:customer.display_name,phone:customer.phone??'',email:customer.email??''}),link.local_fingerprint);assert.equal(customerFingerprint(remoteCustomer),link.external_fingerprint);
  assert.ok(verifiedVehicleLink({customerId:link.external_id,localVehicle:{vin:vehicle.vin,registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''},remoteVehicle,vehicleLink}));
  const recipient=quibiDevTestRecipient(process.env,customer.email);assert.notEqual(recipient,remoteCustomer.email.toLowerCase());
+ if(process.env.SELAN_DEV_SMOKE_BUSINESS==='1'){
+  report.startedAt=new Date().toISOString();report.scope='Real Quibi DEV catalog diagnostics and synthetic work order/invoice integration; not authenticated UI E2E';
+  const journal=quibiDevOperationJournal(seed.organization_id,actor);
+  const clean=(value)=>safeQuibiValidation({message:value},[config.username,config.password]).summary;
+  try{
+   const currentCase=await one(db.from('service_requests').select('customer_id,vehicle_id,summary,problem_description').eq('id',caseId).eq('organization_id',seed.organization_id).single());
+   assert.equal(currentCase.customer_id,customer.id);assert.equal(currentCase.vehicle_id,vehicle.id);assert.equal(currentCase.summary,'QA-SIM-PR19-20261022');assert.ok(currentCase.problem_description.startsWith('QA-SIM-'));
+   const probe=async(path,accept=false)=>{const started=Date.now();try{
+    const response=await fetch(config.origin+path,{method:'GET',headers:{username:config.username,password:config.password,'Content-Type':'application/json',...(accept?{Accept:'application/json'}:{})},redirect:'error',signal:AbortSignal.timeout(15000)});
+    const body=await response.text();let envelope;try{envelope=JSON.parse(body)}catch{}
+    return {at:new Date().toISOString(),method:'GET',path,requestBody:false,acceptJson:accept,status:response.status,durationMs:Date.now()-started,contentType:response.headers.get('content-type'),server:response.headers.get('server'),responseDate:response.headers.get('date'),responseSha256:createHash('sha256').update(body).digest('hex'),bodyBytes:Buffer.byteLength(body),requestId:response.headers.get('x-request-id')??response.headers.get('cf-ray'),...(envelope?{apiError:envelope.error,diagnostic:safeQuibiValidation(envelope,[config.username,config.password]),dataKeys:Object.keys(envelope.data??{})}:{responseKind:'non_json'})};
+   }catch(error){return {path,method:'GET',error:error instanceof Error?error.name:'READ_FAILED'};}};
+   report.catalogDiagnostics=await Promise.all([probe('/api2/sifranti'),probe('/api2/sifranti',true),probe('/api2/cenik'),probe('/api2/sifranti/view/116731'),probe('/api2/kategorije')]);
+   const lists=await read.priceLists();report.priceLists=lists.map(l=>({id:l.id,name:l.name,articleCount:l.lines.length}));
+   const warehouses=await read.catalog('warehouses');report.stockAlternatives=[];
+   for(const warehouse of warehouses){try{const stock=await read.stock(warehouse.id,false);report.stockAlternatives.push({warehouseId:warehouse.id,articleCount:stock.length,scope:'inventory only; not a complete non-stock service catalog'});}catch(error){report.stockAlternatives.push({warehouseId:warehouse.id,error:clean(error instanceof Error?error.message:'READ_FAILED')});}}
+   const estimateOp=await journal.get('estimate',caseId);assert.equal(estimateOp?.state,'verified');assert.equal(estimateOp.quibiId,'2176924');
+   const quote=await one(db.from('quotes').select('id,evidence_payload').eq('service_request_id',caseId).order('version_no',{ascending:false}).limit(1).single());assert.equal(String(quote.evidence_payload.external_id),estimateOp.quibiId);
+   const sendOp=await journal.get('send',quote.id);assert.equal(sendOp?.sendId,'277127');assert.equal(JSON.parse(sendOp.requestBody).recipient,recipient);
+   const delivery=await write.getSendStatus(estimateOp.quibiId,sendOp.sendId);report.delivery={sendId:sendOp.sendId,status:delivery.status,reason:clean(delivery.error??''),resend:false};
+   report.created=true;report.linked=true;report.documentId=estimateOp.quibiId;
+   const [numberings,units,vat,saleTypes]=await Promise.all([read.catalog('numberings'),read.catalog('units'),read.catalog('vat'),read.catalog('saleTypes')]);
+   report.businessCatalogs={numberings,saleTypes,warehouses};console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify(report));
+   let source=await loadQuibiDocument(read,'estimate',estimateOp.quibiId,link.external_id);
+   assert.equal(source.vehicleId,vehicleLink.quibi_vehicle_id);verifyInvoiceSourceTotal(source);
+   const original=JSON.parse(estimateOp.requestBody);const originalLines=Object.values(original.Postavkedokumenta);assert.ok(originalLines.every(line=>typeof line.cena==='number'),'DEV_SMOKE_ORIGINAL_PRICE_UNVERIFIED');
+   const originalArticles=await Promise.all([...new Set(source.lines.flatMap(l=>l.articleId?[l.articleId]:[]))].map(id=>read.article(id)));
+   confirmContent(source,original,originalLines.map(l=>l.cena),source.lines.filter(l=>!quibiSourceNotes(source).includes(l)).map(l=>originalArticles.find(a=>a.id===l.articleId)?.unitId));
+   const approvedSource=source;report.business=[];
+   for(const kind of ['work_order','invoice']){
+    const header=businessHeaderSelection(kind,numberings,saleTypes,{numberingId:'',saleTypeId:'',sourceSaleTypeId:source.saleTypeId});assert.ok(header.ready,'DEV_SMOKE_NUMBERING_OR_SALE_TYPE_AMBIGUOUS');
+    assert.ok(warehouses.some(w=>w.id===source.warehouseId),'DEV_SMOKE_SOURCE_WAREHOUSE_UNVERIFIED');
+    const articles=await Promise.all([...new Set(source.lines.flatMap(l=>l.articleId?[l.articleId]:[]))].map(id=>read.article(id)));
+    const lines=businessSourceLines(source,units,vat,articles),charged=source.lines.filter(l=>!quibiSourceNotes(source).includes(l));
+    const expectedUnitNetPrices=charged.map(l=>Number(l.unitNetPrice)),expectedUnitIds=charged.map(l=>l.unitId);
+    let invoiceHeader;
+    if(kind==='invoice'){
+     assert.deepEqual(invoiceSourceChanges(approvedSource,source),[]);verifyInvoiceSourceTotal(source);
+     invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId);report.invoiceHeader=invoiceHeader;console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify(report));
+     // Explicit non-cash synthetic test choice, only when the live catalog proves one match.
+     if(!invoiceHeader.paymentMethod){const nonCash=invoiceHeader.paymentMethods.filter(m=>/^(TRR|nakazilo(?: na TRR)?|transakcijski racun|transakcijski račun)$/i.test(m.trim()));if(nonCash.length===1)invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId,{spaceId:invoiceHeader.spaceId,paymentMethod:nonCash[0]});}
+     assert.ok(invoiceHeader.ready,'DEV_SMOKE_INVOICE_HEADER_AMBIGUOUS');
+    }
+    const body=businessDocumentBody(kind,caseId,{serviceRequestId:caseId,numberingId:header.numberingId,saleTypeId:header.saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,warehouseId:source.warehouseId,spaceId:invoiceHeader?.spaceId,paymentMethod:invoiceHeader?.paymentMethod,lines,note:'QA-SIM-PR19 TEST ONLY; source '+source.id+'; source SHA '+source.contentSha256+'; synthetic approval/work completion only; no actual repair or customer approval'},kind==='invoice'?quibiToday():undefined);
+    if(kind==='invoice'){body.Glavadokumenta.datIzdRac=quibiToday();body.Glavadokumenta.datValute=quibiToday();}
+    const op=await createBusinessDocument({kind,orderId:caseId,caseId,body,journal,read,write,expectedAmount:source.amount,expectedUnitNetPrices,expectedUnitIds});
+    assert.equal(op.state,'verified');assert.ok(op.quibiId);source=await loadQuibiDocument(read,kind,op.quibiId,link.external_id);
+    report.business.push({kind,id:op.quibiId,state:op.state,number:source.number,amount:source.amount,caseLinked:true,sourceId:kind==='work_order'?estimateOp.quibiId:report.business.find(b=>b.kind==='work_order')?.id});console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify(report));
+   }
+  }catch(error){report.businessError={code:error instanceof Error&&/^[A-Z_0-9]+$/.test(error.message)?error.message:error?.code??'DEV_BUSINESS_CHECK_FAILED',check:error instanceof assert.AssertionError?String(error.message).split('\n')[0]:undefined,validation:error?.validation};}
+  report.journal=[];for(const kind of ['work_order','invoice']){const op=await journal.get(kind,caseId);if(op)report.journal.push({kind,state:op.state,id:op.quibiId});}
+  console.log('SELAN_DEV_BUSINESS_RESULT '+JSON.stringify(report));process.exit(0);
+ }
  if(process.env.SELAN_DEV_SMOKE_STATUS_ONLY==='1'){
   const journal=quibiDevOperationJournal(seed.organization_id,actor),created=await journal.get('estimate',caseId);assert.equal(created?.state,'verified');assert.ok(created.quibiId);
   const quote=await one(db.from('quotes').select('id,evidence_payload').eq('service_request_id',caseId).order('version_no',{ascending:false}).limit(1).single());assert.equal(String(quote.evidence_payload.external_id),created.quibiId);
