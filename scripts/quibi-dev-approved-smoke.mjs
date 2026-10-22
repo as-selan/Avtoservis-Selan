@@ -71,7 +71,7 @@ try{
    const delivery=await write.getSendStatus(estimateOp.quibiId,sendOp.sendId);report.delivery={sendId:sendOp.sendId,status:delivery.status,reason:clean(delivery.error??''),resend:false};
    report.created=true;report.linked=true;report.documentId=estimateOp.quibiId;
    const [numberings,units,vat,saleTypes]=await Promise.all([read.catalog('numberings'),read.catalog('units'),read.catalog('vat'),read.catalog('saleTypes')]);
-   report.businessCatalogs={numberings,saleTypes,warehouses};console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify(report));
+   report.businessCatalogs={numberings:numberings.filter(n=>['Račun','Delovni nalog'].includes(n.label)),saleTypeCount:saleTypes.length,warehouses};console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify({business:report.business,invoiceHeader:report.invoiceHeader}));
    let source=await loadQuibiDocument(read,'estimate',estimateOp.quibiId,link.external_id);
    assert.equal(source.vehicleId,vehicleLink.quibi_vehicle_id);verifyInvoiceSourceTotal(source);
    const original=JSON.parse(estimateOp.requestBody);const originalLines=Object.values(original.Postavkedokumenta);assert.ok(originalLines.every(line=>typeof line.cena==='number'),'DEV_SMOKE_ORIGINAL_PRICE_UNVERIFIED');
@@ -87,7 +87,7 @@ try{
     let invoiceHeader;
     if(kind==='invoice'){
      assert.deepEqual(invoiceSourceChanges(approvedSource,source),[]);verifyInvoiceSourceTotal(source);
-     invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId);report.invoiceHeader=invoiceHeader;console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify(report));
+     invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId);report.invoiceHeader=invoiceHeader;console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify({business:report.business,invoiceHeader:report.invoiceHeader}));
      // Explicit non-cash synthetic test choice, only when the live catalog proves one match.
      if(!invoiceHeader.paymentMethod){const nonCash=invoiceHeader.paymentMethods.filter(m=>/^(TRR|nakazilo(?: na TRR)?|transakcijski racun|transakcijski račun)$/i.test(m.trim()));if(nonCash.length===1)invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId,{spaceId:invoiceHeader.spaceId,paymentMethod:nonCash[0]});}
      assert.ok(invoiceHeader.ready,'DEV_SMOKE_INVOICE_HEADER_AMBIGUOUS');
@@ -96,11 +96,11 @@ try{
     if(kind==='invoice'){body.Glavadokumenta.datIzdRac=quibiToday();body.Glavadokumenta.datValute=quibiToday();}
     const op=await createBusinessDocument({kind,orderId:caseId,caseId,body,journal,read,write,expectedAmount:source.amount,expectedUnitNetPrices,expectedUnitIds});
     assert.equal(op.state,'verified');assert.ok(op.quibiId);source=await loadQuibiDocument(read,kind,op.quibiId,link.external_id);
-    report.business.push({kind,id:op.quibiId,state:op.state,number:source.number,amount:source.amount,caseLinked:true,sourceId:kind==='work_order'?estimateOp.quibiId:report.business.find(b=>b.kind==='work_order')?.id});console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify(report));
+    report.business.push({kind,id:op.quibiId,state:op.state,number:source.number,amount:source.amount,caseLinked:true,sourceId:kind==='work_order'?estimateOp.quibiId:report.business.find(b=>b.kind==='work_order')?.id});console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify({business:report.business,invoiceHeader:report.invoiceHeader}));
    }
   }catch(error){report.businessError={code:error instanceof Error&&/^[A-Z_0-9]+$/.test(error.message)?error.message:error?.code??'DEV_BUSINESS_CHECK_FAILED',check:error instanceof assert.AssertionError?String(error.message).split('\n')[0]:undefined,validation:error?.validation};}
   report.journal=[];for(const kind of ['work_order','invoice']){const op=await journal.get(kind,caseId);if(op)report.journal.push({kind,state:op.state,id:op.quibiId});}
-  console.log('SELAN_DEV_BUSINESS_RESULT '+JSON.stringify(report));process.exit(0);
+  console.log('SELAN_DEV_CATALOG_RESULT '+JSON.stringify({startedAt:report.startedAt,catalogDiagnostics:report.catalogDiagnostics,priceLists:report.priceLists,stockAlternatives:report.stockAlternatives}));delete report.catalogDiagnostics;delete report.priceLists;delete report.stockAlternatives;console.log('SELAN_DEV_BUSINESS_RESULT '+JSON.stringify(report));process.exit(0);
  }
  if(process.env.SELAN_DEV_SMOKE_STATUS_ONLY==='1'){
   const journal=quibiDevOperationJournal(seed.organization_id,actor),created=await journal.get('estimate',caseId);assert.equal(created?.state,'verified');assert.ok(created.quibiId);
