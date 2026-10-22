@@ -1,8 +1,8 @@
 # Tadej: od novega povpraševanja do naloga
 
-**Stanje 22. 10. 2026:** navodila za kodo v tem PR; trenutni naslov in commit DEV Previewa sta navedena v opisu PR. Dejanski Quibi DEV CREATE in samodejna povezava sta potrjena za sintetični dokument #2176924; testno pošiljanje #277127 je končalo s stanjem failed. Celoten prijavljeni uporabniški postopek ostaja nepreverjen. Spodnji posnetki so dejanski Playwright posnetki delovnega prostora in obstoječih komponent obrazcev v izoliranem prikazu; niso posnetki prijavljenega primera ali dokaz ustvarjenih dokumentov.
+**Stanje 22. 10. 2026:** navodila za kodo v tem PR; trenutni naslov in commit DEV Previewa sta navedena v opisu PR. Dejanska sintetična Quibi DEV veriga je potrjena: predračun #2176924 → delovni nalog #2176925 → račun #2176926, vsak 45,99 EUR; testno pošiljanje #277127 je končalo s stanjem failed. Celoten prijavljeni uporabniški postopek ostaja nepreverjen. Spodnji posnetki so dejanski Playwright posnetki delovnega prostora in obstoječih komponent obrazcev v izoliranem prikazu; niso posnetki prijavljenega primera ali dokaz ustvarjenih dokumentov.
 
-[Aktualni dejanski rezultat in blokade DEV](qa/selan-estimate-workspace/dev-automation-2026-10-22.md).
+[Aktualni dejanski rezultat, nalog/račun in blokade Quibi DEV](qa/selan-estimate-workspace/quibi-business-2026-10-22.md).
 
 ## Priprava predračuna: običajna pot
 

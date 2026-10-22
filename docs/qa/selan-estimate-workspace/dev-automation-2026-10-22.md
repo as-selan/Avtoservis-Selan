@@ -1,3 +1,5 @@
+> Zgodovinska faza preverjanja. [Aktualna resnična veriga predračun → nalog → račun in Quibi blokade](quibi-business-2026-10-22.md).
+
 # PR #19 – dejanska Quibi DEV avtomatizacija
 
 ## Dejanski rezultat

@@ -1,0 +1,128 @@
+{
+  "startedAt": "2026-10-22T18:18:48.899Z",
+  "catalogDiagnostics": [
+    {
+      "at": "2026-10-22T18:18:50.176Z",
+      "method": "GET",
+      "path": "/api2/sifranti",
+      "requestBody": false,
+      "acceptJson": false,
+      "status": 500,
+      "durationMs": 1138,
+      "contentType": "text/html; charset=UTF-8",
+      "server": "nginx/1.14.0 (Ubuntu)",
+      "responseDate": "Thu, 22 Oct 2026 18:18:50 GMT",
+      "responseSha256": "2807c49d41322e8f0c26fd37170761ddc9d56acf2d920ef4b268cc519c74374d",
+      "bodyBytes": 1582,
+      "requestId": "d4420762ccc398fe035a080b840dd3de",
+      "responseKind": "non_json"
+    },
+    {
+      "at": "2026-10-22T18:18:50.198Z",
+      "method": "GET",
+      "path": "/api2/sifranti",
+      "requestBody": false,
+      "acceptJson": true,
+      "status": 500,
+      "durationMs": 1159,
+      "contentType": "text/html; charset=UTF-8",
+      "server": "nginx/1.14.0 (Ubuntu)",
+      "responseDate": "Thu, 22 Oct 2026 18:18:50 GMT",
+      "responseSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bodyBytes": 0,
+      "requestId": null,
+      "responseKind": "non_json"
+    },
+    {
+      "at": "2026-10-22T18:18:49.458Z",
+      "method": "GET",
+      "path": "/api2/cenik",
+      "requestBody": false,
+      "acceptJson": false,
+      "status": 200,
+      "durationMs": 418,
+      "contentType": "text/html; charset=UTF-8",
+      "server": "nginx/1.14.0 (Ubuntu)",
+      "responseDate": "Thu, 22 Oct 2026 18:18:49 GMT",
+      "responseSha256": "ed378a498c2c85dfad2f7b86963311ede521a8a164121847c8408302e1c9df25",
+      "bodyBytes": 292,
+      "requestId": null,
+      "apiError": false,
+      "diagnostic": {
+        "message": "",
+        "errors": {},
+        "summary": ""
+      },
+      "dataKeys": [
+        "Cenik"
+      ]
+    },
+    {
+      "at": "2026-10-22T18:18:49.482Z",
+      "method": "GET",
+      "path": "/api2/sifranti/view/116731",
+      "requestBody": false,
+      "acceptJson": false,
+      "status": 200,
+      "durationMs": 439,
+      "contentType": "text/html; charset=UTF-8",
+      "server": "nginx/1.14.0 (Ubuntu)",
+      "responseDate": "Thu, 22 Oct 2026 18:18:49 GMT",
+      "responseSha256": "89615c5b1a9c04894b43e9ace7eb0634bb8af9e2a824d9099d489b32374e89d3",
+      "bodyBytes": 866,
+      "requestId": null,
+      "apiError": false,
+      "diagnostic": {
+        "message": "",
+        "errors": {},
+        "summary": ""
+      },
+      "dataKeys": [
+        "Sifranti"
+      ]
+    },
+    {
+      "at": "2026-10-22T18:18:49.481Z",
+      "method": "GET",
+      "path": "/api2/kategorije",
+      "requestBody": false,
+      "acceptJson": false,
+      "status": 200,
+      "durationMs": 432,
+      "contentType": "text/html; charset=UTF-8",
+      "server": "nginx/1.14.0 (Ubuntu)",
+      "responseDate": "Thu, 22 Oct 2026 18:18:49 GMT",
+      "responseSha256": "04ee1c6697c6987e6dc82f89f31ab74d527412e3687460abf5b6aa9fbb044e52",
+      "bodyBytes": 53,
+      "requestId": null,
+      "apiError": false,
+      "diagnostic": {
+        "message": "",
+        "errors": {},
+        "summary": ""
+      },
+      "dataKeys": [
+        "Kategorije"
+      ]
+    }
+  ],
+  "priceLists": [
+    {
+      "id": "189",
+      "name": "VULAKNIZERSTVO",
+      "articleCount": 1
+    }
+  ],
+  "stockAlternatives": [
+    {
+      "warehouseId": "49",
+      "error": "QUIBI_HTTP_403"
+    },
+    {
+      "warehouseId": "626",
+      "error": "QUIBI_HTTP_403"
+    }
+  ],
+  "deploymentId": "dpl_5SNfKs15ZZs2KiQkiXGHCSND3Auc",
+  "codeCommit": "9fba38c"
+}

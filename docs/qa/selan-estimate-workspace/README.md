@@ -1,4 +1,4 @@
-> Zgodovinska preveritev prejšnjih commitov. [Aktualni rezultat: resnični Quibi DEV CREATE in povezava, blokade AI/kataloga ter status testne dostave](dev-automation-2026-10-22.md).
+> Zgodovinska preveritev prejšnjih commitov. [Aktualni rezultat: resnični Quibi DEV CREATE in povezava, blokade AI/kataloga ter status testne dostave](quibi-business-2026-10-22.md).
 
 # En delovni prostor za pripravo predračuna
 
