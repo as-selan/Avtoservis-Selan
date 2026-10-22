@@ -1,3 +1,4 @@
+import {CaseJourney} from '@/components/dashboard/CaseJourney';
 import {loadCaseWork} from '@/lib/case-work/read';
 import {isHostedQuibiEnvironment,hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {requiresResolvedVehicleConfirmation} from '@/lib/quibi/vehicle-identity';
@@ -211,7 +212,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const internalOrdersEnabled=internalWorkOrdersEnabled(process.env);
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
     let businessNextAction:CaseStep|undefined;
-    if(realDevMode&&!internalOrdersEnabled&&['owner','admin'].includes(access.role)){const {data,error}=await db.from(quibiJournalTable(hostedQuibiEnvironment(process.env))).select('kind,state,quibi_id,quibi_content_sha256,request_body,send_status,created_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).in('kind',['work_order','invoice','work_order_update','invoice_update','send']);if(!error)businessNextAction=quibiBusinessNextAction(data??[]);}
+    let businessHasWorkOrder=false;
+    if(isHostedQuibiEnvironment(process.env)&&!internalOrdersEnabled&&['owner','admin'].includes(access.role)){const {data,error}=await db.from(quibiJournalTable(hostedQuibiEnvironment(process.env))).select('kind,state,quibi_id,quibi_content_sha256,request_body,send_status,created_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).in('kind',['work_order','invoice','work_order_update','invoice_update','send']);if(!error){businessNextAction=quibiBusinessNextAction(data??[]);businessHasWorkOrder=(data??[]).filter(r=>r.kind==='work_order'&&r.state==='verified'&&r.quibi_id).length===1;}}
     const repairWork=(await loadCaseWork(serviceRequestId)).rows[0];
     const step = nextCaseStep({repairNextAction:repairWork?.phase?.step,businessNextAction,quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
@@ -245,21 +247,18 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <p className="mt-1 text-sm text-slate-600">{request.summary}</p>
         <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Poslovna faza: {repairWork?.phase?.label??getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p>{repairWork&&<details className="text-xs text-slate-500"><summary>Ločena izvorna stanja</summary><p>Stanje povpraševanja: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}. To stanje ne potrjuje trenutne faze popravila, računa, plačila ali prevzema.</p></details>}</header>
 
-      <section id="naslednji-korak" className="scroll-mt-20 rounded-xl border border-blue-200 bg-blue-50 p-4">
-        <h2 className="font-semibold text-blue-950">Naslednji korak</h2>
-        {process.env.QUIBI_MODE==='dev'&&<details className="mt-3 rounded border bg-white p-3"><summary className="cursor-pointer font-medium">Celoten servisni postopek · kaj opravi Selan in kaj potrdiš ti</summary><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm"><li>Povpraševanje: spletni ali ročni vnos. Selan shrani primer in preveri povezavo stranke ter vozila.</li><li>Predračun: Selan pridobi preverjene Quibijeve postavke in cene. Pregledaš manjkajoče podatke in potrdiš ustvarjanje v Quibiju.</li><li>Pošiljanje predračuna: izbereš dovoljen testni naslov in potrdiš enkratno pošiljanje. Selan shrani referenco ter preverja status.</li><li>Odobritev: zabeležiš dejansko odločitev in njeno referenco, tudi po telefonu. Status pošiljanja ni odobritev.</li><li>Delovni nalog: Selan pripravi podatke iz odobrenega predračuna. Potrdiš ustvarjanje Quibijevega naloga.</li><li>Popravilo: potrdiš, da je opravljeno, in dejanski datum storitve. QA simulacijo vedno označiš posebej.</li><li>Račun: Selan prevzame postavke iz preverjenega naloga. Pregledaš račun in potrdiš ustvarjanje, nato ločeno pošiljanje.</li><li>Prevzem: preveriš dejansko plačilo in prevzem. Status »sent« ne potrjuje prejema, plačila ali zaključka.</li></ol><p className="mt-3 text-sm">{assistance.status==='draft'?'AI je pripravil predlog za pregled.':'AI trenutno ni na voljo; priprava iz Quibija deluje brez njega.'} Termini se urejajo ročno.</p></details>}
-        <p className="mt-1 text-sm text-blue-900">{step.label}</p>
-        {request.next_action && ["new", "needs_data", "preparing_offer"].includes(request.status) &&
-          !inspectionResult.data?.repair_decision &&
-          <p className="mt-1 text-xs text-blue-800">Zabeleženo v primeru: {request.next_action}</p>}
-      </section>
+      <CaseJourney explanation={step.label} input={{status:request.status,role:access.role,stepKind:step.kind,
+        intakeComplete:missing.length===0&&!!customer&&!!vehicle,identityReady:link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok'&&!resolvedVehicleNeedsReview,
+        hosted:isHostedQuibiEnvironment(process.env),offerPrepared:prep?.status==='ready_for_provider',quoteReviewed:quote?.internal_review_status==='approved_for_send',
+        customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',
+        hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,sendReady,
+      }}/>
+      <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">Pomoč AI in osnutki sporočil</summary>
       {assistance.status==='unavailable' && <div className="text-xs text-slate-500"><p>AI še ni povezan. Preverjanje podatkov in priprava iz Quibija sta na voljo.</p>{['owner','admin'].includes(access.role)&&<details><summary>Podrobnosti povezave AI</summary><p>Manjkajo strežniške nastavitve: {intakeAiConfiguration(process.env).missing.join(', ')}.</p></details>}</div>}
       {assistance.status==='failed'&&<p role="status" className="text-xs text-slate-500">AI analize trenutno ni mogoče pridobiti. Nadaljujte s preverjenimi podatki Quibija.</p>}
       {assistance.status==='draft'&&<><section className="space-y-2 rounded-xl border bg-white p-4"><h2 className="font-semibold">AI analiza za pregled</h2>{assistance.analysis&&<p className="whitespace-pre-wrap text-sm">{assistance.analysis}</p>}{assistance.serviceSuggestions.length>0&&<><p className="text-sm">Predlogi storitev — preverite z dejanskimi artikli v Quibiju:</p><ul className="list-disc pl-5 text-sm">{assistance.serviceSuggestions.map((suggestion,i)=><li key={i}>{suggestion}</li>)}</ul></>}</section><CommunicationDraft key={assistance.draft!} title="AI osnutek za pregled" body={assistance.draft!}/></>}
       {assistance.status!=='draft' && communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft key={communicationDraft.body} title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
-      {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
-        ["owner", "admin"].includes(access.role) &&
-        <ReviewIntakeButton key={request.updated_at} serviceRequestId={serviceRequestId} blockedReason={isHostedQuibiEnvironment(process.env)&&!(link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok')?'Najprej preverite povezavo stranke in pravega vozila v spodnjem razdelku. Če vozila ni, njegovo ustvarjanje potrdi lastnik. Nato sprejmite primer za pripravo ponudbe.':null} />}
+      </details>
       {(request.has_error || request.attention_needed || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>
         {request.has_error && <p>{request.error_reason || "Primer ima zabeleženo napako."}</p>}
@@ -268,11 +267,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
+      <div id="quibi-povezava" tabIndex={-1} className="scroll-mt-20 space-y-3">
       {customer && ['owner','admin'].includes(access.role) && isHostedQuibiEnvironment(process.env) && <AutomaticIntakeSync caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={resolvedVehicleNeedsReview||!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
       <VehicleResolutionPanel caseId={serviceRequestId}/>
-      {customer && link && <QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} />}
+      </div>
+      {customer && link && <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">Povezani dokumenti in zgodovina Quibija</summary><QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} /></details>}
       <div className="grid gap-4 lg:grid-cols-2">
-        <section id="podatki" className="scroll-mt-20 rounded-xl border bg-white p-4 space-y-2">
+        <section tabIndex={-1} id="podatki" className="scroll-mt-20 rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">Povpraševanje in podatki</h2>
           {request.problem_description && <p className="text-sm">Težava: {request.problem_description}</p>}
           {request.service_wanted && <p className="text-sm">Želena storitev: {request.service_wanted}</p>}
@@ -285,8 +286,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : <p className="text-sm text-amber-800">Stranka še ni povezana s primerom.</p>}
           {vehicle ? <p className="text-sm">{[vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vozilo"} · {vehicle.registration_current || vehicle.vin || "brez oznake"}</p>
             : <p className="text-sm text-amber-800">Vozilo še ni povezano s primerom.</p>}
+      {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
+        ["owner", "admin"].includes(access.role) &&
+        <ReviewIntakeButton key={request.updated_at} serviceRequestId={serviceRequestId} blockedReason={isHostedQuibiEnvironment(process.env)&&!(link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok')?'Najprej preverite povezavo stranke in pravega vozila v razdelku »Povezava s Quibijem«. Če vozila ni, njegovo ustvarjanje potrdi lastnik. Nato sprejmite primer za pripravo ponudbe.':null} />}
         </section>
-        <section id="predracun" className="scroll-mt-20 rounded-xl border bg-white p-4 space-y-2">
+        <section tabIndex={-1} id="predracun" className="scroll-mt-20 rounded-xl border bg-white p-4 space-y-2">
           <h2 className="font-semibold">{process.env.SELAN_REMOTE_DEMO === "1" ? "Quibi – demo simulacija in predračun" : "Quibi in predračun"}</h2>
           {customer && !fixedPrice && <Link href={`/dashboard/stranke/${customer.id}/quibi`} className="text-sm font-medium text-blue-700">{link ? `Quibi stranka #${link.external_id} · dokumenti in ponovni pregled` : "Poišči in potrdi Quibijevo stranko"} →</Link>}
           {request.status === "new" && !fixedPrice && estimateCatalog.options.length>0 && <p className="text-sm">Iz Quibija so pripravljene postavke iz cenikov ({estimateCatalog.options.length}). Po potrditvi pregleda primera bodo na voljo v pripravi predračuna; stranke in vozila ni treba ponovno vnašati.</p>}
@@ -300,6 +304,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Dejanski predračun še ni potrjeno povezan s tem primerom. Cene ni mogoče odobriti ali poslati.</p>}
+          <div id="pregled-predracuna" tabIndex={-1} className="scroll-mt-20 space-y-3">
           {proposedPrice && <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm">
             <p className="font-semibold">{proposedPrice.state === "approved" ? "Tadejeva potrjena cena predračuna" : "Predlagana cena iz Quibijevega predračuna"}: {Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}</p>
             <p>Vir: Quibijev predračun #{proposedPrice.sourceId}, {createdOperation?.quibiId === proposedPrice.sourceId ? "ustvarjen prek Quibi API-ja in potrjeno povezan" : "ročno povezan"} s tem primerom. Stranka in vozilo sta preverjeno povezana; ujemanje storitve potrdi Tadej. Končna cena računa ni potrjena.</p>
@@ -313,7 +318,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
             quote?.internal_review_status === "rejected_for_revision" && ["owner", "admin"].includes(access.role) &&
             <QuibiDevWritePanel serviceRequestId={serviceRequestId} mode="update" quoteId={quote.id} writeEnabled={writeReady} />}
-          {quote?.internal_review_status === "unreviewed" && !sendReady && ["owner", "admin"].includes(access.role) && <ReviewManualEstimate key={quote.id} quoteId={quote.id} />}
+          {quote?.internal_review_status === "unreviewed" && ["owner", "admin"].includes(access.role) && <ReviewManualEstimate key={quote.id} quoteId={quote.id} />}
           {quote && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
             <QuibiEstimateWorkflowPanel sendEnabled={sendReady} key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
@@ -326,9 +331,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
               manualIdentityRequired={reviewDetail?.vehicleId !== vehicleLink?.quibi_vehicle_id ||
                 reviewDetail?.externalId !== "selan-service-request:" + serviceRequestId} />}
           {internalOrdersEnabled && request.status === "appointment_confirmed" && <CreateWorkOrder caseId={serviceRequestId} />}
+          </div>
+          <div id="odobritev" tabIndex={-1} className="scroll-mt-20">
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} syntheticQa={syntheticCaseEvidenceAllowed(process.env,{description:request.problem_description,name:customer?.display_name,email:customer?.email,vin:vehicle?.vin})} realDevWrite={realDevMode} apiDispatch={approval?.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
+          </div>
         </section>
         <details id="potrjeni-termini" className="rounded-xl border bg-white p-4 space-y-2">
           <summary className="cursor-pointer font-semibold">Ročno urejanje terminov (ločeno od poslovnega naloga)</summary>
@@ -337,11 +345,15 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           <p className="text-xs text-amber-800">Termine uredite in preverite ročno. Potrjen termin ni pogoj za pripravo Quibi poslovnega naloga.</p>
         </details>
       </div>
+      <div id="poslovni-nalog" tabIndex={-1} className="scroll-mt-20">
       {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations syntheticQa={syntheticCaseEvidenceAllowed(process.env,{description:request.problem_description,name:customer?.display_name,email:customer?.email,vin:vehicle?.vin})} organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
-      {activation&&(activation.missing.length>0||!activation.writeEnabled||activation.localOverrideEnabled)&&["owner","admin"].includes(access.role)&&<aside className="space-y-2 rounded border bg-amber-50 p-4 text-sm"><h2 className="font-semibold">Aktivacija poslovnih dejanj DEV</h2>{activation.missing.length>0&&<p>Manjkajo ali niso veljavne nastavitve: {activation.missing.join(", ")}. Skrivnosti ostanejo na strežniku.</p>}{!activation.writeEnabled&&<p>WRITE/SEND sta izključena. Priprava in pregled ne ustvarita dokumenta. Aktivacija zahteva odobreno DEV journal migracijo in dovoljenje za izbrano dejanje.</p>}{activation.localOverrideEnabled&&<p role="alert">Lokalni override ne sme biti omogočen v Preview.</p>}</aside>}
+      </div>
+      {activation&&(activation.missing.length>0||!activation.writeEnabled||activation.localOverrideEnabled)&&["owner","admin"].includes(access.role)&&<details className="space-y-2 rounded border bg-amber-50 p-4 text-sm"><summary className="cursor-pointer font-semibold">Tehnične podrobnosti · aktivacija poslovnih dejanj DEV</summary>{activation.missing.length>0&&<p>Manjkajo ali niso veljavne nastavitve: {activation.missing.join(", ")}. Skrivnosti ostanejo na strežniku.</p>}{!activation.writeEnabled&&<p>WRITE/SEND sta izključena. Priprava in pregled ne ustvarita dokumenta. Aktivacija zahteva odobreno DEV journal migracijo in dovoljenje za izbrano dejanje.</p>}{activation.localOverrideEnabled&&<p role="alert">Lokalni override ne sme biti omogočen v Preview.</p>}</details>}
       {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
+      <div id="objavljena-cena" tabIndex={-1} className="scroll-mt-20">
       {fixedPriceEnabled && (fixedPrice || (!writeRequested && request.status === "preparing_offer" && !quote && !inspectionResult.data)) &&
         <PublishedFinalPrice serviceRequestId={serviceRequestId} path={fixedPrice} canApprove={["owner", "admin"].includes(access.role)} serviceWanted={request.service_wanted} realDevWrite={realDevMode} />}
+      </div>
       <div id="termini" className="scroll-mt-20 space-y-4">
       {!fixedPrice && (inspectionResult.data || ["new", "preparing_offer"].includes(request.status)) &&
         <PreliminaryInspection serviceRequestId={serviceRequestId} caseStatus={request.status}
@@ -354,6 +366,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {!repairWork && (request.status === "awaiting_slot_selection" || serviceOffer) &&
         <ManualSlotOffer serviceRequestId={serviceRequestId} appointmentType="service" inactiveReason={request.status === "awaiting_slot_selection" ? undefined : "Stanje primera se je spremenilo. Stare možnosti ne potrjujejo rezervacije; preverite nadaljevanje primera."} syntheticQaAllowed={localSyntheticQaAllowed(process.env)} offer={serviceOffer} realDevWrite={realDevMode} />}
       </div>
-    {['owner','admin'].includes(access.role)&&<CaseWorkPanel caseId={serviceRequestId} role={access.role}/>}
+    <div id="popravilo" tabIndex={-1} className="scroll-mt-20">{['owner','admin'].includes(access.role)&&<CaseWorkPanel caseId={serviceRequestId} role={access.role}/>}</div>
 </div>;
 }

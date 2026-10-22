@@ -1,0 +1,236 @@
+{
+  "scope": "Real CaseJourney component only; target containers are test fixtures, business forms/database/Quibi not exercised",
+  "checks": [
+    {
+      "width": 1440,
+      "scenario": "new",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "identity",
+      "cta": "Preveri stranko in vozilo →",
+      "target": "#quibi-povezava",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "missing",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "reception",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "prepare",
+      "cta": "Pripravi predračun →",
+      "target": "#predracun",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "review",
+      "cta": "Preglej in potrdi predračun →",
+      "target": "#pregled-predracuna",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "send",
+      "cta": "Preveri pošiljanje predračuna →",
+      "target": "#pregled-predracuna",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "approval",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "order",
+      "cta": "Pripravi delovni nalog →",
+      "target": "#poslovni-nalog",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "repair",
+      "cta": "Nadaljuj popravilo →",
+      "target": "#popravilo",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "uncertain",
+      "cta": "Preveri povezavo in izid dokumenta →",
+      "target": "#predracun",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "new",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "identity",
+      "cta": "Preveri stranko in vozilo →",
+      "target": "#quibi-povezava",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "missing",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "reception",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "prepare",
+      "cta": "Pripravi predračun →",
+      "target": "#predracun",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "review",
+      "cta": "Preglej in potrdi predračun →",
+      "target": "#pregled-predracuna",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "send",
+      "cta": "Preveri pošiljanje predračuna →",
+      "target": "#pregled-predracuna",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "approval",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "order",
+      "cta": "Pripravi delovni nalog →",
+      "target": "#poslovni-nalog",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "repair",
+      "cta": "Nadaljuj popravilo →",
+      "target": "#popravilo",
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "uncertain",
+      "cta": "Preveri povezavo in izid dokumenta →",
+      "target": "#predracun",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "new",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "identity",
+      "cta": "Preveri stranko in vozilo →",
+      "target": "#quibi-povezava",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "missing",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "reception",
+      "cta": "Preveri podatke →",
+      "target": "#podatki",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "prepare",
+      "cta": "Pripravi predračun →",
+      "target": "#predracun",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "review",
+      "cta": "Preglej in potrdi predračun →",
+      "target": "#pregled-predracuna",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "send",
+      "cta": "Preveri pošiljanje predračuna →",
+      "target": "#pregled-predracuna",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "approval",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "order",
+      "cta": "Pripravi delovni nalog →",
+      "target": "#poslovni-nalog",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "repair",
+      "cta": "Nadaljuj popravilo →",
+      "target": "#popravilo",
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "uncertain",
+      "cta": "Preveri povezavo in izid dokumenta →",
+      "target": "#predracun",
+      "pass": true
+    }
+  ]
+}

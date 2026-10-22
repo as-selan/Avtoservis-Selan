@@ -29,3 +29,8 @@ test('existing uncertain SEND stays status-only even when DEV dispatch is config
  const estimate=render('QuibiEstimateWorkflowPanel',{dev:true,sendEnabled:true,documentId:'doc',reviewStatus:'approved_for_send',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',operationState:'uncertain',alreadyDelivered:false});
  assert.equal(!!find(estimate,n=>n.type==='form'),false);
 });
+
+test('an unreviewed estimate cannot offer sending before separate Tadej approval',()=>{
+ const estimate=render('QuibiEstimateWorkflowPanel',{dev:true,sendEnabled:true,documentId:'doc',reviewStatus:'unreviewed',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',alreadyDelivered:false});
+ assert.equal(!!find(estimate,n=>n.type==='form'),false);
+});

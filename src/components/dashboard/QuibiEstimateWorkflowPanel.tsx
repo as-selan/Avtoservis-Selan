@@ -3,7 +3,6 @@ import {sendPresentation} from "@/lib/quibi/send-outcome";
 import {useEffect,useRef,useState,useTransition} from "react";
 import {useRouter} from "next/navigation";
 import {approveAndSendQuibiEstimate,pollQuibiEstimateSend} from "@/lib/quibi/unified-actions";
-import {reviewManualQuibiEstimate} from "@/lib/quibi/manual-estimate-action";
 type Props={serviceRequestId:string;quoteId:string;documentId:string;reviewStatus:string;sha256:string;
  sendEnabled?:boolean;allowedRecipients?:string[];amount?:string;lines:{description:string;quantity:string;grossPrice:string;unitGrossPrice?:string;pricingVerified?:boolean}[];recipient:string|null;dev:boolean;
  operationId?:string;attemptedAt?:string|null;operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;qaIdentityExceptionAvailable?:boolean;alreadyDelivered:boolean};
@@ -27,7 +26,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[p.sendId,status,pollCount,p.serviceRequestId,p.quoteId]);
  const outcome=sendPresentation(p.operationState?{state:p.operationState,sendId:p.sendId??null,sendStatus:status??null}:null);
- const sendAllowed=p.sendEnabled===true&&!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
+ const sendAllowed=p.reviewStatus==="approved_for_send"&&p.sendEnabled===true&&!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
  return <section className="space-y-3 border-t pt-3">
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
   {p.dev&&<p className="text-sm text-amber-800">DEV uporablja samo dovoljen testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
@@ -53,13 +52,12 @@ export function QuibiEstimateWorkflowPanel(p:Props){
     Pregledal sem postavke, znesek, stranko, vozilo in storitev. Potrjujem enkratno pošiljanje na prikazani naslov.
    </label>
    <button disabled={pending} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
-    {pending?"Preverjam in pošiljam…":p.reviewStatus==="approved_for_send"?"Pošlji stranki":"Odobri in pošlji stranki"}
+    {pending?"Preverjam in pošiljam…":"Pošlji predračun"}
    </button>
   </form>}
-  {p.dev&&<p className="text-sm">DEV: nova pošiljanja so izključena. Preverite dokument in prejemnika; stanje morebitnega prejšnjega poskusa je prikazano spodaj.</p>}
-  {p.dev&&!!p.allowedRecipients?.length&&<label className="block text-sm">Prejemnik za pregled<select value={recipient} onChange={e=>setRecipient(e.target.value)} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
-  {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<div className="space-y-2"><button disabled className="rounded border px-3 py-2 text-sm">Pošiljanje čaka na potrjeno vsebino in konfiguracijo</button><p className="text-sm text-amber-800">Za pošiljanje sta potrebna potrjena vsebina in varna konfiguracija. DEV zahteva konfiguriran testni naslov. Ob neznanem izidu preverite dnevnik.</p></div>}
-  {p.reviewStatus==="unreviewed"&&!p.operationState&&sendAllowed&&<button type="button" disabled={pending} className="rounded border px-3 py-2 text-sm" onClick={()=>startTransition(async()=>{const r=await reviewManualQuibiEstimate(p.quoteId,"reject");setMessage(r.ok?"Predračun je zavrnjen za popravek.":r.message);router.refresh()})}>Zavrni za popravek</button>}
+  {p.dev&&!p.sendEnabled&&<p className="text-sm">DEV: nova pošiljanja so izključena. Preverite dokument in prejemnika; stanje morebitnega prejšnjega poskusa je prikazano spodaj.</p>}
+  {p.dev&&!sendAllowed&&!!p.allowedRecipients?.length&&<label className="block text-sm">Prejemnik za pregled<select value={recipient} onChange={e=>setRecipient(e.target.value)} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
+  {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<div className="space-y-2"><button disabled className="rounded border px-3 py-2 text-sm">Pošiljanje čaka na pregled, potrjeno vsebino in konfiguracijo</button><p className="text-sm text-amber-800">Za pošiljanje najprej odobrite predračun v Tadejevem pregledu. Potrebna sta tudi potrjena vsebina in varna konfiguracija. DEV zahteva konfiguriran testni naslov. Ob neznanem izidu preverite dnevnik.</p></div>}
   {p.operationState&&<div role="status" className="space-y-2 text-sm"><p>{outcome.outcome}: {outcome.message}</p>
    <p>Čas poskusa (UTC): {p.attemptedAt??"ni zabeležen"}</p><p>Referenca dnevnika: {p.operationId}</p>
    {p.sendId&&<p>Quibi send_id: {p.sendId}</p>}

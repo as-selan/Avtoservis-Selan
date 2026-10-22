@@ -187,6 +187,19 @@ test("real owner login opens dashboard and canonical case", async ({ page }) => 
   await page.goto(`/dashboard/primeri/${seed.caseId}`);
   await expect(page.getByRole("heading", { name: /Primer #/ })).toBeVisible();
   await expect(page.getByText("Izolirani E2E primer")).toBeVisible();
+  for (const width of [1440, 390, 350]) {
+    await page.setViewportSize({ width, height: 900 });
+    const journey = page.getByRole('region', { name: 'Postopek primera' });
+    const primary = journey.locator('[data-case-primary]');
+    await expect(primary).toHaveCount(1);
+    await expect(journey.getByRole('list', { name: 'Faze postopka' }).locator('li')).toHaveCount(7);
+    await primary.click();
+    const target = await primary.getAttribute('href');
+    expect(target?.startsWith('#')).toBe(true);
+    await expect(page.locator(target!)).toBeVisible();
+    await noHorizontalOverflow(page);
+    await page.locator('#naslednji-korak').scrollIntoViewIfNeeded();
+  }
   await noHorizontalOverflow(page);
 });
 
