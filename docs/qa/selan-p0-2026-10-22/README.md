@@ -1,5 +1,11 @@
 # P0: vodenje servisnega primera – dokazi 22. 10. 2026
 
+## Posodobitev predloga po nadaljevanju razvoja
+
+Aktivni obstoječi obrazec je zdaj neposredno pod vodenjem postopka; ostala opravila so razširljivi razdelki. Priprava, pregled/pošiljanje in odločitev stranke so ločeni. Povezave odprejo zloženi razdelek, prestavijo fokus in delujejo tudi pri neposrednem zaznamku ter uporabi tipkovnice. Faze so pri ozkih zaslonih prikazane v dveh stolpcih. Gumb pove konkreten rezultat dejanja; neuspešno, čakajoče in neznano pošiljanje so jasno označeni.
+
+Na voljo je [kratek video UX navigacije](ui-navigation.webm): prikazuje štiri ločena sintetična stanja, ne opravljenega poslovnega postopka. Obrazci so dejanske obstoječe komponente s sintetičnimi vhodi, prikazane strežniško; poslovne akcije so v predogledu izrecno onemogočene. [Strojno berljivi rezultati preverjanja](validation-results.json).
+
 ## Rezultat in meja dokaza
 
 Popravek je pripravljen za pregled, **ni potrjen za merge ali objavo**. Celoten scenarij splet → baza → predračun → odobritev → Quibi nalog ni bil izveden. Lokalni Docker daemon ni dosegljiv; ločena lokalna Supabase baza zato ne teče. Gostovani DEV zahteva prijavo in ni bila na voljo prijavljena testna seja. Podatki strank, migracije, RLS, auth, zunanja dovoljenja in okoljske nastavitve niso spremenjeni. WRITE/SEND nista omogočena. Noben finančni dokument ali sporočilo ni ustvarjeno.
@@ -33,33 +39,47 @@ To je ugotovitev iz kode, ki ustreza gostovanemu commitu, ne trditev o ponovitvi
 
 | Preverjanje | Rezultat | Obseg |
 | --- | --- | --- |
-| Node regresijski testi | 35/35 uspešnih | Izbor naslednjega koraka, faze, vloge, negotovi izidi, ločena odobritev/SEND |
+| Celoten lokalni Node testni nabor | 525/525 uspešnih, brez preskokov | Vsi testi src in lokalni HTTP fixture test; vloge, identiteta, cenovne pogodbe, negotovi izidi, ločena odobritev/SEND, vrstni red obrazcev |
 | TypeScript `tsc --noEmit` | uspešno | Celoten projekt po spremembah |
-| ESLint spremenjenih datotek | uspešno | Produkcijske in testne datoteke popravka |
-| Playwright izolirane komponente | 33/33 uspešnih | 11 stanj × 1440/390/350 px, ena CTA, sedem faz, ciljni anchor, brez vodoravnega prelivanja; CTA vidna v 900 px visokem izoliranem oknu |
+| Celoten projektni ESLint in lint sprememb | uspešno | Začasna lastna mapa qa-visual je izključena; brez novih odvisnosti |
+| Playwright izoliranega UX | 42/42 uspešnih | 14 stanj × 1440/390/350 px; aktivni obrazec prvi, vsak razdelek enkrat, ena CTA, sedem faz, tipkovnica/fokus, odpiranje zaznamkov, brez vodoravnega prelivanja. Prikazane so dejanske začetne komponente obrazcev; njihove poslovne akcije so izključene. |
 | REA gostovani DEV | uspešno omejeno opazovanje | `/dashboard` → 307 → `/login` 200; vsi opaženi resource odgovori <400, brez zajetih request failures. To ne preveri notranjih poslovnih zahtevkov. |
-| REA komponenta | deklarirani dejanski klik | Pri 350 px gumb odpre `#podatki`, omrežje/console brez teles ali vrednosti headerjev |
+| REA komponenta in delovni prostor | dejanski kliki | Pri 350 px glavni gumb odpre `#podatki`, klik podrobnosti odpre pregled predračuna; brez poslovnih akcij in brez teles ali vrednosti headerjev |
 | Next build – Turbopack | infrastruktura blokira | Ponovno uporabljeni node_modules so junction iz obstoječega worktreeja; Turbopack zavrne pot zunaj korena. Paketov nismo dodajali. |
 | Next build – Webpack | compile in TypeScript uspešna; celota neuspešna | Prerender `/dostop-zavrnjen` zahteva manjkajoča `NEXT_PUBLIC_SUPABASE_URL` in `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Okoljskih nastavitev nismo spreminjali. |
+| Webpack compile build | uspešno | `npm run build -- --webpack --experimental-build-mode compile`; optimizirani build brez prerender/generate faze, brez lokalnih Supabase nastavitev. To ni dokaz polnega produkcijskega builda. |
+| Lokalni Quibi HTTP adapter | 1/1 uspešen, vključen v 525 | Sintetični prevzem stranke/vozila, predračuna, naloga, računa, PDF in idempotentnost/persistenca. SEND ostane izključen. Ni dejanski Quibi. |
+| Zgodovinske fazne assertion skripte | 5 uspešnih, 4 neuspešne | Iste štiri napake so ponovljene na nespremenjeni DEV osnovi a9bc369; niso regresije tega UX popravka. |
 | Dejanski E2E z bazo in Quibijem | **ni izveden** | Docker/Supabase ne teče, DEV ni prijavljen; poslovnih simulacij ne predstavljamo kot uspeh. |
 
 Ponovljivi ukazi iz worktreeja:
 
 ```powershell
-node --experimental-strip-types --test src/lib/cases/journey.test.ts src/lib/cases/next-step.test.ts src/components/dashboard/QuibiSendAvailability.test.ts
+ $testFiles = @(rg --files src -g "*.test.ts")
+node --experimental-strip-types --conditions=react-server --import ./scripts/contact-test-register.mjs --test --test-concurrency=2 $testFiles scripts/e2e/quibi-business-fixture.test.mjs
 node node_modules/typescript/bin/tsc --noEmit
-node scripts/qa-case-journey.mjs
+node scripts/qa-case-journey.mjs --video
+npm run lint -- --ignore-pattern "qa-visual/**"
+npm run build -- --webpack --experimental-build-mode compile
 ```
 
-`scripts/qa-case-journey.mjs` uporablja dejansko komponento, React in Tailwind ter začasni loopback HTTP strežnik. Ciljni razdelki so izrecno označeni testni vsebniki, brez poslovnih obrazcev. V rezultatih in posnetkih je ta omejitev vidna. Skripta ne uporablja prijave, baze, Quibija ali skrivnosti. To ni polni E2E.
+`scripts/qa-case-journey.mjs` uporablja dejanske komponente CaseJourney, CaseWorkspace, navigacijo in začetne obrazce sprejema, priprave predračuna, pregleda, pošiljanja, odločitve in Quibi naloga. React in Tailwind ustvarita izoliran strežniški prikaz; poslovne akcije in zunanje povezave se ne izvajajo. To ni hidriran prijavljeni Next.js primer in ni polni E2E. Posnetki imajo stalno oznako sintetičnega UI.
+
+Za lokalni pregled uporabite `node scripts/qa-case-journey.mjs --serve` in `http://127.0.0.1:47866/?case=new`; druga ločena stanja so `prepare`, `review`, `approval`, `order`, `sendFailed` in `sendQueued`. Strežnik ustavite s Ctrl+C. Predogled ne ustvarja dokumentov.
+
+Neodvisni pregled nadaljevanja je odkril napačen cilj popravka zavrnjenega predračuna; popravljen je na obstoječi update obrazec v pregledu in pokrit z regresijskim testom. Opozorila primera so pred aktivnim obrazcem.
+
+Starejši lokalni HTTP fixture je vrnil premalo cenovnih polj za današnji preverjeni parser. Usklajen je z obstoječo produkcijsko pogodbo (`cenaBrezDDV`, `Ddv.stopnjaDDV`, neto vrednost vrstice, bruto glava). Test preveri tudi varno QuibiValidationError zavrnitev in nespremenjen VIN. Produkcijski adapterji in cenovna logika niso spremenjeni.
+
+Štiri stare fazne skripte imajo na osnovi in v popravku enak prvi neuspešen pogoj: `phase14b-customers-slice-a.assert.ts` – »Stranke label«; `phase14a-auth-access.assert.ts` – »missing/invalid membership -> redirect(/dostop-zavrnjen)«; `offer-review-customer-approval.assert.ts` – »Phase 8 unconfigured copy remains«; `offer-preparation.assert.ts` – »loader: no Quibi env«. Zgodovinskih varovalk nismo prepisovali, da bi umetno dobili zelen rezultat.
 
 V `tests/e2e/workflow.spec.ts` je dopolnjen dejanski avtenticirani regresijski test sedmih faz in ciljev pri vseh treh širinah. Njegova izvedba skupaj s celotnim zahtevanim scenarijem čaka na izolirane disposable CI fixtures. Obstoječi varovalni pogoji CI/SELAN_ISOLATED_E2E so ohranjeni.
 
 ## REA dokazi
 
-Uporabljen že nameščen `rea-agents@6.7.0` CLI, brez namestitve ali popravka MCP konfiguracije. [Originalni DEV Evidence](rea-hosted-evidence.json) in [komponentni Evidence](rea-component-evidence.json) vsebujejo izrecne korake, digest, metapodatke omrežja in omejitve. Telesa zahtev/odgovorov, vrednosti headerjev, piškotki in prijavni podatki niso zajeti.
+Uporabljen že nameščen `rea-agents@6.7.0` CLI, v nadaljevanju tudi razpoložljivi REA MCP za deklarirane klike. Brez namestitve ali popravka MCP konfiguracije. [Originalni DEV Evidence](rea-hosted-evidence.json) , [komponentni Evidence](rea-component-evidence.json) in [novi Evidence delovnega prostora](rea-workspace-evidence.json) vsebujejo izrecne korake, digest, metapodatke omrežja in omejitve. Telesa zahtev/odgovorov, vrednosti headerjev, piškotki in prijavni podatki niso zajeti.
 
-[Rezultati brskalnika](browser-results.json), [1440 px](new-1440.png), [390 px](new-390.png), [350 px](new-350.png), [blokada identitete](identity-390.png), [priprava naloga](order-390.png).
+[Rezultati brskalnika](browser-results.json), [1440 px](new-1440.png), [390 px](new-390.png), [350 px](new-350.png), [blokada identitete](identity-390.png), [priprava naloga](order-390.png), [dejanski obrazec sprejema](new-form-350.png), [obrazec predračuna](prepare-form-1440.png), [pregled](review-form-390.png), [obrazec naloga](order-form-390.png).
 
 ## Kaj je treba še dokazati pred merge
 
@@ -103,3 +123,5 @@ Pregledana koda zajema primer `src\app\dashboard\primeri\[serviceRequestId]\page
 
 **Safe to keep:** da kot osnutek popravka za pregled; **ne kot potrjeno dokončan P0 ali dovoljenje za merge/objavo**.
 
+
+Dodatno pregledane/spremenjene poti v `C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1`: `src\components\dashboard\CaseWorkspace.tsx`, `CaseAnchorNavigation.tsx`, `src\lib\cases\workspace.ts`, `workspace.test.ts`, `navigation.ts`, `scripts\e2e\quibi-business-fixture.mjs` in `quibi-business-fixture.test.mjs`. Primerjalne assertion skripte so bile izvedene tudi na začasni arhivski kopiji a9bc369 pod `qa-visual\baseline`, ki je ignorirana in ni del PR.

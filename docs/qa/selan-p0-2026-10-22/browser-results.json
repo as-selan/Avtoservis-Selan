@@ -1,11 +1,15 @@
 {
-  "scope": "Real CaseJourney component only; target containers are test fixtures, business forms/database/Quibi not exercised",
+  "scope": "Real CaseJourney, CaseWorkspace, native section navigation and real initial form components with synthetic inputs; SSR only, business form actions intentionally disabled; no DB/Quibi/full E2E",
   "checks": [
     {
       "width": 1440,
       "scenario": "new",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -13,6 +17,10 @@
       "scenario": "identity",
       "cta": "Preveri stranko in vozilo →",
       "target": "#quibi-povezava",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -20,6 +28,10 @@
       "scenario": "missing",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -27,6 +39,10 @@
       "scenario": "reception",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -34,6 +50,10 @@
       "scenario": "prepare",
       "cta": "Pripravi predračun →",
       "target": "#predracun",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -41,6 +61,10 @@
       "scenario": "review",
       "cta": "Preglej in potrdi predračun →",
       "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -48,6 +72,10 @@
       "scenario": "send",
       "cta": "Preveri pošiljanje predračuna →",
       "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -55,6 +83,10 @@
       "scenario": "approval",
       "cta": "Zabeleži odobritev stranke →",
       "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -62,6 +94,43 @@
       "scenario": "order",
       "cta": "Pripravi delovni nalog →",
       "target": "#poslovni-nalog",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "sendFailed",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "sendQueued",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "scenario": "revision",
+      "cta": "Preglej zavrnitev in popravi predračun →",
+      "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -69,6 +138,10 @@
       "scenario": "repair",
       "cta": "Nadaljuj popravilo →",
       "target": "#popravilo",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -76,6 +149,10 @@
       "scenario": "uncertain",
       "cta": "Preveri povezavo in izid dokumenta →",
       "target": "#predracun",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -83,6 +160,10 @@
       "scenario": "new",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -90,6 +171,10 @@
       "scenario": "identity",
       "cta": "Preveri stranko in vozilo →",
       "target": "#quibi-povezava",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -97,6 +182,10 @@
       "scenario": "missing",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -104,6 +193,10 @@
       "scenario": "reception",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -111,6 +204,10 @@
       "scenario": "prepare",
       "cta": "Pripravi predračun →",
       "target": "#predracun",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -118,6 +215,10 @@
       "scenario": "review",
       "cta": "Preglej in potrdi predračun →",
       "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -125,6 +226,10 @@
       "scenario": "send",
       "cta": "Preveri pošiljanje predračuna →",
       "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -132,6 +237,10 @@
       "scenario": "approval",
       "cta": "Zabeleži odobritev stranke →",
       "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -139,6 +248,43 @@
       "scenario": "order",
       "cta": "Pripravi delovni nalog →",
       "target": "#poslovni-nalog",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "sendFailed",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "sendQueued",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 390,
+      "scenario": "revision",
+      "cta": "Preglej zavrnitev in popravi predračun →",
+      "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -146,6 +292,10 @@
       "scenario": "repair",
       "cta": "Nadaljuj popravilo →",
       "target": "#popravilo",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -153,6 +303,10 @@
       "scenario": "uncertain",
       "cta": "Preveri povezavo in izid dokumenta →",
       "target": "#predracun",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -160,6 +314,10 @@
       "scenario": "new",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -167,6 +325,10 @@
       "scenario": "identity",
       "cta": "Preveri stranko in vozilo →",
       "target": "#quibi-povezava",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -174,6 +336,10 @@
       "scenario": "missing",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -181,6 +347,10 @@
       "scenario": "reception",
       "cta": "Preveri podatke →",
       "target": "#podatki",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -188,6 +358,10 @@
       "scenario": "prepare",
       "cta": "Pripravi predračun →",
       "target": "#predracun",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -195,6 +369,10 @@
       "scenario": "review",
       "cta": "Preglej in potrdi predračun →",
       "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -202,6 +380,10 @@
       "scenario": "send",
       "cta": "Preveri pošiljanje predračuna →",
       "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -209,6 +391,10 @@
       "scenario": "approval",
       "cta": "Zabeleži odobritev stranke →",
       "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -216,6 +402,43 @@
       "scenario": "order",
       "cta": "Pripravi delovni nalog →",
       "target": "#poslovni-nalog",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "sendFailed",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "sendQueued",
+      "cta": "Zabeleži odobritev stranke →",
+      "target": "#odobritev",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
+      "pass": true
+    },
+    {
+      "width": 350,
+      "scenario": "revision",
+      "cta": "Preglej zavrnitev in popravi predračun →",
+      "target": "#pregled-predracuna",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -223,6 +446,10 @@
       "scenario": "repair",
       "cta": "Nadaljuj popravilo →",
       "target": "#popravilo",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     },
     {
@@ -230,6 +457,10 @@
       "scenario": "uncertain",
       "cta": "Preveri povezavo in izid dokumenta →",
       "target": "#predracun",
+      "activeFormFirst": true,
+      "singleFormCopies": true,
+      "keyboardFocus": true,
+      "bookmarkedSectionRevealed": true,
       "pass": true
     }
   ]

@@ -43,3 +43,7 @@ test('closed repair phase overrides stale inquiry state',()=>{
 
 test('existing order never hides unknown financial document outcome',()=>{const j=caseJourney({...base,status:'converted',hasWorkOrder:true,customerApproved:true,stepKind:'review_quibi_mismatch'});assert.equal(j.action.href,'#poslovni-nalog');assert.match(j.blocker!,/Ne ponavljajte/);});
 test('accepted fixed price advances beyond the response form',()=>{const j=caseJourney({...base,status:'awaiting_slot_selection',fixedPriceStatus:'accepted',internalOrdersEnabled:true});assert.equal(j.action.href,'#termini');assert.equal(j.current,5);});
+
+test('rejected estimate opens its existing revision form in the review section',()=>{const j=caseJourney({...base,status:'preparing_offer',stepKind:'revise_estimate',offerPrepared:true});assert.equal(j.action.href,'#pregled-predracuna');});
+
+test('failed and queued sends stay prominent without blocking a real phone approval',()=>{for(const sendState of ['failed','queued',null]){const j=caseJourney({...base,status:'awaiting_customer_approval',stepKind:'await_customer',quoteReviewed:true,sendAttempted:true,sendState});assert.equal(j.action.href,'#odobritev');assert.match(j.blocker!,/Ne pošiljajte|Ne ponavljajte/);}});

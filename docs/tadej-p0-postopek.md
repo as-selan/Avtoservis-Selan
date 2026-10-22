@@ -1,8 +1,8 @@
 # Tadej: od novega povpraševanja do naloga
 
-**Stanje 22. 10. 2026:** navodila za kodo v tem PR. Popravek še ni objavljen v DEV. Celoten postopek z bazo in Quibijem še ni potrjen. Spodnji posnetki so dejanski Playwright posnetki nove komponente v izoliranem prikazu; niso posnetki prijavljenega primera ali dokaz ustvarjenih dokumentov.
+**Stanje 22. 10. 2026:** navodila za kodo v tem PR. Popravek še ni objavljen v DEV. Celoten postopek z bazo in Quibijem še ni potrjen. Spodnji posnetki so dejanski Playwright posnetki delovnega prostora in obstoječih komponent obrazcev v izoliranem prikazu; niso posnetki prijavljenega primera ali dokaz ustvarjenih dokumentov.
 
-1. Na nadzorni plošči odpri novo povpraševanje. Na vrhu primera je **Kaj je naslednje?**, trenutna faza in en moder gumb. Gumb te odpelje do obstoječega obrazca; sam še ničesar ne pošlje ali ustvari.
+1. Na nadzorni plošči odpri novo povpraševanje. Na vrhu primera je **Kaj je naslednje?**, trenutna faza in en moder gumb. Trenutni obrazec je takoj pod koraki, označen z **Nadaljujte tukaj**. Ostala opravila so zložena in jih lahko odpreš. Gumb te odpelje do ustreznega obrazca; sam še ničesar ne pošlje ali ustvari.
 2. Če piše **Preveri stranko in vozilo**, preveri povezavo s Quibijem. Primerjaj stranko in pravo vozilo. Če ustvarjanje ali povezava nista dovoljena, upoštevaj prikazani razlog; potreben je lastnik ali skrbnik.
 3. Pri **Preveri podatke** preveri opis, kontakt in vozilo. V Tadejevem pregledu označi potrditev in klikni **Sprejmi primer za pripravo ponudbe**. To sprejme primer in pripravi podatke; še ne ustvari predračuna.
 4. **Pripravi predračun** odpre obstoječo pripravo s Quibijevimi postavkami. Preglej predlog. Predogled ni dokument. Ustvarjanje potrdi samo, če je omogočeno; aplikacija mora nato pokazati potrjeno povezavo dokumenta.
@@ -31,4 +31,14 @@ Priprava naloga ob izključenem WRITE:
 
 ![Priprava ni ustvarjen nalog, izolirani UI](qa/selan-p0-2026-10-22/order-390.png)
 
-Video celotnega postopka ni priložen: brez izolirane baze in prijavljene testne seje bi prikazoval simulacijo poslovnih dejanj. [Dokazi in omejitve preverjanja](qa/selan-p0-2026-10-22/README.md).
+Priložen je [kratek video UX navigacije](qa/selan-p0-2026-10-22/ui-navigation.webm). Prikazuje štiri ločena sintetična stanja in odpiranje obrazcev; poslovni gumbi so v prikazu izključeni. **To ni video dokončanega postopka ali E2E.** [Dokazi in omejitve preverjanja](qa/selan-p0-2026-10-22/README.md).
+
+## Trenutni obrazci po kliku glavnega gumba
+
+![Sprejem istega primera, 350 px](qa/selan-p0-2026-10-22/new-form-350.png)
+
+![Priprava predračuna, sintetični vhodi](qa/selan-p0-2026-10-22/prepare-form-1440.png)
+
+![Obstoječi obrazec Quibi naloga, WRITE izključen](qa/selan-p0-2026-10-22/order-form-390.png)
+
+Lokalni UX predogled brez poslovnih zapisov: `node scripts/qa-case-journey.mjs --serve`, nato `http://127.0.0.1:47866/?case=new`. Prikaz ni prijavljena DEV aplikacija.
