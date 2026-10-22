@@ -7,7 +7,7 @@ import {createQuibiWorkflowWriteClient} from '../src/lib/quibi/write-http.ts';
 import {quibiWorkflowConfig} from '../src/lib/quibi/workflow-config.ts';
 import {quibiDevTestRecipient} from '../src/lib/quibi/write-contract.ts';
 import {quibiDevOperationJournal} from '../src/lib/quibi/write-journal.ts';
-import {createAndVerifyEstimate,sendAndTrackEstimate} from '../src/lib/quibi/write-workflow.ts';
+import {createAndVerifyEstimate,sendAndTrackEstimate,checkTrackedEstimateStatus} from '../src/lib/quibi/write-workflow.ts';
 import {quibiDevEstimateChoices} from '../src/lib/quibi/write-options.ts';
 import {loadEstimateCatalog} from '../src/lib/quibi/estimate-catalog.ts';
 import {canonicalEstimateOptions,requestedEstimateRows,assistedEstimateRows} from '../src/lib/quibi/estimate-editor.ts';
@@ -42,6 +42,15 @@ try{
  assert.equal(customerFingerprint({name:customer.display_name,phone:customer.phone??'',email:customer.email??''}),link.local_fingerprint);assert.equal(customerFingerprint(remoteCustomer),link.external_fingerprint);
  assert.ok(verifiedVehicleLink({customerId:link.external_id,localVehicle:{vin:vehicle.vin,registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''},remoteVehicle,vehicleLink}));
  const recipient=quibiDevTestRecipient(process.env,customer.email);assert.notEqual(recipient,remoteCustomer.email.toLowerCase());
+ if(process.env.SELAN_DEV_SMOKE_STATUS_ONLY==='1'){
+  const journal=quibiDevOperationJournal(seed.organization_id,actor),created=await journal.get('estimate',caseId);assert.equal(created?.state,'verified');assert.ok(created.quibiId);
+  const quote=await one(db.from('quotes').select('id,evidence_payload').eq('service_request_id',caseId).order('version_no',{ascending:false}).limit(1).single());assert.equal(String(quote.evidence_payload.external_id),created.quibiId);
+  report.created=true;report.linked=true;report.documentId=created.quibiId;report.quoteId=quote.id;
+  const sent=await journal.get('send',quote.id);assert.ok(sent?.sendId,'DEV_SMOKE_NO_TRACKED_SEND');assert.equal(JSON.parse(sent.requestBody).recipient,recipient);
+  let result=sent;
+  for(let i=0;i<3;i++){result=await checkTrackedEstimateStatus({journal,write,operation:result,documentId:created.quibiId});if(result.sendStatus!=='queued')break;await new Promise(resolve=>setTimeout(resolve,2000));}
+  report.sendId=result.sendId;report.sendStatus=result.sendStatus;report.sent=result.sendStatus==='sent';console.log('SELAN_DEV_SMOKE_RESULT '+JSON.stringify(report));process.exit(0);
+ }
  const [catalog,choices]=await Promise.all([loadEstimateCatalog(read),quibiDevEstimateChoices(write)]);
  let fullCatalog;try{const all=await write.getArticles();fullCatalog={keys:Object.keys(all),entries:Array.isArray(all.Sifranti)?all.Sifranti.length:null};}catch(error){fullCatalog={error:error instanceof Error?error.message:'READ_FAILED'};}
  const options=canonicalEstimateOptions(catalog.options,remoteCustomer.priceListId);
