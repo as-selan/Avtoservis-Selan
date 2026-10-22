@@ -80,8 +80,8 @@ try{
    assert.equal(previous?.quibiId,'2176927','DEV_SMOKE_KNOWN_SYNTHETIC_DOCUMENT_REQUIRED');assert.equal(previous.state,'uncertain');
    const current=await read.estimateDetail(previous.quibiId,link.external_id);assert.equal(current.externalId,previous.externalId);assert.equal(Number(current.amount),0);
    const body=JSON.parse(previous.requestBody);body.Glavadokumenta.id=Number(previous.quibiId);
-   for(const line of Object.values(body.Postavkedokumenta)){assert.ok(!('sifra' in line));line.cena=line.cenaZDDV;}
-   const payload=stableEstimatePayload(body),revision='e128577d-bd3a-4d4f-86d1-202610220031';
+   for(const line of Object.values(body.Postavkedokumenta)){assert.ok(!('sifra' in line));line.cenaBrezDDV=line.cenaZDDV;}
+   const payload=stableEstimatePayload(body),revision='e128577d-bd3a-4d4f-86d1-202610220032';
    const recovery=await journal.insertOnce({kind:'estimate_update',localEntityId:revision,serviceRequestId:freeCaseId,externalId:null,requestBody:payload.json,requestSha256:payload.sha256});assert.equal(recovery.requestSha256,payload.sha256);
    assert.equal(recovery.state,'prepared','DEV_SMOKE_REPAIR_NOT_RETRIED');assert.ok(await journal.claim(recovery.id,'prepared'));
    await journal.patch(recovery.id,'dispatching',{state:'uncertain',quibiId:previous.quibiId,documentNumber:previous.documentNumber});
