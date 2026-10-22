@@ -12,7 +12,7 @@ import {createClient} from '@supabase/supabase-js';
 import {createQuibiReadClient} from '../src/lib/quibi/client.ts';
 import {createQuibiWorkflowWriteClient,safeQuibiValidation} from '../src/lib/quibi/write-http.ts';
 import {quibiWorkflowConfig} from '../src/lib/quibi/workflow-config.ts';
-import {quibiDevTestRecipient} from '../src/lib/quibi/write-contract.ts';
+import {quibiDevTestRecipient,stableEstimatePayload} from '../src/lib/quibi/write-contract.ts';
 import {quibiDevOperationJournal} from '../src/lib/quibi/write-journal.ts';
 import {createAndVerifyEstimate,sendAndTrackEstimate,checkTrackedEstimateStatus} from '../src/lib/quibi/write-workflow.ts';
 import {quibiDevEstimateChoices} from '../src/lib/quibi/write-options.ts';
@@ -90,12 +90,13 @@ try{
      invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId);report.invoiceHeader=invoiceHeader;console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify({business:report.business,invoiceHeader:report.invoiceHeader}));
      // Explicit non-cash synthetic test choice, only when the live catalog proves one match.
      if(!invoiceHeader.paymentMethod){const nonCash=invoiceHeader.paymentMethods.filter(m=>/^(TRR|bančno nakazilo|nakazilo(?: na TRR)?|transakcijski racun|transakcijski račun)$/i.test(m.trim()));if(nonCash.length===1)invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId,{spaceId:invoiceHeader.spaceId,paymentMethod:nonCash[0]});}
-     assert.ok(invoiceHeader.ready,'DEV_SMOKE_INVOICE_HEADER_AMBIGUOUS');
+     assert.ok(invoiceHeader.ready,'DEV_SMOKE_INVOICE_HEADER_AMBIGUOUS');report.invoiceHeader=invoiceHeader;
     }
     const body=businessDocumentBody(kind,caseId,{serviceRequestId:caseId,numberingId:header.numberingId,saleTypeId:header.saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,warehouseId:source.warehouseId,spaceId:invoiceHeader?.spaceId,paymentMethod:invoiceHeader?.paymentMethod,lines,note:'QA-SIM-PR19 TEST ONLY; source '+source.id+'; source SHA '+source.contentSha256+'; synthetic approval/work completion only; no actual repair or customer approval'},kind==='invoice'?quibiToday():undefined);
     if(kind==='invoice'){body.Glavadokumenta.datIzdRac=quibiToday();body.Glavadokumenta.datValute=quibiToday();}
-    const op=await createBusinessDocument({kind,orderId:caseId,caseId,body,journal,read,write,expectedAmount:source.amount,expectedUnitNetPrices,expectedUnitIds});
-    assert.equal(op.state,'verified');assert.ok(op.quibiId);source=await loadQuibiDocument(read,kind,op.quibiId,link.external_id);
+    const op=process.env.SELAN_DEV_SMOKE_BUSINESS_VERIFY_ONLY==='1'?await journal.get(kind,caseId):await createBusinessDocument({kind,orderId:caseId,caseId,body,journal,read,write,expectedAmount:source.amount,expectedUnitNetPrices,expectedUnitIds});
+    assert.ok(op,'DEV_SMOKE_EXISTING_BUSINESS_DOCUMENT_REQUIRED');assert.equal(op.requestSha256,stableEstimatePayload(body).sha256,'DEV_SMOKE_EXISTING_REQUEST_CHANGED');
+    assert.equal(op.state,'verified');assert.ok(op.quibiId);const expectedAmount=source.amount;source=await loadQuibiDocument(read,kind,op.quibiId,link.external_id);confirmContent(source,body,expectedUnitNetPrices,expectedUnitIds);assert.equal(Number(source.amount),Number(expectedAmount));
     report.business.push({kind,id:op.quibiId,state:op.state,number:source.number,amount:source.amount,caseLinked:true,sourceId:kind==='work_order'?estimateOp.quibiId:report.business.find(b=>b.kind==='work_order')?.id});console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify({business:report.business,invoiceHeader:report.invoiceHeader}));
    }
   }catch(error){report.businessError={code:error instanceof Error&&/^[A-Z_0-9]+$/.test(error.message)?error.message:error?.code??'DEV_BUSINESS_CHECK_FAILED',check:error instanceof assert.AssertionError?String(error.message).split('\n')[0]:undefined,validation:error?.validation};}
