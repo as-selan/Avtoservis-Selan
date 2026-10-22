@@ -18,6 +18,8 @@ Vse obstoječe strežniške kontrole ostajajo: vloga/organizacija, sprejem prime
 
 Klik »Potrdi in ustvari« je izrecna potrditev pregledanega zahtevka; v obstoječo akcijo prenese zahtevani potrditvi in nespremenjeni pregledani FormData/SHA. Sprememba postavke prekliče pregled. Neznan izid nikoli ne odklene ponovnega CREATE; osvežitev ponovno naloži dnevnik in omogoči varen pregled obstoječega poskusa. Ročno urejena cena je strogo validirana na strežniku; pri nepričakovani cenovni spremembi ali spremenjenem SHA CREATE ne uspe.
 
+Napredna ročna povezava ohranja obstoječi izrecni gumb priprave, kadar kanonični zapis še ne obstaja. Samodejna varnostna presoja je zavrnila dodatno avtomatsko pripravo ob ročni povezavi zaradi možnosti spremembe poslovnega zapisa. Uporabljen je varnejši obstoječi izrecni korak; običajni urejevalnik zaradi tega nima dodatnega gumba ali potrditve.
+
 Brez novih migracij, auth/RLS sprememb, odvisnosti, produkcijske objave ali omogočanja WRITE/SEND.
 
 ## Preverjanje
@@ -60,3 +62,5 @@ Prebrano: projektni `AGENTS.md`, `CLAUDE.md`, obstoječi obrazci za pripravo/ro�
 Globalna pravila: `C:\Users\Admin\.ai-os\ORCHESTRATION_GUIDE.md`. Uporabljene veščine v `C:\Users\Admin\.agents\skills\`: `ai-orchestrator\SKILL.md`, `superpowers\systematic-debugging\SKILL.md`, `superpowers\brainstorming\SKILL.md` (izrecna uporabnikova zasnova), `superpowers\dispatching-parallel-agents\SKILL.md`, `superpowers\test-driven-development\SKILL.md`, `superpowers\verification-before-completion\SKILL.md`, `security-review\SKILL.md`. Prebrana tudi `playwright-interactive\SKILL.md`; uporabljene smernice QA z že nameščenim Playwrightom, brez spremembe sandboxa ali namestitev. React pregled: `C:\Users\Admin\.codex\plugins\cache\openai-curated-remote\vercel\0.54.1\skills\react-best-practices\SKILL.md`.
 
 **Safe to keep:** da kot Draft z navedenimi omejitvami; ne kot potrjen celoten poslovni E2E ali dovoljenje za merge.
+
+Dodatno pregledan pogoj obstoječe registracije dokumenta: `C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\supabase\migrations\20260928175615_20260927085839_manual_quibi_estimate_v1.sql` (samo branje). Za posodobitev istega DEV Previewa uporabljeni že prebrani veščini `C:\Users\Admin\.codex\plugins\cache\openai-curated-remote\vercel\0.54.1\skills\deployments-cicd\SKILL.md` in `C:\Users\Admin\.codex\plugins\cache\openai-curated-remote\vercel\0.54.1\skills\env-vars\SKILL.md`. WRITE/SEND in intake sync ostanejo izrecno izključeni na ravni te objave.
