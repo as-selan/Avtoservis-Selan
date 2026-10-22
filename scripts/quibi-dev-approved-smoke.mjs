@@ -48,12 +48,10 @@ try{
  report.catalog={fullCatalog,allOptions:options.map(o=>({key:o.key,name:o.name,unit:o.unitLabel,stockManaged:o.stockManaged})),count:options.length,issues:catalog.issues,saleTypes:choices.saleTypes,warehouses:choices.warehouses,services:options.filter(o=>/servis|pregled|zavor|tehni/i.test(o.name)).map(o=>({key:o.key,name:o.name}))};
  report.requestRows=assistedEstimateRows(requestedEstimateRows('Avtomehanika','SERVIS VOZILA\nPREGLED PRED TEHNIČNIM\nPREGELD ZAVOR',options,remoteCustomer.priceListId),options).map(r=>({request:r.requestedService,key:r.key,candidates:r.candidateKeys}));
  console.log('SELAN_DEV_SMOKE_READ '+JSON.stringify(report));
- const seedQuote=await one(db.from('quotes').select('evidence_payload').eq('service_request_id',seedId).order('version_no',{ascending:false}).limit(1).single());
- const seedDetail=await read.estimateDetail(String(seedQuote.evidence_payload.external_id),link.external_id);assert.equal(seedDetail.vehicleId,vehicleLink.quibi_vehicle_id);
- const saleTypeId=choices.saleTypes.length===1?choices.saleTypes[0].id:seedDetail.saleTypeId;
- const warehouseId=choices.warehouses.length===1?choices.warehouses[0].id:seedDetail.warehouseId;
- assert.ok(choices.saleTypes.some(c=>c.id===saleTypeId),'DEV_SMOKE_SALE_TYPE_UNVERIFIED');assert.ok(!choices.warehouses.length||choices.warehouses.some(c=>c.id===warehouseId),'DEV_SMOKE_WAREHOUSE_UNVERIFIED');
-
+ // Explicit synthetic test choices, verified by live catalog labels. Never application defaults.
+ const sales=choices.saleTypes.filter(c=>c.label==='Dobava blaga in storitev'),warehouses=choices.warehouses.filter(c=>c.label==='Delavnica');
+ assert.equal(sales.length,1,'DEV_SMOKE_TEST_SALE_TYPE_UNVERIFIED');assert.equal(warehouses.length,1,'DEV_SMOKE_TEST_WAREHOUSE_UNVERIFIED');
+ const saleTypeId=sales[0].id,warehouseId=warehouses[0].id;
  const option=options.find(o=>o.grossPrice>0);assert.ok(option,'DEV_SMOKE_NO_VERIFIED_SERVICE');
  const existing=await db.from('service_requests').select('summary,customer_id,vehicle_id').eq('id',caseId).maybeSingle();assert.ok(!existing.error);
  if(existing.data){assert.equal(existing.data.summary,'QA-SIM-PR19-20261022');assert.equal(existing.data.customer_id,customer.id);assert.equal(existing.data.vehicle_id,vehicle.id);}
