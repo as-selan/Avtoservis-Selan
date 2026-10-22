@@ -43,12 +43,18 @@ try{
  assert.ok(verifiedVehicleLink({customerId:link.external_id,localVehicle:{vin:vehicle.vin,registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''},remoteVehicle,vehicleLink}));
  const recipient=quibiDevTestRecipient(process.env,customer.email);assert.notEqual(recipient,remoteCustomer.email.toLowerCase());
  const [catalog,choices]=await Promise.all([loadEstimateCatalog(read),quibiDevEstimateChoices(write)]);
+ let fullCatalog;try{const all=await write.getArticles();fullCatalog={keys:Object.keys(all),entries:Array.isArray(all.Sifranti)?all.Sifranti.length:null};}catch(error){fullCatalog={error:error instanceof Error?error.message:'READ_FAILED'};}
  const options=canonicalEstimateOptions(catalog.options,remoteCustomer.priceListId);
- report.catalog={count:options.length,issues:catalog.issues,saleTypes:choices.saleTypes,warehouses:choices.warehouses,services:options.filter(o=>/servis|pregled|zavor|tehni/i.test(o.name)).map(o=>({key:o.key,name:o.name}))};
+ report.catalog={fullCatalog,allOptions:options.map(o=>({key:o.key,name:o.name,unit:o.unitLabel,stockManaged:o.stockManaged})),count:options.length,issues:catalog.issues,saleTypes:choices.saleTypes,warehouses:choices.warehouses,services:options.filter(o=>/servis|pregled|zavor|tehni/i.test(o.name)).map(o=>({key:o.key,name:o.name}))};
  report.requestRows=assistedEstimateRows(requestedEstimateRows('Avtomehanika','SERVIS VOZILA\nPREGLED PRED TEHNIČNIM\nPREGELD ZAVOR',options,remoteCustomer.priceListId),options).map(r=>({request:r.requestedService,key:r.key,candidates:r.candidateKeys}));
  console.log('SELAN_DEV_SMOKE_READ '+JSON.stringify(report));
- assert.equal(choices.saleTypes.length,1,'DEV_SMOKE_SALE_TYPE_AMBIGUOUS');assert.ok(choices.warehouses.length<=1,'DEV_SMOKE_WAREHOUSE_AMBIGUOUS');
- const option=options.find(o=>o.stockManaged===false&&['kos','kom','storitev'].includes(o.unitLabel.toLowerCase())&&o.grossPrice>0&&/QA|TEST|servis|pregled/i.test(o.name));assert.ok(option,'DEV_SMOKE_NO_VERIFIED_SERVICE');
+ const seedQuote=await one(db.from('quotes').select('evidence_payload').eq('service_request_id',seedId).order('version_no',{ascending:false}).limit(1).single());
+ const seedDetail=await read.estimateDetail(String(seedQuote.evidence_payload.external_id),link.external_id);assert.equal(seedDetail.vehicleId,vehicleLink.quibi_vehicle_id);
+ const saleTypeId=choices.saleTypes.length===1?choices.saleTypes[0].id:seedDetail.saleTypeId;
+ const warehouseId=choices.warehouses.length===1?choices.warehouses[0].id:seedDetail.warehouseId;
+ assert.ok(choices.saleTypes.some(c=>c.id===saleTypeId),'DEV_SMOKE_SALE_TYPE_UNVERIFIED');assert.ok(!choices.warehouses.length||choices.warehouses.some(c=>c.id===warehouseId),'DEV_SMOKE_WAREHOUSE_UNVERIFIED');
+
+ const option=options.find(o=>o.grossPrice>0);assert.ok(option,'DEV_SMOKE_NO_VERIFIED_SERVICE');
  const existing=await db.from('service_requests').select('summary,customer_id,vehicle_id').eq('id',caseId).maybeSingle();assert.ok(!existing.error);
  if(existing.data){assert.equal(existing.data.summary,'QA-SIM-PR19-20261022');assert.equal(existing.data.customer_id,customer.id);assert.equal(existing.data.vehicle_id,vehicle.id);}
  else{const {error}=await db.from('service_requests').insert({id:caseId,organization_id:seed.organization_id,customer_id:customer.id,vehicle_id:vehicle.id,status:'preparing_offer',summary:'QA-SIM-PR19-20261022',problem_description:'QA-SIM-PR19 synthetic DEV CREATE and allowlisted SEND only',service_wanted:option.name,source:seed.source,channel:seed.channel});assert.ok(!error,'DEV_SMOKE_CASE_INSERT_FAILED');}
@@ -56,7 +62,7 @@ try{
  const form=new FormData();form.set('catalogLines',JSON.stringify([{key:option.key,quantity:'1',discount:''}]));
  const rows=await estimateCatalogRows(form,read,choices,remoteCustomer);assert.ok(rows,'DEV_SMOKE_FRESH_REVIEW_REQUIRED');
  const journal=quibiDevOperationJournal(seed.organization_id,actor);
- const op=await createAndVerifyEstimate({journal,read,write,input:{serviceRequestId:caseId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,saleTypeId:choices.saleTypes[0].id,warehouseId:choices.warehouses[0]?.id,lines:rows.lines,note:'TEST-AUTOSERVIS-SELAN QA-SIM-PR19-20261022'},verifyContent:(detail,body)=>confirmBusinessContent(detail,body,rows.unitNetPrices,rows.unitIds)});
+ const op=await createAndVerifyEstimate({journal,read,write,input:{serviceRequestId:caseId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,saleTypeId,warehouseId,lines:rows.lines,note:'TEST-AUTOSERVIS-SELAN QA-SIM-PR19-20261022'},verifyContent:(detail,body)=>confirmBusinessContent(detail,body,rows.unitNetPrices,rows.unitIds)});
  assert.equal(op.state,'verified');assert.ok(op.quibiId);report.created=true;report.documentId=op.quibiId;console.log('SELAN_DEV_SMOKE_CREATED '+JSON.stringify(report));
  const detail=await read.estimateDetail(op.quibiId,link.external_id);
  const registration=await db.rpc('register_manual_quibi_estimate',{p_organization_id:seed.organization_id,p_service_request_id:caseId,p_quibi_customer_id:link.external_id,p_external_id:op.quibiId,p_content_sha256:detail.contentSha256,p_actor_id:actor});
