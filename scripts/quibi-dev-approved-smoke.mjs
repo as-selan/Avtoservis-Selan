@@ -49,7 +49,7 @@ try{
   const sent=await journal.get('send',quote.id);assert.ok(sent?.sendId,'DEV_SMOKE_NO_TRACKED_SEND');assert.equal(JSON.parse(sent.requestBody).recipient,recipient);
   // Re-read even a terminal journal status once for bounded provider diagnostics, never resend.
   const statusWrite=createQuibiWorkflowWriteClient({...config,environment:process.env,statusOnly:true,fetcher:async(url,init)=>{
-   const response=await fetch(url,init);try{const payload=await response.clone().json();const data=payload?.data??payload;report.deliveryDiagnostics={httpStatus:response.status,fields:Object.keys(data??{}).filter(k=>/^[a-zA-Z_]{1,50}$/.test(k)),...safeQuibiValidation({message:[data?.message,data?.error_message,data?.errorMessage,data?.last_error,data?.reason,typeof data?.error==='string'?data.error:''].filter(v=>typeof v==='string').join(' ')},[config.username,config.password])};}catch{report.deliveryDiagnostics={httpStatus:response.status};}return response;
+   const response=await fetch(url,init);try{const payload=await response.clone().json();const data=payload?.data??payload;report.deliveryDiagnostics={httpStatus:response.status,fields:Object.keys(data??{}).filter(k=>/^[a-zA-Z_]{1,50}$/.test(k)),...safeQuibiValidation({errors:data?.napaka,message:[data?.message,data?.error_message,data?.errorMessage,data?.last_error,data?.reason,typeof data?.error==='string'?data.error:''].filter(v=>typeof v==='string').join(' ')},[config.username,config.password])};}catch{report.deliveryDiagnostics={httpStatus:response.status};}return response;
   }});
   await statusWrite.getSendStatus(created.quibiId,sent.sendId);
   let result=sent;
