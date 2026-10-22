@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createClient} from '@supabase/supabase-js';
 import {createQuibiReadClient} from '../src/lib/quibi/client.ts';
-import {createQuibiWorkflowWriteClient} from '../src/lib/quibi/write-http.ts';
+import {createQuibiWorkflowWriteClient,safeQuibiValidation} from '../src/lib/quibi/write-http.ts';
 import {quibiWorkflowConfig} from '../src/lib/quibi/workflow-config.ts';
 import {quibiDevTestRecipient} from '../src/lib/quibi/write-contract.ts';
 import {quibiDevOperationJournal} from '../src/lib/quibi/write-journal.ts';
@@ -47,6 +47,11 @@ try{
   const quote=await one(db.from('quotes').select('id,evidence_payload').eq('service_request_id',caseId).order('version_no',{ascending:false}).limit(1).single());assert.equal(String(quote.evidence_payload.external_id),created.quibiId);
   report.created=true;report.linked=true;report.documentId=created.quibiId;report.quoteId=quote.id;
   const sent=await journal.get('send',quote.id);assert.ok(sent?.sendId,'DEV_SMOKE_NO_TRACKED_SEND');assert.equal(JSON.parse(sent.requestBody).recipient,recipient);
+  // Re-read even a terminal journal status once for bounded provider diagnostics, never resend.
+  const statusWrite=createQuibiWorkflowWriteClient({...config,environment:process.env,statusOnly:true,fetcher:async(url,init)=>{
+   const response=await fetch(url,init);try{const payload=await response.clone().json();const data=payload?.data??payload;report.deliveryDiagnostics={httpStatus:response.status,fields:Object.keys(data??{}).filter(k=>/^[a-zA-Z_]{1,50}$/.test(k)),...safeQuibiValidation({message:[data?.message,data?.error_message,data?.errorMessage,data?.last_error,data?.reason,typeof data?.error==='string'?data.error:''].filter(v=>typeof v==='string').join(' ')},[config.username,config.password])};}catch{report.deliveryDiagnostics={httpStatus:response.status};}return response;
+  }});
+  await statusWrite.getSendStatus(created.quibiId,sent.sendId);
   let result=sent;
   for(let i=0;i<3;i++){result=await checkTrackedEstimateStatus({journal,write,operation:result,documentId:created.quibiId});if(result.sendStatus!=='queued')break;await new Promise(resolve=>setTimeout(resolve,2000));}
   report.sendId=result.sendId;report.sendStatus=result.sendStatus;report.sent=result.sendStatus==='sent';console.log('SELAN_DEV_SMOKE_RESULT '+JSON.stringify(report));process.exit(0);
