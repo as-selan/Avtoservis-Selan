@@ -1,5 +1,5 @@
 import type {EstimateCatalogOption} from './estimate-catalog';
-export type EstimateDraftRow={key:string;quantity:string;discount:string;unitPrice?:string};
+export type EstimateDraftRow={key:string;quantity:string;discount:string;unitPrice?:string;requestedService?:string};
 export function initialEstimateRows(ai:Array<{key:string;quantity:number|null}>,exact:string|null|undefined):EstimateDraftRow[]{return ai.length?ai.map(line=>({key:line.key,quantity:line.quantity===null?'':String(line.quantity),discount:''})):exact?[{key:exact,quantity:'1',discount:''}]:[];}
 export function draftRowPrice(row:EstimateDraftRow,option:EstimateCatalogOption,customerPriceListId?:string|null){
  const assigned=customerPriceListId===option.priceListId;
@@ -18,3 +18,21 @@ export function draftTotal(rows:EstimateDraftRow[],options:EstimateCatalogOption
 
 /** One choice per article; the server always applies the assigned customer list. */
 export function canonicalEstimateOptions(options:EstimateCatalogOption[],customerPriceListId?:string|null){const articles=[...new Set(options.map(o=>o.articleId))];return articles.map(id=>options.find(o=>o.articleId===id&&o.priceListId===customerPriceListId)??options.find(o=>o.articleId===id)!);}
+
+/** Request text is authoritative; AI availability must never erase requested work. */
+export function requestedEstimateRows(wanted:string|null|undefined,description:string|null|undefined,options:EstimateCatalogOption[],customerPriceListId?:string|null):EstimateDraftRow[]{
+ const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('sl').replace(/[^a-z0-9]+/g,' ').trim();
+ const categories=new Set(['avtomehanika','druga storitev']);
+ const split=(value:string)=>value.split(/[\n\r;•]+/).map(v=>v.replace(/^\s*(?:[-*]|\d+[.)])\s*/,'').trim()).filter(Boolean);
+ const detailed=split(description??'');
+ const labels=[...split(wanted??'').filter(v=>!detailed.length||!categories.has(normalize(v))),...detailed];
+ const unique=labels.filter((v,i)=>labels.findIndex(other=>normalize(other)===normalize(v))===i);
+ const catalog=canonicalEstimateOptions(options,customerPriceListId);
+ return unique.slice(0,100).map(requestedService=>{
+  const matches=catalog.filter(o=>normalize(o.name)===normalize(requestedService)||normalize(o.code)===normalize(requestedService));
+  const match=matches.length===1?matches[0]:undefined;
+  // One requested service is one piece; time, weight and other units need an explicit quantity.
+  const quantity=match&&!['kos','kom','storitev','piece','pcs'].includes(normalize(match.unitLabel))?'':'1';
+  return {key:match?.key??'',quantity,discount:'',requestedService};
+ });
+}
