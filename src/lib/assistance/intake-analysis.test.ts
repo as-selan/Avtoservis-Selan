@@ -43,3 +43,10 @@ test('provider cannot mutate canonical catalog or manufacture a supplied referen
  const input={summary:'Servis',missingFields:[],estimateContext:{catalog:[{key:'189:11',code:'QA',name:'Storitev',unit:'kos'}]}};
  const result=await analyzeIntake(input,{async analyze(i){i.estimateContext!.catalog[0].key='invented';return {draft:'Predlog',estimateLines:[{key:'invented',quantity:1}]}}});assert.equal(result.status,'failed');assert.equal(input.estimateContext.catalog[0].key,'189:11');
 });
+
+test('per-request matches preserve catalog boundaries and never accept injected service labels',async()=>{
+ const input={summary:'PREGELD ZAVOR',missingFields:[],estimateContext:{requestedServices:['PREGELD ZAVOR'],catalog:[{key:'9:11',name:'Pregled zavor',code:'Z',unit:'kos'}]}};
+ const match={requestedService:'PREGELD ZAVOR',key:'9:11',confidence:'high',alternatives:[]};
+ const result=await analyzeIntake(input,{async analyze(){return {draft:'Pregled',serviceMatches:[match]}}});assert.deepEqual(result.serviceMatches,[match]);
+ for(const bad of [{...match,key:'invented'},{...match,requestedService:'Unrequested'},{...match,alternatives:['invented']},{...match,confidence:'certain'}]){const r=await analyzeIntake(input,{async analyze(){return {draft:'Pregled',serviceMatches:[bad]}}});assert.equal(r.status,'failed');assert.deepEqual(r.serviceMatches,[]);}
+});

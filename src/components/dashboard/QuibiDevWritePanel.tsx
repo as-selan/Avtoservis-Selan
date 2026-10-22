@@ -14,7 +14,7 @@ import type { QuibiChoice } from "@/lib/quibi/write-options";
 function LegacyQuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, inspectionFindings, aiEstimateLines=[], writeEnabled=true }: {
   serviceRequestId: string; mode: "prepare" | "create" | "update" | "send"; quoteId?: string;
   offerPrepared?:boolean;customerPriceListId?:string|null;writeEnabled?:boolean; inspectionFindings?:string|null; aiEstimateLines?:Array<{key:string;quantity:number|null}>;
-  catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;requestedService?:string|null;requestDescription?:string|null;
+  catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;requestedService?:string|null;requestDescription?:string|null;aiServiceMatches?:import("@/lib/assistance/intake-analysis").IntakeServiceMatch[];
   lineDescription?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[]; warehouses?: QuibiChoice[] };
   sendStatus?: string | null; sendId?: string | null; operationState?: string;

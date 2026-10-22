@@ -1,3 +1,4 @@
+import {requestedEstimateRows,canonicalEstimateOptions} from '@/lib/quibi/estimate-editor';
 import {EstimatePreparationWorkspace} from '@/components/dashboard/EstimatePreparationWorkspace';
 import {currentCaseIdentity,visibleIdentityNotice} from '@/lib/cases/identity-notice';
 import {CaseOverview} from '@/components/dashboard/CaseOverview';
@@ -230,9 +231,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     // Authenticated RLS supplies only this case's notes. No structured customer IDs,
     // prices, credentials, PDFs or financial documents; free text may contain PII.
     const assistance=await analyzeIntake({summary:[request.summary,request.problem_description].filter(Boolean).join('\n').slice(0,10000),missingFields:missing,serviceWanted:request.service_wanted??undefined,
-      estimateContext:{inspectionFindings:inspectionResult.data?.status==='completed'?inspectionResult.data.findings??undefined:undefined,
+      estimateContext:{requestedServices:requestedEstimateRows(request.service_wanted,request.problem_description,[]).map(r=>r.requestedService!),inspectionFindings:inspectionResult.data?.status==='completed'?inspectionResult.data.findings??undefined:undefined,
         mechanicNotes:aiNotes?.error?undefined:aiNotes?.data?.map(n=>n.body),vehicle:vehicle?{make:vehicle.make??'',model:vehicle.model??''}:undefined,
-        catalog:estimateCatalog.options.length<=500?estimateCatalog.options.map(o=>({key:o.key,code:o.code,name:o.name,unit:o.unitLabel})):[]}},aiProvider);
+        catalog:estimateCatalog.options.length<=500?canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).map(o=>({key:o.key,code:o.code,name:o.name,unit:o.unitLabel})):[]}},aiProvider);
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = step.kind === "send_estimate" && fixedPrice?.status === "approved" && !!request.service_wanted &&
         fixedPrice.service_label.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI") === request.service_wanted.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI")
@@ -288,7 +289,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
           {!quote && !fixedPrice && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) && !(link?.sync_status === "ok" && vehicleLink?.sync_status === "ok") && <p role="status" className="text-sm text-amber-800">Predogled predračuna bo na voljo po potrjeni povezavi stranke in pravega vozila. Najprej preverite podatke v razdelku »Povezava s Quibijem«; podatkov in cen ne vnašajte ponovno.</p>}
           {!quote && !fixedPrice && request.status === "preparing_offer" && link?.sync_status === "ok" && vehicleLink?.sync_status === "ok" && ["owner", "admin"].includes(access.role) &&
-            <EstimatePreparationWorkspace requestedService={request.service_wanted} requestDescription={request.problem_description} offerPrepared={prep?.status === "ready_for_provider"} customerPriceListId={customerPriceListId} aiEstimateLines={assistance.estimateLines} inspectionFindings={inspectionResult.data?.status === "completed" ? inspectionResult.data.findings : null} serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} operationState={createdOperation?.state} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
+            <EstimatePreparationWorkspace aiServiceMatches={assistance.serviceMatches} requestedService={request.service_wanted} requestDescription={request.problem_description} offerPrepared={prep?.status === "ready_for_provider"} customerPriceListId={customerPriceListId} aiEstimateLines={assistance.estimateLines} inspectionFindings={inspectionResult.data?.status === "completed" ? inspectionResult.data.findings : null} serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} operationState={createdOperation?.state} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Primer še nima ustvarjenega predračuna. Pregled zgoraj še ne ustvari dokumenta in ga ne pošlje stranki.</p>}

@@ -1,20 +1,21 @@
 "use client";
+import type {IntakeServiceMatch} from '@/lib/assistance/intake-analysis';
 import {useRef,useState,useTransition} from 'react';
 import {useRouter} from 'next/navigation';
 import {prepareOfferAction} from '@/lib/offer-preparation/actions';
 import {prepareQuibiEstimate,createQuibiDevEstimate,prepareQuibiEstimateHistory,reconcileQuibiEstimate} from '@/lib/quibi/dev-write-actions';
-import {canonicalEstimateOptions,draftRowPrice,draftTotal,initialEstimateRows,requestedEstimateRows,type EstimateDraftRow} from '@/lib/quibi/estimate-editor';
+import {canonicalEstimateOptions,draftRowPrice,draftTotal,assistedEstimateRows,initialEstimateRows,requestedEstimateRows,type EstimateDraftRow} from '@/lib/quibi/estimate-editor';
 import {inspectionCatalogSuggestions} from '@/lib/quibi/inspection-catalog';
 import type {EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
 import type {EstimateReview} from '@/lib/quibi/estimate-preparation';
 import type {QuibiChoice} from '@/lib/quibi/write-options';
 import type {CreatedEstimateSummary} from '@/lib/quibi/created-estimate-summary';
-export type EstimateComposerProps={serviceRequestId:string;mode:'prepare'|'create';offerPrepared?:boolean;writeEnabled?:boolean;customerPriceListId?:string|null;catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;requestedService?:string|null;requestDescription?:string|null;inspectionFindings?:string|null;aiEstimateLines?:Array<{key:string;quantity:number|null}>;operationState?:string;choices?:{saleTypes:QuibiChoice[];units:QuibiChoice[];vatRates:QuibiChoice[];warehouses?:QuibiChoice[]}};
+export type EstimateComposerProps={serviceRequestId:string;mode:'prepare'|'create';offerPrepared?:boolean;writeEnabled?:boolean;customerPriceListId?:string|null;catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;requestedService?:string|null;requestDescription?:string|null;aiServiceMatches?:IntakeServiceMatch[];inspectionFindings?:string|null;aiEstimateLines?:Array<{key:string;quantity:number|null}>;operationState?:string;choices?:{saleTypes:QuibiChoice[];units:QuibiChoice[];vatRates:QuibiChoice[];warehouses?:QuibiChoice[]}};
 const money=(n:number)=>n.toLocaleString('sl-SI',{style:'currency',currency:'EUR'});
-export function EstimateComposer({serviceRequestId,mode,offerPrepared=true,writeEnabled=true,customerPriceListId,catalogOptions:allCatalogOptions=[],catalogIssues=[],initialCatalogSource,requestedService,requestDescription,inspectionFindings,aiEstimateLines=[],operationState,choices}:EstimateComposerProps){
+export function EstimateComposer({serviceRequestId,mode,offerPrepared=true,writeEnabled=true,customerPriceListId,catalogOptions:allCatalogOptions=[],catalogIssues=[],initialCatalogSource,requestedService,requestDescription,aiServiceMatches=[],inspectionFindings,aiEstimateLines=[],operationState,choices}:EstimateComposerProps){
  const router=useRouter(),lock=useRef(false),casePrepared=useRef(offerPrepared),reviewedForm=useRef<FormData|null>(null);
  const catalogOptions=canonicalEstimateOptions(allCatalogOptions,customerPriceListId);
- const [rows,setRows]=useState<EstimateDraftRow[]>(()=>(requestedEstimateRows(requestedService,requestDescription,allCatalogOptions,customerPriceListId).length?requestedEstimateRows(requestedService,requestDescription,allCatalogOptions,customerPriceListId):initialEstimateRows(aiEstimateLines,initialCatalogSource)).map(row=>({...row,key:catalogOptions.find(o=>o.articleId===allCatalogOptions.find(source=>source.key===row.key)?.articleId)?.key??row.key})));
+ const [rows,setRows]=useState<EstimateDraftRow[]>(()=>(requestedEstimateRows(requestedService,requestDescription,allCatalogOptions,customerPriceListId).length?assistedEstimateRows(requestedEstimateRows(requestedService,requestDescription,allCatalogOptions,customerPriceListId),catalogOptions,aiServiceMatches):initialEstimateRows(aiEstimateLines,initialCatalogSource)).map(row=>({...row,key:catalogOptions.find(o=>o.articleId===allCatalogOptions.find(source=>source.key===row.key)?.articleId)?.key??row.key})));
  const [pending,start]=useTransition(),[message,setMessage]=useState(''),[review,setReview]=useState<EstimateReview|null>(null),[sha,setSha]=useState<string|null>(null),[sourceSha,setSourceSha]=useState<string|null>(null),[dispatchStarted,setDispatchStarted]=useState(false),[document,setDocument]=useState<CreatedEstimateSummary|null>(null);
  const canWrite=mode==='create'&&writeEnabled,locked=['failed','uncertain','dispatching','verified'].includes(operationState??''),total=draftTotal(rows,catalogOptions,customerPriceListId);
  const ready=!!review&&!!sha;
@@ -51,6 +52,8 @@ export function EstimateComposer({serviceRequestId,mode,offerPrepared=true,write
    <section aria-label="Postavke predračuna" className="space-y-3">
    {rows.map((row,index)=>{const option=catalogOptions.find(o=>o.key===row.key),price=option?draftRowPrice(row,option,customerPriceListId):null;return <article key={index} className="min-w-0 space-y-3 rounded-lg border bg-white p-3">
     <label className="block text-sm font-medium">{row.requestedService??`Postavka ${index+1}`}<select aria-label={'Postavka '+(index+1)} required value={row.key} onChange={e=>changeRow(index,{key:e.target.value,unitPrice:undefined,discount:''})} className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2"><option value="">Izberite storitev ali del</option>{catalogOptions.map(o=><option key={o.key} value={o.key}>{o.code} · {o.name} · {o.priceListName}</option>)}</select></label>
+    {!option&&!!row.candidateKeys?.length&&<div className="flex flex-wrap gap-2">{row.candidateKeys.map(key=>{const candidate=catalogOptions.find(o=>o.key===key)!;return <button key={key} type="button" onClick={()=>changeRow(index,{key,unitPrice:undefined,discount:'',quantity:['kos','kom','storitev','pcs'].includes(candidate.unitLabel.toLowerCase())?'1':''})} className="min-h-11 rounded border px-3 py-2 text-sm">{candidate.name}</button>;})}</div>}
+    {option&&row.matchSource&&<p className="text-xs text-slate-600">{row.matchSource} · preverite obseg storitve v pregledu predračuna.</p>}
     {!option&&row.requestedService&&<p className="text-sm text-amber-900">Za to zahtevo ni enega zanesljivega ujemanja. Izberite ustrezno Quibijevo postavko; cena se prevzame iz cenika.</p>}
     {option&&price&&<>
      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

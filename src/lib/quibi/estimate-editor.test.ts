@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import {test} from 'node:test';
-import {draftRowPrice,draftTotal,initialEstimateRows,canonicalEstimateOptions,requestedEstimateRows} from './estimate-editor.ts';
+import {draftRowPrice,draftTotal,initialEstimateRows,canonicalEstimateOptions,requestedEstimateRows,assistedEstimateRows} from './estimate-editor.ts';
 const option={key:'9:11',articleId:'11',priceListId:'9',name:'Servis',code:'S',priceListName:'Cenik',unitId:'1',unitLabel:'kos',vatId:'2',vatLabel:'22 %',grossPrice:122,discount:0,priceListNetPrice:'80',priceListDiscount:5,priceListDiffers:true,sourceSha:'a',stockManaged:false};
 test('confirmed customer pricing is reused without a typed price or repeated confirmation',()=>{assert.deepEqual(initialEstimateRows([],option.key),[{key:option.key,quantity:'1',discount:''}]);assert.equal(draftRowPrice({key:option.key,quantity:'2',discount:''},option,'9').unitPrice,97.6);assert.equal(draftRowPrice({key:option.key,quantity:'2',discount:''},option,null).unitPrice,122)});
 test('row choices and discount produce per-line cents and incomplete input has no false total',()=>{const row={key:option.key,quantity:'2',discount:'5',unitPrice:'100'};assert.equal(draftTotal([row],[option],'9'),190);assert.equal(draftTotal([{...row,quantity:''}],[option],'9'),null);assert.equal(draftTotal([{...row,unitPrice:'0oops'}],[option],'9'),null);assert.equal(draftTotal([],[option],'9'),null)});
@@ -19,4 +19,14 @@ test('duplicate price lists are one article, ambiguous articles never guessed an
  assert.equal(requestedEstimateRows('Servis',null,[other,option],'9')[0].key,'9:11');
  assert.equal(requestedEstimateRows('Servis',null,[option,{...option,key:'9:12',articleId:'12'}],'9')[0].key,'');
  assert.equal(requestedEstimateRows('Servis',null,[{...option,unitLabel:'ura'}],'9')[0].quantity,'');
+});
+
+test('one clear transposition pre-fills only an existing catalog service',()=>{
+ const catalog=[{...option,name:'Pregled zavor'}];const rows=requestedEstimateRows('Avtomehanika','PREGELD ZAVOR',catalog,'9');
+ const result=assistedEstimateRows(rows,catalog);assert.equal(result[0].key,option.key);assert.equal(result[0].unitPrice,undefined);
+});
+test('ambiguous AI offers row choices; confident AI uses only validated catalog references',()=>{
+ const catalog=[{...option,name:'Pregled zavor'},{...option,key:'9:12',articleId:'12',name:'Kontrola zavornega sistema'}];const rows=requestedEstimateRows(null,'Zavore cvilijo',catalog,'9');
+ const uncertain=assistedEstimateRows(rows,catalog,[{requestedService:'Zavore cvilijo',key:null,confidence:'uncertain',alternatives:['9:11','9:12']}]);assert.equal(uncertain[0].key,'');assert.deepEqual(uncertain[0].candidateKeys,['9:11','9:12']);
+ const high=assistedEstimateRows(rows,catalog,[{requestedService:'Zavore cvilijo',key:'9:11',confidence:'high',alternatives:[]}]);assert.equal(high[0].key,'9:11');assert.equal(high[0].unitPrice,undefined);
 });
