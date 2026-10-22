@@ -233,7 +233,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const assistance=await analyzeIntake({summary:[request.summary,request.problem_description].filter(Boolean).join('\n').slice(0,10000),missingFields:missing,serviceWanted:request.service_wanted??undefined,
       estimateContext:{requestedServices:requestedEstimateRows(request.service_wanted,request.problem_description,[]).map(r=>r.requestedService!),inspectionFindings:inspectionResult.data?.status==='completed'?inspectionResult.data.findings??undefined:undefined,
         mechanicNotes:aiNotes?.error?undefined:aiNotes?.data?.map(n=>n.body),vehicle:vehicle?{make:vehicle.make??'',model:vehicle.model??''}:undefined,
-        catalog:estimateCatalog.options.length<=500?canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).map(o=>({key:o.key,code:o.code,name:o.name,unit:o.unitLabel})):[]}},aiProvider);
+        catalog:canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).length<=500?canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).map(o=>({key:o.key,code:o.code,name:o.name,unit:o.unitLabel})):[]}},aiProvider);
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = step.kind === "send_estimate" && fixedPrice?.status === "approved" && !!request.service_wanted &&
         fixedPrice.service_label.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI") === request.service_wanted.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI")

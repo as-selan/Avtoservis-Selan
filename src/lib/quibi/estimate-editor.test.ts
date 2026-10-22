@@ -30,3 +30,9 @@ test('ambiguous AI offers row choices; confident AI uses only validated catalog 
  const uncertain=assistedEstimateRows(rows,catalog,[{requestedService:'Zavore cvilijo',key:null,confidence:'uncertain',alternatives:['9:11','9:12']}]);assert.equal(uncertain[0].key,'');assert.deepEqual(uncertain[0].candidateKeys,['9:11','9:12']);
  const high=assistedEstimateRows(rows,catalog,[{requestedService:'Zavore cvilijo',key:'9:11',confidence:'high',alternatives:[]}]);assert.equal(high[0].key,'9:11');assert.equal(high[0].unitPrice,undefined);
 });
+
+test('bounded synonymous service names match but never expand a generic service to parts replacement',()=>{
+ const options=[{...option,name:'Pregled zavor'},{...option,key:'9:12',articleId:'12',name:'Pregled pred tehničnim pregledom'}];
+ const rows=assistedEstimateRows(requestedEstimateRows(null,'Kontrola zavornega sistema\nPregled pred tehničnim',options,'9'),options);assert.deepEqual(rows.map(r=>r.key),['9:11','9:12']);
+ assert.equal(assistedEstimateRows(requestedEstimateRows(null,'Servis vozila',options,'9'),[{...option,name:'Menjava olja'}])[0].key,'');
+});
