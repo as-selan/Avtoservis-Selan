@@ -1,0 +1,82 @@
+"use client";
+import {useRef,useState,useTransition} from 'react';
+import {useRouter} from 'next/navigation';
+import {prepareOfferAction} from '@/lib/offer-preparation/actions';
+import {prepareQuibiEstimate,createQuibiDevEstimate,prepareQuibiEstimateHistory,reconcileQuibiEstimate} from '@/lib/quibi/dev-write-actions';
+import {canonicalEstimateOptions,draftRowPrice,draftTotal,initialEstimateRows,type EstimateDraftRow} from '@/lib/quibi/estimate-editor';
+import {inspectionCatalogSuggestions} from '@/lib/quibi/inspection-catalog';
+import type {EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
+import type {EstimateReview} from '@/lib/quibi/estimate-preparation';
+import type {QuibiChoice} from '@/lib/quibi/write-options';
+import type {CreatedEstimateSummary} from '@/lib/quibi/created-estimate-summary';
+export type EstimateComposerProps={serviceRequestId:string;mode:'prepare'|'create';offerPrepared?:boolean;writeEnabled?:boolean;customerPriceListId?:string|null;catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;inspectionFindings?:string|null;aiEstimateLines?:Array<{key:string;quantity:number|null}>;operationState?:string;choices?:{saleTypes:QuibiChoice[];units:QuibiChoice[];vatRates:QuibiChoice[];warehouses?:QuibiChoice[]}};
+const money=(n:number)=>n.toLocaleString('sl-SI',{style:'currency',currency:'EUR'});
+export function EstimateComposer({serviceRequestId,mode,offerPrepared=true,writeEnabled=true,customerPriceListId,catalogOptions:allCatalogOptions=[],catalogIssues=[],initialCatalogSource,inspectionFindings,aiEstimateLines=[],operationState,choices}:EstimateComposerProps){
+ const router=useRouter(),lock=useRef(false),casePrepared=useRef(offerPrepared),reviewedForm=useRef<FormData|null>(null);
+ const catalogOptions=canonicalEstimateOptions(allCatalogOptions,customerPriceListId);
+ const [rows,setRows]=useState<EstimateDraftRow[]>(()=>initialEstimateRows(aiEstimateLines,initialCatalogSource).map(row=>({...row,key:catalogOptions.find(o=>o.articleId===allCatalogOptions.find(source=>source.key===row.key)?.articleId)?.key??row.key})));
+ const [pending,start]=useTransition(),[message,setMessage]=useState(''),[review,setReview]=useState<EstimateReview|null>(null),[sha,setSha]=useState<string|null>(null),[sourceSha,setSourceSha]=useState<string|null>(null),[dispatchStarted,setDispatchStarted]=useState(false),[document,setDocument]=useState<CreatedEstimateSummary|null>(null);
+ const canWrite=mode==='create'&&writeEnabled,locked=['failed','uncertain','dispatching','verified'].includes(operationState??''),total=draftTotal(rows,catalogOptions,customerPriceListId);
+ const ready=!!review&&!!sha;
+ function edit(next:EstimateDraftRow[]){setRows(next);setReview(null);setSha(null);setSourceSha(null);reviewedForm.current=null;setMessage('');}
+ async function prepareCase(){if(casePrepared.current)return true;const result=await prepareOfferAction(serviceRequestId);if(!result.ok){setMessage(result.message);return false;}casePrepared.current=true;return true;}
+ function changeRow(index:number,patch:Partial<EstimateDraftRow>){edit(rows.map((row,i)=>i===index?{...row,...patch}:row));}
+ const suggestions=inspectionCatalogSuggestions(inspectionFindings,catalogOptions);
+ const configured=!!choices?.saleTypes.length&&!!choices.units.length&&!!choices.vatRates.length;
+ return <form aria-label="Priprava predračuna" className="space-y-4" onSubmit={event=>{
+  event.preventDefault();if(lock.current||pending||dispatchStarted)return;
+  const dispatch=(event.nativeEvent as SubmitEvent).submitter?.getAttribute('data-create')==='yes';
+  if(dispatch&&(!canWrite||locked||!ready||!reviewedForm.current))return;
+  const form=new FormData();for(const [key,value] of (dispatch?reviewedForm.current!:new FormData(event.currentTarget)).entries())form.append(key,value);
+  form.set('serviceRequestId',serviceRequestId);
+  if(dispatch){form.set('expectedSha',sha!);if(sourceSha)form.set('expectedSourceSha',sourceSha);form.set('createConfirmed','yes');form.set('serviceMatchConfirmed','yes');setDispatchStarted(true);}
+  lock.current=true;start(async()=>{try{
+   if(!dispatch&&!await prepareCase())return;
+   const result=dispatch?await createQuibiDevEstimate(form):await prepareQuibiEstimate(form);
+   if(!result.ok){setMessage(result.message);setReview(null);setSha(null);reviewedForm.current=null;if(dispatch)router.refresh();return;}
+   if(dispatch){setDocument(result.document??null);setMessage(result.detail);router.refresh();}
+   else{reviewedForm.current=form;setReview(result.review??null);setSha(result.sha??null);setSourceSha(result.sourceSha??null);setMessage('');}
+  }catch{if(dispatch)router.refresh();setMessage(dispatch?'Izid ustvarjanja ni potrjen. Ne ustvarjajte novega dokumenta; preverite obstoječi poskus.':'Predogleda trenutno ni mogoče preveriti. Vnosi so ohranjeni; poskusite ponovno.');}
+  finally{lock.current=false;}});
+ }}>
+  <div><h3 className="font-semibold text-slate-950">Predračun</h3><p className="mt-1 text-sm text-slate-600">Stranka in vozilo sta prevzeta iz potrjenega primera. Uredite postavke, nato preglejte predračun.</p></div>
+  {!canWrite&&<p role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-medium">Samo predogled – ustvarjanje v Quibiju ni omogočeno</p>}
+  {locked&&<section role="alert" className="space-y-2 rounded border border-amber-300 p-3 text-sm"><p>{operationState==='verified'?'Predračun že obstaja.':'Prejšnji poskus ustvarjanja zahteva pregled.'} Ponovno ustvarjanje je ustavljeno.</p>{['uncertain','dispatching'].includes(operationState??'')&&<button type="button" disabled={pending} onClick={()=>{if(lock.current)return;lock.current=true;start(async()=>{try{const r=await reconcileQuibiEstimate(serviceRequestId);setMessage(r.message);if(r.ok)router.refresh();}finally{lock.current=false;}});}} className="min-h-11 rounded border px-3 py-2">Preveri obstoječi dokument</button>}</section>}
+  {document&&<section role="status" className="space-y-2 rounded border border-green-300 p-3"><p>Predračun #{document.id} obstaja v Quibiju. Ni poslan.</p><a className="block text-blue-700 underline" href={`/dashboard/stranke/${document.customerId}/quibi/predracuni/${document.id}`}>Odpri predračun</a>{!document.linked&&<p>Povezava s primerom zahteva pregled. Ne ustvarjajte novega dokumenta.</p>}</section>}
+  {!configured&&<p role="alert" className="text-sm text-amber-900">Quibijevih podatkov za pripravo trenutno ni mogoče prebrati. Osvežite stran ali preverite dostop do Quibija; podatkov ne vnašajte znova.</p>}
+  {configured&&!catalogOptions.length&&<p role="status" className="text-sm text-amber-900">Quibijevih postavk trenutno ni mogoče prikazati. Osvežite stran; podatkov stranke in vozila ni treba ponovno vnašati.</p>}
+  <fieldset disabled={pending||dispatchStarted} className="min-w-0 space-y-4">
+  {!ready?<>
+   <input type="hidden" name="catalogLines" value={JSON.stringify(rows)}/><input type="hidden" name="unitId" value={catalogOptions.find(o=>o.key===rows[0]?.key)?.unitId??''}/><input type="hidden" name="vatId" value={catalogOptions.find(o=>o.key===rows[0]?.key)?.vatId??''}/>
+   <section aria-label="Postavke predračuna" className="space-y-3">
+   {rows.map((row,index)=>{const option=catalogOptions.find(o=>o.key===row.key),price=option?draftRowPrice(row,option,customerPriceListId):null;return <article key={index} className="min-w-0 space-y-3 rounded-lg border bg-white p-3">
+    <label className="block text-sm font-medium">Postavka {index+1}<select aria-label={'Postavka '+(index+1)} required value={row.key} onChange={e=>changeRow(index,{key:e.target.value,unitPrice:undefined,discount:''})} className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2"><option value="">Izberite storitev ali del</option>{catalogOptions.map(o=><option key={o.key} value={o.key}>{o.code} · {o.name} · {o.priceListName}</option>)}</select></label>
+    {option&&price&&<>
+     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <label className="text-sm">Količina ({option.unitLabel})<input aria-label={'Količina postavke '+(index+1)} value={row.quantity} onChange={e=>changeRow(index,{quantity:e.target.value})} type="number" min="0.001" max="100000" step="0.001" required className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2"/></label>
+      <label className="text-sm">Cena z DDV (€)<input aria-label={'Cena postavke '+(index+1)} value={row.unitPrice??(Number.isFinite(price.unitPrice)?String(Number(price.unitPrice.toFixed(8))):'')} onChange={e=>changeRow(index,{unitPrice:e.target.value})} readOnly={option.stockManaged!==false} type="number" min="0" max="1000000" step="any" required className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2"/></label>
+      <label className="text-sm">Popust (%)<input aria-label={'Popust postavke '+(index+1)} value={row.discount||String(price.discount)} onChange={e=>changeRow(index,{discount:e.target.value})} type="number" min="0" max="100" step="0.01" required className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2"/></label>
+     </div>
+     <p className="text-sm text-slate-600">DDV {option.vatLabel} · {row.unitPrice!==undefined?'Urejena cena za ta predračun':price.assigned?'Cenik stranke':'Osnovna cena artikla'}{option.stockManaged!==false?' · Cena zalogovnega artikla se preveri v Quibiju.':''}</p>
+     {option.priceListDiffers&&<div className="space-y-2 rounded border border-amber-200 bg-amber-50 p-3 text-sm"><p className="font-medium">Različni ceni te postavke</p><p>Osnovna cena: {money(price.baseGross)} · {option.priceListName}: {money(price.listGross)} z DDV, popust {option.priceListDiscount} %.</p>{option.stockManaged===false?<div className="flex flex-wrap gap-2"><button type="button" onClick={()=>changeRow(index,{unitPrice:price.baseGross.toFixed(2),discount:'0'})} className="min-h-11 rounded border bg-white px-3 py-2">Uporabi osnovno ceno</button><button type="button" onClick={()=>changeRow(index,{unitPrice:price.listGross.toFixed(2),discount:String(option.priceListDiscount)})} className="min-h-11 rounded border bg-white px-3 py-2">Uporabi ceno cenika</button></div>:<p>Za spremembo cene tega artikla je potreben pregled v Quibiju. Druge postavke lahko uredite tukaj.</p>}</div>}
+    </>}
+    <button type="button" onClick={()=>edit(rows.filter((_,i)=>i!==index))} className="min-h-11 rounded border px-3 py-2 text-sm">Odstrani postavko {index+1}</button>
+   </article>;})}
+   {!rows.length&&<p className="text-sm">Dodajte postavko iz Quibija. Podatki stranke in vozila ostanejo izpolnjeni.</p>}
+   </section>
+   <button type="button" disabled={rows.length>=100||!catalogOptions.length} onClick={()=>edit([...rows,{key:'',quantity:'1',discount:''}])} className="min-h-11 rounded border px-3 py-2 text-sm">Dodaj postavko</button>
+   <p className="rounded-lg bg-slate-50 p-3 text-lg font-semibold">Predvideno skupaj z DDV: {total===null?'Dopolnite postavke':money(total)}</p>
+   {choices?.saleTypes.length===1?<input type="hidden" name="saleTypeId" value={choices.saleTypes[0].id}/>:<label className="block text-sm">Vrsta prodaje<select name="saleTypeId" required className="mt-1 block min-h-11 w-full rounded border p-2"><option value="">Izberite vrsto prodaje</option>{choices?.saleTypes.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}</select></label>}
+   {choices?.warehouses?.length===1?<input type="hidden" name="warehouseId" value={choices.warehouses[0].id}/>:!!choices?.warehouses?.length&&<label className="block text-sm">Skladišče<select name="warehouseId" required className="mt-1 block min-h-11 w-full rounded border p-2"><option value="">Izberite skladišče</option>{choices.warehouses.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}</select></label>}
+   <button disabled={!configured||total===null} className="min-h-12 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50 sm:w-auto">{pending?'Preverjam…':'Preglej predračun'}</button>
+   <details className="text-sm"><summary className="cursor-pointer text-slate-600">Podrobnosti in predlogi iz Quibija</summary><div className="mt-3 space-y-3">
+    {catalogIssues.map(issue=><p key={issue} className="text-amber-900">{issue}</p>)}
+    {inspectionFindings&&<><p className="whitespace-pre-wrap">{inspectionFindings}</p>{suggestions.matches.length>0&&<button type="button" onClick={()=>edit(suggestions.matches.map(o=>({key:o.key,quantity:'',discount:''})))} className="min-h-11 rounded border px-3 py-2">Uporabi postavke iz pregleda</button>}</>}
+    <button type="button" onClick={()=>{if(lock.current)return;lock.current=true;start(async()=>{try{if(!await prepareCase())return;const form=new FormData();form.set('serviceRequestId',serviceRequestId);const r=await prepareQuibiEstimateHistory(form);const candidates=r.proposals.filter(p=>p.ready&&p.scope==='vehicle');if(candidates.length!==1){setMessage('Ni enega preverjenega predloga za to vozilo. Postavke izberite zgoraj.');return;}const proposal=candidates[0];const next=proposal.lines.map((line,i)=>{const matches=catalogOptions.filter(o=>o.code===line.articleCode);const assigned=matches.find(o=>o.priceListId===customerPriceListId);return {key:(assigned??matches[0])?.key??'',quantity:String(proposal.reviewedLines[i]?.quantity??''),discount:''};});edit(next);}catch{setMessage('Zgodovine trenutno ni mogoče prebrati. Postavke lahko uredite zgoraj.');}finally{lock.current=false;}});}} className="min-h-11 rounded border px-3 py-2">Predlagaj postavke iz zgodovine vozila</button>
+   </div></details>
+  </>:<section aria-label="Pregled predračuna" className="space-y-3 rounded-lg border bg-slate-50 p-4"><h4 className="font-semibold">Pregled pred ustvarjanjem</h4>{review!.lines.map((line,i)=><div key={i} className="space-y-1 border-b pb-3 text-sm"><p className="break-words font-medium">{line.description}</p><p>{line.quantity} {line.unit} × {money(line.unitPrice)} · DDV {line.vat} · popust {line.discount} %</p></div>)}<p className="text-lg font-semibold">Skupaj z DDV: {money(review!.total)}</p><p className="text-sm">Podatki in cene so ponovno preverjeni. Predračun še ni ustvarjen in ni poslan.</p><button type="button" onClick={()=>edit(rows)} className="min-h-11 rounded border px-3 py-2 text-sm">Uredi postavke</button>{canWrite&&<button data-create="yes" disabled={locked} className="min-h-12 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50 sm:w-auto">Potrdi in ustvari v Quibiju</button>}<details className="text-xs"><summary>Podrobnosti preverjanja</summary><p>Stranka #{review!.customerId} · vozilo #{review!.vehicleId}</p><p>{review!.pricingSource}</p><p className="break-all">{sha}</p></details></section>}
+  </fieldset>
+  {dispatchStarted&&!document&&<p className="rounded border border-amber-300 p-3 text-sm">Ustvarjanje ostaja ustavljeno, dokler ne preverite izida. <button type="button" onClick={()=>window.location.reload()} className="min-h-11 rounded border px-3 py-2">Osveži in preveri izid</button></p>}
+  {message&&<p role="status" className="whitespace-pre-wrap break-words rounded border p-3 text-sm">{message.split('\n')[0]}</p>}
+ </form>;
+}

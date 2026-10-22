@@ -1,0 +1,47 @@
+{
+  "scope": "Hydrated real workspace with synthetic action fixtures. No authenticated app, DB writes or Quibi document created.",
+  "results": [
+    {
+      "width": 1440,
+      "oneOrdinaryForm": true,
+      "noRepeatedCheckbox": true,
+      "manualLinkCollapsed": true,
+      "previewOnlyExplicit": true,
+      "customerPriceReused": true,
+      "editedPriceAndTotal": true,
+      "canonicalPreparationOnce": true,
+      "editPreserved": true,
+      "explicitCreateFixtureOnce": true,
+      "noOverflow": true,
+      "pageErrors": 0
+    },
+    {
+      "width": 390,
+      "oneOrdinaryForm": true,
+      "noRepeatedCheckbox": true,
+      "manualLinkCollapsed": true,
+      "previewOnlyExplicit": true,
+      "customerPriceReused": true,
+      "editedPriceAndTotal": true,
+      "canonicalPreparationOnce": true,
+      "editPreserved": true,
+      "explicitCreateFixtureOnce": true,
+      "noOverflow": true,
+      "pageErrors": 0
+    },
+    {
+      "width": 350,
+      "oneOrdinaryForm": true,
+      "noRepeatedCheckbox": true,
+      "manualLinkCollapsed": true,
+      "previewOnlyExplicit": true,
+      "customerPriceReused": true,
+      "editedPriceAndTotal": true,
+      "canonicalPreparationOnce": true,
+      "editPreserved": true,
+      "explicitCreateFixtureOnce": true,
+      "noOverflow": true,
+      "pageErrors": 0
+    }
+  ]
+}

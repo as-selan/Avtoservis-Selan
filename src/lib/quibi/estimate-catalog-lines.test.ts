@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';import {runInNewContext} from 'node:vm';import {createHash} from 'node:crypto';import ts from 'typescript';
+import {unitNetFromGross} from './line-pricing.ts';
 import {catalogDocumentLine} from './estimate-catalog.ts';import {customerCatalogPricing} from './customer-catalog-pricing.ts';
 const exported:Record<string,unknown>={};
-runInNewContext(ts.transpileModule(readFileSync(new URL('./estimate-catalog-source.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exported,require:(name:string)=>({'server-only':{},'node:crypto':{createHash},'./estimate-catalog':{catalogDocumentLine},'./customer-catalog-pricing':{customerCatalogPricing}}[name]),FormData,Map,JSON,Number,Error});
+runInNewContext(ts.transpileModule(readFileSync(new URL('./estimate-catalog-source.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exported,require:(name:string)=>({'server-only':{},'node:crypto':{createHash},'./line-pricing':{unitNetFromGross},'./estimate-catalog':{catalogDocumentLine},'./customer-catalog-pricing':{customerCatalogPricing}}[name]),FormData,Map,JSON,Number,Error});
 const estimateCatalogRows=exported.estimateCatalogRows as typeof import('./estimate-catalog-source.ts').estimateCatalogRows;
 import {estimatePreparationPayload,estimateReviewTotal} from './estimate-preparation.ts';
 import type {QuibiArticle} from './pricing-read.ts';
@@ -74,3 +75,23 @@ test('one isolated real-logic flow: multi-line preview → estimate → explicit
  const recipient=workflowRecipient(env,'customer@fixture.mail','customer@fixture.mail');const args={caseId:input.serviceRequestId,documentId:invoice.quibiId!,sha:invoice.quibiContentSha256!,amount:'284.75',recipient,journal,write:transport};
  const sent=await sendBusinessDocument(args);assert.equal(sent.sendStatus,'queued');await sendBusinessDocument(args);assert.equal(protocol.length,1);assert.equal((await transport.getSendStatus(invoice.quibiId!,sent.sendId!)).status,'sent');assert.deepEqual(protocol,['/api2/glavadokumenta/send/'+invoice.quibiId,'/api2/glavadokumenta/send_status/'+invoice.quibiId]);
 });
+
+test('explicit gross price for a verified non-stock row freezes actual net and matching review totals',async()=>{
+ const r=(await estimateCatalogRows(form([{key:'189:11',quantity:'2.5',discount:'5',unitPrice:'45,99'}]),reader(),catalogs,{priceListId:null}))!;
+ assert.ok('sifra' in r.lines[0]);assert.equal(r.reviewedLines[0].unitPrice,45.99);assert.equal(r.unitNetPrices[0],37.69672131);assert.equal(r.lines[0].cena,r.unitNetPrices[0]);
+ const payload=estimatePreparationPayload({...input,lines:r.lines},catalogs,r.reviewedLines);
+ assert.equal(payload.review.total,109.23);assert.ok('sifra' in payload.body.Postavkedokumenta['1']);
+ assert.equal(Math.round(Number(payload.body.Postavkedokumenta['1'].cena)*1.22*2.5*.95*100)/100,payload.review.total);
+ const baseline=(await estimateCatalogRows(form([{key:'189:11',quantity:'2.5',discount:'5'}]),reader(),catalogs,{priceListId:null}))!;
+ assert.notEqual(r.sourceSha,baseline.sourceSha);
+ const changed=(await estimateCatalogRows(form([{key:'189:11',quantity:'2.5',discount:'5',unitPrice:'46'}]),reader(),catalogs,{priceListId:null}))!;
+ assert.notEqual(r.sourceSha,changed.sourceSha);
+ const refreshed=(await estimateCatalogRows(form([{key:'189:11',quantity:'2.5',discount:'5',unitPrice:'45,99'}]),reader(articles.map(a=>a.id==='11'?{...a,netPrice:'101'}:a)),catalogs,{priceListId:null}))!;assert.notEqual(r.sourceSha,refreshed.sourceSha);
+ await assert.rejects(estimateCatalogRows(form([{key:'189:11',quantity:1,unitPrice:'45.99'}]),reader(),catalogs,{}),/PRICING_UNVERIFIED/);
+});
+test('explicit row prices fail closed for stock, unknown stock metadata and malformed decimals',async()=>{
+ for(const stockManaged of [true,undefined])await assert.rejects(estimateCatalogRows(form([{key:'189:11',quantity:1,unitPrice:'122'}]),reader(articles.map(a=>a.id==='11'?{...a,stockManaged}:a)),catalogs,{priceListId:null}),/PRICE_OVERRIDE_UNSUPPORTED/);
+ for(const unitPrice of ['',null,12,false,'-1','NaN','Infinity','1e2','1.234567891','1000001','1,234.56'])await assert.rejects(estimateCatalogRows(form([{key:'189:11',quantity:1,unitPrice}]),reader(),catalogs,{priceListId:null}),/PRICE_INVALID/);
+});
+
+test('gross edits with identical rounded net still invalidate the source fingerprint',async()=>{const resolve=async(unitPrice:string)=>(await estimateCatalogRows(form([{key:'189:11',quantity:1,unitPrice}]),reader(),catalogs,{priceListId:null}))!;const a=await resolve('0.00000002'),b=await resolve('0.00000003');assert.equal(a.unitNetPrices[0],b.unitNetPrices[0]);assert.notEqual(a.sourceSha,b.sourceSha)});
