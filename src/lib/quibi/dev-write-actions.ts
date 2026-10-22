@@ -17,7 +17,7 @@ import {estimatePreparationPayload,estimateReviewTotal} from './estimate-prepara
 
 import { quibiWorkflowConfig } from "./workflow-config";
 import { quibiWorkflowContext as context, quibiEstimatePreparationContext } from "./workflow-context";
-import { linkManualQuibiEstimate } from "./manual-estimate-action";
+import { linkManualQuibiEstimate, reviewManualQuibiEstimate } from "./manual-estimate-action";
 import { quibiDevEstimateChoices } from "./write-options";
 import { checkTrackedEstimateStatus, sendManualLinkedEstimate, type ManualSendAuthorization, createAndVerifyEstimate, sendAndTrackEstimate, updateAndVerifyEstimate } from "./write-workflow";
 import { assertQuibiDevTestSendAllowed, quibiDevTestRecipient, type EstimateBody } from "./write-contract";
@@ -76,11 +76,12 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     const detail = await ctx.read.estimateDetail(op.quibiId, ctx.link.external_id);
     const document = createdEstimateSummary(detail, {id:op.quibiId,customerId:ctx.link.external_id,
       vehicleId:ctx.vehicleLink.quibi_vehicle_id,sha:op.quibiContentSha256 ?? '',amount:rows?estimateReviewTotal(rows.reviewedLines):history?.total ?? source?.total ?? price!},ctx.request.customer_id!,false);
-    // The existing RPC registers a digest after another Quibi re-read and keeps
-    // Tadej's existing review/price approval path. UI labels the API origin.
+    // The operator already reviewed this exact SHA and confirmed CREATE. Reuse the
+    // existing fresh-document review action instead of asking for the same review twice.
     const linked = await linkManualQuibiEstimate(serviceRequestId, op.quibiId, true);
+    const reviewed=linked.ok?await reviewManualQuibiEstimate(linked.quoteId,'approve'):null;
     return {ok:true,document:{...document,linked:linked.ok},detail:linked.ok
-      ? `Quibi predračun #${op.quibiId} je ustvarjen in povezan. Pošiljanje zahteva ločeno potrditev.`
+      ? reviewed?.ok?`Quibi predračun #${op.quibiId} je ustvarjen, povezan in pregledan. Odgovor stranke zabeležite ločeno; dokument ni poslan.`:`Quibi predračun #${op.quibiId} je ustvarjen in povezan. Pregled zahteva nadaljevanje v istem primeru; novega dokumenta ne ustvarjajte.`
       : `Dokument #${op.quibiId} obstaja v Quibiju, povezava s primerom pa zahteva pregled: ${linked.message}. Ne ustvarjajte novega dokumenta.`};
   } catch(error) {
     const code=error instanceof Error&&/^QUIBI_[A-Z_]+(?:_\d{3})?$/.test(error.message)?error.message:"QUIBI_UNCLASSIFIED_FAILURE";console.error(JSON.stringify({event:"quibi_estimate_create_failure",caseId:serviceRequestId,code}));
