@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f1f5f9;
+  --background: #f8fafc;
   --foreground: #0f172a;
 }
 
@@ -21,3 +21,16 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Mechanic work stays readable and touch-friendly in the workshop. */
+.mechanic-workspace input:not([type="checkbox"]),
+.mechanic-workspace select,
+.mechanic-workspace textarea { min-height: 48px; margin-top: 6px; border-color: #cbd5e1; font-size: 16px; }
+.mechanic-workspace textarea { min-height: 112px; }
+.mechanic-workspace input[type="file"] { padding-block: 8px; }
+.mechanic-workspace h2 { letter-spacing: -0.025em; }
+.mechanic-workspace h3 { padding-top: 8px; }
+.mechanic-workspace dt { font-size: 0.875rem; color: #64748b; }
+.mechanic-workspace [data-work-form] { border-top: 1px solid #e2e8f0; }
+.mechanic-workspace [data-work-form] button { width: 100%; }
+:where(a, button, input, select, textarea):focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }

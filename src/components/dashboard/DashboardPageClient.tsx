@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {intakeQueue, filterIntakeQueue, INTAKE_QUEUE_GROUPS, type IntakeQueueGroup} from "@/lib/dashboard/intake-queue";
+import {dashboardQueue, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
 import {useRouter} from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { DashboardPeriodId, DashboardSnapshot, WorkflowStatusId } from "@/lib/dashboard/types";
@@ -9,7 +9,7 @@ import {
   isDateInPeriod,
 } from "@/lib/dashboard/period";
 import { useDashboardNow } from "@/lib/dashboard/useDashboardNow";
-import { WORKFLOW_STATUSES } from "@/lib/dashboard/statuses";
+import { WORKFLOW_STATUSES, getStatusLabel, getStatusBadgeClass } from "@/lib/dashboard/statuses";
 import { DashboardPeriodFilter } from "@/components/dashboard/DashboardPeriodFilter";
 import { WorkflowStatusSummary } from "@/components/dashboard/WorkflowStatusSummary";
 import { ActiveServiceOrders } from "@/components/dashboard/ActiveServiceOrders";
@@ -26,10 +26,10 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   const { setOpen: setManualOpen } = useManualEntry();
   const router=useRouter();const [refreshing,startRefresh]=useTransition();
   useEffect(()=>{let lastRefresh=Date.now();const refresh=()=>{const active=document.activeElement;if(document.visibilityState!=='visible'||active?.matches('input,textarea,select,[contenteditable="true"]')||Date.now()-lastRefresh<15000)return;lastRefresh=Date.now();startRefresh(()=>router.refresh());};const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh)}},[router]);
-  const [queueGroup,setQueueGroup]=useState<IntakeQueueGroup>('all');
+  const [queueGroup,setQueueGroup]=useState<DashboardGroup>('new');
   const [queueSearch,setQueueSearch]=useState('');
-  const queue=useMemo(()=>initialData.ok?intakeQueue(initialData.orders):[],[initialData]);
-  const visibleQueue=filterIntakeQueue(queue,queueGroup,queueSearch);
+  const queue=useMemo(()=>initialData.ok?dashboardQueue(initialData.orders):[],[initialData]);
+  const visibleQueue=filterDashboardQueue(queue,queueGroup,queueSearch);
   const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusId | "all">(
     "all",
@@ -71,10 +71,10 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
       <div className="space-y-4 lg:space-y-5">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-            Nadzorna plošča
+            Dnevno delo
           </h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Pregled servisnih nalogov, terminov in naslednjih korakov.
+            Primeri in naslednje opravilo na enem mestu.
           </p>
         </div>
         <div
@@ -92,28 +92,40 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-            Nadzorna plošča
+            Dnevno delo
           </h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Pregled servisnih nalogov, terminov in naslednjih korakov.
+            Primeri in naslednje opravilo na enem mestu.
           </p>
         </div>
-        <button type="button" onClick={() => setManualOpen(true)} className="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Ročni vnos povpraševanja</button>
+        <button type="button" onClick={() => setManualOpen(true)} className="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">+ Novo povpraševanje</button>
       </div>
 
-      <section aria-labelledby="incoming-heading" className="rounded-xl border border-blue-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="incoming-heading" className="font-semibold">Dnevno delo · {queue.length}</h2><button disabled={refreshing} onClick={()=>startRefresh(()=>router.refresh())} className="rounded border px-3 py-2 text-sm disabled:opacity-50">{refreshing?'Osvežujem…':'Osveži dnevno delo'}</button></div>
-        <p className="mt-1 text-sm text-slate-600">Vsi odprti primeri na enem mestu. Najprej primeri, ki potrebujejo pozornost, nato najnovejša aktivnost. Izberite naslednji korak; poslovne odločitve potrdi Tadej.</p>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Vrsta naslednjega koraka">
-          {INTAKE_QUEUE_GROUPS.map(group=><button key={group.id} type="button" aria-pressed={queueGroup===group.id} onClick={()=>setQueueGroup(group.id)} className={'min-h-11 rounded border px-3 py-2 text-sm '+(queueGroup===group.id?'border-blue-700 bg-blue-50 font-semibold text-blue-900':'border-slate-200 text-slate-700')}>{group.label} · {group.id==='all'?queue.length:queue.filter(row=>row.group===group.id).length}</button>)}
+      <section aria-label="Pregled primerov" className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="flex-1">
+              <span className="sr-only">Poišči primer</span>
+              <input type="search" value={queueSearch} onChange={event=>setQueueSearch(event.target.value)} className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="Poišči stranko, registracijo ali delo …" />
+            </label>
+            <button type="button" disabled={refreshing} onClick={()=>startRefresh(()=>router.refresh())} className="min-h-11 rounded-lg px-4 text-sm text-slate-600 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50">{refreshing?'Osvežujem…':'Osveži'}</button>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Skupine primerov">
+            {DASHBOARD_GROUPS.map(group=><button key={group.id} type="button" aria-pressed={queueGroup===group.id} onClick={()=>setQueueGroup(group.id)} className={'flex min-h-14 items-center justify-between gap-2 rounded-xl border px-3 py-3 text-left text-xs font-semibold tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 sm:px-4 '+(queueGroup===group.id?'border-blue-600 bg-blue-50 text-blue-900':'border-slate-200 text-slate-600 hover:bg-slate-50')}><span>{group.label}</span><span className="text-lg tabular-nums">{queue.filter(row=>row.group===group.id).length}</span></button>)}
+          </div>
         </div>
-        <label className="mt-3 block text-sm">Poišči v čakalni vrsti<input value={queueSearch} onChange={event=>setQueueSearch(event.target.value)} className="mt-1 min-h-11 w-full rounded border px-3" placeholder="Stranka, registracija, številka primera ali storitev"/></label>
-        <p role="status" className="mt-2 text-xs text-slate-500">Prikazano {visibleQueue.length} od {queue.length} odprtih primerov.</p>
-        {visibleQueue.length?<ul className="mt-3 max-h-[32rem] space-y-2 overflow-y-auto">{visibleQueue.map(({order:o,group,label,href})=><li key={o.serviceRequestId} className="rounded border p-3"><div className="flex flex-wrap justify-between gap-2"><p className="font-medium">{o.customerName} · {o.vehicleMakeModel}{o.registration?' · '+o.registration:''}</p><span className="text-xs text-slate-500">#{o.id} · {o.updatedLabel}</span></div><p className="mt-1 text-xs font-semibold text-blue-800">{INTAKE_QUEUE_GROUPS.find(item=>item.id===group)?.label}</p><p className="text-sm text-slate-600">{o.requestSummary}</p>{o.intakeConnectionLabel&&<p className="text-xs text-slate-600">{o.intakeConnectionLabel}</p>}<Link className="mt-2 inline-block min-h-11 py-2 font-medium text-blue-700" href={href}>{label} →</Link></li>)}</ul>:<p className="mt-3 text-sm text-slate-600">{queue.length?'Ni primerov za izbrani filter ali iskanje.':'Ni odprtih povpraševanj za obravnavo.'}</p>}
+        <p role="status" className="px-5 py-3 text-xs text-slate-500">{visibleQueue.length} primerov{queueSearch.trim()?' za iskanje »'+queueSearch.trim()+'«':''}</p>
+        {visibleQueue.length ? <ul className="divide-y divide-slate-100 border-t border-slate-100">{visibleQueue.map(({order:o,label,href})=><li key={o.serviceRequestId} className="px-5 py-5 transition-colors hover:bg-slate-50/70">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-6">
+            <div className="min-w-0"><p className="font-semibold text-slate-900">{o.customerName}</p><p className="mt-1 text-sm text-slate-600">{o.vehicleMakeModel}{o.registration&&<span className="ml-2 font-medium text-slate-800">{o.registration}</span>}</p></div>
+            <div className="min-w-0"><p className="line-clamp-2 text-sm text-slate-800">{o.requestSummary}</p><span className={'mt-2 inline-block rounded-md px-2 py-1 text-xs font-medium '+getStatusBadgeClass(o.status)}>{getStatusLabel(o.status)}</span></div>
+            <Link href={href} className="group flex min-h-11 items-center justify-between gap-3 rounded-lg py-2 text-sm font-medium text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"><span><span className="mb-1 block text-xs font-normal text-slate-500">Naslednje opravilo</span>{label}</span><span aria-hidden="true" className="text-xl transition-transform group-hover:translate-x-1">→</span></Link>
+          </div>
+        </li>)}</ul> : <div className="border-t border-slate-100 px-5 py-12 text-center"><p className="font-medium text-slate-700">{queueSearch.trim()?'Ni zadetkov za to iskanje.':'V tej skupini trenutno ni primerov.'}</p><p className="mt-1 text-sm text-slate-500">{queueSearch.trim()?'Poskusite drugo ime, registracijo ali opis dela.':'Izberite drugo skupino ali dodajte novo povpraševanje.'}</p></div>}
       </section>
       <details className="rounded-xl border border-slate-200 bg-white p-4">
         <summary className="cursor-pointer font-semibold text-slate-800">Vsi primeri in zgodovina</summary>
-        <p className="my-3 text-sm text-slate-600">Dodatni pregled po obdobju in statusu, vključno z zaključenimi primeri. Dnevno delo zgoraj vedno prikazuje vse odprte primere.</p>
+        <p className="my-3 text-sm text-slate-600">Dodatni pregled po obdobju in statusu, vključno z zaključenimi primeri. Skupine zgoraj prikazujejo primere iz vseh obdobij.</p>
         <DashboardPeriodFilter value={period} onChange={setPeriod} />
         <div className="mt-4 space-y-4">
       <WorkflowStatusSummary
@@ -122,6 +134,8 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
         activeStatus={statusFilter}
         onSelectStatus={(status) => setStatusFilter(statusFilter === status ? "all" : status)}
         onSelectAttention={() => {
+          const panel = document.getElementById("dashboard-attention")?.closest("details");
+          if (panel) panel.open = true;
           document.getElementById("dashboard-attention")?.scrollIntoView({ behavior: "smooth", block: "start" });
           document.getElementById("dashboard-attention")?.focus({ preventScroll: true });
         }}
@@ -137,13 +151,13 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
         </div>
       </details>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <details className="rounded-xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer font-semibold text-slate-800">Termini, opozorila in aktivnost</summary><div className="mt-4 grid gap-4 lg:grid-cols-2">
         <aside className="contents">
           <AppointmentList appointments={appointments} />
           <div id="dashboard-attention" tabIndex={-1}><AttentionList items={attention} /></div>
           {activity.length > 0 && <RecentActivity items={activity} />}
         </aside>
-      </div>
+      </div></details>
     </div>
   );
 }

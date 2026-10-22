@@ -47,3 +47,9 @@ test('accepted fixed price advances beyond the response form',()=>{const j=caseJ
 test('rejected estimate opens its existing revision form in the review section',()=>{const j=caseJourney({...base,status:'preparing_offer',stepKind:'revise_estimate',offerPrepared:true});assert.equal(j.action.href,'#pregled-predracuna');});
 
 test('failed and queued sends stay prominent without blocking a real phone approval',()=>{for(const sendState of ['failed','queued',null]){const j=caseJourney({...base,status:'awaiting_customer_approval',stepKind:'await_customer',quoteReviewed:true,sendAttempted:true,sendState});assert.equal(j.action.href,'#odobritev');assert.match(j.blocker!,/Ne pošiljajte|Ne ponavljajte/);}});
+
+
+test('DEV email is optional and routes a reviewed estimate to separately recorded approval',()=>{
+ const j=caseJourney({...base,status:'preparing_offer',quoteReviewed:true,devNoEmail:true,sendAttempted:true,sendState:'failed'});
+ assert.equal(j.action.href,'#odobritev');assert.match(j.blocker!,/DEV ne pošilja/);assert.equal(j.completed[3],false);assert.equal(j.completed[4],false);
+});

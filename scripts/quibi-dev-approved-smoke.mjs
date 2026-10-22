@@ -48,6 +48,64 @@ try{
  const remoteCustomer=await read.customer(link.external_id),remoteVehicle=await read.vehicle(vehicleLink.quibi_vehicle_id,link.external_id);
  assert.equal(customerFingerprint({name:customer.display_name,phone:customer.phone??'',email:customer.email??''}),link.local_fingerprint);assert.equal(customerFingerprint(remoteCustomer),link.external_fingerprint);
  assert.ok(verifiedVehicleLink({customerId:link.external_id,localVehicle:{vin:vehicle.vin,registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''},remoteVehicle,vehicleLink}));
+ // Separate synthetic case and journal identity: this opt-in never touches the original completed case.
+ if(process.env.SELAN_DEV_SMOKE_FREE_LINES==='1'){
+  assert.notEqual(process.env.SELAN_DEV_SMOKE_BUSINESS,'1','DEV_SMOKE_MODES_CONFLICT');
+  assert.notEqual(process.env.SELAN_DEV_SMOKE_STATUS_ONLY,'1','DEV_SMOKE_MODES_CONFLICT');
+  const freeCaseId='c7156f6e-76ca-48b3-8cc0-202610220030',summary='QA-SIM-PR19-FREE-20261022';
+  report.caseId=freeCaseId;report.scope='Real Quibi DEV FREE-line estimate; synthetic operator QA prices; no send, approval or business documents';report.caseLinked=false;
+  const choices=await quibiDevEstimateChoices(write);
+  const sales=choices.saleTypes.filter(c=>c.label==='Dobava blaga in storitev'),warehouses=choices.warehouses.filter(c=>c.label==='Delavnica');
+  assert.equal(sales.length,1,'DEV_SMOKE_TEST_SALE_TYPE_UNVERIFIED');assert.equal(warehouses.length,1,'DEV_SMOKE_TEST_WAREHOUSE_UNVERIFIED');
+  // QA-only explicit choice from freshly read catalogs; no fabricated unit or VAT IDs.
+  const units=choices.defaults?.unitId?choices.units.filter(u=>u.id===choices.defaults.unitId):choices.units.filter(u=>/^(kos|kom|komad)$/i.test(u.label));
+  const vats=choices.vatRates.filter(v=>/^22(?:[.,]0+)?\s*%$/.test(v.label.trim()));
+  assert.equal(units.length,1,'DEV_SMOKE_FREE_UNIT_AMBIGUOUS');assert.equal(vats.length,1,'DEV_SMOKE_FREE_VAT_AMBIGUOUS');
+  const descriptions=['QA-SIM FREE · servis vozila · operator QA test price','QA-SIM FREE · pregled pred tehničnim · operator QA test price','QA-SIM FREE · pregled zavor · operator QA test price'];
+  const prices=['30','20','15']; // Explicit operator-requested synthetic gross prices, never inferred catalog prices.
+  const form=new FormData();form.set('catalogLines',JSON.stringify(descriptions.map((description,index)=>({key:'',description,quantity:'1',discount:'0',unitId:units[0].id,vatId:vats[0].id,unitPrice:prices[index]}))));
+  const rows=await estimateCatalogRows(form,read,choices,remoteCustomer);
+  assert.ok(rows,'DEV_SMOKE_FRESH_REVIEW_REQUIRED');assert.equal(rows.lines.length,3);assert.ok(rows.lines.every(line=>!('sifra' in line)&&line.kolicina===1));
+  assert.deepEqual(rows.reviewedLines.map(line=>line.unitPrice),[30,20,15]);
+  const existing=await db.from('service_requests').select('organization_id,summary,customer_id,vehicle_id,problem_description,archived_at').eq('id',freeCaseId).maybeSingle();assert.ok(!existing.error,'DEV_SMOKE_DATABASE_READ_FAILED');
+  if(existing.data){assert.equal(existing.data.organization_id,seed.organization_id);assert.equal(existing.data.summary,summary);assert.equal(existing.data.customer_id,customer.id);assert.equal(existing.data.vehicle_id,vehicle.id);assert.ok(existing.data.problem_description?.startsWith('QA-SIM-PR19-FREE'));assert.equal(existing.data.archived_at,null);}
+  else{const {error}=await db.from('service_requests').insert({id:freeCaseId,organization_id:seed.organization_id,customer_id:customer.id,vehicle_id:vehicle.id,status:'preparing_offer',summary,problem_description:'QA-SIM-PR19-FREE synthetic operator QA prices 30/20/15 EUR gross, qty 1; NO SEND; no actual customer approval or repair',service_wanted:descriptions.join('\n'),source:seed.source,channel:seed.channel});assert.ok(!error,'DEV_SMOKE_CASE_INSERT_FAILED');}
+  const prepExists=await db.from('offer_preparations').select('id,organization_id,created_by_profile_id').eq('service_request_id',freeCaseId).maybeSingle();assert.ok(!prepExists.error,'DEV_SMOKE_DATABASE_READ_FAILED');
+  if(prepExists.data){assert.equal(prepExists.data.organization_id,seed.organization_id);assert.equal(prepExists.data.created_by_profile_id,actor);}
+  else{const {error}=await db.from('offer_preparations').insert({organization_id:seed.organization_id,service_request_id:freeCaseId,created_by_profile_id:actor,status:'ready_for_provider'});assert.ok(!error,'DEV_SMOKE_PREPARATION_FAILED');}
+  const journal=quibiDevOperationJournal(seed.organization_id,actor);
+  const op=await createAndVerifyEstimate({journal,read,write,input:{serviceRequestId:freeCaseId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,saleTypeId:sales[0].id,warehouseId:warehouses[0].id,lines:rows.lines,note:summary+'; operator QA test gross prices 30/20/15 EUR; NO SEND; no customer approval'},verifyContent:(detail,body)=>confirmBusinessContent(detail,body,rows.unitNetPrices,rows.unitIds)});
+  assert.equal(op.state,'verified');assert.ok(op.quibiId);report.created=true;report.documentId=op.quibiId;
+  // Also reread/verify on an idempotent retry of an already-verified journal entry.
+  const detail=await read.estimateDetail(op.quibiId,link.external_id);confirmBusinessContent(detail,JSON.parse(op.requestBody),rows.unitNetPrices,rows.unitIds);
+  const registration=await db.rpc('register_manual_quibi_estimate',{p_organization_id:seed.organization_id,p_service_request_id:freeCaseId,p_quibi_customer_id:link.external_id,p_external_id:op.quibiId,p_content_sha256:detail.contentSha256,p_actor_id:actor});
+  assert.ok(!registration.error&&registration.data?.ok,'DEV_SMOKE_LINK_FAILED');
+  const quote=await one(db.from('quotes').select('id,evidence_payload').eq('service_request_id',freeCaseId).order('version_no',{ascending:false}).limit(1).single());assert.equal(String(quote.evidence_payload.external_id),op.quibiId);
+  report.linked=true;report.caseLinked=true;report.quoteId=quote.id;report.freeLines={count:3,quantities:[1,1,1],operatorQaGrossPrices:[30,20,15],unitId:units[0].id,vatId:vats[0].id};
+  // Explicit QA-only decision; no delivery or actual customer response is fabricated.
+  const reviewed=await db.rpc('review_verified_manual_quote',{p_organization_id:seed.organization_id,p_quote_id:quote.id,p_content_sha256:detail.contentSha256,p_actor_id:actor,p_decision:'approve'});assert.ok(!reviewed.error&&reviewed.data?.ok,'DEV_SMOKE_INTERNAL_REVIEW_FAILED');
+  const decision=await db.rpc('record_manual_estimate_decision',{p_organization_id:seed.organization_id,p_quote_id:quote.id,p_actor_id:actor,p_decision:'approved',p_reference:'QA-SIM-PR19-FREE synthetic test approval only; no actual customer response or email'});assert.ok(!decision.error&&decision.data?.ok,'DEV_SMOKE_SYNTHETIC_APPROVAL_FAILED');
+  report.syntheticApprovalRecorded=true;report.actualCustomerApproval=false;report.mechanicAuthenticatedE2E=false;
+  const [numberings,unitsCatalog,vatCatalog,saleTypes]=await Promise.all([read.catalog('numberings'),read.catalog('units'),read.catalog('vat'),read.catalog('saleTypes')]);
+  let source=await loadQuibiDocument(read,'estimate',op.quibiId,link.external_id);const approvedSource=source;report.business=[];
+  for(const kind of ['work_order','invoice']){
+   const header=businessHeaderSelection(kind,numberings,saleTypes,{numberingId:'',saleTypeId:'',sourceSaleTypeId:source.saleTypeId});assert.ok(header.ready,'DEV_SMOKE_BUSINESS_HEADER_AMBIGUOUS');
+   const lines=businessSourceLines(source,unitsCatalog,vatCatalog,[]),charged=source.lines.filter(l=>!quibiSourceNotes(source).includes(l));
+   const expectedUnitNetPrices=charged.map(l=>Number(l.unitNetPrice)),expectedUnitIds=charged.map(l=>l.unitId);let invoiceHeader;
+   if(kind==='invoice'){
+    assert.deepEqual(invoiceSourceChanges(approvedSource,source),[]);verifyInvoiceSourceTotal(source);
+    invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId);
+    if(!invoiceHeader.paymentMethod){const methods=invoiceHeader.paymentMethods.filter(m=>/^(TRR|bančno nakazilo|nakazilo(?: na TRR)?|transakcijski racun|transakcijski račun)$/i.test(m.trim()));if(methods.length===1)invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId,{spaceId:invoiceHeader.spaceId,paymentMethod:methods[0]});}
+    assert.ok(invoiceHeader.ready,'DEV_SMOKE_INVOICE_HEADER_AMBIGUOUS');
+   }
+   const body=businessDocumentBody(kind,freeCaseId,{serviceRequestId:freeCaseId,numberingId:header.numberingId,saleTypeId:header.saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,warehouseId:source.warehouseId,spaceId:invoiceHeader?.spaceId,paymentMethod:invoiceHeader?.paymentMethod,lines,note:summary+'; QA-SIM synthetic approval and completed-work fixture ONLY; no actual customer approval or repair; NO SEND'},kind==='invoice'?quibiToday():undefined);
+   if(kind==='invoice'){body.Glavadokumenta.datIzdRac=quibiToday();body.Glavadokumenta.datValute=quibiToday();}
+   const business=await createBusinessDocument({kind,orderId:freeCaseId,caseId:freeCaseId,body,journal,read,write,expectedAmount:source.amount,expectedUnitNetPrices,expectedUnitIds});assert.equal(business.state,'verified');assert.ok(business.quibiId);
+   source=await loadQuibiDocument(read,kind,business.quibiId,link.external_id);confirmBusinessContent(source,body,expectedUnitNetPrices,expectedUnitIds);assert.equal(Math.round(Number(source.amount)*100),6500);
+   report.business.push({kind,id:business.quibiId,state:business.state,number:source.number,amount:source.amount,caseLinked:true});
+  }
+  console.log('SELAN_DEV_FREE_LINES_RESULT '+JSON.stringify(report));process.exit(0);
+ }
  const recipient=quibiDevTestRecipient(process.env,customer.email);assert.notEqual(recipient,remoteCustomer.email.toLowerCase());
  if(process.env.SELAN_DEV_SMOKE_BUSINESS==='1'){
   report.startedAt=new Date().toISOString();report.scope='Real Quibi DEV catalog diagnostics and synthetic work order/invoice integration; not authenticated UI E2E';

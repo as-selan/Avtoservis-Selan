@@ -17,6 +17,12 @@ export function estimatePreparationPayload(input:Omit<CreateEstimateInput,'numbe
  const body=buildEstimateBody({...input,numberingId:matches[0].id});
  const lines=Object.values(body.Postavkedokumenta).map((line,index)=>{
  if ('sifra' in line) {const reviewed=catalogLines?.[index];if(!reviewed||reviewed.quantity!==line.kolicina||reviewed.discount!==(line.popust??0))throw Error('QUIBI_PREPARATION_CATALOG_MISMATCH');return reviewed;}
+ const reviewed=catalogLines?.[index];
+ if(reviewed){
+  const unit=catalogs.units.find(n=>n.id===line.enota_id)!,vat=catalogs.vatRates.find(n=>n.id===line.ddv_id)!;
+  if(reviewed.description!==line.opis||reviewed.quantity!==line.kolicina||reviewed.discount!==(line.popust??0)||reviewed.unit!==unit.label||reviewed.vat!==vat.label||!Number.isFinite(reviewed.unitPrice)||reviewed.unitPrice<0||Math.abs(reviewed.unitPrice-line.cenaZDDV*vatFactor(vat.label))>0.00000002)throw Error('QUIBI_PREPARATION_CATALOG_MISMATCH');
+  return reviewed;
+ }
  return ({
  description:line.opis,quantity:line.kolicina,
  unit:catalogs.units.find(n=>n.id===line.enota_id)!.label,

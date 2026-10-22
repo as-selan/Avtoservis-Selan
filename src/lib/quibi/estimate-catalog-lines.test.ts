@@ -95,3 +95,23 @@ test('explicit row prices fail closed for stock, unknown stock metadata and malf
 });
 
 test('gross edits with identical rounded net still invalidate the source fingerprint',async()=>{const resolve=async(unitPrice:string)=>(await estimateCatalogRows(form([{key:'189:11',quantity:1,unitPrice}]),reader(),catalogs,{priceListId:null}))!;const a=await resolve('0.00000002'),b=await resolve('0.00000003');assert.equal(a.unitNetPrices[0],b.unitNetPrices[0]);assert.notEqual(a.sourceSha,b.sourceSha)});
+
+
+test('three explicit free services work without catalog access and preserve reviewed gross totals',async()=>{
+ const rows=['Servis vozila','Pregled pred tehničnim','Pregled zavor'].map((description,i)=>({key:'',description,unitId:'1',vatId:'5',quantity:'1',unitPrice:String([30,20,15][i]),discount:''}));
+ const unavailable={priceLists:async()=>{throw Error('CATALOG_DOWN')},article:async()=>{throw Error('CATALOG_DOWN')}};
+ const r=(await estimateCatalogRows(form(rows),unavailable,catalogs,{}))!;
+ assert.equal(r.lines.length,3);assert.equal(estimateReviewTotal(r.reviewedLines),65);
+ const prepared=estimatePreparationPayload({...input,lines:r.lines},catalogs,r.reviewedLines);assert.equal(prepared.review.total,65);
+ assert.ok(r.lines.every(l=>'opis' in l&&!('sifra' in l)));
+ for(const patch of [{unitPrice:''},{quantity:''},{quantity:'0'},{unitId:'999'},{vatId:'999'},{description:''},{unitPrice:'-1'},{unitPrice:'0.005'}])await assert.rejects(estimateCatalogRows(form([{...rows[0],...patch}]),unavailable,catalogs,{}));
+ const changed=(await estimateCatalogRows(form([{...rows[0],unitPrice:'31'}]),unavailable,catalogs,{}))!;assert.notEqual(changed.sourceSha,r.sourceSha);
+});
+
+
+test('free review preserves entered cent price at a fractional-quantity half-cent boundary',async()=>{
+ const row={key:'',description:'QA free',unitId:'1',vatId:'5',quantity:'0.0015',unitPrice:'10',discount:''};
+ const resolved=(await estimateCatalogRows(form([row]),reader(),catalogs,{}))!;
+ const payload=estimatePreparationPayload({...input,lines:resolved.lines},catalogs,resolved.reviewedLines);
+ assert.equal(payload.review.total,0.02);assert.equal(payload.review.lines[0].unitPrice,10);assert.equal(payload.review.total,estimateReviewTotal(resolved.reviewedLines));
+});

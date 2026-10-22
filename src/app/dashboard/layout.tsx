@@ -12,7 +12,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const access = await requireWorkshopAccess();
-  if(access.role==='mechanic')return <div className="min-h-screen bg-slate-100 text-slate-900"><WorkshopRealtime organizationId={access.organizationId} /><header className="flex items-center justify-between gap-3 border-b bg-white p-4"><Link href="/dashboard/mehanik" className="font-semibold">Avtoservis Selan · Moji nalogi</Link><form action="/auth/signout" method="post"><button className="rounded border px-3 py-2">Odjava</button></form></header><main className="mx-auto max-w-5xl p-4 sm:p-6">{children}</main></div>;
+  if(access.role==='mechanic')return <div className="mechanic-workspace min-h-screen bg-slate-50 text-slate-900"><WorkshopRealtime organizationId={access.organizationId} /><header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6"><Link href="/dashboard/mehanik" className="font-semibold">Avtoservis Selan · Moje delo</Link><form action="/auth/signout" method="post"><button className="min-h-11 rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Odjava</button></form></header><main className="mx-auto max-w-4xl p-4 sm:p-8">{children}</main></div>;
   const user = await loadDashboardShellUser(access.userId, access.role);
 
   return <AppShell user={user} simulatedQuibi={process.env.QUIBI_E2E_WRITE_ENABLED === "1" && process.env.SELAN_ISOLATED_E2E === "1"}><WorkshopRealtime organizationId={access.organizationId} />{children}</AppShell>;

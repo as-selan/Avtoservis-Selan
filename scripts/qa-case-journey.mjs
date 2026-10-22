@@ -18,7 +18,7 @@ const blockedActions=new Proxy({}, {get:()=>()=>{throw Error('Business actions a
 function SafeLink({href,children,...props}){return h('a',{...props,href},children);}
 function transpile(file){return ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;}
 function load(file){
- file=path.resolve(file);if(cache.has(file))return cache.get(file);
+ file=path.resolve(file);if(!fs.existsSync(file)&&file.endsWith(".ts")&&fs.existsSync(file+"x"))file+="x";if(cache.has(file))return cache.get(file);
  const exports={};cache.set(file,exports);
  vm.runInNewContext(transpile(file),{exports,require:id=>{
   if(id==='next/navigation')return {useRouter:()=>({refresh(){throw Error('Refresh is forbidden in presentation QA');}})};
@@ -80,8 +80,8 @@ try{
    await page.goto(origin+'/?case='+scenario);
    const action=page.locator('[data-case-primary]');assert.equal(await action.count(),1);
    const box=await action.boundingBox();assert.ok(box&&box.y+box.height<=900&&box.x>=0&&box.x+box.width<=width,`${width}/${scenario}: CTA above fold`);
-   assert.equal(await page.locator('[aria-label="Faze postopka"] li').count(),7);
-   assert.equal(await page.locator('[aria-current="step"]').count(),1);
+   assert.equal(await page.locator('[aria-label="Faze postopka"] li').count(),0);
+   assert.equal(await page.locator('[aria-current="step"]').count(),0);
    const href=await action.getAttribute('href');assert.equal(await page.locator('[data-case-active]').getAttribute('data-case-active'),href.slice(1));
    for(const {id} of sections(cases[scenario]))assert.equal(await page.locator('#'+id).count(),1,`${id} not duplicated`);
    const dimensions=()=>page.evaluate(()=>({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));

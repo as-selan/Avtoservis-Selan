@@ -1,10 +1,15 @@
+## PR19: ponovitev po poenostavitvi primera
+
+`node scripts/qa-case-journey.mjs`: **42/42 uspešno** (14 sintetičnih stanj × 1440/390/350 px). Trenutne trditve preverijo eno glavno dejanje, nič faznih kartic, aktivni obrazec prvi, vsak razdelek enkrat, navigacijo s tipkovnico in fokus, odpiranje neposrednih zaznamkov ter odsotnost vodoravnega prelivanja. [Rezultati te ponovitve](browser-results.json).
+
+Vizualno pregledana [sprejem na 1440 px](new-1440.png) in [obrazec predračuna na 350 px](prepare-form-350.png): glavno opravilo in zloženi sekundarni razdelki so pregledni; obrazec ostane v širini zaslona. Posnetki so izolirani sintetični prikazi resničnih komponent, brez celotnega app shella in CaseOverview. Ne dokazujejo prijavljene strani, ustvarjanja dokumenta, dostave sporočila ali odobritve. Poslovna dejanja so onemogočena; baza in Quibi nista uporabljena. Starejše številke in opis sedmih faz spodaj so zgodovinski dokazi prejšnje različice.
 **Nadaljevanje:** [Dnevno delo, kontekst primera, mehanik, novi ciljni testi in dejanska blokada Previewa](followup/README.md). Prejšnji rezultati 525/42 spodaj veljajo za prejšnji commit; celotni E2E ostaja nepreverjen.
 
 # P0: vodenje servisnega primera – dokazi 22. 10. 2026
 
 ## Posodobitev predloga po nadaljevanju razvoja
 
-Aktivni obstoječi obrazec je zdaj neposredno pod vodenjem postopka; ostala opravila so razširljivi razdelki. Priprava, pregled/pošiljanje in odločitev stranke so ločeni. Povezave odprejo zloženi razdelek, prestavijo fokus in delujejo tudi pri neposrednem zaznamku ter uporabi tipkovnice. Faze so pri ozkih zaslonih prikazane v dveh stolpcih. Gumb pove konkreten rezultat dejanja; neuspešno, čakajoče in neznano pošiljanje so jasno označeni.
+Aktivni obstoječi obrazec je zdaj neposredno pod vodenjem postopka; ostala opravila so razširljivi razdelki. Priprava, pregled/pošiljanje in odločitev stranke so ločeni. Povezave odprejo zloženi razdelek, prestavijo fokus in delujejo tudi pri neposrednem zaznamku ter uporabi tipkovnice. Sedem faznih kartic je odstranjenih; na vrhu ostane eno naslednje opravilo z glavnim gumbom. Gumb pove konkreten rezultat dejanja; neuspešno, čakajoče in neznano pošiljanje so jasno označeni.
 
 Na voljo je [kratek video UX navigacije](ui-navigation.webm): prikazuje štiri ločena sintetična stanja, ne opravljenega poslovnega postopka. Obrazci so dejanske obstoječe komponente s sintetičnimi vhodi, prikazane strežniško; poslovne akcije so v predogledu izrecno onemogočene. [Strojno berljivi rezultati preverjanja](validation-results.json).
 

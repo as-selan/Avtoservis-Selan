@@ -26,11 +26,22 @@ export async function estimateCatalogRows(form:FormData,read:Parameters<typeof e
  if(typeof raw!=='string'||raw.length>64000)throw Error('QUIBI_CATALOG_LINES_INVALID');
  let rows:unknown;try{rows=JSON.parse(raw)}catch{throw Error('QUIBI_CATALOG_LINES_INVALID')}
  if(!Array.isArray(rows)||rows.length<1||rows.length>100)throw Error('QUIBI_CATALOG_LINES_INVALID');
- const lists=await read.priceLists(),articles=new Map<string,Awaited<ReturnType<typeof read.article>>>();
+ const lists=rows.some(row=>row&&typeof row==='object'&&typeof row.key==='string'&&row.key!=='')?await read.priceLists():[],articles=new Map<string,Awaited<ReturnType<typeof read.article>>>();
  const cached={priceLists:async()=>lists,article:async(id:string)=>{if(!articles.has(id))articles.set(id,await read.article(id));return articles.get(id)!}};
  const sources=[];let hasPriceOverrides=false;
  for(const row of rows){
-  if(!row||typeof row!=='object'||typeof row.key!=='string'||!/^\d+:\d+$/.test(row.key)||!['string','number'].includes(typeof row.quantity))throw Error('QUIBI_CATALOG_LINES_INVALID');
+  if(!row||typeof row!=='object'||typeof row.key!=='string'||!['string','number'].includes(typeof row.quantity))throw Error('QUIBI_CATALOG_LINES_INVALID');
+  if(row.key===''){
+   const description=typeof row.description==='string'?row.description.trim():typeof row.requestedService==='string'?row.requestedService.trim():'';
+   const unit=catalogs.units.find(u=>u.id===row.unitId),vat=catalogs.vatRates.find(v=>v.id===row.vatId),quantity=Number(row.quantity),discount=row.discount==null||row.discount===''?0:Number(row.discount);
+   if(!description||description.length>500||!unit||!vat||!String(row.quantity).trim()||!Number.isFinite(quantity)||quantity<=0||quantity>100000||!['undefined','string','number'].includes(typeof row.discount)||!Number.isFinite(discount)||discount<0||discount>100)throw Error('QUIBI_CATALOG_LINES_INVALID');
+   if(typeof row.unitPrice!=='string'||!/^\d+(?:[.,]\d{1,2})?$/.test(row.unitPrice)||Number(row.unitPrice.replace(',','.'))>1000000)throw Error('QUIBI_CATALOG_PRICE_INVALID');
+   const gross=Number(row.unitPrice.replace(',','.')),net=unitNetFromGross(gross,vat.id,catalogs.vatRates);
+   const line={opis:description,enota_id:unit.id,ddv_id:vat.id,kolicina:quantity,cenaZDDV:net,popust:discount};
+   const reviewedLine={description,quantity,unit:unit.label,vat:vat.label,unitPrice:gross,discount};
+   sources.push({line,reviewedLine,option:{sourceSha:createHash('sha256').update(JSON.stringify({line,unit,vat})).digest('hex'),unitNetPrice:net,unitId:unit.id}});hasPriceOverrides=true;continue;
+  }
+  if(!/^\d+:\d+$/.test(row.key))throw Error('QUIBI_CATALOG_LINES_INVALID');
   const one=new FormData();one.set('catalogSource',row.key);one.set('quantity',String(row.quantity));
   const source=await estimateCatalogSource(one,cached,catalogs,customer);if(!source)throw Error('QUIBI_CATALOG_LINES_INVALID');
   if(Object.prototype.hasOwnProperty.call(row,'unitPrice')){

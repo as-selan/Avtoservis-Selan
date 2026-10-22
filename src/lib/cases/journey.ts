@@ -3,7 +3,7 @@ export type JourneyInput = {
  status: string; role: string; stepKind: string; intakeComplete: boolean;
  identityReady: boolean; hosted: boolean; offerPrepared: boolean; quoteReviewed: boolean;
  customerApproved: boolean; dispatched: boolean; hasWorkOrder: boolean;
- writeReady: boolean; sendReady: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
+ writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
 };
 export const journeyStages = ['Novo povpraševanje', 'Preverjanje stranke in vozila', 'Priprava predračuna', 'Pošiljanje stranki', 'Odobritev popravila', 'Delovni nalog', 'Popravilo, račun in zaključek'];
 export function caseJourney(p: JourneyInput) {
@@ -47,8 +47,8 @@ export function caseJourney(p: JourneyInput) {
  if(p.stepKind==='review_estimate')action={label:'Preglej in potrdi predračun',href:'#pregled-predracuna'};
  else if(p.stepKind==='revise_estimate')action={label:'Preglej zavrnitev in popravi predračun',href:'#pregled-predracuna'};
  else if(p.quoteReviewed){
-  if(p.dispatched||p.stepKind==='await_customer'){
-   current=4;action={label:'Zabeleži odobritev stranke',href:'#odobritev'};
+  if(p.devNoEmail||p.dispatched||p.stepKind==='await_customer'){
+   current=4;action={label:'Zabeleži odobritev stranke',href:'#odobritev'};if(p.devNoEmail)blocker='Quibi DEV ne pošilja e-pošte. Dokument ni poslan. Nadaljujte z ločeno zabeleženim dejanskim odgovorom ali jasno označeno sintetično odobritvijo QA-SIM.';
   }else{
    current=3;action={label:p.sendReady?'Pošlji predračun':'Preveri pošiljanje predračuna',href:'#pregled-predracuna'};
    if(!p.sendReady)blocker='Pošiljanje prek Quibija trenutno ni omogočeno ali nima vseh potrjenih podatkov. Dokument ni poslan. Preverite spodnji obrazec; dejanski odgovor po telefonu lahko ločeno zabeležite v razdelku Odločitev stranke.';

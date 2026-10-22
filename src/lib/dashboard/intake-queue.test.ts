@@ -53,3 +53,18 @@ test('published-price review, send and customer response stay in the published-p
   assert.equal(row.group,kind==='await_customer'?'customer':'estimate');
  }
 });
+
+import {dashboardQueue,filterDashboardQueue,DASHBOARD_GROUPS} from './intake-queue.ts';
+test('four dashboard groups include every case once while preserving action routing',()=>{
+ const orders=[order('new','novo'),order('data','manjkajo_podatki'),order('estimate','priprava_ponudbe',{nextActionKind:'review_estimate'}),order('customer','caka_potrditev_ponudbe'),order('scheduled','termin_potrjen'),order('repair','aktivno_popravilo'),order('review','potreben_pregled'),order('done','zakljuceno')];
+ const rows=dashboardQueue(orders);
+ assert.equal(DASHBOARD_GROUPS.length,4);assert.equal(rows.length,orders.length);assert.equal(new Set(rows.map(r=>r.order.id)).size,orders.length);
+ const groups=Object.fromEntries(rows.map(r=>[r.order.id,r.group]));
+ assert.deepEqual(groups,{new:'new',data:'decision',estimate:'decision',customer:'decision',scheduled:'work',repair:'work',review:'work',done:'done'});
+ for(const original of intakeQueue(orders)){const row=rows.find(r=>r.order.id===original.order.id)!;assert.equal(row.href,original.href);assert.equal(row.label,original.label);}
+ assert.equal(filterDashboardQueue(rows,'done','QA 11').length,1);assert.equal(filterDashboardQueue(rows,'done','missing').length,0);
+});
+test('dashboard attention and mismatches stay visible as decisions even after booking',()=>{
+ const rows=dashboardQueue([order('attention','termin_potrjen',{requiresAttention:true}),order('mismatch','aktivno_popravilo',{nextActionKind:'review_quibi_mismatch'}),order('unlinked','zakljuceno',{serviceRequestId:undefined})]);
+ assert.deepEqual(rows.map(r=>r.group),['decision','decision']);assert.equal(rows.length,2);
+});

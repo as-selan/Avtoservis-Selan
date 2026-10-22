@@ -44,3 +44,25 @@ export function filterIntakeQueue(rows:IntakeQueueItem[],group:IntakeQueueGroup,
  const query=search.trim().toLocaleLowerCase('sl-SI');
  return rows.filter(row=>(group==='all'||row.group===group)&&(!query||[row.order.id,row.order.customerName,row.order.registration,row.order.vehicleMakeModel,row.order.requestSummary].join(' ').toLocaleLowerCase('sl-SI').includes(query)));
 }
+
+/** Four presentation groups; action routing remains owned by intakeQueue. */
+export const DASHBOARD_GROUPS = [
+ {id:'new',label:'NOVO'},
+ {id:'decision',label:'ČAKA ODLOČITEV'},
+ {id:'work',label:'V DELU'},
+ {id:'done',label:'ZAKLJUČENO'},
+] as const;
+export type DashboardGroup = typeof DASHBOARD_GROUPS[number]['id'];
+export type DashboardQueueItem = Omit<IntakeQueueItem,'group'> & {group:DashboardGroup};
+export function dashboardQueue(orders:ServiceOrderDemo[]):DashboardQueueItem[]{
+ const open:DashboardQueueItem[]=intakeQueue(orders).map(row=>({
+  ...row,
+  group:row.order.requiresAttention||row.order.nextActionKind==='review_quibi_mismatch'?'decision':row.group==='new'?'new':row.group==='work'||row.group==='review'||row.order.status==='termin_potrjen'?'work':'decision',
+ }));
+ const closed:DashboardQueueItem[]=orders.filter(order=>order.status==='zakljuceno'&&order.serviceRequestId).map(order=>({order,group:'done',label:'Odpri zaključen primer',href:'/dashboard/primeri/'+order.serviceRequestId}));
+ return [...open,...closed.sort((a,b)=>b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id))];
+}
+export function filterDashboardQueue(rows:DashboardQueueItem[],group:DashboardGroup,search:string){
+ const query=search.trim().toLocaleLowerCase('sl-SI');
+ return rows.filter(row=>row.group===group&&(!query||[row.order.id,row.order.customerName,row.order.registration,row.order.vehicleMakeModel,row.order.requestSummary].join(' ').toLocaleLowerCase('sl-SI').includes(query)));
+}

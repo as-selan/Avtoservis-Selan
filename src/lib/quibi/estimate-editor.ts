@@ -1,6 +1,6 @@
 import type {IntakeServiceMatch} from '../assistance/intake-analysis';
 import type {EstimateCatalogOption} from './estimate-catalog';
-export type EstimateDraftRow={key:string;quantity:string;discount:string;unitPrice?:string;requestedService?:string;candidateKeys?:string[];matchSource?:string};
+export type EstimateDraftRow={key:string;quantity:string;discount:string;unitPrice?:string;requestedService?:string;candidateKeys?:string[];matchSource?:string;description?:string;unitId?:string;vatId?:string};
 export function initialEstimateRows(ai:Array<{key:string;quantity:number|null}>,exact:string|null|undefined):EstimateDraftRow[]{return ai.length?ai.map(line=>({key:line.key,quantity:line.quantity===null?'':String(line.quantity),discount:''})):exact?[{key:exact,quantity:'1',discount:''}]:[];}
 export function draftRowPrice(row:EstimateDraftRow,option:EstimateCatalogOption,customerPriceListId?:string|null){
  const assigned=customerPriceListId===option.priceListId;
@@ -13,7 +13,7 @@ export function draftRowPrice(row:EstimateDraftRow,option:EstimateCatalogOption,
 /** Display estimate only; authoritative amounts always come from the fresh server review. */
 export function draftTotal(rows:EstimateDraftRow[],options:EstimateCatalogOption[],customerPriceListId?:string|null){
  if(!rows.length)return null;let cents=0;
- for(const row of rows){const option=options.find(o=>o.key===row.key);if(!option||!row.quantity.trim())return null;const quantity=Number(row.quantity.replace(',','.')),{unitPrice,discount}=draftRowPrice(row,option,customerPriceListId);if(!Number.isFinite(quantity)||quantity<=0||quantity>100000||!Number.isFinite(unitPrice)||unitPrice<0||unitPrice>1000000||!Number.isFinite(discount)||discount<0||discount>100)return null;cents+=Math.round((quantity*unitPrice*(1-discount/100)+Number.EPSILON)*100);}
+ for(const row of rows){if(row.key===''){if(!(row.description??row.requestedService)?.trim()||!row.unitId||!row.vatId||!row.quantity.trim()||row.unitPrice===undefined||!/^\d+(?:[.,]\d{1,2})?$/.test(row.unitPrice))return null;const quantity=Number(row.quantity.replace(',','.')),price=Number(row.unitPrice.replace(',','.')),discount=Number(row.discount||0);if(!Number.isFinite(quantity)||quantity<=0||quantity>100000||!Number.isFinite(price)||price<0||price>1000000||!Number.isFinite(discount)||discount<0||discount>100)return null;cents+=Math.round((quantity*price*(1-discount/100)+Number.EPSILON)*100);continue;}const option=options.find(o=>o.key===row.key);if(!option||!row.quantity.trim())return null;const quantity=Number(row.quantity.replace(',','.')),{unitPrice,discount}=draftRowPrice(row,option,customerPriceListId);if(!Number.isFinite(quantity)||quantity<=0||quantity>100000||!Number.isFinite(unitPrice)||unitPrice<0||unitPrice>1000000||!Number.isFinite(discount)||discount<0||discount>100)return null;cents+=Math.round((quantity*unitPrice*(1-discount/100)+Number.EPSILON)*100);}
  return Number.isSafeInteger(cents)?cents/100:null;
 }
 
@@ -33,7 +33,7 @@ export function requestedEstimateRows(wanted:string|null|undefined,description:s
   const matches=catalog.filter(o=>normalize(o.name)===normalize(requestedService)||normalize(o.code)===normalize(requestedService));
   const match=matches.length===1?matches[0]:undefined;
   // One requested service is one piece; time, weight and other units need an explicit quantity.
-  const quantity=match&&!['kos','kom','storitev','piece','pcs'].includes(normalize(match.unitLabel))?'':'1';
+  const quantity=match&&['kos','kom','storitev','piece','pcs'].includes(normalize(match.unitLabel))?'1':'';
   return {key:match?.key??'',quantity,discount:'',requestedService};
  });
 }
@@ -51,6 +51,6 @@ export function assistedEstimateRows(rows:EstimateDraftRow[],options:EstimateCat
   const highAi=ai?.confidence==='high'&&ai.key&&!(ai.alternatives??[]).some(k=>k!==ai.key)?options.find(o=>o.key===ai.key):undefined;
   const typo=ranked[0]?.score>=0.9&&ranked[0].score-(ranked[1]?.score??0)>=0.12?ranked[0].o:undefined;
   const selected=highAi??typo;
-  return {...row,key:selected?.key??'',candidateKeys:candidates,matchSource:highAi?'AI predlog za pregled':typo?'Ujemanje opisa storitve':undefined,quantity:selected&&!['kos','kom','storitev','piece','pcs'].includes(serviceWords(selected.unitLabel).join(' '))?'':row.quantity};
+  return {...row,key:selected?.key??'',candidateKeys:candidates,matchSource:highAi?'AI predlog za pregled':typo?'Ujemanje opisa storitve':undefined,quantity:selected?(['kos','kom','storitev','piece','pcs'].includes(serviceWords(selected.unitLabel).join(' '))?'1':''):row.quantity};
  });
 }
