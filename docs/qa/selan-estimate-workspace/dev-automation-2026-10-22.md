@@ -4,7 +4,7 @@
 
 - **CREATE izveden v Quibi DEV:** dokument **2176924**, stanje integracijskega dnevnika `verified`.
 - **Samodejna povezava izvedena:** sintetični primer `d726b5b3-8a49-4c6f-a857-202610220019`, lokalni predračun `de58d894-532f-409e-aefe-486c377e974e`. Quibi ID je vrnil API in je bil ponovno prebran, ne ročno vnesen.
-- **Testni SEND:** vrnjen `send_id=277127`, začetno stanje `queued`, poznejši Quibi status **`failed`**. Dostava ni uspešna in ni bilo ponovnega SEND. Končno preverjanje je v spremljajočem JSON poročilu.
+- **Testni SEND:** vrnjen `send_id=277127`, začetno stanje `queued`, poznejši Quibi status **`failed`**. Quibi je vrnil razlog **Connection timed out**. Dostava ni potrjena in ni bilo ponovnega SEND. Končno preverjanje je v [JSON poročilu](dev-create-result.json).
 - Preizkus je uporabil že obstoječo sintetično stranko `TEST-AUTOSERVIS-SELAN-153D7E1` in sintetično vozilo. Pravi primer F93CFB37 ni bil spremenjen.
 - Uporabljena je resnična obstoječa Quibi cenikovna postavka za premontažo pnevmatik, s svežo ceno iz Quibija. Ta postavka je samo predmet sintetičnega integracijskega testa in **ni nadomestilo za zahtevane storitve F93CFB37**.
 - Preizkus je tekel kot izrecno odobren strežniški korak v Vercel Preview projektu `prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU`, ekipa `azalar7-langs-projects`. Uporablja obstoječe poslovne funkcije, trajni dnevnik, preverjanje vsebine in registracijski RPC. To ni prijavljeni brskalniški E2E in ne dokazuje klika po celotnem uporabniškem postopku.
@@ -49,3 +49,9 @@ Projektna osnova: `C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci
 - `src/lib/assistance/provider.ts` je bil preverjen, vendar ne obstaja; uporabljena sta obstoječa konfigurirani in OpenAI provider.
 
 Dokumentacija preverjenega Quibi endpointa: [uradna API navodila](https://navodila.quibi.net/za-razvijalce/). Napaka HTTP 500 je meritev odobrenega DEV preizkusa, ne trditev dokumentacije.
+
+## Končni DEV naslov
+
+[Odpri DEV](https://selan-dev-pr19-azalar7-langs-projects.vercel.app/dashboard) · [odpri sintetični primer z dejanskim dokumentom #2176924](https://selan-dev-pr19-azalar7-langs-projects.vercel.app/dashboard/primeri/d726b5b3-8a49-4c6f-a857-202610220019).
+
+Izvedbena koda: `469e851`, Ready Preview `dpl_CUAea5GC1jfRWncakDpsHoaqiixb`. Kasnejša sprememba navodil in dokazil ne spremeni izvedbene kode. DEV WRITE je omogočen, DEV SEND je omejen na obstoječe dovoljene testne naslove. To ne pomeni uspešne dostave: test 277127 je failed. Produkcijski WRITE/SEND in lokalne izjeme ostajajo izključeni.

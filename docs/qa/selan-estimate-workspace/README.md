@@ -1,3 +1,5 @@
+> Zgodovinska preveritev prejšnjih commitov. [Aktualni rezultat: resnični Quibi DEV CREATE in povezava, blokade AI/kataloga ter status testne dostave](dev-automation-2026-10-22.md).
+
 # En delovni prostor za pripravo predračuna
 
 Nadaljevanje Draft PR #19. Običajna pot je zdaj: že potrjena stranka/vozilo → postavke, količine, cene in skupaj → Preglej predračun → Potrdi in ustvari v Quibiju, samo kadar je WRITE dovoljen. Ustvarjanje ne pošlje dokumenta in ne pomeni odobritve stranke.

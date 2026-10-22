@@ -1,13 +1,15 @@
 # Tadej: od novega povpraševanja do naloga
 
-**Stanje 22. 10. 2026:** navodila za kodo v tem PR; trenutni naslov in commit DEV Previewa sta navedena v opisu PR. Celoten postopek z bazo in Quibijem še ni potrjen. Spodnji posnetki so dejanski Playwright posnetki delovnega prostora in obstoječih komponent obrazcev v izoliranem prikazu; niso posnetki prijavljenega primera ali dokaz ustvarjenih dokumentov.
+**Stanje 22. 10. 2026:** navodila za kodo v tem PR; trenutni naslov in commit DEV Previewa sta navedena v opisu PR. Dejanski Quibi DEV CREATE in samodejna povezava sta potrjena za sintetični dokument #2176924; testno pošiljanje #277127 je končalo s stanjem failed. Celoten prijavljeni uporabniški postopek ostaja nepreverjen. Spodnji posnetki so dejanski Playwright posnetki delovnega prostora in obstoječih komponent obrazcev v izoliranem prikazu; niso posnetki prijavljenega primera ali dokaz ustvarjenih dokumentov.
+
+[Aktualni dejanski rezultat in blokade DEV](qa/selan-estimate-workspace/dev-automation-2026-10-22.md).
 
 ## Priprava predračuna: običajna pot
 
-1. Odpri **Pripravi predračun**. Stranka in vozilo ostaneta iz potrjenega primera. V enem urejevalniku so postavke, količine, cene, popusti in predvideni skupni znesek.
+1. Odpri **Pripravi predračun**. Stranka in vozilo ostaneta iz potrjenega primera. V enem urejevalniku so vse navedene zahteve, postavke, količine, cene, popusti in predvideni skupni znesek. Jasna ujemanja iz dostopnega Quibi kataloga so že izpolnjena; pri nejasni vrstici izberi enega od predlogov.
 2. Popravi le potrebno količino ali ceno. Različni ceni sta prikazani pri postavki. Cena zalogovnega artikla ostane omejena na preverjeno pot Quibi; tega opozorila ne obidi z drugim povpraševanjem.
 3. Klikni **Preglej predračun**. Aplikacija sama pripravi obstoječe podatke in preveri aktualne cene; ločena priprava in ponovno potrjevanje stranke/vozila nista potrebna. V pregledu lahko izbereš **Uredi postavke**.
-4. Če je ustvarjanje omogočeno, klikni **Potrdi in ustvari v Quibiju**. Če piše **Samo predogled – ustvarjanje v Quibiju ni omogočeno**, dokument ni ustvarjen. Pregled in ustvarjanje ne pošljeta predračuna stranki.
+4. Če je ustvarjanje omogočeno, klikni **Ustvari predračun**. Če piše **Samo predogled – ustvarjanje v Quibiju ni omogočeno**, dokument ni ustvarjen. Pregled in ustvarjanje ne pošljeta predračuna stranki.
 
 Obstoječi predračun, ustvarjen zunaj aplikacije, povežeš samo po potrebi v zaprtem razdelku **Napredno – poveži obstoječ predračun**. To ni obvezna pot priprave. Pri neznanem izidu CREATE izberi **Osveži in preveri izid**; novega dokumenta ne ustvarjaj znova.
 

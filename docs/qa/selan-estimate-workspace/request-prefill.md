@@ -1,3 +1,5 @@
+> Zgodovinska preveritev prejšnjih commitov. [Aktualni rezultat: resnični Quibi DEV CREATE in povezava, blokade AI/kataloga ter status testne dostave](dev-automation-2026-10-22.md).
+
 # Samodejne postavke iz povprašševanja – PR #19
 
 ## Vzrok in popravek
