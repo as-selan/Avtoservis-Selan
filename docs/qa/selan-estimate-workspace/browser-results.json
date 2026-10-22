@@ -2,6 +2,8 @@
   "scope": "Hydrated real workspace with synthetic action fixtures. No authenticated app, DB writes or Quibi document created.",
   "results": [
     {
+      "businessOneMainAction": true,
+      "businessTechnicalChoicesCollapsed": true,
       "aiFixturePerRequest": true,
       "uncertainOneClickChoice": true,
       "multiServicePrefill": true,
@@ -20,6 +22,8 @@
       "pageErrors": 0
     },
     {
+      "businessOneMainAction": true,
+      "businessTechnicalChoicesCollapsed": true,
       "aiFixturePerRequest": true,
       "uncertainOneClickChoice": true,
       "multiServicePrefill": true,
@@ -38,6 +42,8 @@
       "pageErrors": 0
     },
     {
+      "businessOneMainAction": true,
+      "businessTechnicalChoicesCollapsed": true,
       "aiFixturePerRequest": true,
       "uncertainOneClickChoice": true,
       "multiServicePrefill": true,
