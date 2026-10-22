@@ -74,6 +74,8 @@ try{
   if(prepExists.data){assert.equal(prepExists.data.organization_id,seed.organization_id);assert.equal(prepExists.data.created_by_profile_id,actor);}
   else{const {error}=await db.from('offer_preparations').insert({organization_id:seed.organization_id,service_request_id:freeCaseId,created_by_profile_id:actor,status:'ready_for_provider'});assert.ok(!error,'DEV_SMOKE_PREPARATION_FAILED');}
   const journal=quibiDevOperationJournal(seed.organization_id,actor);
+  const previous=await journal.get('estimate',freeCaseId);
+  if(previous?.quibiId){const actual=await read.estimateDetail(previous.quibiId,link.external_id);console.log('SELAN_DEV_FREE_DIAGNOSTIC '+JSON.stringify({id:previous.quibiId,state:previous.state,amount:actual.amount,expectedLines:Object.values(JSON.parse(previous.requestBody).Postavkedokumenta),actualLines:actual.lines.map(l=>({description:l.description,quantity:l.quantity,unitId:l.unitId,vatId:l.vatId,unitNetPrice:l.unitNetPrice,grossPrice:l.grossPrice,discount:l.discount,pricingVerified:l.pricingVerified,articleCode:l.articleCode}))}));}
   const op=await createAndVerifyEstimate({journal,read,write,input:{serviceRequestId:freeCaseId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,saleTypeId:sales[0].id,warehouseId:warehouses[0].id,lines:rows.lines,note:summary+'; operator QA test gross prices 30/20/15 EUR; NO SEND; no customer approval'},verifyContent:(detail,body)=>confirmBusinessContent(detail,body,rows.unitNetPrices,rows.unitIds)});
   assert.equal(op.state,'verified');assert.ok(op.quibiId);report.created=true;report.documentId=op.quibiId;
   // Also reread/verify on an idempotent retry of an already-verified journal entry.
