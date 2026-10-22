@@ -12,6 +12,8 @@ Kontrolni klici z istimi poverilnicami ob 18:06:20 UTC: `/api2/cenik`, `/api2/si
 
 Prosimo preverite aplikacijski/PHP in nginx error log za `GET /api2/sifranti`, pravice oziroma funkcionalne zastavice tega DEV računa ter morebitni neveljaven zapis ali join pri seznamu artiklov. Ali obstaja druga podprta dokumentirana pot za celoten katalog, tudi nezalogovne storitve, s šiframi, enotami, DDV in aktualnimi cenami? Ne želimo ugibati ID-jev ali cen.
 
-Ločeno: obstoječe pošiljanje **277127**, dokument **2176924**, je bilo sprejeto kot queued, pozneje pa vrne **failed**, `napaka: Connection timed out`. Statusni HTTP klic uspe (200); istega dokumenta nismo ponovno poslali. Prosimo preverite ta mail-worker job, nastavitve privzetega pošiljatelja ter povezavo DNS/SMTP/izhodna vrata in sporočite, kje je prišlo do timeouta. Brez vaših dnevnikov ne moremo določiti natančnega vzroka.
+Dodatno pri prostih postavkah: 22. 10. 2026 ob 19:02 UTC je CREATE sintetičnega predračuna 2176927 sprejel `opis`, `enota_id`, `ddv_id`, `kolicina`, `popust` in dokumentirano `cenaZDDV` (cena enote brez DDV), vendar je ponovno branje vrnilo vse cene 0 in znesek 0. Dodano polje `cena` ni pomagalo. Ob 19:09 UTC je UPDATE istega znanega dokumenta z izrecnim `cenaBrezDDV` shranil prave neto cene 24.59016393 / 16.39344262 / 12.29508197 in znesek 65,00 EUR. Ali lahko uskladite dokumentacijo/obdelavo prostih vrstic? Selan po popravku pošlje oba enaka neto podatka in ponovno preveri dokument; ne šteje ničelnega dokumenta kot uspeha.
+
+Pošiljanje 277127 ostaja failed (Connection timed out), brez ponovnega pošiljanja. Uporabnik je pojasnil, da DEV e-pošte ne pošilja. To zato ni blokada priprave dokumentov in ne zahteva testiranja resničnih prejemnikov.
 
 Poverilnic, naslovov prejemnikov ali osebnih podatkov ne prilagamo. Gre samo za DEV in sintetično testno stranko. To sporočilo je pripravljeno za posredovanje in **ni bilo poslano**.
