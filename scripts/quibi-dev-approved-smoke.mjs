@@ -89,7 +89,7 @@ try{
      assert.deepEqual(invoiceSourceChanges(approvedSource,source),[]);verifyInvoiceSourceTotal(source);
      invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId);report.invoiceHeader=invoiceHeader;console.log('SELAN_DEV_BUSINESS_PROGRESS '+JSON.stringify({business:report.business,invoiceHeader:report.invoiceHeader}));
      // Explicit non-cash synthetic test choice, only when the live catalog proves one match.
-     if(!invoiceHeader.paymentMethod){const nonCash=invoiceHeader.paymentMethods.filter(m=>/^(TRR|nakazilo(?: na TRR)?|transakcijski racun|transakcijski račun)$/i.test(m.trim()));if(nonCash.length===1)invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId,{spaceId:invoiceHeader.spaceId,paymentMethod:nonCash[0]});}
+     if(!invoiceHeader.paymentMethod){const nonCash=invoiceHeader.paymentMethods.filter(m=>/^(TRR|bančno nakazilo|nakazilo(?: na TRR)?|transakcijski racun|transakcijski račun)$/i.test(m.trim()));if(nonCash.length===1)invoiceHeader=await verifiedInvoiceHeader(read,header.numberingId,{spaceId:invoiceHeader.spaceId,paymentMethod:nonCash[0]});}
      assert.ok(invoiceHeader.ready,'DEV_SMOKE_INVOICE_HEADER_AMBIGUOUS');
     }
     const body=businessDocumentBody(kind,caseId,{serviceRequestId:caseId,numberingId:header.numberingId,saleTypeId:header.saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,warehouseId:source.warehouseId,spaceId:invoiceHeader?.spaceId,paymentMethod:invoiceHeader?.paymentMethod,lines,note:'QA-SIM-PR19 TEST ONLY; source '+source.id+'; source SHA '+source.contentSha256+'; synthetic approval/work completion only; no actual repair or customer approval'},kind==='invoice'?quibiToday():undefined);
