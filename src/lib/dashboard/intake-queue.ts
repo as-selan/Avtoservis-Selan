@@ -3,7 +3,9 @@ import type {ServiceOrderDemo} from './types';
 export const INTAKE_QUEUE_GROUPS = [
   {id:'all',label:'Vsi odprti'}, {id:'new',label:'Nova povpraševanja'},
   {id:'data',label:'Manjkajo podatki'}, {id:'slots',label:'Čaka izbiro termina'},
-  {id:'customer',label:'Čaka odločitev stranke'}, {id:'service',label:'Ukrep servisa'},
+  {id:'estimate',label:'Pregled in pošiljanje predračuna'},
+  {id:'customer',label:'Odgovor stranke'}, {id:'service',label:'Odločitve servisa'},
+  {id:'work',label:'Aktivno delo'}, {id:'review',label:'Pregled in zaključek'},
 ] as const;
 export type IntakeQueueGroup = typeof INTAKE_QUEUE_GROUPS[number]['id'];
 export type IntakeQueueItem = {order:ServiceOrderDemo;group:Exclude<IntakeQueueGroup,'all'>;label:string;href:string};
@@ -13,8 +15,16 @@ export function intakeQueue(orders:ServiceOrderDemo[]):IntakeQueueItem[]{
  return orders.flatMap(order=>{
   if(!order.serviceRequestId||order.status==='zakljuceno')return [];
   let group:IntakeQueueItem['group']='service',label=order.nextActionLabel,anchor='naslednji-korak';
-  if(order.status==='manjkajo_podatki'){group='data';anchor='podatki';}
-  else if(order.requiresAttention||order.nextActionKind==='review_quibi_mismatch'){group='service';}
+  if(order.nextActionKind==='review_quibi_mismatch'){group='service';}
+  else if(['potreben_pregled','pripravljeno_za_prevzem'].includes(order.status)){group='review';anchor='popravilo';}
+  else if(['aktivno_popravilo','caka_dele'].includes(order.status)){group='work';anchor='popravilo';}
+  else if(order.status==='manjkajo_podatki'){group='data';anchor='podatki';}
+  else if(order.requiresAttention){group='service';}
+  else if(order.fixedPriceStatus&&['review_estimate','send_estimate','await_customer'].includes(order.nextActionKind??'')){group=order.nextActionKind==='await_customer'?'customer':'estimate';anchor='objavljena-cena';}
+  else if(['review_estimate','revise_estimate','send_estimate'].includes(order.nextActionKind??'')){group='estimate';anchor='pregled-predracuna';}
+  else if(order.nextActionKind==='await_customer'){group='customer';anchor='odobritev';}
+  else if(order.nextActionKind==='manual_external_handoff'){group='service';}
+  else if(order.nextActionKind==='link_quibi'){anchor='quibi-povezava';}
   else if(order.slotOfferExpired){anchor='termini';label='Predlogi terminov so potekli. Umakni ponudbo in preveri nove možnosti.';}
   else if(order.slotOfferStatus&&order.slotOfferStatus!=='confirmed'){
    anchor='termini';
@@ -24,11 +34,11 @@ export function intakeQueue(orders:ServiceOrderDemo[]):IntakeQueueItem[]{
   }
   else if(order.inspectionRequested){anchor='termini';label=order.slotOfferStatus==='confirmed'?'Predhodni pregled: zabeleži ugotovitve šele po opravljenem pregledu.':'Preveri razpoložljivost in pripravi tri ročne predloge za pregled.';}
   else if(order.status==='caka_izbiro_termina'&&(!order.nextActionKind||order.nextActionKind==='manual_scheduling')){group='slots';anchor='termini';}
-  else if(order.status==='caka_potrditev_ponudbe'){group='customer';anchor='predracun';}
+  else if(order.status==='caka_potrditev_ponudbe'){group='customer';anchor='odobritev';}
   else if(order.status==='novo'){group='new';}
   else if(order.status==='priprava_ponudbe'){anchor='predracun';}
   return [{order,group,label,href:'/dashboard/primeri/'+order.serviceRequestId+'#'+anchor}];
- }).sort((a,b)=>b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id));
+ }).sort((a,b)=>Number(!!b.order.requiresAttention||b.order.nextActionKind==='review_quibi_mismatch')-Number(!!a.order.requiresAttention||a.order.nextActionKind==='review_quibi_mismatch')||b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id));
 }
 export function filterIntakeQueue(rows:IntakeQueueItem[],group:IntakeQueueGroup,search:string){
  const query=search.trim().toLocaleLowerCase('sl-SI');

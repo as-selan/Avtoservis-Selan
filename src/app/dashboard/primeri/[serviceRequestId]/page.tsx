@@ -1,3 +1,4 @@
+import {CaseOverview} from '@/components/dashboard/CaseOverview';
 import {CaseWorkspace} from '@/components/dashboard/CaseWorkspace';
 import {caseJourney,type JourneyInput} from '@/lib/cases/journey';
 import {CaseJourney} from '@/components/dashboard/CaseJourney';
@@ -383,6 +384,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <p className="mt-1 text-sm text-slate-600">{request.summary}</p>
         <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Poslovna faza: {repairWork?.phase?.label??getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p>{repairWork&&<details className="text-xs text-slate-500"><summary>Ločena izvorna stanja</summary><p>Stanje povpraševanja: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}. To stanje ne potrjuje trenutne faze popravila, računa, plačila ali prevzema.</p></details>}</header>
 
+      <CaseOverview customer={customer?.display_name || "Stranka še ni povezana"} vehicle={vehicle ? [vehicle.make,vehicle.model,vehicle.registration_current || vehicle.vin].filter(Boolean).join(" · ") || "Vozilo brez oznake" : "Vozilo še ni povezano"} request={[request.problem_description,request.service_wanted].filter(Boolean).join("\n") || request.summary || "Opis še ni vnesen"} missing={[...(!customer?["povezava stranke"]:[]),...(!vehicle?["povezava vozila"]:[]),...missing.map(field=>intakeFieldLabels[field]??"dodatni podatek")]}/>
       <CaseJourney explanation={step.label} input={journeyInput}/>
       {(request.has_error || request.attention_needed || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>
@@ -392,7 +394,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         {["local_changed", "remote_changed", "both_changed"].includes(link?.sync_status ?? "") && <p>Podatki stranke so se spremenili po potrditvi povezave. Preverite oba sistema pred nadaljevanjem.</p>}
       </section>}
 
-      <CaseWorkspace activeHref={caseJourney(journeyInput).action.href} sections={workspaceSections}/>
+      <CaseWorkspace activeHref={caseJourney(journeyInput).action.href} progressKey={JSON.stringify([request.id,caseJourney(journeyInput).action,prep?.status,quote?.id,quote?.internal_review_status,approval?.customer_decision,sendOperation?.sendStatus,journeyInput.repairPhase])} sections={workspaceSections}/>
       <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">Pomoč AI in osnutki sporočil</summary>
       {assistance.status==='unavailable' && <div className="text-xs text-slate-500"><p>AI še ni povezan. Preverjanje podatkov in priprava iz Quibija sta na voljo.</p>{['owner','admin'].includes(access.role)&&<details><summary>Podrobnosti povezave AI</summary><p>Manjkajo strežniške nastavitve: {intakeAiConfiguration(process.env).missing.join(', ')}.</p></details>}</div>}
       {assistance.status==='failed'&&<p role="status" className="text-xs text-slate-500">AI analize trenutno ni mogoče pridobiti. Nadaljujte s preverjenimi podatki Quibija.</p>}

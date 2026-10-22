@@ -76,6 +76,7 @@ export function adaptServiceRequestToOrder(
     status: uiStatus,
     nextActionLabel: nextCaseStep({ ...stepInput, status: row.status }).label,
     nextActionKind: nextCaseStep({ ...stepInput, status: row.status }).kind,
+    fixedPriceStatus: stepInput.fixedPriceStatus,
     requiresAttention: row.has_error || row.attention_needed,
     offerPreparationReady: stepInput.offerPrepared,
     locationLabel: undefined,

@@ -37,6 +37,8 @@ export interface ServiceOrderDemo {
   status: WorkflowStatusId;
   nextActionLabel: string;
   nextActionKind?: string;
+  /** Existing published-price path; distinct from a Quibi estimate. */
+  fixedPriceStatus?: string | null;
   requiresAttention?: boolean;
   slotOfferStatus?: string;
   slotOfferExpired?: boolean;

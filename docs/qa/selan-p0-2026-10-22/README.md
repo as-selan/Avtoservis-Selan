@@ -1,3 +1,5 @@
+**Nadaljevanje:** [Dnevno delo, kontekst primera, mehanik, novi ciljni testi in dejanska blokada Previewa](followup/README.md). Prejšnji rezultati 525/42 spodaj veljajo za prejšnji commit; celotni E2E ostaja nepreverjen.
+
 # P0: vodenje servisnega primera – dokazi 22. 10. 2026
 
 ## Posodobitev predloga po nadaljevanju razvoja
