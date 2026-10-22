@@ -52,8 +52,8 @@ try{
  if(process.env.SELAN_DEV_SMOKE_FREE_LINES==='1'){
   assert.notEqual(process.env.SELAN_DEV_SMOKE_BUSINESS,'1','DEV_SMOKE_MODES_CONFLICT');
   assert.notEqual(process.env.SELAN_DEV_SMOKE_STATUS_ONLY,'1','DEV_SMOKE_MODES_CONFLICT');
-  const freeCaseId='c7156f6e-76ca-48b3-8cc0-202610220030',summary='QA-SIM-PR19-FREE-20261022';
-  report.caseId=freeCaseId;report.scope='Real Quibi DEV FREE-line estimate; synthetic operator QA prices; no send, approval or business documents';report.caseLinked=false;
+  const freeCaseId='c7156f6e-76ca-48b3-8cc0-202610220040',summary='QA-SIM-PR19-FREE-NET-20261022';
+  report.caseId=freeCaseId;report.scope='Real Quibi DEV FREE-line estimate/work-order/invoice; explicit synthetic QA approval and completion fixture; NO SEND; not authenticated browser E2E';report.caseLinked=false;
   const choices=await quibiDevEstimateChoices(write);
   const sales=choices.saleTypes.filter(c=>c.label==='Dobava blaga in storitev'),warehouses=choices.warehouses.filter(c=>c.label==='Delavnica');
   assert.equal(sales.length,1,'DEV_SMOKE_TEST_SALE_TYPE_UNVERIFIED');assert.equal(warehouses.length,1,'DEV_SMOKE_TEST_WAREHOUSE_UNVERIFIED');
@@ -76,21 +76,6 @@ try{
   const journal=quibiDevOperationJournal(seed.organization_id,actor);
   const previous=await journal.get('estimate',freeCaseId);
   if(previous?.quibiId){const actual=await read.estimateDetail(previous.quibiId,link.external_id);console.log('SELAN_DEV_FREE_DIAGNOSTIC '+JSON.stringify({id:previous.quibiId,state:previous.state,amount:actual.amount,expectedLines:Object.values(JSON.parse(previous.requestBody).Postavkedokumenta),actualLines:actual.lines.map(l=>({description:l.description,quantity:l.quantity,unitId:l.unitId,vatId:l.vatId,unitNetPrice:l.unitNetPrice,grossPrice:l.grossPrice,discount:l.discount,pricingVerified:l.pricingVerified,articleCode:l.articleCode}))}));}
-  if(process.env.SELAN_DEV_FREE_REPAIR==='1'){
-   assert.equal(previous?.quibiId,'2176927','DEV_SMOKE_KNOWN_SYNTHETIC_DOCUMENT_REQUIRED');assert.equal(previous.state,'uncertain');
-   const current=await read.estimateDetail(previous.quibiId,link.external_id);assert.equal(current.externalId,previous.externalId);assert.equal(Number(current.amount),0);
-   const body=JSON.parse(previous.requestBody);body.Glavadokumenta.id=Number(previous.quibiId);
-   for(const line of Object.values(body.Postavkedokumenta)){assert.ok(!('sifra' in line));line.cenaBrezDDV=line.cenaZDDV;}
-   const payload=stableEstimatePayload(body),revision='e128577d-bd3a-4d4f-86d1-202610220032';
-   const recovery=await journal.insertOnce({kind:'estimate_update',localEntityId:revision,serviceRequestId:freeCaseId,externalId:null,requestBody:payload.json,requestSha256:payload.sha256});assert.equal(recovery.requestSha256,payload.sha256);
-   assert.equal(recovery.state,'prepared','DEV_SMOKE_REPAIR_NOT_RETRIED');assert.ok(await journal.claim(recovery.id,'prepared'));
-   await journal.patch(recovery.id,'dispatching',{state:'uncertain',quibiId:previous.quibiId,documentNumber:previous.documentNumber});
-   const updated=await write.updateEstimate(previous.quibiId,body);assert.equal(updated.id,previous.quibiId);
-   const reread=await read.estimateDetail(previous.quibiId,link.external_id);
-   console.log('SELAN_DEV_FREE_REPAIR_RESULT '+JSON.stringify({id:reread.id,amount:reread.amount,lines:reread.lines.map(l=>({description:l.description,unitNetPrice:l.unitNetPrice,grossPrice:l.grossPrice,unitId:l.unitId,vatId:l.vatId,quantity:l.quantity,pricingVerified:l.pricingVerified}))}));
-   confirmBusinessContent(reread,body,rows.unitNetPrices,rows.unitIds);assert.equal(Number(reread.amount),65);
-   await journal.patch(recovery.id,'uncertain',{state:'verified',quibiContentSha256:reread.contentSha256});
-  }
   const op=await createAndVerifyEstimate({journal,read,write,input:{serviceRequestId:freeCaseId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,saleTypeId:sales[0].id,warehouseId:warehouses[0].id,lines:rows.lines,note:summary+'; operator QA test gross prices 30/20/15 EUR; NO SEND; no customer approval'},verifyContent:(detail,body)=>confirmBusinessContent(detail,body,rows.unitNetPrices,rows.unitIds)});
   assert.equal(op.state,'verified');assert.ok(op.quibiId);report.created=true;report.documentId=op.quibiId;
   // Also reread/verify on an idempotent retry of an already-verified journal entry.

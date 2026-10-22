@@ -1,5 +1,6 @@
 "use client";
 
+import {usePathname} from "next/navigation";
 import { Menu, Plus } from "lucide-react";
 import type { DashboardShellUser } from "@/lib/auth/shellUser";
 import { shortNameFromDisplayName } from "@/lib/auth/shellUser";
@@ -15,6 +16,7 @@ export function AppHeader({
   onOpenMobileNav,
   onOpenManualEntry,
 }: AppHeaderProps) {
+  const showManualEntry=usePathname()!=="/dashboard";
   const shortName = shortNameFromDisplayName(user.displayName);
 
   return (
@@ -31,7 +33,7 @@ export function AppHeader({
 
         <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">Servisni primeri</p><p className="hidden text-xs text-slate-500 sm:block">Avtoservis Selan</p></div>
 
-        <button
+        {showManualEntry&&<button
           type="button"
           onClick={onOpenManualEntry}
           aria-label="Ročni vnos"
@@ -39,7 +41,7 @@ export function AppHeader({
         >
           <Plus className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">Ročni vnos</span>
-        </button>
+        </button>}
 
         <div className="hidden items-center gap-2 border-l border-slate-200 pl-3 md:flex">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-white">

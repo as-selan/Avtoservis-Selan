@@ -19,7 +19,7 @@ export function assertQuibiDevWriteAllowed(env: Record<string, string | undefine
 
 export type DocumentLine =
   | { sifra: string; kolicina: number; popust?: number; ddv_id?: string; cena?: number; opis?: string }
-  | { opis: string; enota_id: string; ddv_id: string; kolicina: number; cenaZDDV: number; popust: number };
+  | { opis: string; enota_id: string; ddv_id: string; kolicina: number; cenaZDDV: number; cenaBrezDDV?: number; popust: number };
 
 export type CreateEstimateInput = {
   numberingId: string;
@@ -51,11 +51,12 @@ export function buildEstimateBody(input: CreateEstimateInput): EstimateBody {
     if (!Number.isFinite(line.kolicina) || line.kolicina <= 0 || line.kolicina > 100000 ||
         ("sifra" in line ? !line.sifra.trim() || line.sifra.length > 100 || (line.cena != null && (!Number.isFinite(line.cena)||line.cena<0)) || (line.opis != null && (!line.opis.trim()||line.opis.length>500)) || (line.ddv_id != null&&!/^\d+$/.test(line.ddv_id)) || (line.popust != null&&(!Number.isFinite(line.popust)||line.popust<0||line.popust>100)) :
           !line.opis.trim() || line.opis.length > 500 || !/^\d+$/.test(line.enota_id) ||
-          !/^\d+$/.test(line.ddv_id) || !Number.isFinite(line.cenaZDDV) || line.cenaZDDV < 0 ||
+          !/^\d+$/.test(line.ddv_id) || (line.cenaBrezDDV!=null&&line.cenaBrezDDV!==line.cenaZDDV) || !Number.isFinite(line.cenaZDDV) || line.cenaZDDV < 0 ||
           !Number.isFinite(line.popust) || line.popust < 0 || line.popust > 100)) {
       throw new Error("QUIBI_INVALID_ESTIMATE_LINE");
     }
-    lines[String(index + 1)] = line;
+    // Live DEV requires the explicit unit-net field; retain the documented alias.
+    lines[String(index + 1)] = "sifra" in line ? line : {...line,cenaBrezDDV:line.cenaZDDV};
   });
   return {
     Glavadokumenta: {
