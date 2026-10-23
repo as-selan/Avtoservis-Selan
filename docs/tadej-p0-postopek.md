@@ -2,6 +2,8 @@
 
 Odpri [DEV aplikacijo](https://selan-dev-pr19-azalar7-langs-projects.vercel.app/dashboard). Ta različica uporablja Quibi DEV. Ni produkcija.
 
+TEST/QA-SIM primeri so ločeni v zloženem razdelku **Testni primeri**; glavni števci prikazujejo resnično dnevno delo. [Kratek ročni preizkus shranjevanja, osvežitve in dveh sej](qa/selan-redesign/manual-e2e-2026-10-23.md).
+
 1. Na nadzorni plošči izberi **Novo**, **Čaka odločitev**, **V delu** ali **Zaključeno**. Išči po stranki, vozilu ali delu. Odpri primer oziroma njegovo naslednje opravilo.
 2. V primeru so na vrhu stranka, vozilo, želje stranke in pripravljeni podatki. Glavni gumb odpre trenutno opravilo. Če osnovni podatki še niso potrjeni, uredi samo manjkajoče podatke istega primera.
 3. Pri predračunu so zahtevane storitve že razdeljene v vrstice. Zanesljiva ujemanja dobijo Quibijeve cene. Če katalog ni na voljo, storitve ostanejo kot proste postavke: dopolni manjkajočo količino in dogovorjeno ceno. Aplikacija cen in neznanih količin ne ugiba. Enota, DDV, vrsta prodaje in skladišče se prevzamejo iz potrjenih nastavitev.

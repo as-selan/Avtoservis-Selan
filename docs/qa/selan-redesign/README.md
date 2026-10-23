@@ -2,7 +2,7 @@
 
 **Aktualni Preview:** https://selan-dev-pr19-azalar7-langs-projects.vercel.app/dashboard
 
-Runtime commit `4534563b34ce63fbcd86a24c80b7562b3cca24db`; deployment `dpl_GAFtXJZWzBKfA8RoNcrqeWtdPVKf`, READY. Preverjena ekipa `team_2OC48hyth331W4Z02Cei2ZTL` / `azalar7-langs-projects`, projekt `prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU` / `avtoservis-selan-dev`. Stabilni DEV alias kaže na ta deployment. Kasnejši commiti vsebujejo le dokazila/teste/navodila.
+Runtime commit `df822ac502b988f97f267092e66b17bc33006d0a`; deployment `dpl_9gTZUf4ndNcmVrm5qNChNdVz6UyF`, READY. Preverjena ekipa `team_2OC48hyth331W4Z02Cei2ZTL` / `azalar7-langs-projects`, projekt `prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU` / `avtoservis-selan-dev`. Stabilni DEV alias kaže na ta deployment. Kasnejši commiti vsebujejo le dokazila/teste/navodila.
 
 ## Kaj sedaj opravi Selan
 
@@ -62,3 +62,5 @@ Vercel: `C:/Users/Admin/.codex/plugins/cache/openai-curated-remote/vercel/0.54.1
 TEST/QA-SIM primeri so ločeni od vseh štirih glavnih števcev in zgodovine dnevnega dela; ostanejo v zaprtem testnem razdelku. Naslednja dejanja na glavnih vrsticah so kratka. Po pregledu predračuna se ne prikazuje več zastarelo navodilo za dopolnitev manjkajočih cen. Quibi logika/WRITE/SEND in že ustvarjeni dokumenti niso ponovno izvedeni.
 
 [Točna ovira in kratek ročni E2E za Tadeja](manual-e2e-2026-10-23.md). 26 dodatnih ciljnih testov uspešno; preverjena Realtime objava vseh petih operativnih tabel, brez sprememb baze. Dejanski prenos dogodkov in shranjevanje v prijavljeni seji sta nepreverjena.
+
+Končni DEV build 23. 10.: `npm run build -- --webpack`, READY, TypeScript uspešen. Stabilni alias je preverjeno prevezan na navedeni deployment. Diagnostični smoke skripti so v tej objavi izključeni; nobene nove Quibi operacije. Spremembe aplikacije so v commitu df822ac, nadaljnji commit posodobi samo dokazila.
