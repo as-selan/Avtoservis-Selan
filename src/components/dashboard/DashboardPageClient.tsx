@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {dashboardQueue, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
+import {dashboardQueue, isSyntheticOrder, shortNextAction, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
 import {useRouter} from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { DashboardPeriodId, DashboardSnapshot, WorkflowStatusId } from "@/lib/dashboard/types";
@@ -28,7 +28,9 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   useEffect(()=>{let lastRefresh=Date.now();const refresh=()=>{const active=document.activeElement;if(document.visibilityState!=='visible'||active?.matches('input,textarea,select,[contenteditable="true"]')||Date.now()-lastRefresh<15000)return;lastRefresh=Date.now();startRefresh(()=>router.refresh());};const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh)}},[router]);
   const [queueGroup,setQueueGroup]=useState<DashboardGroup>('new');
   const [queueSearch,setQueueSearch]=useState('');
-  const queue=useMemo(()=>initialData.ok?dashboardQueue(initialData.orders):[],[initialData]);
+  const testOrders=useMemo(()=>initialData.ok?initialData.orders.filter(isSyntheticOrder):[],[initialData]);
+  const testIds=new Set(testOrders.map(order=>order.serviceRequestId));
+  const queue=useMemo(()=>initialData.ok?dashboardQueue(initialData.orders.filter(order=>!isSyntheticOrder(order))):[],[initialData]);
   const visibleQueue=filterDashboardQueue(queue,queueGroup,queueSearch);
   const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusId | "all">(
@@ -38,7 +40,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
 
   const orders = useMemo(() => {
     if (!initialData.ok) return [];
-    return initialData.orders.filter((o) =>
+    return initialData.orders.filter((o) => !isSyntheticOrder(o)&&
       isDateInPeriod(o.updatedAt, period, now),
     );
   }, [period, now, initialData]);
@@ -55,9 +57,9 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
     });
   }, [orders]);
 
-  const attention = initialData.ok ? initialData.attention : [];
+  const attention = initialData.ok ? initialData.attention.filter(item=>!testIds.has(item.id)) : [];
 
-  const appointments = initialData.ok ? initialData.appointments : [];
+  const appointments = initialData.ok ? initialData.appointments.filter(item=>!item.simulated&&!testIds.has(item.id)&&!/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(item.customerName.trim())) : [];
 
   const activity = useMemo(() => {
     if (!initialData.ok) return [];
@@ -115,14 +117,15 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
           </div>
         </div>
         <p role="status" className="px-5 py-3 text-xs text-slate-500">{visibleQueue.length} primerov{queueSearch.trim()?' za iskanje »'+queueSearch.trim()+'«':''}</p>
-        {visibleQueue.length ? <ul className="divide-y divide-slate-100 border-t border-slate-100">{visibleQueue.map(({order:o,label,href})=><li key={o.serviceRequestId} className="px-5 py-5 transition-colors hover:bg-slate-50/70">
+        {visibleQueue.length ? <ul className="divide-y divide-slate-100 border-t border-slate-100">{visibleQueue.map(item=>{const {order:o,href}=item;return <li key={o.serviceRequestId} className="px-5 py-5 transition-colors hover:bg-slate-50/70">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-6">
             <div className="min-w-0"><p className="font-semibold text-slate-900">{o.customerName}</p><p className="mt-1 text-sm text-slate-600">{o.vehicleMakeModel}{o.registration&&<span className="ml-2 font-medium text-slate-800">{o.registration}</span>}</p></div>
             <div className="min-w-0"><p className="line-clamp-2 text-sm text-slate-800">{o.requestSummary}</p><span className={'mt-2 inline-block rounded-md px-2 py-1 text-xs font-medium '+getStatusBadgeClass(o.status)}>{getStatusLabel(o.status)}</span></div>
-            <Link href={href} className="group flex min-h-11 items-center justify-between gap-3 rounded-lg py-2 text-sm font-medium text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"><span><span className="mb-1 block text-xs font-normal text-slate-500">Naslednje opravilo</span>{label}</span><span aria-hidden="true" className="text-xl transition-transform group-hover:translate-x-1">→</span></Link>
+            <Link href={href} className="group flex min-h-11 items-center justify-between gap-3 rounded-lg py-2 text-sm font-medium text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"><span><span className="mb-1 block text-xs font-normal text-slate-500">Naslednje opravilo</span>{shortNextAction(item)}</span><span aria-hidden="true" className="text-xl transition-transform group-hover:translate-x-1">→</span></Link>
           </div>
-        </li>)}</ul> : <div className="border-t border-slate-100 px-5 py-12 text-center"><p className="font-medium text-slate-700">{queueSearch.trim()?'Ni zadetkov za to iskanje.':'V tej skupini trenutno ni primerov.'}</p><p className="mt-1 text-sm text-slate-500">{queueSearch.trim()?'Poskusite drugo ime, registracijo ali opis dela.':'Izberite drugo skupino ali dodajte novo povpraševanje.'}</p></div>}
+        </li>})}</ul> : <div className="border-t border-slate-100 px-5 py-12 text-center"><p className="font-medium text-slate-700">{queueSearch.trim()?'Ni zadetkov za to iskanje.':'V tej skupini trenutno ni primerov.'}</p><p className="mt-1 text-sm text-slate-500">{queueSearch.trim()?'Poskusite drugo ime, registracijo ali opis dela.':'Izberite drugo skupino ali dodajte novo povpraševanje.'}</p></div>}
       </section>
+      {testOrders.length>0&&<details className="rounded-xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer text-sm font-medium text-slate-600">Testni primeri · TEST / QA-SIM ({testOrders.length})</summary><p className="mt-2 text-sm text-slate-500">Ločeni od dnevnega dela in števcev. Ti podatki niso izbrisani.</p><ul className="mt-3 divide-y divide-slate-100">{testOrders.map(order=><li key={order.serviceRequestId??order.id} className="py-3 text-sm"><Link className="inline-flex min-h-11 items-center text-blue-700 underline" href={'/dashboard/primeri/'+order.serviceRequestId}>{order.customerName} · {order.vehicleMakeModel} · {order.requestSummary}</Link></li>)}</ul></details>}
       <details className="rounded-xl border border-slate-200 bg-white p-4">
         <summary className="cursor-pointer font-semibold text-slate-800">Vsi primeri in zgodovina</summary>
         <p className="my-3 text-sm text-slate-600">Dodatni pregled po obdobju in statusu, vključno z zaključenimi primeri. Skupine zgoraj prikazujejo primere iz vseh obdobij.</p>

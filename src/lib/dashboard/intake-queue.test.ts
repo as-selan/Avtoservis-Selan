@@ -68,3 +68,11 @@ test('dashboard attention and mismatches stay visible as decisions even after bo
  const rows=dashboardQueue([order('attention','termin_potrjen',{requiresAttention:true}),order('mismatch','aktivno_popravilo',{nextActionKind:'review_quibi_mismatch'}),order('unlinked','zakljuceno',{serviceRequestId:undefined})]);
  assert.deepEqual(rows.map(r=>r.group),['decision','decision']);assert.equal(rows.length,2);
 });
+
+
+import {isSyntheticOrder,shortNextAction} from './intake-queue.ts';
+test('only explicit QA-SIM/TEST markers leave normal daily work; data stays accessible',()=>{
+ for(const patch of [{customerName:'TEST-AUTOSERVIS-SELAN-1'},{requestSummary:'QA-SIM-PR19'},{synthetic:true}])assert.equal(isSyntheticOrder(order('x','novo',patch)),true);
+ for(const customerName of ['QA Novak','Testar Janez','Atest d.o.o.'])assert.equal(isSyntheticOrder(order('x','novo',{customerName})),false);
+ const rows=dashboardQueue([order('x','priprava_ponudbe',{nextActionKind:'review_estimate'})]);assert.equal(shortNextAction(rows[0]),'Preglej predračun');
+});

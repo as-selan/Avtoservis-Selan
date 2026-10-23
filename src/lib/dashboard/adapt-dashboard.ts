@@ -13,6 +13,7 @@ export type ServiceRequestRow = {
   vehicle_id: string | null;
   status: string;
   summary: string;
+  problem_description?: string|null;
   next_action: string | null;
   attention_needed: boolean;
   attention_reason: string | null;
@@ -72,6 +73,7 @@ export function adaptServiceRequestToOrder(
     vehicleMakeModel: vehicleMakeModel(vehicle),
     registration: vehicle?.registration_current?.trim() || undefined,
     requestSummary: row.summary,
+    synthetic:[row.summary,row.problem_description,customer?.display_name].some(value=>/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(value?.trim()??'')),
     intakeConnectionLabel:stepInput.intakeConnectionLabel,
     status: uiStatus,
     nextActionLabel: nextCaseStep({ ...stepInput, status: row.status }).label,

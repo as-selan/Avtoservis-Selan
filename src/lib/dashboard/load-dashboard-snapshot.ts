@@ -70,6 +70,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           "vehicle_id",
           "status",
           "summary",
+          "problem_description",
           "next_action",
           "attention_needed",
           "attention_reason",

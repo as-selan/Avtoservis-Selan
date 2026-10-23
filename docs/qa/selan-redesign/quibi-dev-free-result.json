@@ -1,0 +1,46 @@
+{
+  "scope": "Real Quibi DEV FREE-line estimate/work-order/invoice; explicit synthetic QA approval and completion fixture; NO SEND; not authenticated browser E2E",
+  "caseId": "c7156f6e-76ca-48b3-8cc0-202610220040",
+  "created": true,
+  "linked": true,
+  "sent": false,
+  "caseLinked": true,
+  "documentId": "2176929",
+  "quoteId": "2c2e36d7-d836-4ba8-962c-976a743887ed",
+  "freeLines": {
+    "count": 3,
+    "quantities": [
+      1,
+      1,
+      1
+    ],
+    "operatorQaGrossPrices": [
+      30,
+      20,
+      15
+    ],
+    "unitId": "1",
+    "vatId": "5"
+  },
+  "syntheticApprovalRecorded": true,
+  "actualCustomerApproval": false,
+  "mechanicAuthenticatedE2E": false,
+  "business": [
+    {
+      "kind": "work_order",
+      "id": "2176930",
+      "state": "verified",
+      "number": "271/2026",
+      "amount": "65.00",
+      "caseLinked": true
+    },
+    {
+      "kind": "invoice",
+      "id": "2176931",
+      "state": "verified",
+      "number": "DELAVNICA-A-26000260",
+      "amount": "65.00",
+      "caseLinked": true
+    }
+  ]
+}

@@ -66,3 +66,13 @@ export function filterDashboardQueue(rows:DashboardQueueItem[],group:DashboardGr
  const query=search.trim().toLocaleLowerCase('sl-SI');
  return rows.filter(row=>row.group===group&&(!query||[row.order.id,row.order.customerName,row.order.registration,row.order.vehicleMakeModel,row.order.requestSummary].join(' ').toLocaleLowerCase('sl-SI').includes(query)));
 }
+
+
+/** Explicit test markers only: normal words/names containing 'test' are not hidden. */
+export function isSyntheticOrder(order:ServiceOrderDemo){return order.synthetic===true||[order.customerName,order.requestSummary].some(value=>/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(value.trim()));}
+export function shortNextAction(item:DashboardQueueItem){
+ const anchor=item.href.split('#')[1];
+ if(item.group==='done')return 'Odpri primer';
+ if(item.order.nextActionKind==='review_quibi_mismatch')return 'Preveri dokument';
+ return ({podatki:'Preveri podatke','quibi-povezava':'Preveri povezavo',predracun:'Pripravi predračun','pregled-predracuna':'Preglej predračun',odobritev:'Zabeleži odgovor',termini:'Uredi dogovor',popravilo:item.group==='work'?'Odpri delo':'Preglej delo','objavljena-cena':'Preglej storitev'} as Record<string,string>)[anchor]??'Odpri primer';
+}
