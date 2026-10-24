@@ -52,7 +52,7 @@ Tri aditivne migracije so uporabljene samo na obstoječem Preview Supabase proje
 
 ## Datoteke in uporabljene smernice
 
-Spremembe: `automatic-intake-sync.ts`, nova skupna sestava in shranjevanje `automatic-estimate-draft.ts` / `automatic-draft-actions.ts`, obstoječi urejevalnik `EstimateComposer.tsx`, stran primera, naslednje dejanje in branje nadzorne plošče; tri aditivne migracije v `supabase/migrations/2026102412*.sql`. Katalog in videz nista ponovno implementirana, novih odvisnosti ni.
+Spremembe: `automatic-intake-sync.ts`, nova skupna sestava in shranjevanje `automatic-estimate-draft.ts` / `automatic-draft-actions.ts`, obstoječi urejevalnik `EstimateComposer.tsx`, stran primera, naslednje dejanje in branje nadzorne plošče; tri aditivne migracije `20261024094647`, `20261024100001`, `20261024100417` (kanonične verzije DEV; preslikava v `supabase/migration-version-map.json`). Katalog in videz nista ponovno implementirana, novih odvisnosti ni.
 
 Prebrano:
 

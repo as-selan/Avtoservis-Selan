@@ -15,10 +15,11 @@ test("reviewed preview opts into real Quibi DEV reads only when explicitly reque
     assert.equal(dev.env?.SELAN_REMOTE_DEMO, "0");
     assert.equal(dev.env?.NEXT_PUBLIC_SELAN_REMOTE_DEMO, "0");
 
+    // Missing configuration must fail closed; never substitute simulated business data.
     delete process.env.QUIBI_MODE;
-    const fallback = (await import(`${configUrl}?quibi-demo-test`)).default;
-    assert.equal(fallback.env?.QUIBI_MODE, "demo");
-    assert.equal(fallback.env?.SELAN_REMOTE_DEMO, "1");
+    const unconfigured = (await import(`${configUrl}?quibi-demo-test`)).default;
+    assert.equal(unconfigured.env?.QUIBI_MODE, "");
+    assert.equal(unconfigured.env?.SELAN_REMOTE_DEMO, "0");
   } finally {
     for (const key of keys) {
       if (previous[key] === undefined) delete process.env[key];

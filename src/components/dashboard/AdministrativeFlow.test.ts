@@ -30,7 +30,7 @@ function attest(tree:any){const input=nodes(tree).find(n=>n.type==='input'&&n.pr
 test('customer approval and rejection work without delivery, stay explicitly synthetic and refresh the case',async()=>{
  for(const decision of ['approved','rejected']){
   const f=fixture('./ManualEstimateHandoff.tsx','ManualEstimateHandoff',{quoteId:'qa-quote',delivered:false,decision:null,syntheticQa:true,realDevWrite:true});
-  fillLabel(f.render(),'Referenca dejanskega odgovora stranke','QA-SIM-admin-check');
+  fillLabel(f.render(),'Referenca simulirane odločitve QA-SIM-','QA-SIM-admin-check');
   const label=decision==='approved'?'Evidentiraj simulirano QA odobritev':'Evidentiraj simulirano QA zavrnitev';
   const submit=button(f.render(),label);assert.equal(submit.props.disabled,false);submit.props.onClick();await f.flush();
   assert.deepEqual(f.calls,[{name:'recordManualEstimateDecision',args:['qa-quote',decision,'QA-SIM-admin-check']}]);assert.equal(f.refreshes(),1);
@@ -39,7 +39,7 @@ test('customer approval and rejection work without delivery, stay explicitly syn
 });
 test('synthetic decision cannot be mistaken for real customer evidence',async()=>{
  const f=fixture('./ManualEstimateHandoff.tsx','ManualEstimateHandoff',{quoteId:'qa',delivered:false,decision:null,syntheticQa:true});
- fillLabel(f.render(),'Referenca dejanskega odgovora stranke','Unverified telephone call');button(f.render(),'Evidentiraj simulirano QA odobritev').props.onClick();await f.flush();assert.equal(f.calls.length,0);assert.match(text(f.render()),/QA-SIM-/);
+ fillLabel(f.render(),'Referenca simulirane odločitve QA-SIM-','Unverified telephone call');button(f.render(),'Evidentiraj simulirano QA odobritev').props.onClick();await f.flush();assert.equal(f.calls.length,0);assert.match(text(f.render()),/QA-SIM-/);
 });
 test('manual appointment UI progresses proposal, actual choice and booking evidence as separate actions',async()=>{
  const f=fixture('./ManualSlotOffer.tsx','ManualSlotOffer',{serviceRequestId:'case',appointmentType:'service',offer:null,realDevWrite:true});

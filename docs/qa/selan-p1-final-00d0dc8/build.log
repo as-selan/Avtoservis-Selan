@@ -1,0 +1,58 @@
+
+> avtoservis-selan@0.1.0 build
+> next build --webpack
+
+▲ Next.js 16.3.5 (webpack)
+✓ Running next.config.ts took 107ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 106s
+  Running TypeScript ...
+  Finished TypeScript in 64s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/15) ...
+  Generating static pages using 3 workers (3/15)
+  Generating static pages using 3 workers (7/15)
+  Generating static pages using 3 workers (11/15)
+✓ Generating static pages using 3 workers (15/15) in 3.8s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/dopolnitev
+├ ƒ /api/povprasevanje
+├ ƒ /api/quibi/dokumenti/[customerId]/[kind]/[documentId]/pdf
+├ ƒ /api/quibi/stranke/[customerId]/dokumenti/[kind]/[documentId]/pdf
+├ ○ /auth/accept-invite
+├ ƒ /auth/confirm
+├ ○ /auth/recovery
+├ ƒ /auth/signout
+├ ƒ /dashboard
+├ ƒ /dashboard/mehanik
+├ ƒ /dashboard/mehanik/[orderId]
+├ ƒ /dashboard/nalogi
+├ ƒ /dashboard/nalogi/[orderId]
+├ ƒ /dashboard/nastavitve/ekipa
+├ ƒ /dashboard/primeri/[serviceRequestId]
+├ ƒ /dashboard/quibi
+├ ƒ /dashboard/quibi/stranke/[customerId]/dokumenti/[kind]/[documentId]
+├ ƒ /dashboard/quibi/stranke/[customerId]/vozila/[vehicleId]
+├ ƒ /dashboard/stranke
+├ ƒ /dashboard/stranke/[customerId]
+├ ƒ /dashboard/stranke/[customerId]/quibi
+├ ƒ /dashboard/stranke/[customerId]/quibi/dokumenti/[kind]/[documentId]
+├ ƒ /dashboard/stranke/[customerId]/quibi/predracuni/[estimateId]
+├ ○ /dopolnitev
+├ ƒ /dostop-zavrnjen
+├ ○ /icon.svg
+├ ƒ /login
+├ ƒ /nastavi-geslo
+└ ○ /povprasevanje
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

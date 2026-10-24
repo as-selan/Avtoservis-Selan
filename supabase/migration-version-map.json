@@ -1,0 +1,26 @@
+{
+  "reason": "Canonical versions already installed on DEV; filenames only, Git SQL blobs unchanged. fileSha256 uses Git/LF line endings. Never replay equivalent SQL.",
+  "migrations": [
+    {
+      "formerVersion": "20261024120000",
+      "canonicalVersion": "20261024094647",
+      "name": "automatic_offer_drafts",
+      "fileSha256": "6b33b4d641b18d047aa76d0101238a2a8cf8efd2eaa1c609f96274c49bf96aed",
+      "normalizedSha256": "1453287798007f9537e21d325f8005859d38ac5cd019322f48038a173477c2f9"
+    },
+    {
+      "formerVersion": "20261024123000",
+      "canonicalVersion": "20261024100001",
+      "name": "save_automatic_offer_edits",
+      "fileSha256": "4fc7c3f27b3fa414a59cb4f9ee26880c4564d75b5b0ea8789972e31f6e3ce45c",
+      "normalizedSha256": "0a60879e93eba3bd9b756442a9c95cb2253c1be5ce3f2ca88fbab831499666d0"
+    },
+    {
+      "formerVersion": "20261024124000",
+      "canonicalVersion": "20261024100417",
+      "name": "automatic_offer_identity_and_notifications",
+      "fileSha256": "ab5a4d9391a3c06e54efb8da2e7758581298f2bfdab7d7645774646252eca6a3",
+      "normalizedSha256": "ca38539d6ff5fe9d1693c4742fd34d957de402b2e6e5c78ba5d42a1200aad960"
+    }
+  ]
+}

@@ -17,7 +17,9 @@ for(const dev of [true,false]){
  test(`server-authorized ${dev?'DEV':'production'} SEND uses the same existing form`,()=>{
   for(const enabled of [true,false]){
    const business=render('QuibiBusinessSend',{dev,enabled,orderId:'case',documentId:'doc',kind:'invoice',sha:'sha',amount:'45.99',recipient:'qa@example.test',initialState:null});
-   assert.equal(find(business,n=>n.type==='button')?.props.disabled,!enabled);
+   assert.equal(!!find(business,n=>n.type==='form'),enabled);
+   if(enabled)assert.equal(find(business,n=>n.type==='button')?.props.disabled,false);
+   else {assert.equal(find(business,n=>n.type==='button'),undefined);assert.match(String(business.props.children),/ni omogočeno/);}
    const estimate=render('QuibiEstimateWorkflowPanel',{dev,sendEnabled:enabled,serviceRequestId:'case',quoteId:'quote',documentId:'doc',reviewStatus:'approved_for_send',sha256:'sha',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',manualIdentityRequired:false,alreadyDelivered:false});
    assert.equal(!!find(estimate,n=>n.type==='form'),enabled);
   }

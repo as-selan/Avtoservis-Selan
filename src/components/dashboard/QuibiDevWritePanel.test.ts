@@ -3,70 +3,34 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import ts from 'typescript';
+import * as editor from '../../lib/quibi/estimate-editor.ts';
 import {inspectionCatalogSuggestions} from '../../lib/quibi/inspection-catalog.ts';
-
-type Element = {type:unknown;props:Record<string,unknown>};
-function panel(state:string, readFails=false, selectedCatalog=false,draftRows?:Array<{key:string;quantity:string;discount:string}>,aiEstimateLines?:Array<{key:string;quantity:number|null}>){
- const calls:string[]=[],effects:(()=>unknown)[]=[];let slot=0,refreshes=0;const updates:Record<number,unknown>={};
+type Element={type:unknown;props:Record<string,unknown>};
+function find(value:unknown,predicate:(n:Element)=>boolean):Element|undefined{if(Array.isArray(value)){for(const child of value){const found=find(child,predicate);if(found)return found}}else if(value&&typeof value==='object'&&'props' in value){const node=value as Element;return predicate(node)?node:find(node.props.children,predicate)}}
+function panel(operationState:string,{readFails=false,initialRows,aiEstimateLines,selected=true}:{readFails?:boolean;initialRows?:editor.EstimateDraftRow[];aiEstimateLines?:Array<{key:string;quantity:number|null}>;selected?:boolean}={}){
+ const calls:{name:string;form:FormData}[]=[],jobs:Promise<unknown>[]=[],state:unknown[]=[],refs:{current:unknown}[]=[];let slot=0,refSlot=0,refreshes=0;
+ const react={useState:(initial:unknown)=>{const i=slot++;if(!(i in state))state[i]=typeof initial==='function'?(initial as ()=>unknown)():initial;return [state[i],(next:unknown)=>{state[i]=typeof next==='function'?(next as (v:unknown)=>unknown)(state[i]):next}]},useRef:(initial:unknown)=>{const i=refSlot++;return refs[i]??(refs[i]={current:initial})},useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>jobs.push(fn())]};
  const jsx=(type:unknown,props:Record<string,unknown>)=>({type,props});
- const actions=Object.fromEntries(['prepareQuibiEstimate','prepareQuibiEstimateHistory','createQuibiDevEstimate','reconcileQuibiEstimate'].map(name=>[name,async()=>{calls.push(name);if(readFails&&name==='prepareQuibiEstimate')throw Error('READ unavailable');return name==='prepareQuibiEstimateHistory'?{proposals:[],issues:[]}:{ok:true,sha:'a'.repeat(64),detail:'Priprava preverjena'};}]));
- const react={useRef:(value:unknown)=>({current:value}),useState:(value:unknown)=>{const i=slot++;return [i===7?'a'.repeat(64):i===10?true:i===5?false:i===12?draftRows??value:value,(next:unknown)=>{updates[i]=next}]},useEffect:(effect:()=>unknown)=>effects.push(effect),useTransition:()=>[false,(fn:()=>Promise<void>)=>fn()]};
- const exports:Record<string,unknown>={};
- const code=ts.transpileModule(readFileSync(new URL('./QuibiDevWritePanel.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- class Form extends FormData{constructor(){super();this.set('createConfirmed','yes');this.set('saleTypeId','1');this.set('warehouseId','626')}}
- runInNewContext(code,{exports,require:(name:string)=>name==='@/lib/quibi/inspection-catalog'?{inspectionCatalogSuggestions}:name==='react'?react:name==='react/jsx-runtime'?{jsx,jsxs:jsx}:name==='next/navigation'?{useRouter:()=>({refresh:()=>{refreshes++}})}:actions,FormData:Form,HTMLInputElement:class{},JSON,Map,Set});
- const element=(exports.QuibiDevWritePanel as (p:unknown)=>Element)({serviceRequestId:'case',mode:'create',operationState:state,aiEstimateLines,initialCatalogSource:selectedCatalog?'189:11':undefined,catalogOptions:selectedCatalog?[{key:'189:11',name:'Service',code:'SERVICE',grossPrice:122,unitLabel:'kos',vatLabel:'22 %',discount:0,unitId:'1',vatId:'5'}]:[],choices:{saleTypes:[{id:'1',label:'Sale'}],units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]}});
- return {element,calls,effects,updates,refreshes:()=>refreshes};
+ const actions=Object.fromEntries(['prepareQuibiEstimate','prepareQuibiEstimateHistory','createQuibiDevEstimate','reconcileQuibiEstimate'].map(name=>[name,async(form:FormData)=>{calls.push({name,form});if(readFails&&name==='prepareQuibiEstimate')throw Error('READ unavailable');return name==='prepareQuibiEstimateHistory'?{proposals:[],issues:[]}:{ok:true,sha:'a'.repeat(64),review:{customerId:'405',vehicleId:'2391',pricingSource:'verified fixture',total:122,lines:[{description:'QA Service',quantity:1,unit:'kos',unitPrice:122,vat:'22 %',discount:0}]},detail:'Verified synthetic result'};} ]));
+ class Fields extends FormData{constructor(){super();this.set('saleTypeId','1');this.set('warehouseId','626')}}
+ const imports:Record<string,unknown>={'react':react,'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{useRouter:()=>({refresh:()=>refreshes++})},'@/lib/quibi/estimate-editor':editor,'@/lib/quibi/inspection-catalog':{inspectionCatalogSuggestions},'@/lib/quibi/dev-write-actions':actions,'@/lib/quibi/automatic-draft-actions':{saveAutomaticOfferRows:()=>{throw Error('No persistence adapter in this fixture')}},'@/lib/cases/review-intake-action':{reviewServiceRequestIntake:()=>{throw Error('Intake already reviewed')}},'@/lib/offer-preparation/actions':{prepareOfferAction:()=>{throw Error('Case already prepared')}}};
+ function load(file:string){const exports:Record<string,(p:unknown)=>Element>={};runInNewContext(ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:(n:string)=>{assert.ok(n in imports,'Unexpected import '+n);return imports[n]},FormData:Fields,Map,Set,JSON,Number});return exports;}
+ const composer=load('./EstimateComposer.tsx').EstimateComposer;imports['./EstimateComposer']={EstimateComposer:composer};
+ const wrapper=load('./QuibiDevWritePanel.tsx').QuibiDevWritePanel;
+ const props={serviceRequestId:'synthetic-case',mode:'create',operationState,initialRows,aiEstimateLines,initialCatalogSource:selected?'189:11':undefined,catalogOptions:[{key:'189:11',articleId:'11',priceListId:'189',priceListName:'QA list',name:'Service',code:'SERVICE',grossPrice:122,priceListNetPrice:'100',priceListDiscount:0,priceListDiffers:false,unitLabel:'kos',vatLabel:'22 %',unitId:'1',vatId:'5',stockManaged:false}],choices:{saleTypes:[{id:'1',label:'Sale'}],units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]}};
+ const render=()=>{slot=0;refSlot=0;const child=wrapper(props);assert.equal(child.type,composer,'ordinary route must use the real composer');return composer(child.props)};
+ const flush=async()=>{while(jobs.length)await Promise.all(jobs.splice(0))};
+ const submit=async(dispatch=false)=>{const tree=render();(tree.props.onSubmit as (e:unknown)=>void)({preventDefault(){},currentTarget:{},nativeEvent:{submitter:dispatch?{getAttribute:(name:string)=>name==='data-create'?'yes':null}:null}});await flush()};
+ const get=(predicate:(n:Element)=>boolean)=>{const n=find(render(),predicate);assert.ok(n,'Expected control');return n};
+ const rows=()=>JSON.parse(get(n=>n.props.name==='catalogLines').props.value as string) as editor.EstimateDraftRow[];
+ return {calls,render,flush,submit,get,rows,refreshes:()=>refreshes};
 }
-for(const state of ['failed','uncertain','dispatching','verified']){
- test(`${state}: READ preview remains available while confirmed CREATE cannot dispatch`,async()=>{
-  const {element,calls}=panel(state);assert.equal(element.type,'form');
-  const submit=element.props.onSubmit as (e:unknown)=>void;
-  submit({preventDefault(){},currentTarget:{},nativeEvent:{submitter:{getAttribute:()=> 'yes'}}});
-  await new Promise(r=>setImmediate(r));assert.deepEqual(calls,[]);
-  submit({preventDefault(){},currentTarget:{},nativeEvent:{submitter:null}});
-  await new Promise(r=>setImmediate(r));assert.deepEqual(calls,['prepareQuibiEstimate']);
- });
-}
-test('failed CREATE no longer suppresses history READ',async()=>{const p=panel('failed');p.effects[0]();await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['prepareQuibiEstimateHistory'])});
-test('normal confirmed CREATE still uses its original action',async()=>{const p=panel('prepared');(p.element.props.onSubmit as (e:unknown)=>void)({preventDefault(){},currentTarget:{},nativeEvent:{submitter:{getAttribute:()=> 'yes'}}});await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['createQuibiDevEstimate'])});
-
-test('temporary READ failure can be retried and does not refresh the case or dispatch',async()=>{const p=panel('uncertain',true);const submit=p.element.props.onSubmit as (e:unknown)=>void;const event={preventDefault(){},currentTarget:{},nativeEvent:{submitter:null}};submit(event);await new Promise(r=>setImmediate(r));submit(event);await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['prepareQuibiEstimate','prepareQuibiEstimate']);assert.equal(p.refreshes(),0)});
-
-test('explicit catalog choice stops additional history scans but keeps the preview form',async()=>{const p=panel('failed',false,true);function find(value:unknown):Element|undefined{if(Array.isArray(value)){for(const child of value){const found=find(child);if(found)return found}}else if(value&&typeof value==='object'&&'props' in value){const node=value as Element;if(node.props.name==='catalogSource')return node;return find(node.props.children)}}const select=find(p.element);assert.ok(select);(select.props.onChange as (e:unknown)=>void)({target:{value:'189:11'}});p.effects[0]();await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,[]);assert.equal(p.element.type,'form')});
-
-function selectCatalogForAutomaticPreview(p:ReturnType<typeof panel>){
- function find(value:unknown):Element|undefined{if(Array.isArray(value)){for(const child of value){const found=find(child);if(found)return found}}else if(value&&typeof value==='object'&&'props' in value){const node=value as Element;if(node.props.name==='catalogSource')return node;return find(node.props.children)}}
- const select=find(p.element);assert.ok(select);(select.props.onChange as (e:unknown)=>void)({target:{value:'189:11'}});p.effects[0]();
-}
-test('automatic READ waits for existing required fields instead of locking an incomplete form',async()=>{
- const p=panel('prepared',false,true);selectCatalogForAutomaticPreview(p);
- const ref=p.element.props.ref as {current:unknown};ref.current={checkValidity:()=>false};
- p.effects[1]();await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,[]);
- ref.current={checkValidity:()=>true};p.effects[1]();await new Promise(r=>setImmediate(r));
- assert.deepEqual(p.calls,['prepareQuibiEstimate']);
-});
-
-function findNode(value:unknown,predicate:(node:Element)=>boolean):Element|undefined{if(Array.isArray(value)){for(const child of value){const node=findNode(child,predicate);if(node)return node}}else if(value&&typeof value==='object'&&'props' in value){const node=value as Element;return predicate(node)?node:findNode(node.props.children,predicate)}}
-test('multi-line editor adds, removes, edits quantities and discounts and clears approval without losing rows',()=>{
- const draft=[{key:'189:11',quantity:'2',discount:'5'},{key:'189:11',quantity:'3',discount:'0'}];
- const p=panel('prepared',false,true,draft);
- const quantity=findNode(p.element,n=>n.props['aria-label']==='Količina postavke 1');assert.ok(quantity);
- (quantity.props.onChange as (e:unknown)=>void)({target:{value:'4'}});assert.deepEqual(JSON.parse(JSON.stringify(p.updates[12])),[{...draft[0],quantity:'4'},draft[1]]);assert.equal(p.updates[7],null);assert.equal(p.updates[10],false);
- const discount=findNode(p.element,n=>n.props['aria-label']==='Popust postavke 2');assert.ok(discount);(discount.props.onChange as (e:unknown)=>void)({target:{value:'10'}});assert.deepEqual(JSON.parse(JSON.stringify(p.updates[12])),[draft[0],{...draft[1],discount:'10'}]);
- const remove=findNode(p.element,n=>n.type==='button'&&Array.isArray(n.props.children)&&n.props.children[0]==='Odstrani postavko ');assert.ok(remove);(remove.props.onClick as ()=>void)();assert.deepEqual(JSON.parse(JSON.stringify(p.updates[12])),[draft[1]]);
- const add=findNode(p.element,n=>n.type==='button'&&n.props.children==='Dodaj postavko');assert.ok(add);(add.props.onClick as ()=>void)();assert.deepEqual(JSON.parse(JSON.stringify(p.updates[12])),[...draft,{key:'',quantity:'1',discount:''}]);
- p.effects[0]();assert.deepEqual(p.calls,[]);
-});
-
-
-test('AI prepared lines populate the existing editor and bypass history selection, never CREATE',async()=>{
- const p=panel('uncertain',false,true,undefined,[{key:'189:11',quantity:2}]);
- const field=findNode(p.element,n=>n.props.name==='catalogLines');assert.ok(field);assert.deepEqual(JSON.parse(field.props.value as string),[{key:'189:11',quantity:'2',discount:''}]);
- p.effects[0]();assert.deepEqual(p.calls,[]);
- const ref=p.element.props.ref as {current:unknown};ref.current={checkValidity:()=>true};p.effects[1]();await new Promise(r=>setImmediate(r));assert.deepEqual(p.calls,['prepareQuibiEstimate']);
-});
-
-test('unknown AI quantity is left empty for review, not guessed',()=>{
- const p=panel('prepared',false,true,undefined,[{key:'189:11',quantity:null}]);const field=findNode(p.element,n=>n.props.name==='catalogLines');assert.ok(field);assert.equal(JSON.parse(field.props.value as string)[0].quantity,'');
-});
+for(const state of ['failed','uncertain','dispatching','verified'])test(`${state}: READ remains available; CREATE cannot dispatch even after review`,async()=>{const p=panel(state);await p.submit(true);assert.equal(p.calls.length,0);await p.submit();assert.deepEqual(p.calls.map(c=>c.name),['prepareQuibiEstimate']);assert.equal(p.get(n=>n.props['data-create']==='yes').props.disabled,true);await p.submit(true);assert.equal(p.calls.length,1)});
+test('failed CREATE preserves explicit history READ without automatic history scans',async()=>{const p=panel('failed');p.render();assert.equal(p.calls.length,0);(p.get(n=>n.props.children==='Predlagaj postavke iz zgodovine vozila').props.onClick as ()=>void)();await p.flush();assert.deepEqual(p.calls.map(c=>c.name),['prepareQuibiEstimateHistory'])});
+test('confirmed CREATE requires review and dispatches its immutable reviewed payload only once',async()=>{const p=panel('prepared');await p.submit(true);assert.equal(p.calls.length,0);await p.submit();assert.equal(p.get(n=>n.props['data-create']==='yes').props.disabled,false);await p.submit(true);await p.submit(true);assert.deepEqual(p.calls.map(c=>c.name),['prepareQuibiEstimate','createQuibiDevEstimate']);assert.equal(p.calls[1].form.get('expectedSha'),'a'.repeat(64));assert.equal(p.calls[1].form.get('createConfirmed'),'yes');assert.equal(p.calls[0].form.get('createConfirmed'),null)});
+test('temporary READ failure can be retried without refresh, CREATE or losing rows',async()=>{const p=panel('uncertain',{readFails:true}),before=p.rows();await p.submit();await p.submit();assert.deepEqual(p.calls.map(c=>c.name),['prepareQuibiEstimate','prepareQuibiEstimate']);assert.equal(p.refreshes(),0);assert.deepEqual(p.rows(),before)});
+test('explicit catalog choice updates the real editor without a history scan',async()=>{const p=panel('failed',{selected:false});(p.get(n=>n.props.children==='Dodaj postavko').props.onClick as ()=>void)();(p.get(n=>n.props['aria-label']==='Postavka 1').props.onChange as (e:unknown)=>void)({target:{value:'189:11'}});assert.equal(p.rows()[0].key,'189:11');assert.equal(p.render().type,'form');assert.equal(p.calls.length,0)});
+test('incomplete required quantity disables review; completing it enables review without implicit calls',()=>{const p=panel('prepared',{aiEstimateLines:[{key:'189:11',quantity:null}]});assert.equal(p.get(n=>n.props.children==='Preglej predračun').props.disabled,true);(p.get(n=>n.props['aria-label']==='Količina postavke 1').props.onChange as (e:unknown)=>void)({target:{value:'2'}});assert.equal(p.get(n=>n.props.children==='Preglej predračun').props.disabled,false);assert.equal(p.calls.length,0)});
+test('multi-line edits preserve other rows; review is invalidated and add/remove use the live editor',async()=>{const p=panel('prepared',{initialRows:[{key:'189:11',quantity:'2',discount:'5'},{key:'189:11',quantity:'3',discount:'0'}]});await p.submit();(p.get(n=>n.props.children==='Uredi postavke').props.onClick as ()=>void)();assert.equal(find(p.render(),n=>n.props['data-create']==='yes'),undefined);(p.get(n=>n.props['aria-label']==='Količina postavke 1').props.onChange as (e:unknown)=>void)({target:{value:'4'}});assert.equal(p.rows()[0].quantity,'4');assert.equal(p.rows()[1].quantity,'3');(p.get(n=>n.props['aria-label']==='Popust postavke 2').props.onChange as (e:unknown)=>void)({target:{value:'10'}});assert.equal(p.rows()[1].discount,'10');(p.get(n=>n.type==='button'&&Array.isArray(n.props.children)&&n.props.children[0]==='Odstrani postavko ').props.onClick as ()=>void)();assert.equal(p.rows().length,1);assert.equal(p.rows()[0].quantity,'3');(p.get(n=>n.props.children==='Dodaj postavko').props.onClick as ()=>void)();assert.equal(p.rows().length,2);assert.equal(p.rows()[1].key,'');assert.equal(p.calls.length,1)});
+test('AI prepared lines populate the actual composer; review remains READ-only without history scans',async()=>{const p=panel('uncertain',{aiEstimateLines:[{key:'189:11',quantity:2}]});assert.equal(p.rows()[0].quantity,'2');assert.equal(p.calls.length,0);await p.submit();assert.deepEqual(p.calls.map(c=>c.name),['prepareQuibiEstimate']);assert.equal(p.calls[0].form.get('createConfirmed'),null)});
+test('unknown AI quantity remains empty and blocks review, never guessed',()=>{const p=panel('prepared',{aiEstimateLines:[{key:'189:11',quantity:null}]});assert.equal(p.rows()[0].quantity,'');assert.equal(p.get(n=>n.props.children==='Preglej predračun').props.disabled,true);assert.equal(p.calls.length,0)});

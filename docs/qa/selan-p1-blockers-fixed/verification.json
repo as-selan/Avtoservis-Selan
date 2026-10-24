@@ -1,0 +1,22 @@
+{
+  "startingHead": "00d0dc8026eb25ec2c20862e13b2eb14d21740f4",
+  "offlineTests": {
+    "total": 622,
+    "pass": 622,
+    "fail": 0,
+    "skipped": 0
+  },
+  "cleanNpmLintExit": 0,
+  "cleanRootTypeScriptExit": 0,
+  "cleanWebpackBuildExit": 0,
+  "migrationRenames": 3,
+  "sqlContentsChanged": false,
+  "devNormalizedSha256Matches": true,
+  "productionUiFilesChanged": false,
+  "productionTriggerVerified": false,
+  "vercelOtherProjectHttp": 403,
+  "githubWebhookScopeAvailable": false,
+  "retargetPerformed": false,
+  "hostedWritesPerformed": false,
+  "decision": "NO-GO: external deployment trigger and integration target approval remain; CI outcomes must be checked on pushed SHA"
+}
