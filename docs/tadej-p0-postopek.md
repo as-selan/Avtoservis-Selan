@@ -34,3 +34,9 @@ Priprava zdaj uporablja novi paginirani seznam. Redni servis lahko že dobi Quib
 Po »Ustvari povpraševanje« se povezovanje in priprava nadaljujeta na strežniku; ni treba posebej zagnati sinhronizacije ali odpreti dodatnega obrazca. Ko je identiteta preverjena, se osnutek shrani. V primeru se prikaže pregled, izbira nejasne storitve ali zahteva za manjkajočo ceno. Popravki se shranijo ob zapustitvi polja in pred pregledom. Če se prikaže opozorilo o neuspelem shranjevanju, pred odhodom preveri izid.
 
 Klik »Preglej predračun« pri samodejno pripravljenem osnutku opravi tudi obstoječi sprejem; dodatnega potrditvenega polja ni. Ustvarjanje dokumenta ostane ločeno po pregledu. Nejasno identiteto oziroma novo nepotrjeno vozilo mora najprej preveriti pooblaščeni uporabnik. [Kaj je dejansko preverjeno in kratek ročni preizkus](qa/selan-automatic-preparation-2026-10-24/README.md).
+
+## Novo vozilo po spletnem povpraševanju
+
+Če piše **Novo vozilo – potrebna potrditev**, je stranka že povezana, vozilo pa čaka pregled. Novo Quibi vozilo lahko potrdi samo **lastnik**. Administrator naj lastniku posreduje povezavo do istega primera; ne potrebuje ločenega sprejema ali ponovnega vnosa.
+
+Lastnik preveri prikazane podatke in izbere **Potrdi in ustvari vozilo v Quibiju**. Nato Selan sam nadaljuje pripravo predračuna. Dokumenti, zgodovina in tehnični podatki ostajajo pod **Več podrobnosti**. [Preizkus #A73DB6BE, posnetki in omejitve](qa/selan-a73-vehicle-2026-10-24/README.md).
