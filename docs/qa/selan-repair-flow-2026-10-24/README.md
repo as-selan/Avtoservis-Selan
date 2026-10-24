@@ -36,4 +36,14 @@ Isti PR #19, veja `codex/selan-p0-guided-case`. Poslovna pravila, vloge, Quibi C
 - `C:/Users/Admin/.codex/plugins/cache/openai-curated-remote/vercel/0.54.1/skills/deployments-cicd/SKILL.md`.
 - Lokalne smernice Next: `node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md` in `use-server.md` v istem worktreeju.
 
-Build, končni commit in Preview: dopolnjeno po zaključku preverjanja spodaj.
+## Build in objava DEV
+
+- Runtime commit: `bbcd4fd` (isti PR #19, brez merge).
+- Vercel projekt `prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU`, ekipa `azalar7-langs-projects`.
+- Deployment `dpl_B3CfRKX1eq5sWNGieHkJcSfxznUz`: **READY**, Preview. `npm run build -- --webpack` je uspel, TypeScript 7,5 s, celoten Vercel build 44 s.
+- [Obstoječi DEV naslov](https://selan-dev-pr19-azalar7-langs-projects.vercel.app/dashboard).
+- [Nespremenljivi Preview](https://avtoservis-selan-itbko67wd-azalar7-langs-projects.vercel.app).
+- Lokalni scoped TypeScript in ESLint sta uspela. Lokalni build se je prevedel, vendar je root TypeScript vključil stare ignorirane arhive v `qa-visual`; ustavljen je bil samo ta lokalni build. Celoten čist build istega commita je preverjen na Vercelu. Nastavitev tsconfig nismo spreminjali.
+- Dodatno 42 navigacijskih UI scenarijev pri vseh treh širinah: vidnost CTA, fokus tipkovnice, odpiranje podrobnosti iz zaznamka in brez preliva.
+- Končno kontrolno READ branje DEV potrjuje isto stanje A73: `work_completed`, 2 zapiska, 1 fotografija, 1 potrjen pregled. Brez zapisov v ta primer ali Quibi v okviru naloge.
+
