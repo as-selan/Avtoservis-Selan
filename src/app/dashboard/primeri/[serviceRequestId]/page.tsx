@@ -22,7 +22,6 @@ import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
 import {syntheticCaseEvidenceAllowed} from '@/lib/quibi/synthetic-case-evidence';
 import {loadEstimateCatalog,exactEstimateCatalogMatch,type EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
 import {AutomaticIntakeSync} from '@/components/dashboard/AutomaticIntakeSync';
-import {previewDevActivationReadiness} from '@/lib/quibi/hosted-activation-requirements';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
 import {QuibiCaseBusinessOperations,QuibiInspectionInvoicePreparation} from '@/components/dashboard/QuibiCaseBusinessOperations';
 import {QuibiCaseDocuments} from '@/components/dashboard/QuibiCaseDocuments';
@@ -31,7 +30,6 @@ import {ReviewManualEstimate} from "@/components/dashboard/ReviewManualEstimate"
 import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
 import {currentIntakeCompleteness} from '@/lib/intake/completeness';
 import {configuredIntakeProvider} from '@/lib/assistance/configured-intake-provider';
-import {intakeAiConfiguration} from '@/lib/assistance/openai-intake-provider';
 import {analyzeIntake} from '@/lib/assistance/intake-analysis';
 import { CreateWorkOrder } from "@/components/dashboard/WorkOrderEditor";
 import { localQaIdentityExceptionAvailable } from "@/lib/quibi/local-send-policy";
@@ -141,7 +139,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
       ? quoteEvidence.external_id : null;
-    const activation=previewDevActivationReadiness(process.env);
     const appointments = appointmentResult.data ?? [];
     const latestApproval = approvalResult.data?.[0] ?? null;
     let approval = latestApproval && latestApproval.quote_id === quote?.id && latestApproval.revoked_at===null && latestApproval.content_sha256===quote?.content_sha256 ? latestApproval : null;
@@ -296,7 +293,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {id:"quibi-povezava",title:"Povezava s Quibijem",content:(<>
       <div id="quibi-povezava" tabIndex={-1} className="scroll-mt-20 space-y-3">
       {customer && ['owner','admin'].includes(access.role) && isHostedQuibiEnvironment(process.env) && <details><summary className="cursor-pointer text-sm text-slate-500">Podrobnosti povezave stranke</summary><AutomaticIntakeSync identityConfirmed={identityConfirmed} caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={resolvedVehicleNeedsReview||!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/></details>}
-      <VehicleResolutionPanel focused={newVehicleRequired} caseId={serviceRequestId}/>
+      <VehicleResolutionPanel identityConfirmed={identityConfirmed} focused={newVehicleRequired} caseId={serviceRequestId}/>
       </div>
 
       </>)},
@@ -416,14 +413,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       </section>}
 
 
-      <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">Pomoč AI in osnutki sporočil</summary>
-      {assistance.status==='unavailable' && <div className="text-xs text-slate-500"><p>AI še ni povezan. Preverjanje podatkov in priprava iz Quibija sta na voljo.</p>{['owner','admin'].includes(access.role)&&<details><summary>Podrobnosti povezave AI</summary><p>Manjkajo strežniške nastavitve: {intakeAiConfiguration(process.env).missing.join(', ')}.</p></details>}</div>}
+      {(assistance.status==='draft'||!!communicationDraft&&(!quote||!!fixedPrice))&&<details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">Pomoč AI in osnutki sporočil</summary>
       {assistance.status==='failed'&&<p role="status" className="text-xs text-slate-500">AI analize trenutno ni mogoče pridobiti. Nadaljujte s preverjenimi podatki Quibija.</p>}
       {assistance.status==='draft'&&<><section className="space-y-2 rounded-xl border bg-white p-4"><h2 className="font-semibold">AI analiza za pregled</h2>{assistance.analysis&&<p className="whitespace-pre-wrap text-sm">{assistance.analysis}</p>}{assistance.serviceSuggestions.length>0&&<><p className="text-sm">Predlogi storitev — preverite z dejanskimi artikli v Quibiju:</p><ul className="list-disc pl-5 text-sm">{assistance.serviceSuggestions.map((suggestion,i)=><li key={i}>{suggestion}</li>)}</ul></>}</section><CommunicationDraft key={assistance.draft!} title="AI osnutek za pregled" body={assistance.draft!}/></>}
       {assistance.status!=='draft' && communicationDraft && (!quote || fixedPrice) && <><CommunicationDraft key={communicationDraft.body} title={communicationDraft.title} body={communicationDraft.body} /><p className="text-xs text-amber-800">Quibi API za samostojna sporočila za dopolnitev ali termine ni potrjen. Ta osnutek ni samodejno poslan.</p></>}
-      </details>
+      </details>}
+      {identityConfirmed&&customer&&<Link className="block text-sm text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi`}>Preglej povezavo stranke in vozila</Link>}
       {customer && link && <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">Povezani dokumenti in zgodovina Quibija</summary><QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} /></details>}
-      {activation&&(activation.missing.length>0||!activation.writeEnabled||activation.localOverrideEnabled)&&["owner","admin"].includes(access.role)&&<details className="space-y-2 rounded border bg-amber-50 p-4 text-sm"><summary className="cursor-pointer font-semibold">Tehnične podrobnosti · aktivacija poslovnih dejanj DEV</summary>{activation.missing.length>0&&<p>Manjkajo ali niso veljavne nastavitve: {activation.missing.join(", ")}. Skrivnosti ostanejo na strežniku.</p>}{!activation.writeEnabled&&<p>WRITE/SEND sta izključena. Priprava in pregled ne ustvarita dokumenta. Aktivacija zahteva odobreno DEV journal migracijo in dovoljenje za izbrano dejanje.</p>}{activation.localOverrideEnabled&&<p role="alert">Lokalni override ne sme biti omogočen v Preview.</p>}</details>}
       </>}/>
       {workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
 </div>;
