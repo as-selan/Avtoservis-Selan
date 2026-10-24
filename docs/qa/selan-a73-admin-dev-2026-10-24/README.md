@@ -39,3 +39,7 @@ Vsi trije zahtevani opisi ostajajo: servis vozila, pregled pred tehničnim pregl
 - node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-server.md v aktivnem worktreeju
 
 REA pregled je delno starejši od PR: aktivni obrazec, zložene podrobnosti in nadaljevanje priprave že obstajajo. Teh rešitev nismo ponovno gradili. Nova sprememba je omejena DEV pravica in njena dosledna uporaba v obeh obstoječih strežniških poteh in UI.
+
+## Dodaten popravek dejanske nadzorne plošče
+
+Uporabnikov posnetek je pokazal napako nalaganja po uspešni prijavi. Vzrok v kodi: poizvedba nad published_fixed_price_cases je zahtevala neobstoječi auto_state; dejanska DEV shema je potrdila, da stolpec obstaja samo na offer_preparations. Odstranjen je samo napačni stolpec, brez migracije ali oslabitve RLS. Regresijski test izvede dejanski loader z adapterjem, ki zavrne napačni stolpec; preveri uspešen rezultat in ohranjeno branje auto_state iz pravilne tabele. Vercel CLI ni vrnil error logov; odsotnost logov ne dokazuje uspešnega prijavljenega zaslona.

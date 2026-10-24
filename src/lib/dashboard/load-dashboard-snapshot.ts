@@ -194,7 +194,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const slotRequestIds = requests.filter((row) => ["awaiting_slot_selection", "appointment_confirmed"].includes(row.status) || requestedInspections.has(row.id)).map((row) => row.id);
     if (process.env.SELAN_FIXED_PRICE_V1 === "1" && priceRequestIds.length > 0) {
       const { data, error } = await supabase.from("published_fixed_price_cases")
-        .select("service_request_id, status, auto_state").eq("organization_id", access.organizationId)
+        .select("service_request_id, status").eq("organization_id", access.organizationId)
         .in("service_request_id", priceRequestIds);
       if (error) return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
       for (const row of data ?? []) fixedPriceByRequest.set(row.service_request_id, row.status);
