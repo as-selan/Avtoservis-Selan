@@ -37,6 +37,27 @@
       "hydratedInteraction": true
     },
     {
+      "scenario": "review",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted-invoice",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
       "scenario": "dashboard",
       "width": 390,
       "noOverflow": true,
@@ -72,6 +93,27 @@
       "hydratedInteraction": true
     },
     {
+      "scenario": "review",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted-invoice",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
       "scenario": "dashboard",
       "width": 350,
       "noOverflow": true,
@@ -101,6 +143,27 @@
     },
     {
       "scenario": "vehicle-admin-production",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted-invoice",
       "width": 350,
       "noOverflow": true,
       "pageErrors": 0,

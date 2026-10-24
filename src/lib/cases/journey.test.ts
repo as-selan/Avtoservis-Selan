@@ -61,3 +61,12 @@ test('new vehicle is the next task for owner and a concrete owner handoff for ad
 test('DEV admin capability exposes vehicle confirmation without a separate acceptance',()=>{const result=caseJourney({...base,role:'admin',canCreateVehicle:true,identityReady:false,newVehicleRequired:true});assert.equal(result.action.href,'#quibi-povezava');assert.equal(result.action.label,'Preveri in potrdi vozilo');assert.equal(result.blocker,null);});
 
 test('synthetic DEV approval is never described as a real customer answer',()=>{const j=caseJourney({...base,syntheticQa:true,quoteReviewed:true,devNoEmail:true,status:'preparing_offer'});assert.equal(j.action.label,'Evidentiraj QA odobritev');assert.match(j.blocker!,/ne potrjuje dejanskega odgovora/);});
+
+test('completed and reviewed repairs lead to review, invoice or handover instead of restarting repair',()=>{
+ for(const [repairPhase,href] of [['review_required','#popravilo'],['invoice_review','#poslovni-nalog'],['handover','#popravilo']]){
+ const result=caseJourney({...base,hasWorkOrder:true,hasAssignedWork:true,customerApproved:true,repairPhase});
+ assert.equal(result.action.href,href);assert.doesNotMatch(result.action.label,/Nadaljuj popravilo/);
+ }
+});
+
+test('invoice navigation distinguishes preparation and existing invoice',()=>{const input={...base,hasWorkOrder:true,repairPhase:'invoice_review'};assert.equal(caseJourney(input).action.label,'Pripravi račun');assert.equal(caseJourney({...input,hasInvoice:true}).action.label,'Preglej račun');});

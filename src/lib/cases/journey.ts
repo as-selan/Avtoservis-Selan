@@ -5,7 +5,7 @@ export type JourneyInput = {
  syntheticQa?:boolean; canCreateVehicle?:boolean; newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
  identityReady: boolean; hosted: boolean; offerPrepared: boolean; quoteReviewed: boolean;
  customerApproved: boolean; dispatched: boolean; hasWorkOrder: boolean;
- writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
+ writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; hasInvoice?:boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
 };
 export const journeyStages = ['Novo povpraševanje', 'Preverjanje stranke in vozila', 'Priprava predračuna', 'Pošiljanje stranki', 'Odobritev popravila', 'Delovni nalog', 'Popravilo, račun in zaključek'];
 export function caseJourney(p: JourneyInput) {
@@ -23,6 +23,9 @@ export function caseJourney(p: JourneyInput) {
   current=p.customerApproved?5:2;action={label:'Preveri povezavo in izid dokumenta',href:p.workOrderHref??(p.customerApproved||p.hasWorkOrder?'#poslovni-nalog':'#predracun')};
   blocker='Podatki ali izid zadnjega poskusa zahtevajo pregled. Ne ponavljajte ustvarjanja ali pošiljanja; v spodnjem razdelku preverite obstoječi dokument in shranjeni izid.';return result();
  }
+ if(p.hasWorkOrder&&p.repairPhase==='invoice_review'){current=6;action={label:p.hasInvoice?'Preglej račun':'Pripravi račun',href:'#poslovni-nalog'};return result();}
+ if(p.hasWorkOrder&&p.repairPhase==='review_required'){current=6;action={label:'Preglej opravljeno delo',href:'#popravilo'};return result();}
+ if(p.hasWorkOrder&&p.repairPhase==='handover'){current=6;action={label:'Uredi prevzem vozila',href:'#popravilo'};return result();}
  if(p.hasWorkOrder){current=p.hasAssignedWork===false?5:6;action={label:p.hasAssignedWork===false?'Preglej delovni nalog':'Nadaljuj popravilo',href:p.workOrderHref??(p.hasAssignedWork===false?'#poslovni-nalog':'#popravilo')};return result();}
  if(p.automaticPreparation&&!p.quoteReviewed&&!p.customerApproved&&p.intakeComplete&&p.identityReady){current=2;const prepared=automaticDraftPresentation(p.automaticDraftState);action={label:prepared.action,href:prepared.href};return result();}
  if(!p.intakeComplete||p.status==='needs_data'){
