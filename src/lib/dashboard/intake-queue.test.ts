@@ -86,3 +86,17 @@ test('verified repair phases split manager review, invoice and handover without 
 
 import {dashboardStatusLabel} from './intake-queue.ts';
 test('invoice phase does not inherit an obsolete manager-review badge',()=>{assert.equal(dashboardStatusLabel(order('invoice','potreben_pregled',{repairPhase:'invoice_review'})),'Priprava računa');});
+
+import {matchesDashboardSearch} from './intake-queue.ts';
+test('search matches short/full reference, Quibi order, customer and registration including isolated TEST rows',()=>{
+ const row=order('A73DB6BE','potreben_pregled',{serviceRequestId:'a73db6be-7216-4677-bc0a-26e97693ad75',quibiWorkOrderId:'2176933',customerName:'TEST SELAN SPLET 24-10',registration:'TEST-2026'});
+ for(const query of ['A73DB6BE','a73db6be-7216-4677-bc0a-26e97693ad75','#2176933','Quibi #2176933','TEST SELAN','TEST-2026'])assert.equal(matchesDashboardSearch(row,query),true);
+ assert.equal(isSyntheticOrder(row),true);assert.equal(matchesDashboardSearch(row,'other-org'),false);
+});
+
+import {defaultDashboardGroup} from './intake-queue.ts';
+test('dashboard starts in the first nonempty real group without counting synthetic cases',()=>{
+ assert.equal(defaultDashboardGroup([order('waiting','priprava_ponudbe')]),'decision');
+ assert.equal(defaultDashboardGroup([order('test','novo',{synthetic:true}),order('repair','aktivno_popravilo')]),'work');
+ assert.equal(defaultDashboardGroup([]),'new');
+});

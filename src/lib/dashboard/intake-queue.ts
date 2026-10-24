@@ -44,7 +44,7 @@ export function intakeQueue(orders:ServiceOrderDemo[]):IntakeQueueItem[]{
 }
 export function filterIntakeQueue(rows:IntakeQueueItem[],group:IntakeQueueGroup,search:string){
  const query=search.trim().toLocaleLowerCase('sl-SI');
- return rows.filter(row=>(group==='all'||row.group===group)&&(!query||[row.order.id,row.order.customerName,row.order.registration,row.order.vehicleMakeModel,row.order.requestSummary].join(' ').toLocaleLowerCase('sl-SI').includes(query)));
+ return rows.filter(row=>(group==='all'||row.group===group)&&matchesDashboardSearch(row.order,query));
 }
 
 /** Presentation groups derive from existing repair phases; no business transition. */
@@ -71,7 +71,7 @@ export function dashboardQueue(orders:ServiceOrderDemo[]):DashboardQueueItem[]{
 }
 export function filterDashboardQueue(rows:DashboardQueueItem[],group:DashboardGroup,search:string){
  const query=search.trim().toLocaleLowerCase('sl-SI');
- return rows.filter(row=>row.group===group&&(!query||[row.order.id,row.order.customerName,row.order.registration,row.order.vehicleMakeModel,row.order.requestSummary].join(' ').toLocaleLowerCase('sl-SI').includes(query)));
+ return rows.filter(row=>row.group===group&&matchesDashboardSearch(row.order,query));
 }
 
 
@@ -90,4 +90,15 @@ export function shortNextAction(item:DashboardQueueItem){
 
 export function dashboardStatusLabel(order:ServiceOrderDemo){
  return ({assigned:'Dodeljeno mehaniku',in_progress:'Delo poteka',awaiting_parts:'Čaka dele',review_required:'Čaka vodjo',invoice_review:'Priprava računa',handover:'Čaka prevzem ali plačilo',document_unknown:'Preveri dokument',closed:'Zaključeno'} as Record<string,string>)[order.repairPhase??'']??getStatusLabel(order.status);
+}
+
+/** Operates only on the authenticated, organization-scoped snapshot. */
+export function matchesDashboardSearch(order:ServiceOrderDemo,search:string){
+ const query=search.trim().replace(/^quibi\s*#?\s*(?=\d+$)/i,'').replace(/^#/,'').toLocaleLowerCase('sl-SI');
+ return !query||[order.id,order.serviceRequestId,order.serviceRequestId?.slice(0,8),order.quibiWorkOrderId,order.customerName,order.registration,order.vehicleMakeModel,order.requestSummary,order.mechanicName].filter(Boolean).join(' ').toLocaleLowerCase('sl-SI').includes(query);
+}
+
+export function defaultDashboardGroup(orders:ServiceOrderDemo[]):DashboardGroup{
+ const rows=dashboardQueue(orders.filter(order=>!isSyntheticOrder(order)));
+ return DASHBOARD_GROUPS.find(group=>rows.some(row=>row.group===group.id))?.id??'new';
 }

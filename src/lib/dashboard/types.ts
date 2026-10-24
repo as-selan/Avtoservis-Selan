@@ -36,6 +36,7 @@ export interface ServiceOrderDemo {
   synthetic?: boolean;
   intakeConnectionLabel?:string;
   repairPhase?:string;
+  quibiWorkOrderId?:string;
   mechanicName?:string|null;
   mechanicEmail?:string|null;
   status: WorkflowStatusId;

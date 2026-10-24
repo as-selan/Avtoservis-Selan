@@ -1,11 +1,13 @@
+import Link from 'next/link';
 import type {ReactNode} from 'react';
 
 /** Keep the working context visible above the active form. */
-export function CaseOverview({customer,vehicle,request,missing,status,prepared}:{customer:string;vehicle:string;request:string;missing:string[];status?:string;prepared?:string}){
+export function CaseOverview({customer,vehicle,request,missing,status,prepared,mechanicName,mechanicEmail}:{mechanicName?:string|null;mechanicEmail?:string|null;customer:string;vehicle:string;request:string;missing:string[];status?:string;prepared?:string}){
  return <section aria-label="Povzetek povpraševanja" className="space-y-3 py-1 text-sm">
   <dl className="grid gap-4 sm:grid-cols-3">
    <Entry label="Stranka">{customer}</Entry>
    <Entry label="Vozilo">{vehicle}</Entry>
+   {(mechanicName||mechanicEmail)&&<Entry label="Mehanik">{mechanicName?.trim()||'Ime mehanika še ni vneseno'}{mechanicEmail&&<span className="block break-all text-xs font-normal text-slate-500">{mechanicEmail}</span>}{!mechanicName?.trim()&&<Link className="block text-xs font-normal text-blue-700 underline" href="/dashboard/nastavitve/ekipa">Lastnik vnese ime v Nastavitve → Ekipa</Link>}</Entry>}
    {status&&<Entry label="Trenutno stanje">{status}</Entry>}
   </dl>
   <dl className="grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
