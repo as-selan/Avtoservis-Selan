@@ -40,3 +40,12 @@ Klik »Preglej predračun« pri samodejno pripravljenem osnutku opravi tudi obst
 Če piše **Novo vozilo – potrebna potrditev**, je stranka že povezana, vozilo pa čaka pregled. V gostovanem **DEV** lahko novo Quibi vozilo izrecno potrdi **administrator ali lastnik**. Produkcijska pravica ostaja lastniku. Ni ločenega sprejema ali ponovnega vnosa.
 
 Administrator v DEV oziroma lastnik preveri prikazane podatke in izbere **Potrdi in ustvari vozilo v Quibiju**. Nato Selan sam nadaljuje pripravo predračuna. Dokumenti, zgodovina in tehnični podatki ostajajo pod **Več podrobnosti**. [Preizkus #A73DB6BE, posnetki in omejitve](qa/selan-a73-vehicle-2026-10-24/README.md).
+
+
+## QA nadaljevanje A73 in zgodovinski cenovni predlogi
+
+A73 že ima predračun **2176932 / 282/2026 / 111,87 €**. Ne ustvarjaj novega in ga ne spreminjaj. V gostovanem DEV odpri **Odobritev**, vpiši **QA-SIM-SELAN-A73-ODOBRITEV** ter izberi **Evidentiraj simulirano QA odobritev**. To ni odgovor resnične stranke in ne zahteva lažnega dokazila o pošiljanju. Nato posebej potrdi ustvarjanje testnega delovnega naloga, dodeli testnega mehanika in nadaljuj obstoječi postopek. Račun in zaključek imata svoja pregleda in izrecni dejanji.
+
+Pri novih osnutkih Selan poleg preverjenega cenika sam pregleda omejen vzorec zgodovine. Če ima preverljiv predlog, pokaže **Uporabi predlagano ceno** ter **Zakaj ta cena?**. Ta predlog ne prepiše tvojega vnosa. Če podatkov ni dovolj, uporabi preverjeni cenik ali dogovorjeno ročno ceno. Trenutni DEV zgodovinski dokumenti ne vračajo potrebnih statusov, zato ne dobijo izmišljene zgodovinske cene.
+
+Ročna bruto vnosa **59,00** in **20,00** morata ostati takšna tudi po shranitvi in osvežitvi; pri treh testnih postavkah 32,94 / 59,00 / 20,00 je skupaj **111,94 €**. To preizkusi na novem sintetičnem osnutku brez CREATE. Stari A73 se zaradi tega ne popravi za nazaj. [Preverjeni dokazi, posnetki in omejitve](qa/selan-smart-estimates-2026-10-24/README.md).
