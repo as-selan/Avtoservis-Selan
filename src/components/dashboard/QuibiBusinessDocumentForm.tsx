@@ -49,7 +49,7 @@ export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEn
 
 
  {!result?.sha&&!result?.documentId&&<button disabled={pending||dispatchStarted} className="min-h-12 w-full rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{pending?'Pripravljam…':kind==='invoice'?'Preglej račun':'Preglej delovni nalog'}</button>}
- {result?.sha&&writeEnabled&&<button data-dispatch="yes" disabled={pending||dispatchStarted} className="min-h-12 w-full rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{operation==='update'?'Shrani spremembe':kind==='invoice'?'Ustvari račun v Quibiju':'Ustvari delovni nalog'}</button>}
+ {result?.sha&&writeEnabled&&syntheticQa&&<p className="text-sm text-amber-800">Ustvarjen bo testni dokument v Quibi DEV. To ni dokaz dejanskega popravila, plačila ali prevzema.</p>}{result?.sha&&writeEnabled&&<button data-dispatch="yes" disabled={pending||dispatchStarted} className="min-h-12 w-full rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{operation==='update'?'Shrani spremembe':kind==='invoice'?'Ustvari račun v Quibiju':'Ustvari delovni nalog'}</button>}
 
  {!writeEnabled&&<p className="text-sm text-amber-800">Samo predogled – ustvarjanje v Quibiju ni omogočeno.</p>}
  {dispatchStarted&&<p className="text-sm">Zahtevek je bil sprožen enkrat. Preverite prikazani rezultat in povezani dokument. Ob neznanem izidu ponovitev ostaja ustavljena.</p>}
@@ -102,7 +102,7 @@ function BusinessDocumentPreview({result,customerId,kind}:{result:BusinessPrepar
  const money=(value:string|undefined)=>Number.isFinite(Number(value))?Number(value).toLocaleString('sl-SI',{style:'currency',currency:'EUR'}):'Ni potrjeno';
  return <section aria-label="Predogled dokumenta" className="space-y-3">
  <p className="text-sm">{result.customer||'Stranka še ni preverjena'} · Quibi {kind==='invoice'?'nalog':'predračun'} #{result.sourceId}</p>
- <p className="text-sm font-medium text-slate-600">Predogled · dokument še ni ustvarjen</p>
+ <p className="text-sm font-medium text-slate-600">Predogled · brez novega zapisa v Quibiju</p>
  <div className="divide-y rounded-lg border">{result.lines?.map((line,index)=><div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-3 text-sm"><div><p className="break-words font-medium">{line.description}</p><p className="text-slate-500">{line.quantity} {line.unit} · DDV {line.vat}{Number(line.discount)!==0?' · popust '+line.discount+' %':''}</p></div><p className="text-right font-medium">{money(String(moneyLineCents(line.quantity,line.unitGrossPrice,line.discount)/100))}{(Number(line.quantity)!==1||Number(line.discount)!==0)&&<span className="block text-xs font-normal text-slate-500">{money(line.unitGrossPrice)} / enoto</span>}<span className="block text-xs font-normal text-slate-500">z DDV</span></p></div>)}</div>
  <p className="text-lg font-semibold">Skupaj z DDV: {money(result.amount)}</p>
  {result.taxTotals?.map((tax,index)=><p className="text-sm text-slate-600" key={index}>Osnova {money(tax.base)} · DDV {money(tax.vat)}</p>)}

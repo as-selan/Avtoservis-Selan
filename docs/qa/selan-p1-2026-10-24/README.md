@@ -61,3 +61,15 @@ Prebrani projektni `AGENTS.md` in `CLAUDE.md`: `C:/Users/Admin/.codex/worktrees/
 Spremembe so v obstoječih dashboard adapterjih/skupinah, poslovnem obrazcu, prikazu SEND, fotografijah, pregledu plačila in ciljanih testih. Nov helper hrani samo datume seje. Brez migracij, auth/RLS sprememb ali novih odvisnosti.
 
 Končni commit, status builda, povezava na Preview in rezultat svežega READ preverjanja so navedeni v opisu [PR #19](https://github.com/as-selan/Avtoservis-Selan/pull/19). Skript `scripts/quibi-p1-read.mjs` omeji omrežje na Quibi DEV in ta Supabase DEV; dopušča GET in samo dokumentirani PDF READ POST, nikoli CREATE/UPDATE/SEND. Lokalni TypeScript, ESLint ter 5 dodatnih testov Realtime schedulerja so prav tako uspešni.
+
+## Sveže potrjeno v Quibi DEV (READ, commit f14026f)
+
+[Celoten omejeni dokaz](quibi-read.json): 5 GET in 2 dokumentirana PDF READ POST; `write:false`, `send:false`.
+
+- A73 je `work_completed` in povezan z nalogom **2176933 / 272/2026**. Selanov dnevnik vsebuje preverjeni nalog, ne povezanega računa ali pošiljanja tega primera. To ne dokazuje odsotnosti morebitnega ročno ustvarjenega nepovezanega računa v Quibiju.
+- Predračun **2176932 / 282/2026** in nalog **2176933 / 272/2026** imata enake tri postavke in **111,87 €**. Oba PDF-ja sta dostopna (1.187.153 in 1.182.605 bajtov). PDF je preverjen kot vrnjen dokument, ne kot vizualni pregled računa.
+- Redni servis: artikel **89158 / ASRSV**, neto **27**, bruto **32,94**. Drugi postavki sta prosti postavki: neto **48,33606557** / bruto **58,97** in neto **16,36065574** / bruto **19,96**. Vse količina 1, enota 1, DDV 22 %, popust 0. Obstoječega dokumenta ne preračunavamo po drugem ceniku.
+- Shranjeni osnutek ima `article:89158`, nato prosti ceni **58.97** in **19.96**. Izvorne uporabnikove tipke **59/20** niso neodvisno zabeležene; ne moremo dokazati, ali sta bili višji vrednosti shranjeni v starejši različici. Obstoječi osnutek in dokument se ujemata; za dokaz izvora razlike manjka neodvisen zapis prvotnega uporabnikovega vnosa.
+- Quibi vrne osnovo **91,70000000**, DDV **20,17400000** in davčni seštevek **111,87400000**; prikaz na cente je **91,70 + 20,17 = 111,87 €**. Ne gre za dokaz izgube 59/20 pri novem vnosu. Izolirani ročni scenarij **32,94 + 59,00 + 20,00 = 111,94 €** ohrani vrednosti skozi shranjevanje/ponovni prikaz adapterja in payload.
+- Status obeh dokumentov je **null**. Datum dokumenta je 24. 10. 2026, datum storitve in zapadlost nista vrnjena. Neznanih datumov ali statusov ne dopolnjujemo kot dejstvo in plačila ne predpostavljamo.
+- Čisti Vercel build f14026f je uspešno opravil prevod, TypeScript in generiranje strani ter ta READ. Končni Preview in zadnji commit sta preverjena v opisu PR po zadnji objavi.
