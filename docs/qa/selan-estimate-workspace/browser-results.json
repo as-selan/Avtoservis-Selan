@@ -2,6 +2,7 @@
   "scope": "Hydrated real workspace with synthetic action fixtures. No authenticated app, DB writes or Quibi document created.",
   "results": [
     {
+      "editedDescriptionPreserved": true,
       "editedRowsSaveAndReloadFixture": true,
       "automaticSavedRowsReload": true,
       "manualAndWebSingleReview": true,
@@ -31,6 +32,7 @@
       "pageErrors": 0
     },
     {
+      "editedDescriptionPreserved": true,
       "editedRowsSaveAndReloadFixture": true,
       "automaticSavedRowsReload": true,
       "manualAndWebSingleReview": true,
@@ -60,6 +62,7 @@
       "pageErrors": 0
     },
     {
+      "editedDescriptionPreserved": true,
       "editedRowsSaveAndReloadFixture": true,
       "automaticSavedRowsReload": true,
       "manualAndWebSingleReview": true,
