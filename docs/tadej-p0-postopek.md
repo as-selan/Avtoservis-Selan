@@ -24,3 +24,7 @@ V Quibi DEV so s tremi prostimi storitvami dejansko ustvarjeni, ponovno prebrani
 ![Predračun s prosto storitvijo, sintetični prikaz 390 px](qa/selan-estimate-workspace/free-service-390.png)
 
 ![Mehanikovo delo, sintetični prikaz 350 px](qa/selan-redesign/mechanic-350.png)
+
+## Novi Quibi katalog, 24. 10. 2026
+
+Priprava zdaj uporablja novi paginirani seznam. Redni servis lahko že dobi Quibijevo ceno samodejno. Pri predtehničnem pregledu preveri možnost z nazivom »brezplačni« in pozitivno ceno; aplikacija je ne izbere namesto tebe. Pregled zavor ostane prazna prosta storitev, dokler ni preverjene ustrezne postavke ali dogovorjene cene. Ne izbiraj drugega posega samo zaradi podobnega naziva. [Dejanski rezultati novega kataloga in posnetki](qa/quibi-catalog-2026-10-24/README.md).

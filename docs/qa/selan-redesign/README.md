@@ -64,3 +64,7 @@ TEST/QA-SIM primeri so ločeni od vseh štirih glavnih števcev in zgodovine dne
 [Točna ovira in kratek ročni E2E za Tadeja](manual-e2e-2026-10-23.md). 26 dodatnih ciljnih testov uspešno; preverjena Realtime objava vseh petih operativnih tabel, brez sprememb baze. Dejanski prenos dogodkov in shranjevanje v prijavljeni seji sta nepreverjena.
 
 Končni DEV build 23. 10.: `npm run build -- --webpack`, READY, TypeScript uspešen. Stabilni alias je preverjeno prevezan na navedeni deployment. Diagnostični smoke skripti so v tej objavi izključeni; nobene nove Quibi operacije. Spremembe aplikacije so v commitu df822ac, nadaljnji commit posodobi samo dokazila.
+
+## Posodobitev kataloga 24. 10. 2026
+
+Prejšnja omemba napake starega `/api2/sifranti` je zgodovinska. Selan zdaj uporablja novi `/api2/sifranti/seznam`; dejansko je prebranih vseh 109 strani. [Rezultat, priprava in omejitve](../quibi-catalog-2026-10-24/README.md).
