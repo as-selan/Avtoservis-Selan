@@ -28,3 +28,9 @@ V Quibi DEV so s tremi prostimi storitvami dejansko ustvarjeni, ponovno prebrani
 ## Novi Quibi katalog, 24. 10. 2026
 
 Priprava zdaj uporablja novi paginirani seznam. Redni servis lahko že dobi Quibijevo ceno samodejno. Pri predtehničnem pregledu preveri možnost z nazivom »brezplačni« in pozitivno ceno; aplikacija je ne izbere namesto tebe. Pregled zavor ostane prazna prosta storitev, dokler ni preverjene ustrezne postavke ali dogovorjene cene. Ne izbiraj drugega posega samo zaradi podobnega naziva. [Dejanski rezultati novega kataloga in posnetki](qa/quibi-catalog-2026-10-24/README.md).
+
+## Samodejna priprava po vnosu
+
+Po »Ustvari povpraševanje« se povezovanje in priprava nadaljujeta na strežniku; ni treba posebej zagnati sinhronizacije ali odpreti dodatnega obrazca. Ko je identiteta preverjena, se osnutek shrani. V primeru se prikaže pregled, izbira nejasne storitve ali zahteva za manjkajočo ceno. Popravki se shranijo ob zapustitvi polja in pred pregledom. Če se prikaže opozorilo o neuspelem shranjevanju, pred odhodom preveri izid.
+
+Klik »Preglej predračun« pri samodejno pripravljenem osnutku opravi tudi obstoječi sprejem; dodatnega potrditvenega polja ni. Ustvarjanje dokumenta ostane ločeno po pregledu. Nejasno identiteto oziroma novo nepotrjeno vozilo mora najprej preveriti pooblaščeni uporabnik. [Kaj je dejansko preverjeno in kratek ročni preizkus](qa/selan-automatic-preparation-2026-10-24/README.md).
