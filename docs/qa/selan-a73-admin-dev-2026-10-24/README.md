@@ -43,3 +43,15 @@ REA pregled je delno starejši od PR: aktivni obrazec, zložene podrobnosti in n
 ## Dodaten popravek dejanske nadzorne plošče
 
 Uporabnikov posnetek je pokazal napako nalaganja po uspešni prijavi. Vzrok v kodi: poizvedba nad published_fixed_price_cases je zahtevala neobstoječi auto_state; dejanska DEV shema je potrdila, da stolpec obstaja samo na offer_preparations. Odstranjen je samo napačni stolpec, brez migracije ali oslabitve RLS. Regresijski test izvede dejanski loader z adapterjem, ki zavrne napačni stolpec; preveri uspešen rezultat in ohranjeno branje auto_state iz pravilne tabele. Vercel CLI ni vrnil error logov; odsotnost logov ne dokazuje uspešnega prijavljenega zaslona.
+
+## Objavljena različica
+
+- Runtime commit: `54b8e0554c4ea20d185550b54b7041f37818c394` (administratorska pravica `66202b8`, dashboard popravek `54b8e05`).
+- Preview READY: `dpl_6mLdD2KZYM12KrKnV4bDo3aRFUnq`, projekt `prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU`, ekipa `team_2OC48hyth331W4Z02Cei2ZTL` / `azalar7-langs-projects`.
+- [Stalni DEV](https://selan-dev-pr19-azalar7-langs-projects.vercel.app), [nespremenljiva objava](https://avtoservis-selan-quswwlaic-azalar7-langs-projects.vercel.app).
+- Gostovani webpack build in TypeScript uspešna. Predpomnilnik kataloga in že odobrene nastavitve ohranjene; SEND=0, produkcijski WRITE/SEND=0.
+- [Sveži dejanski READ dokaz](quibi-dev-read.json): 9 GET, preverjena stranka 405964, brez povezave vozila, brez globalnega VIN/registracijskega ujemanja in brez vehicle CREATE dnevnika; vse tri zahtevane storitve prepoznane. Brez WRITE/SEND.
+- Regresijski preizkus nadzorne plošče potrjen tudi RED/GREEN: prvotna napačna poizvedba test podre, popravljena ga opravi. Skupaj 51 ciljnih testov (45 + 5 + 1), 15 hidriranih UI in 42 navigacijskih scenarijev.
+- Dodatno prebrani veščini: C:/Users/Admin/.agents/skills/superpowers/systematic-debugging/SKILL.md in C:/Users/Admin/.agents/skills/superpowers/verification-before-completion/SKILL.md; CLI smernice C:/Users/Admin/.codex/plugins/cache/openai-curated-remote/vercel/0.54.1/skills/vercel-cli/SKILL.md.
+
+Administratorski ročni test je pripravljen. Dejanski CREATE in priprava po uporabnikovem kliku v prijavljeni aplikaciji ostajata nepreverjena do njegovega preizkusa. Ne klikajte znova pri neznanem izidu; preverite povezavo in dnevnik.
