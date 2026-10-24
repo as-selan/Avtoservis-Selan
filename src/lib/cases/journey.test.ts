@@ -59,3 +59,5 @@ test('automatic preparation skips a separate intake click but preserves uncertai
 test('new vehicle is the next task for owner and a concrete owner handoff for admin',()=>{for(const role of ['owner','admin']){const result=caseJourney({...base,role,identityReady:false,newVehicleRequired:true});assert.equal(result.action.href,'#quibi-povezava');assert.equal(result.blocker,null);assert.equal(result.action.label,role==='owner'?'Preveri in potrdi vozilo':'Navodilo za lastnika');}});
 
 test('DEV admin capability exposes vehicle confirmation without a separate acceptance',()=>{const result=caseJourney({...base,role:'admin',canCreateVehicle:true,identityReady:false,newVehicleRequired:true});assert.equal(result.action.href,'#quibi-povezava');assert.equal(result.action.label,'Preveri in potrdi vozilo');assert.equal(result.blocker,null);});
+
+test('synthetic DEV approval is never described as a real customer answer',()=>{const j=caseJourney({...base,syntheticQa:true,quoteReviewed:true,devNoEmail:true,status:'preparing_offer'});assert.equal(j.action.label,'Evidentiraj QA odobritev');assert.match(j.blocker!,/ne potrjuje dejanskega odgovora/);});

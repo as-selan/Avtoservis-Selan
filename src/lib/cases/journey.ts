@@ -2,7 +2,7 @@ import type {AutomaticDraftState} from '../quibi/automatic-estimate-draft';
 import {automaticDraftPresentation} from '../quibi/automatic-draft-state.ts';
 /** Presentation only. Existing server actions remain the authority for every transition. */
 export type JourneyInput = {
- canCreateVehicle?:boolean; newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
+ syntheticQa?:boolean; canCreateVehicle?:boolean; newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
  identityReady: boolean; hosted: boolean; offerPrepared: boolean; quoteReviewed: boolean;
  customerApproved: boolean; dispatched: boolean; hasWorkOrder: boolean;
  writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
@@ -52,7 +52,7 @@ export function caseJourney(p: JourneyInput) {
  else if(p.stepKind==='revise_estimate')action={label:'Preglej zavrnitev in popravi predračun',href:'#pregled-predracuna'};
  else if(p.quoteReviewed){
   if(p.devNoEmail||p.dispatched||p.stepKind==='await_customer'){
-   current=4;action={label:'Zabeleži odobritev stranke',href:'#odobritev'};if(p.devNoEmail)blocker='Quibi DEV ne pošilja e-pošte. Dokument ni poslan. Nadaljujte z ločeno zabeleženim dejanskim odgovorom ali jasno označeno sintetično odobritvijo QA-SIM.';
+   current=4;action={label:p.syntheticQa?'Evidentiraj QA odobritev':'Zabeleži odobritev stranke',href:'#odobritev'};if(p.syntheticQa)blocker='Simulirana QA odločitev ne potrjuje dejanskega odgovora stranke. Dostava ni potrebna.';else if(p.devNoEmail)blocker='Quibi DEV ne pošilja e-pošte. Dokument ni poslan. Nadaljujte z ločeno zabeleženim dejanskim odgovorom ali jasno označeno sintetično odobritvijo QA-SIM.';
   }else{
    current=3;action={label:p.sendReady?'Pošlji predračun':'Preveri pošiljanje predračuna',href:'#pregled-predracuna'};
    if(!p.sendReady)blocker='Pošiljanje prek Quibija trenutno ni omogočeno ali nima vseh potrjenih podatkov. Dokument ni poslan. Preverite spodnji obrazec; dejanski odgovor po telefonu lahko ločeno zabeležite v razdelku Odločitev stranke.';
