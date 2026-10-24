@@ -283,6 +283,12 @@ export async function recordManualEstimateDecision(
       || reference.trim().length < 4 || reference.trim().length > 200) {
     return error("Navedite veljavno odločitev in referenco strankinega odgovora.");
   }
+  // This explicitly authorized synthetic fixture must never record an ordinary customer response.
+  if(process.env.APP_ENV==='preproduction'&&process.env.QUIBI_MODE==='dev'&&process.env.VERCEL_ENV==='preview'&&!reference.trim().startsWith('QA-SIM-')){
+    const scoped=await createClient();
+    const {data:fixtureQuote}=await scoped.from('quotes').select('service_request_id').eq('organization_id',access.organizationId).eq('id',quoteId).maybeSingle();
+    if(fixtureQuote?.service_request_id==='a73db6be-7216-4677-bc0a-26e97693ad75')return error('Ta sintetični DEV primer zahteva simulirano QA odločitev z referenco QA-SIM-.');
+  }
   if(reference.trim().startsWith('QA-SIM-')){
     if(!['owner','admin'].includes(access.role))return error('QA odločitev lahko evidentira samo skrbnik.');
     const scoped=await createClient();
@@ -291,7 +297,7 @@ export async function recordManualEstimateDecision(
     const {data:qaCase,error:re}=await scoped.from('service_requests').select('customer_id,vehicle_id,problem_description').eq('organization_id',access.organizationId).eq('id',qaQuote.service_request_id).is('archived_at',null).single();
     if(re||!qaCase?.customer_id||!qaCase.vehicle_id)return error('QA primer ni potrjen.');
     const [{data:qaCustomer,error:ce},{data:qaVehicle,error:ve}]=await Promise.all([scoped.from('customers').select('display_name,email').eq('organization_id',access.organizationId).eq('id',qaCase.customer_id).is('archived_at',null).single(),scoped.from('vehicles').select('vin').eq('organization_id',access.organizationId).eq('id',qaCase.vehicle_id).eq('customer_id',qaCase.customer_id).is('archived_at',null).single()]);
-    if(ce||ve||!syntheticCaseEvidenceAllowed(process.env,{description:qaCase.problem_description,name:qaCustomer?.display_name,email:qaCustomer?.email,vin:qaVehicle?.vin}))return error('Simulirana odločitev zahteva izrecno označen sintetični DEV primer.');
+    if(ce||ve||!syntheticCaseEvidenceAllowed(process.env,{caseId:qaQuote.service_request_id,description:qaCase.problem_description,name:qaCustomer?.display_name,email:qaCustomer?.email,vin:qaVehicle?.vin}))return error('Simulirana odločitev zahteva izrecno označen sintetični DEV primer.');
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -1,3 +1,4 @@
+import {moneyLineCents} from './line-pricing';
 import type {IntakeServiceMatch} from '../assistance/intake-analysis';
 import type {EstimateCatalogOption} from './estimate-catalog';
 export type EstimateDraftRow={key:string;quantity:string;discount:string;unitPrice?:string;requestedService?:string;candidateKeys?:string[];matchSource?:string;description?:string;unitId?:string;vatId?:string};
@@ -13,7 +14,7 @@ export function draftRowPrice(row:EstimateDraftRow,option:EstimateCatalogOption,
 /** Display estimate only; authoritative amounts always come from the fresh server review. */
 export function draftTotal(rows:EstimateDraftRow[],options:EstimateCatalogOption[],customerPriceListId?:string|null){
  if(!rows.length)return null;let cents=0;
- for(const row of rows){if(row.key===''){if(!(row.description??row.requestedService)?.trim()||!row.unitId||!row.vatId||!row.quantity.trim()||row.unitPrice===undefined||!/^\d+(?:[.,]\d{1,2})?$/.test(row.unitPrice))return null;const quantity=Number(row.quantity.replace(',','.')),price=Number(row.unitPrice.replace(',','.')),discount=Number(row.discount||0);if(!Number.isFinite(quantity)||quantity<=0||quantity>100000||!Number.isFinite(price)||price<0||price>1000000||!Number.isFinite(discount)||discount<0||discount>100)return null;cents+=Math.round((quantity*price*(1-discount/100)+Number.EPSILON)*100);continue;}const option=options.find(o=>o.key===row.key);if(!option||!row.quantity.trim())return null;const quantity=Number(row.quantity.replace(',','.')),{unitPrice,discount}=draftRowPrice(row,option,customerPriceListId);if(!Number.isFinite(quantity)||quantity<=0||quantity>100000||!Number.isFinite(unitPrice)||unitPrice<0||unitPrice>1000000||!Number.isFinite(discount)||discount<0||discount>100)return null;cents+=Math.round((quantity*unitPrice*(1-discount/100)+Number.EPSILON)*100);}
+ for(const row of rows){if(row.key===''){if(!(row.description??row.requestedService)?.trim()||!row.unitId||!row.vatId||!row.quantity.trim()||row.unitPrice===undefined||!/^\d+(?:[.,]\d{1,2})?$/.test(row.unitPrice))return null;const quantity=Number(row.quantity.replace(',','.')),price=Number(row.unitPrice.replace(',','.')),discount=Number((row.discount||'0').replace(',','.'));if(!Number.isFinite(quantity)||quantity<=0||quantity>100000||!Number.isFinite(price)||price<0||price>1000000||!Number.isFinite(discount)||discount<0||discount>100)return null;cents+=moneyLineCents(quantity,price,discount);continue;}const option=options.find(o=>o.key===row.key);if(!option||!row.quantity.trim())return null;const quantity=Number(row.quantity.replace(',','.')),{unitPrice,discount}=draftRowPrice(row,option,customerPriceListId);if(!Number.isFinite(quantity)||quantity<=0||quantity>100000||!Number.isFinite(unitPrice)||unitPrice<0||unitPrice>1000000||!Number.isFinite(discount)||discount<0||discount>100)return null;cents+=moneyLineCents(quantity,unitPrice,discount);}
  return Number.isSafeInteger(cents)?cents/100:null;
 }
 
@@ -31,10 +32,11 @@ export function requestedEstimateRows(wanted:string|null|undefined,description:s
  const catalog=canonicalEstimateOptions(options,customerPriceListId);
  return unique.slice(0,100).map(requestedService=>{
   const matches=catalog.filter(o=>normalize(o.name)===normalize(requestedService)||normalize(o.code)===normalize(requestedService));
-  const match=matches.length===1?matches[0]:undefined;
+  const candidate=matches.length===1?matches[0]:undefined;
+  const match=candidate&&/brezpla[čc]n/i.test(candidate.name)&&candidate.grossPrice>0?undefined:candidate;
   // One requested service is one piece; time, weight and other units need an explicit quantity.
   const quantity=match&&['kos','kom','storitev','piece','pcs'].includes(normalize(match.unitLabel))?'1':'';
-  return {key:match?.key??'',quantity,discount:'',requestedService};
+  return {key:match?.key??'',quantity,discount:'',requestedService,...(candidate&&!match?{candidateKeys:[candidate.key]}:{})};
  });
 }
 

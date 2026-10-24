@@ -8,7 +8,7 @@ import {currentIntakeCompleteness} from '../intake/completeness';
 import {after} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
 import {quibiWorkflowConfig} from './workflow-config';
-import {createQuibiReadClient} from './client';
+import {createQuibiReadClient,configuredQuibiReadClient} from './client';
 import {configuredQuibiWorkflowWriteClient} from './write-client';
 import {quibiWorkflowJournal} from './write-journal';
 import {customerFingerprint,vehicleFingerprint} from './contracts';
@@ -94,7 +94,7 @@ export async function processIntakeSynchronization(caseId:string,restarts=0){
   }
   await status(result.vehicleId?null:'Stranka je povezana. Za povezavo vozila dopolnite VIN, registracijo, znamko in model.');
   if(!result.vehicleId){await finish('needs_data');return result;}
-  const preparation=await buildAutomaticEstimateDraft({wanted:claim.data.input.wanted,description:claim.data.input.description,customerId:result.customerId},createQuibiReadClient(config));
+  const preparation=await buildAutomaticEstimateDraft({wanted:claim.data.input.wanted,description:claim.data.input.description,customerId:result.customerId,vehicleId:result.vehicleId,allowOrganizationHistory:true},configuredQuibiReadClient());
   const saved=await finish(preparation.state,preparation.draft);if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1);return result;
  }catch(error){
   const code=error instanceof Error?error.message:'';

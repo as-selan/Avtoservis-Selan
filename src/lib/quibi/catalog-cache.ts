@@ -11,3 +11,9 @@ export function cachedCatalogSnapshot(config:{username:string;password:string;or
  const read=unstable_cache(()=>createQuibiReadClient(config).catalogSnapshot(),['quibi-service-catalog-v1',scope],{revalidate:900});
  const promise=read().finally(()=>{if(pending.get(scope)===promise)pending.delete(scope)});pending.set(scope,promise);return promise;
 }
+
+/** Short account-isolated READ cache. Document detail is still verified before use. */
+export function cachedHistoryList(config:{username:string;password:string;origin?:string},kind:'work_order'|'estimate'|'invoice',customerId?:string,dates?:{from:string;to:string}){
+ const scope=createHash('sha256').update(JSON.stringify([config.origin??'https://dev.quibi.net',config.username,config.password])).digest('hex');
+ return unstable_cache(()=>createQuibiReadClient(config).historyDocuments(kind,customerId,dates),['quibi-history-list-v1',scope,kind,customerId??'account',JSON.stringify(dates??null)],{revalidate:300})();
+}

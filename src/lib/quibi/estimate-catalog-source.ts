@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 import 'server-only';
 import {catalogDocumentLine,baseEstimateCatalogOption} from './estimate-catalog';
-import {unitNetFromGross} from './line-pricing';
+import {moneyLineCents,unitNetFromGross} from './line-pricing';
 import {customerCatalogPricing} from './customer-catalog-pricing';
 import type {EstimateReview} from './estimate-preparation';
 import type {QuibiArticle,QuibiPriceList} from './pricing-read';
@@ -19,7 +19,7 @@ export async function estimateCatalogSource(form:FormData,read:{priceLists():Pro
  const quantity=Number(form.get('quantity')??'1');if(!Number.isFinite(quantity)||quantity<=0||quantity>100000)throw Error('QUIBI_CATALOG_QUANTITY_INVALID');
  const line=catalogDocumentLine(option,quantity);
  const reviewedLine:EstimateReview['lines'][number]={description:option.name,quantity,unit:option.unitLabel,vat:option.vatLabel,unitPrice:option.grossPrice,discount:option.discount};
- return {option,line,reviewedLine,total:Math.round(quantity*option.grossPrice*(1-option.discount/100)*100)/100};
+ return {option,line,reviewedLine,total:moneyLineCents(quantity,option.grossPrice,option.discount)/100};
 }
 
 /** Resolve every draft row freshly. Draft prices are explicit edits only for verified non-stock articles. */
@@ -35,7 +35,7 @@ export async function estimateCatalogRows(form:FormData,read:Parameters<typeof e
   if(!row||typeof row!=='object'||typeof row.key!=='string'||!['string','number'].includes(typeof row.quantity))throw Error('QUIBI_CATALOG_LINES_INVALID');
   if(row.key===''){
    const description=typeof row.description==='string'?row.description.trim():typeof row.requestedService==='string'?row.requestedService.trim():'';
-   const unit=catalogs.units.find(u=>u.id===row.unitId),vat=catalogs.vatRates.find(v=>v.id===row.vatId),quantity=Number(row.quantity),discount=row.discount==null||row.discount===''?0:Number(row.discount);
+   const unit=catalogs.units.find(u=>u.id===row.unitId),vat=catalogs.vatRates.find(v=>v.id===row.vatId),quantity=Number(String(row.quantity).replace(',','.')),discount=row.discount==null||row.discount===''?0:Number(String(row.discount).replace(',','.'));
    if(!description||description.length>500||!unit||!vat||!String(row.quantity).trim()||!Number.isFinite(quantity)||quantity<=0||quantity>100000||!['undefined','string','number'].includes(typeof row.discount)||!Number.isFinite(discount)||discount<0||discount>100)throw Error('QUIBI_CATALOG_LINES_INVALID');
    if(typeof row.unitPrice!=='string'||!/^\d+(?:[.,]\d{1,2})?$/.test(row.unitPrice)||Number(row.unitPrice.replace(',','.'))>1000000)throw Error('QUIBI_CATALOG_PRICE_INVALID');
    const gross=Number(row.unitPrice.replace(',','.')),net=unitNetFromGross(gross,vat.id,catalogs.vatRates);
@@ -44,7 +44,7 @@ export async function estimateCatalogRows(form:FormData,read:Parameters<typeof e
    sources.push({line,reviewedLine,option:{sourceSha:createHash('sha256').update(JSON.stringify({line,unit,vat})).digest('hex'),unitNetPrice:net,unitId:unit.id}});hasPriceOverrides=true;continue;
   }
   if(!/^(?:article|\d+):\d+$/.test(row.key))throw Error('QUIBI_CATALOG_LINES_INVALID');
-  const one=new FormData();one.set('catalogSource',row.key);one.set('quantity',String(row.quantity));
+  const one=new FormData();one.set('catalogSource',row.key);one.set('quantity',String(row.quantity).replace(',','.'));
   const source=await estimateCatalogSource(one,cached,catalogs,customer);if(!source)throw Error('QUIBI_CATALOG_LINES_INVALID');
   if(Object.prototype.hasOwnProperty.call(row,'unitPrice')){
    hasPriceOverrides=true;
@@ -55,7 +55,7 @@ export async function estimateCatalogRows(form:FormData,read:Parameters<typeof e
    const net=unitNetFromGross(gross,source.option.vatId,catalogs.vatRates);
    if('sifra' in source.line)source.line.cena=net;else source.line.cenaZDDV=net;source.option.unitNetPrice=net;source.reviewedLine.unitPrice=gross;
   }
-  const discount=row.discount==null||row.discount===''?source.option.discount:Number(row.discount);
+  const discount=row.discount==null||row.discount===''?source.option.discount:Number(String(row.discount).replace(',','.'));
   if(!['undefined','string','number'].includes(typeof row.discount)||!Number.isFinite(discount)||discount<0||discount>100)throw Error('QUIBI_CATALOG_DISCOUNT_INVALID');
   source.line.popust=discount;source.reviewedLine.discount=discount;sources.push(source);
  }

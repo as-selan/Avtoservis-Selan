@@ -18,14 +18,14 @@ export function createQuibiReadClient(config: Config) {
   const fetcher = config.fetcher ?? fetch;
   const origin = config.origin ?? ORIGIN;
 
-  async function read(path: string, method: "GET" | "POST" = "GET", customerId?: string): Promise<unknown> {
+  async function read(path: string, method: "GET" | "POST" = "GET", customerId?: string,dates?:{from:string;to:string}): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt++) {
       const started=Date.now();
       try {
         const response = await fetcher(`${origin}${path}`, {
           method,
           headers: { username: config.username, password: config.password, "Content-Type": "application/json" },
-          body: method === "POST" ? JSON.stringify({ Filtriraj: { ...(customerId ? {stranka: Number(customerId)} : {}) } }) : undefined,
+          body: method === "POST" ? JSON.stringify({ Filtriraj: { ...(customerId ? {stranka: Number(customerId)} : {}),...(dates?{datod:dates.from,datdo:dates.to}:{}) } }) : undefined,
           redirect: "error", cache: "no-store",
           signal: AbortSignal.timeout(15000),
         });
@@ -94,11 +94,11 @@ export function createQuibiReadClient(config: Config) {
       return parseVehicleDetail(await read(`/api2/vozila/view/${vehicleId}`), vehicleId, validId(customerId));
     },
     /** Documented list filters are optional; caller must authorize account-wide history. */
-    async historyDocuments(kind: 'work_order'|'estimate'|'invoice', customerId?:string) {
+    async historyDocuments(kind: 'work_order'|'estimate'|'invoice', customerId?:string,dates?:{from:string;to:string}) {
       const paths={work_order:'/api2/dn',estimate:'/api2/predracuni',invoice:'/api2/fakture'};
       if(!Object.hasOwn(paths,kind))throw Error('QUIBI_INVALID_DOCUMENT');
       const id=customerId ? validId(customerId) : undefined;
-      return parseDocuments(await read(paths[kind],'POST',id),id);
+      return parseDocuments(await read(paths[kind],'POST',id,dates),id);
     },
     async workOrders(customerId: string) {
       const id = validId(customerId);
@@ -131,7 +131,7 @@ export function createQuibiReadClient(config: Config) {
   };
 }
 
-function withCatalogCache(config:Config){const read=createQuibiReadClient(config);return {...read,catalogSnapshot:async()=>{const {cachedCatalogSnapshot}=await import('./catalog-cache');return cachedCatalogSnapshot(config)}};}
+function withCatalogCache(config:Config){const read=createQuibiReadClient(config);return {...read,historyDocuments:async(kind:'work_order'|'estimate'|'invoice',customerId?:string,dates?:{from:string;to:string})=>{const {cachedHistoryList}=await import('./catalog-cache');return cachedHistoryList(config,kind,customerId,dates)},catalogSnapshot:async()=>{const {cachedCatalogSnapshot}=await import('./catalog-cache');return cachedCatalogSnapshot(config)}};}
 
 export function configuredQuibiReadClient() {
   if (process.env.APP_ENV === "production" || process.env.QUIBI_MODE === "production") {
