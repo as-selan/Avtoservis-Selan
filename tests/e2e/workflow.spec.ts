@@ -189,10 +189,10 @@ test("real owner login opens dashboard and canonical case", async ({ page }) => 
   await expect(page.getByText("Izolirani E2E primer")).toBeVisible();
   for (const width of [1440, 390, 350]) {
     await page.setViewportSize({ width, height: 900 });
-    const journey = page.getByRole('region', { name: 'Postopek primera' });
+    const journey = page.getByRole('region', { name: 'Naslednje opravilo' });
     const primary = journey.locator('[data-case-primary]');
     await expect(primary).toHaveCount(1);
-    await expect(journey.getByRole('list', { name: 'Faze postopka' }).locator('li')).toHaveCount(7);
+    await expect(journey).toHaveCount(1);
     await primary.click();
     const target = await primary.getAttribute('href');
     expect(target?.startsWith('#')).toBe(true);
@@ -206,7 +206,7 @@ test("real owner login opens dashboard and canonical case", async ({ page }) => 
 test("mechanic and foreign organization cannot enter operational dashboard", async ({ page }) => {
   for (const email of [seed.mechanic, seed.foreign]) {
     await login(page, email);
-    await expect(page).toHaveURL(/\/dostop-zavrnjen(?:\?|$)/);
+    await expect(page).toHaveURL(email === seed.mechanic ? /\/dashboard\/mehanik(?:\?|$)/ : /\/dostop-zavrnjen(?:\?|$)/);
     await page.goto("/dashboard/stranke");
     await expect(page).toHaveURL(/\/dostop-zavrnjen(?:\?|$)/);
     await page.context().clearCookies();
@@ -345,6 +345,10 @@ test("public inquiry creates a case that staff can find through the same custome
   await page.goto("/povprasevanje");
   await page.getByLabel("Ime in priimek / naziv").fill(name);
   await page.getByLabel("Telefon").fill(suffix === "Namizje" ? "+38640777111" : "+38640777222");
+  await page.getByLabel("E-pošta").fill(`selan-e2e-web-${suffix.toLowerCase()}@example.test`);
+  await page.getByLabel("VIN / številka šasije", {exact:true}).fill(suffix === "Namizje" ? "TST00000000000071" : "TST00000000000072");
+  await page.getByLabel("Znamka", {exact:true}).fill("Test");
+  await page.getByLabel("Model", {exact:true}).fill("Web E2E");
   await page.getByLabel("Opis težave").fill("Preizkus spletnega sprejema v izoliranem okolju.");
   await page.getByRole("button", { name: "Pošlji povpraševanje" }).click();
   await expect(page.getByText("Hvala. Vaše povpraševanje smo prejeli.")).toBeVisible();

@@ -119,7 +119,9 @@ const anon = createClient(E2E_API_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHA
 });
 const webArgs = {
   p_client_request_id: randomUUID(), p_display_name: "Izolirani spletni RPC preizkus",
-  p_phone: "+38640777333", p_problem_description: "Strežniški integracijski preizkus",
+  p_phone: "+38640777333", p_email: "selan-e2e-web-probe@example.test",
+  p_vin: "TST00000000000009", p_registration: "TEST-RPC", p_make: "Test", p_model: "RPC",
+  p_service_wanted: "Redni servis", p_problem_description: "Strežniški integracijski preizkus",
 };
 const { error: anonError } = await anon.rpc("create_web_service_request_intake", webArgs);
 if (anonError?.code !== "42501") {

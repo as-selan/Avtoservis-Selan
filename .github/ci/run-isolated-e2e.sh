@@ -23,7 +23,11 @@ for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PRODUCTION_DB_PASSWORD DA
 done
 
 bash "${REPO_ROOT}/.github/ci/prepare-ci-workdir.sh" full
-(cd "${CI_WORKDIR}" && supabase start --exclude studio --exclude logflare --exclude vector --exclude imgproxy)
+# Supabase start prints disposable keys; keep its full output off shared CI logs.
+if ! (cd "${CI_WORKDIR}" && supabase start --exclude studio --exclude logflare --exclude vector --exclude imgproxy > "${CI_WORKDIR}/supabase-start.log" 2>&1); then
+  echo "Isolated Supabase bootstrap failed; raw bootstrap output is withheld because it can contain credentials." >&2
+  exit 2
+fi
 pwsh -NoProfile -File "${REPO_ROOT}/supabase/tests/verify_isolated_docker_target.ps1" \
   -ExpectedContainerName "${EXPECTED_CONTAINER_NAME}" -ExpectedHostPort "${EXPECTED_HOST_PORT}"
 (cd "${CI_WORKDIR}" && supabase migration up)

@@ -59,8 +59,8 @@ echo "== Starting local Supabase (Docker) for M3 =="
     --exclude logflare \
     --exclude vector \
     --exclude imgproxy \
-    --exclude mailpit
-)
+    --exclude mailpit > "${CI_WORKDIR}/supabase-start.log" 2>&1
+) || { echo "Isolated Supabase bootstrap failed; raw output can contain credentials and is withheld." >&2; exit 2; }
 
 STATUS_JSON="$(cd "${CI_WORKDIR}" && supabase status -o json)"
 DB_URL="$(

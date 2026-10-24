@@ -1,8 +1,8 @@
 {
   "startingHead": "00d0dc8026eb25ec2c20862e13b2eb14d21740f4",
   "offlineTests": {
-    "total": 622,
-    "pass": 622,
+    "total": 623,
+    "pass": 623,
     "fail": 0,
     "skipped": 0
   },
@@ -18,5 +18,10 @@
   "githubWebhookScopeAvailable": false,
   "retargetPerformed": false,
   "hostedWritesPerformed": false,
-  "decision": "NO-GO: external deployment trigger and integration target approval remain; CI outcomes must be checked on pushed SHA"
+  "decision": "NO-GO: external deployment trigger and integration target approval remain; CI outcomes must be checked on pushed SHA",
+  "ciOn2fe0a06": {
+    "codeChecks": "PASS",
+    "isolatedDatabase": "PASS",
+    "browser": "FAIL before browser: stale seed missing email; corrected, rerun required"
+  }
 }

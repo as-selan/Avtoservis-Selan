@@ -57,3 +57,11 @@ UX P1 je nespremenjen: nobena poslovna TSX komponenta, cena ali dokument nista s
 
 Prebrano: aktivni AGENTS.md in CLAUDE.md, `docs/qa/selan-p1-final-00d0dc8/REPORT.md`, `C:/Users/Admin/.ai-os/ORCHESTRATION_GUIDE.md`, lokalni Next `node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md`.
 Uporabljeno: `C:/Users/Admin/.agents/skills/ai-orchestrator/SKILL.md`, `C:/Users/Admin/.agents/skills/superpowers/systematic-debugging/SKILL.md`, `C:/Users/Admin/.agents/skills/superpowers/verification-before-completion/SKILL.md`, `C:/Users/Admin/.codex/plugins/cache/openai-curated-remote/supabase/1.0.0/skills/supabase/SKILL.md`.
+
+## Nadaljevanje 25. 10. 2026
+
+Na `2fe0a06` sta dejansko uspešna GitHub Code checks (run 40118409435: 622/622, lint/TS/build) in Isolated DB tests (40118409368: M3/M4, owner race/concurrency, vse aktivne migracije, Quibi customer/vehicle RLS, predhodni pregled in web budget). Browser run 40118409316 je pred zagonom brskalnika zavrnil zastarel seed z `public intake RPC: validation_failed`: seed ni vseboval obvezne e-pošte.
+
+Seed zdaj vsebuje popolno sintetično spletno povpraševanje. Nov test izvrši dejansko web validacijo nad dejanskim seed objektom in preveri, da manjkajoča e-pošta ostane zavrnjena; anon RPC kontrola ostane. Spletni browser scenarij izpolni nove obvezne podatke. Dve stari browser pričakovanji sta usklajeni z že potrjenim UI: Naslednje opravilo namesto odstranjenega seznama faz in mehanikov lastni dashboard namesto prepovedi vseh dashboardov. Imenik strank ostaja nedostopen mehaniku.
+
+Bootstrap obeh disposable Supabase CI skript ne izpisuje več izhoda `supabase start`, ki lahko vsebuje ključe začasnega sklada; izhod ostane samo v začasni CI mapi in ni del artefaktov. Noben hosted ključ ni bil pridobljen. Lokalni offline nabor po popravku: **623/623 PASS, 0 FAIL, 0 skipped**. Ponovljeni browser CI je treba oceniti na novem SHA; ta dodatek ga še ne označuje kot uspešnega.
