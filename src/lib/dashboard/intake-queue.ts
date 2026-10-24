@@ -1,3 +1,4 @@
+import {getStatusLabel} from './statuses.ts';
 import type {ServiceOrderDemo} from './types';
 
 export const INTAKE_QUEUE_GROUPS = [
@@ -85,4 +86,8 @@ export function shortNextAction(item:DashboardQueueItem){
  if(item.order.nextActionKind==='automatic_estimate')return item.order.nextActionLabel.replace(/[.!]$/,'');
  if(item.order.nextActionKind==='review_quibi_mismatch')return 'Preveri dokument';
  return ({podatki:'Preveri podatke','quibi-povezava':'Preveri povezavo',predracun:'Pripravi predračun','pregled-predracuna':'Preglej predračun',odobritev:'Zabeleži odgovor',termini:'Uredi dogovor',popravilo:item.group==='work'?'Odpri delo':'Preglej delo','objavljena-cena':'Preglej storitev'} as Record<string,string>)[anchor]??'Odpri primer';
+}
+
+export function dashboardStatusLabel(order:ServiceOrderDemo){
+ return ({assigned:'Dodeljeno mehaniku',in_progress:'Delo poteka',awaiting_parts:'Čaka dele',review_required:'Čaka vodjo',invoice_review:'Priprava računa',handover:'Čaka prevzem ali plačilo',document_unknown:'Preveri dokument',closed:'Zaključeno'} as Record<string,string>)[order.repairPhase??'']??getStatusLabel(order.status);
 }

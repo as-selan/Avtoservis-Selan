@@ -15,6 +15,6 @@ async function panel(status,{locked=false,role='admin',assigned=true}={}){
  runInNewContext(code,{exports,require:name=>{if(!(name in imports))throw Error('Unexpected import '+name);return imports[name]},Map,Set,Promise});
  const tree=await exports.CaseWorkPanel({caseId:'case',role});const forms=[];function visit(node){if(!node||typeof node!=='object')return;if(Array.isArray(node)){node.forEach(visit);return;}if(node.type===Form)forms.push(node.props.mode);visit(node.props?.children)}visit(tree);return forms;
 }
-test('completed and locked work hide reassignment, progress and upload forms',async()=>{assert.deepEqual(await panel('work_completed'),[]);assert.deepEqual(await panel('in_progress',{locked:true}),[])});
+test('completed and locked work hide reassignment, progress and upload forms',async()=>{assert.deepEqual(await panel('work_completed'),['note']);assert.deepEqual(await panel('in_progress',{locked:true}),[])});
 test('active manager retains secondary reassignment; mechanic never gets assignment',async()=>{assert.deepEqual(await panel('in_progress'),['assign','progress','photo']);assert.deepEqual(await panel('in_progress',{role:'mechanic'}),['progress','photo'])});
 test('unassigned work has only assignment, and mechanic cannot assign',async()=>{assert.deepEqual(await panel('assigned',{assigned:false}),['assign']);assert.deepEqual(await panel('assigned',{assigned:false,role:'mechanic'}),[])});

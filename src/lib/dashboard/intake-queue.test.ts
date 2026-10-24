@@ -83,3 +83,6 @@ test('verified repair phases split manager review, invoice and handover without 
  const rows=dashboardQueue([order('a','potreben_pregled',{repairPhase:'review_required'}),order('b','potreben_pregled',{repairPhase:'invoice_review'}),order('c','pripravljeno_za_prevzem',{repairPhase:'handover'})]);
  assert.deepEqual(rows.map(r=>r.group),['review','invoice','handover']);assert.ok(rows[1].href.endsWith('#poslovni-nalog'));assert.match(shortNextAction(rows[1]),/račun/);
 });
+
+import {dashboardStatusLabel} from './intake-queue.ts';
+test('invoice phase does not inherit an obsolete manager-review badge',()=>{assert.equal(dashboardStatusLabel(order('invoice','potreben_pregled',{repairPhase:'invoice_review'})),'Priprava računa');});

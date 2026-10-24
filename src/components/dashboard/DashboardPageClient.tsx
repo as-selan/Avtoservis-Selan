@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {uniqueDashboardOrders, dashboardQueue, isSyntheticOrder, shortNextAction, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
+import {dashboardStatusLabel, uniqueDashboardOrders, dashboardQueue, isSyntheticOrder, shortNextAction, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
 import {useRouter} from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { DashboardPeriodId, DashboardSnapshot, WorkflowStatusId } from "@/lib/dashboard/types";
@@ -9,7 +9,7 @@ import {
   isDateInPeriod,
 } from "@/lib/dashboard/period";
 import { useDashboardNow } from "@/lib/dashboard/useDashboardNow";
-import { WORKFLOW_STATUSES, getStatusLabel, getStatusBadgeClass } from "@/lib/dashboard/statuses";
+import { WORKFLOW_STATUSES, getStatusBadgeClass } from "@/lib/dashboard/statuses";
 import { DashboardPeriodFilter } from "@/components/dashboard/DashboardPeriodFilter";
 import { WorkflowStatusSummary } from "@/components/dashboard/WorkflowStatusSummary";
 import { AppointmentList } from "@/components/dashboard/AppointmentList";
@@ -114,7 +114,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
         {visibleQueue.length ? <ul className="divide-y divide-slate-100 border-t border-slate-100">{visibleQueue.map(item=>{const {order:o,href}=item;return <li key={o.serviceRequestId} className="px-5 py-5 transition-colors hover:bg-slate-50/70">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-6">
             <div className="min-w-0"><p className="font-semibold text-slate-900">{o.customerName}</p><p className="mt-1 text-sm text-slate-600">{o.vehicleMakeModel}{o.registration&&<span className="ml-2 font-medium text-slate-800">{o.registration}</span>}</p></div>
-            <div className="min-w-0">{(o.mechanicName||o.mechanicEmail)&&<p className="mb-1 text-sm font-medium text-slate-700">{o.mechanicName||o.mechanicEmail}</p>}<p className="line-clamp-2 text-sm text-slate-800">{o.requestSummary}</p><span className={'mt-2 inline-block rounded-md px-2 py-1 text-xs font-medium '+getStatusBadgeClass(o.status)}>{getStatusLabel(o.status)}</span></div>
+            <div className="min-w-0">{(o.mechanicName||o.mechanicEmail)&&<p className="mb-1 text-sm font-medium text-slate-700">{o.mechanicName||o.mechanicEmail}</p>}<p className="line-clamp-2 text-sm text-slate-800">{o.requestSummary}</p><span className={'mt-2 inline-block rounded-md px-2 py-1 text-xs font-medium '+getStatusBadgeClass(o.status)}>{dashboardStatusLabel(o)}</span></div>
             <Link href={href} className="group flex min-h-11 items-center justify-between gap-3 rounded-lg py-2 text-sm font-medium text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600"><span><span className="mb-1 block text-xs font-normal text-slate-500">Naslednje opravilo</span>{shortNextAction(item)}</span><span aria-hidden="true" className="text-xl transition-transform group-hover:translate-x-1">→</span></Link>
           </div>
         </li>})}</ul> : <div className="border-t border-slate-100 px-5 py-12 text-center"><p className="font-medium text-slate-700">{queueSearch.trim()?'Ni zadetkov za to iskanje.':'V tej skupini trenutno ni primerov.'}</p><p className="mt-1 text-sm text-slate-500">{queueSearch.trim()?'Poskusite drugo ime, registracijo ali opis dela.':'Izberite drugo skupino ali dodajte novo povpraševanje.'}</p></div>}

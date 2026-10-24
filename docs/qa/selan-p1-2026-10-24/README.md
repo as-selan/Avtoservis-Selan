@@ -7,6 +7,7 @@
 - Onemogočeni CREATE nima gumba, ki obljublja izdajo. Onemogočeni SEND brez obstoječega poskusa pokaže samo kratek status. Obstoječi poskus še omogoča READ preverjanje statusa; pošiljanje se ne ponavlja.
 - Zapadlost ni več samodejno datum izdaje. Uporabnik izbere dogovorjeni datum; strežnik brez njega ne pripravi SHA za izdajo in ne pošlje CREATE. Preverjenega privzetega plačilnega roka v trenutnih integracijskih podatkih nimamo, zato ga ne izmišljamo.
 - Trije datumi se ohranijo po osvežitvi v isti brskalniški seji, ločeno za primer/stranko. Shrani se samo datum, ne podatki dokumenta ali skrivnosti. To ni strežniško shranjen osnutek in ne zagotavlja prenosa datumov na drug telefon ali po koncu seje.
+- Zaključenemu, še nezaklenjenemu delu je mogoče dodati naknadni zapis pod zloženo možnostjo. To ni obrazec ponovnega zaključevanja; dopolnitev dokazil razveljavi stari pregled in zahteva nov pregled trenutnih dokazil. Zaklenjen primer ostane samo za branje.
 - Fotografija ne zahteva ročno vnesenega opisa: uporabi nevtralno oznako »Fotografija popravila«. Zasebna shramba, validacija datoteke, večkratni izbor in predogled so ohranjeni.
 - Pregled vodje kratko pokaže znani odprti znesek ob preverjanju oziroma jasno neznano plačilo. Prevzem ostaja ločeno izrecno dejanje. Plačil se v tej nalogi ne vpisuje ali spreminja v Quibiju.
 
