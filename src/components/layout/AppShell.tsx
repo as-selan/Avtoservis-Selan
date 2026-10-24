@@ -20,7 +20,7 @@ function AppShellInner({
   const { setOpen: setManualOpen } = useManualEntry();
 
   return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-900">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <AppSidebar
         user={user}
         mobileOpen={mobileNavOpen}

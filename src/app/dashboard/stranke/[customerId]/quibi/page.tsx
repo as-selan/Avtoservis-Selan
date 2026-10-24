@@ -1,3 +1,4 @@
+import {canConfirmQuibiVehicleCreate} from '@/lib/quibi/vehicle-create-permission';
 import {localSyntheticQaAllowed} from "@/lib/appointments/synthetic-qa-policy";
 import {QuibiPartyUpdate} from '@/components/dashboard/QuibiPartyUpdate';
 import { QuibiLinkSubmit } from "@/components/quibi-link-submit";
@@ -188,7 +189,7 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
               <p>Selanovo vozilo: {registration || "brez registracije"} · VIN/šasija {vin || "ni navedena"}</p>
               {!registration || !vin ? <p role="alert">Za ustvarjanje v Quibiju sta potrebni registracija in številka šasije.</p>
                 : matching ? <p>Možno ujemanje že obstaja; najprej preverite in povežite prikazano vozilo.</p>
-                  : access.role!=='owner'?<p>Ustvarjanje novega vozila mora izrecno potrditi lastnik.</p>:<QuibiDevPartyCreate customerId={customerId} vehicleId={vehicle.id} />}
+                  : !canConfirmQuibiVehicleCreate(access.role,process.env)?<p>Ustvarjanje novega vozila mora izrecno potrditi lastnik.</p>:<QuibiDevPartyCreate customerId={customerId} vehicleId={vehicle.id} />}
             </div>;
           })}
       </section>

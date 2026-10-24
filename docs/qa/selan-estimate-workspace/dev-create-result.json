@@ -1,0 +1,28 @@
+{
+  "scope": "Real Quibi DEV integration; synthetic case only; not authenticated browser E2E",
+  "caseId": "d726b5b3-8a49-4c6f-a857-202610220019",
+  "created": true,
+  "linked": true,
+  "sent": false,
+  "documentId": "2176924",
+  "quoteId": "de58d894-532f-409e-aefe-486c377e974e",
+  "deliveryDiagnostics": {
+    "httpStatus": 200,
+    "fields": [
+      "error",
+      "send_id",
+      "status",
+      "napaka"
+    ],
+    "message": "",
+    "errors": {
+      "document": "Connection timed out"
+    },
+    "summary": "document: Connection timed out"
+  },
+  "sendId": "277127",
+  "sendStatus": "failed",
+  "previewDeployment": "dpl_CUAea5GC1jfRWncakDpsHoaqiixb",
+  "codeCommit": "469e851",
+  "testRecipientVerifiedAllowlisted": true
+}

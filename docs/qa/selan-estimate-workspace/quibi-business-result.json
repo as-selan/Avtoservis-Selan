@@ -1,0 +1,104 @@
+{
+  "scope": "Real Quibi DEV catalog diagnostics and synthetic work order/invoice integration; not authenticated UI E2E",
+  "caseId": "d726b5b3-8a49-4c6f-a857-202610220019",
+  "created": true,
+  "linked": true,
+  "sent": false,
+  "startedAt": "2026-10-22T18:18:48.899Z",
+  "delivery": {
+    "sendId": "277127",
+    "status": "failed",
+    "reason": "Connection timed out",
+    "resend": false
+  },
+  "documentId": "2176924",
+  "businessCatalogs": {
+    "numberings": [
+      {
+        "id": "2060",
+        "label": "Račun"
+      },
+      {
+        "id": "6483",
+        "label": "Delovni nalog"
+      }
+    ],
+    "saleTypeCount": 16,
+    "warehouses": [
+      {
+        "id": "49",
+        "label": "Praprotna Polica"
+      },
+      {
+        "id": "626",
+        "label": "Delavnica"
+      }
+    ]
+  },
+  "business": [
+    {
+      "kind": "work_order",
+      "id": "2176925",
+      "state": "verified",
+      "number": "269/2026",
+      "amount": "45.99",
+      "caseLinked": true,
+      "sourceId": "2176924"
+    },
+    {
+      "kind": "invoice",
+      "id": "2176926",
+      "state": "verified",
+      "number": "DELAVNICA-A-26000259",
+      "amount": "45.99",
+      "caseLinked": true,
+      "sourceId": "2176925"
+    }
+  ],
+  "invoiceHeader": {
+    "spaceId": "67",
+    "paymentMethod": "Bančno nakazilo",
+    "spaces": [
+      {
+        "id": "67",
+        "label": "DELAVNICA"
+      }
+    ],
+    "paymentMethods": [
+      "Apple Pay",
+      "Bančno nakazilo",
+      "Cassa sconto",
+      "Dobropis",
+      "Drugo",
+      "Google Pay",
+      "Gotovina",
+      "Kartica",
+      "Kompenzacija",
+      "Kupon",
+      "Leanpay",
+      "Moneta",
+      "PayPal",
+      "Plačilo po povzetju",
+      "Stotinska izravnava",
+      "Stripe",
+      "Turistični boni",
+      "Valu",
+      "Wolt"
+    ],
+    "ready": true
+  },
+  "journal": [
+    {
+      "kind": "work_order",
+      "state": "verified",
+      "id": "2176925"
+    },
+    {
+      "kind": "invoice",
+      "state": "verified",
+      "id": "2176926"
+    }
+  ],
+  "deploymentId": "dpl_5SNfKs15ZZs2KiQkiXGHCSND3Auc",
+  "codeCommit": "9fba38c"
+}

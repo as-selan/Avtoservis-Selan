@@ -1,3 +1,4 @@
+import {readArticlePages} from './article-pages.ts';
 import {quibiReadRejection,quibiReadEndpoint} from './read-rejection.ts';
 import {extraDocumentPaths,type ExtraDocumentKind} from './document-read.ts';
 import {parseVehicleInfo,parseAddresses,parseLots,parseStock,parsePaymentMethods,parseDocumentPayments} from './operational-read.ts';
@@ -17,14 +18,14 @@ export function createQuibiReadClient(config: Config) {
   const fetcher = config.fetcher ?? fetch;
   const origin = config.origin ?? ORIGIN;
 
-  async function read(path: string, method: "GET" | "POST" = "GET", customerId?: string): Promise<unknown> {
+  async function read(path: string, method: "GET" | "POST" = "GET", customerId?: string,dates?:{from:string;to:string}): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt++) {
       const started=Date.now();
       try {
         const response = await fetcher(`${origin}${path}`, {
           method,
           headers: { username: config.username, password: config.password, "Content-Type": "application/json" },
-          body: method === "POST" ? JSON.stringify({ Filtriraj: { ...(customerId ? {stranka: Number(customerId)} : {}) } }) : undefined,
+          body: method === "POST" ? JSON.stringify({ Filtriraj: { ...(customerId ? {stranka: Number(customerId)} : {}),...(dates?{datod:dates.from,datdo:dates.to}:{}) } }) : undefined,
           redirect: "error", cache: "no-store",
           signal: AbortSignal.timeout(15000),
         });
@@ -57,8 +58,19 @@ export function createQuibiReadClient(config: Config) {
     async paymentMethods(){return parsePaymentMethods(await read('/api2/glavadokumenta/placila'))},
     async documentPayments(documentId:string){return parseDocumentPayments(await read('/api2/delnaplacila/placiladokumenta/'+validId(documentId)),documentId)},
     async documents(kind:ExtraDocumentKind,customerId:string){if(!Object.hasOwn(extraDocumentPaths,kind))throw Error('QUIBI_INVALID_DOCUMENT');const id=validId(customerId);return parseDocuments(await read(extraDocumentPaths[kind],'POST',id),id)},
+    async catalogSnapshot(){
+      const lists=parseQuibiPriceLists(await read('/api2/cenik')),listed=new Set(lists.flatMap(l=>l.lines.map(r=>r.articleId)));let total=0,nonStock=0,pages=0;const invalid:string[]=[];
+      const articles=await readArticlePages(path=>read(path),500,{allowUncoded:true,page:rows=>{pages++;total+=rows.length;nonStock+=rows.filter(r=>[0,'0',false].includes((r.Sifranti as Record<string,unknown>)?.vodiZalogo as string|number|boolean)).length},include:r=>{const a=r.Sifranti as Record<string,unknown>;return [0,'0',false].includes(a.vodiZalogo as string|number|boolean)||listed.has(String(a.id))},invalid:id=>invalid.push(id)});
+      return {articles,lists,issues:invalid.length?['Nekatere postavke nimajo preverljive šifre, cene, enote ali DDV; zanje uporabite prosto storitev.']:[],stats:{total,nonStock,pages,indexed:articles.length,unsupported:invalid.length}};
+    },
+    async activeArticle(id:string){
+      const articleId=validId(id);if(Number(articleId)<1)throw Error('QUIBI_INVALID_ARTICLE_ID');
+      const value=await read('/api2/sifranti/seznam?po='+(Number(articleId)-1)+'&limit=1&arhivirano=0') as {error?:unknown;data?:{Sifranti?:Array<{Sifranti?:{id?:unknown}}>}};
+      const row=value.data?.Sifranti?.[0];if(value.error!==false||value.data?.Sifranti?.length!==1||!row||String(row.Sifranti?.id)!==articleId)throw Error('QUIBI_ARTICLE_INACTIVE');
+      return parseQuibiArticle({error:false,data:{Sifranti:row}},articleId,true);
+    },
     async priceLists() { return parseQuibiPriceLists(await read("/api2/cenik")); },
-    async article(id: string) { return parseQuibiArticle(await read(`/api2/sifranti/view/${validId(id)}`), id); },
+    async article(id: string,allowUncoded=false) { return parseQuibiArticle(await read(`/api2/sifranti/view/${validId(id)}`), id,allowUncoded); },
     async customers() { return parseCustomers(await read("/api2/stranka")); },
     async searchCustomers(query: string) {
       const needle = query.trim().toLocaleLowerCase("sl-SI");
@@ -82,11 +94,11 @@ export function createQuibiReadClient(config: Config) {
       return parseVehicleDetail(await read(`/api2/vozila/view/${vehicleId}`), vehicleId, validId(customerId));
     },
     /** Documented list filters are optional; caller must authorize account-wide history. */
-    async historyDocuments(kind: 'work_order'|'estimate'|'invoice', customerId?:string) {
+    async historyDocuments(kind: 'work_order'|'estimate'|'invoice', customerId?:string,dates?:{from:string;to:string}) {
       const paths={work_order:'/api2/dn',estimate:'/api2/predracuni',invoice:'/api2/fakture'};
       if(!Object.hasOwn(paths,kind))throw Error('QUIBI_INVALID_DOCUMENT');
       const id=customerId ? validId(customerId) : undefined;
-      return parseDocuments(await read(paths[kind],'POST',id),id);
+      return parseDocuments(await read(paths[kind],'POST',id,dates),id);
     },
     async workOrders(customerId: string) {
       const id = validId(customerId);
@@ -119,14 +131,16 @@ export function createQuibiReadClient(config: Config) {
   };
 }
 
+function withCatalogCache(config:Config){const read=createQuibiReadClient(config);return {...read,historyDocuments:async(kind:'work_order'|'estimate'|'invoice',customerId?:string,dates?:{from:string;to:string})=>{const {cachedHistoryList}=await import('./catalog-cache');return cachedHistoryList(config,kind,customerId,dates)},catalogSnapshot:async()=>{const {cachedCatalogSnapshot}=await import('./catalog-cache');return cachedCatalogSnapshot(config)}};}
+
 export function configuredQuibiReadClient() {
   if (process.env.APP_ENV === "production" || process.env.QUIBI_MODE === "production") {
     const config = quibiWorkflowConfig(process.env, "read");
-    return createQuibiReadClient(config);
+    return withCatalogCache(config);
   }
   if (process.env.APP_ENV === "preproduction") {
     assertPreproductionQuibiConfiguration();
-    return createQuibiReadClient({
+    return withCatalogCache({
       username: process.env.QUIBI_DEV_USERNAME ?? "",
       password: process.env.QUIBI_DEV_PASSWORD ?? "",
     });

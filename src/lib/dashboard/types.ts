@@ -33,10 +33,17 @@ export interface ServiceOrderDemo {
   vehicleMakeModel: string;
   registration?: string;
   requestSummary: string;
+  synthetic?: boolean;
   intakeConnectionLabel?:string;
+  repairPhase?:string;
+  quibiWorkOrderId?:string;
+  mechanicName?:string|null;
+  mechanicEmail?:string|null;
   status: WorkflowStatusId;
   nextActionLabel: string;
   nextActionKind?: string;
+  /** Existing published-price path; distinct from a Quibi estimate. */
+  fixedPriceStatus?: string | null;
   requiresAttention?: boolean;
   slotOfferStatus?: string;
   slotOfferExpired?: boolean;

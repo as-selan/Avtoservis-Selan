@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {catalogDocumentLine,estimateCatalogOption,exactEstimateCatalogMatch,loadEstimateCatalog} from './estimate-catalog.ts';
+import {catalogDocumentLine,baseEstimateCatalogOption,estimateCatalogOption,exactEstimateCatalogMatch,loadEstimateCatalog} from './estimate-catalog.ts';
 import {estimatePreparationPayload} from './estimate-preparation.ts';
 const article={id:'116731',code:'SERVIS-QA',name:'Pregled vozila',netPrice:'100',vatId:'5',vatLabel:'22 %',unitId:'1',unitLabel:'kos'};
 const list={id:'189',name:'Servis',lines:[{articleId:'116731',netPrice:'100',discount:'0'}]};
@@ -15,3 +15,11 @@ test('unit gross price keeps precision for quantities; total is rounded only at 
 test('all price-list article references are read without the old sixty-article truncation',async()=>{let count=0;const rows=Array.from({length:65},(_,i)=>({articleId:String(100+i),netPrice:'100',discount:'0'}));const result=await loadEstimateCatalog({priceLists:async()=>[{...list,lines:rows}],article:async(id)=>{count++;return {...article,id,code:'SERVICE'+id}}});assert.equal(count,65);assert.equal(result.options.length,65)});
 
 test('documented non-stock price is frozen in the approved payload; stock price is never overridden',()=>{const option=estimateCatalogOption({...article,stockManaged:false},list);assert.deepEqual(catalogDocumentLine(option,2),{sifra:article.code,kolicina:2,popust:0,ddv_id:'5',cena:100,opis:article.name});assert.equal('cena' in catalogDocumentLine({...option,stockManaged:true},2),false)});
+
+test('price-list conflicts stay on the corresponding options without a global warning',async()=>{const result=await loadEstimateCatalog({priceLists:async()=>[{...list,lines:[{...list.lines[0],netPrice:'99'}]}],article:async()=>article});assert.equal(result.options[0].priceListDiffers,true);assert.deepEqual(result.issues,[])});
+
+
+test('paginated service index includes base-priced services absent from price lists without fake list IDs',async()=>{
+ const second={...article,id:'9',code:'SECOND',stockManaged:false};const result=await loadEstimateCatalog({priceLists:async()=>{throw Error('UNEXPECTED')},article:async()=>{throw Error('UNEXPECTED')},catalogSnapshot:async()=>({articles:[article,second],lists:[list],issues:[]})});
+ assert.equal(result.options.find(o=>o.articleId==='9')?.key,'article:9');assert.equal(baseEstimateCatalogOption(second).grossPrice,122);assert.equal(result.options.find(o=>o.articleId==='9')?.priceListId,'');
+});

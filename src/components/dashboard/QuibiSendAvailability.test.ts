@@ -17,7 +17,9 @@ for(const dev of [true,false]){
  test(`server-authorized ${dev?'DEV':'production'} SEND uses the same existing form`,()=>{
   for(const enabled of [true,false]){
    const business=render('QuibiBusinessSend',{dev,enabled,orderId:'case',documentId:'doc',kind:'invoice',sha:'sha',amount:'45.99',recipient:'qa@example.test',initialState:null});
-   assert.equal(find(business,n=>n.type==='button')?.props.disabled,!enabled);
+   assert.equal(!!find(business,n=>n.type==='form'),enabled);
+   if(enabled)assert.equal(find(business,n=>n.type==='button')?.props.disabled,false);
+   else {assert.equal(find(business,n=>n.type==='button'),undefined);assert.match(String(business.props.children),/ni omogočeno/);}
    const estimate=render('QuibiEstimateWorkflowPanel',{dev,sendEnabled:enabled,serviceRequestId:'case',quoteId:'quote',documentId:'doc',reviewStatus:'approved_for_send',sha256:'sha',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',manualIdentityRequired:false,alreadyDelivered:false});
    assert.equal(!!find(estimate,n=>n.type==='form'),enabled);
   }
@@ -27,5 +29,10 @@ test('existing uncertain SEND stays status-only even when DEV dispatch is config
  const business=render('QuibiBusinessSend',{dev:true,enabled:true,documentId:'doc',kind:'invoice',sha:'sha',amount:'45.99',recipient:'qa@example.test',initialState:{state:'uncertain',sendId:null,sendStatus:null,attemptedAt:null}});
  assert.equal(find(business,n=>n.type==='button')?.props.children,'Preveri status brez ponovnega pošiljanja');
  const estimate=render('QuibiEstimateWorkflowPanel',{dev:true,sendEnabled:true,documentId:'doc',reviewStatus:'approved_for_send',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',operationState:'uncertain',alreadyDelivered:false});
+ assert.equal(!!find(estimate,n=>n.type==='form'),false);
+});
+
+test('an unreviewed estimate cannot offer sending before separate Tadej approval',()=>{
+ const estimate=render('QuibiEstimateWorkflowPanel',{dev:true,sendEnabled:true,documentId:'doc',reviewStatus:'unreviewed',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',alreadyDelivered:false});
  assert.equal(!!find(estimate,n=>n.type==='form'),false);
 });

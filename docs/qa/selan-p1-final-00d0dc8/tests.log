@@ -1,0 +1,1518 @@
+✖ customer approval and rejection work without delivery, stay explicitly synthetic and refresh the case (551.4265ms)
+✖ synthetic decision cannot be mistaken for real customer evidence (73.3995ms)
+✔ manual appointment UI progresses proposal, actual choice and booking evidence as separate actions (298.3003ms)
+✔ preliminary inspection explicitly distinguishes free ordered repair from payable declined repair (58.773ms)
+✔ disabled new send never contradicts preserved historical delivery outcomes (65.3234ms)
+✔ dashboard preparation control does not invent WRITE configuration when readiness was not checked (43.0307ms)
+✔ expired or obsolete slot offers never present an actionable booking confirmation (110.4256ms)
+(node:25044) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/AdministrativeFlow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ invoice form exposes completed-work confirmation and explicit dates; READ preview never dispatches or refreshes away fields (856.1157ms)
+✖ existing issued invoice is a review link, never a preselected UPDATE or another CREATE (207.4729ms)
+(node:26308) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiBusinessDocumentForm.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ failed: READ preview remains available while confirmed CREATE cannot dispatch (757.1377ms)
+✖ uncertain: READ preview remains available while confirmed CREATE cannot dispatch (214.9549ms)
+✖ dispatching: READ preview remains available while confirmed CREATE cannot dispatch (218.0364ms)
+✖ verified: READ preview remains available while confirmed CREATE cannot dispatch (172.9804ms)
+✖ failed CREATE no longer suppresses history READ (165.7769ms)
+✖ normal confirmed CREATE still uses its original action (138.786ms)
+✖ temporary READ failure can be retried and does not refresh the case or dispatch (140.0273ms)
+✖ explicit catalog choice stops additional history scans but keeps the preview form (132.5317ms)
+✖ automatic READ waits for existing required fields instead of locking an incomplete form (155.04ms)
+✖ multi-line editor adds, removes, edits quantities and discounts and clears approval without losing rows (178.0611ms)
+✖ AI prepared lines populate the existing editor and bypass history selection, never CREATE (163.7351ms)
+✖ unknown AI quantity is left empty for review, not guessed (124.4044ms)
+(node:30384) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ server-authorized DEV SEND uses the same existing form (777.4992ms)
+✖ server-authorized production SEND uses the same existing form (262.9821ms)
+✔ existing uncertain SEND stays status-only even when DEV dispatch is configured (125.8982ms)
+✔ an unreviewed estimate cannot offer sending before separate Tadej approval (82.3112ms)
+(node:30108) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiSendAvailability.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Ljubljana wall times retain the correct seasonal UTC offset (5.5113ms)
+✔ ambiguous and missing daylight-saving times fail closed (0.7932ms)
+(node:14488) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/appointments/ljubljana-time.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual options reject missing, duplicate, past and ambiguous times (4.6833ms)
+✔ three real inputs form Ljubljana message without claiming reservation or sending (4.8882ms)
+(node:8872) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/appointments/manual-slot-draft.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ synthetic booking requires the isolated loopback fixture and never a real DEV or hosted environment (4.1039ms)
+(node:30652) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/appointments/synthetic-qa-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ no configured AI provider produces no simulated AI result or sending permission (4.0679ms)
+✔ AI draft cannot override canonical missing data or grant approval (2.7613ms)
+✔ provider failures and invalid output fail closed without exposing diagnostics (0.8136ms)
+✔ validated AI analysis and suggestions are advisory, never Quibi identities or prices (1.0465ms)
+✔ oversized or malformed suggestions never become an AI result (1.3449ms)
+✔ service description is supplied to the existing provider boundary; missing fields remain authoritative (0.6509ms)
+✔ oversized intake never invokes a provider (0.5086ms)
+✔ AI proposes only existing catalog references; prices and approval are never model authority (2.0143ms)
+✔ invented references, duplicate lines, invalid quantities and absent catalog never prefill documents (1.684ms)
+✔ provider cannot mutate canonical catalog or manufacture a supplied reference (1.1995ms)
+✔ per-request matches preserve catalog boundaries and never accept injected service labels (1.9034ms)
+(node:26408) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/assistance/intake-analysis.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ AI requires explicit server key and model without defaults (5.9523ms)
+✔ Responses sends only agreed inquiry fields with strict schema and no storage or tools (128.1126ms)
+✔ provider rejection, incomplete output, malformed JSON and timeout fail without retry (4.051ms)
+✔ oversized inquiry never reaches provider (0.9824ms)
+✔ Responses receives inspection and catalog identity but no catalog prices or customer identifiers (2.5978ms)
+(node:23676) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/assistance/openai-intake-provider.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ JWT rejection requires authentication rather than claiming missing membership (2.5391ms)
+✔ query errors fail closed and only authoritative absent membership is denied (0.4536ms)
+(node:22756) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/auth/access-lookup-failure.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ accepted mechanic can read workshop access but financial/operational gate denies (317.6705ms)
+✔ route access never silently accepts a pending invitation or revives missing membership (55.9913ms)
+✔ owner/admin recovery access stays operational (83.6185ms)
+(node:16236) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/auth/operational-role-guard.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ activity includes assignment, notes and ready photos; identity is joined by id (3.5324ms)
+✔ failed activity lookup does not show zero photos as a fact (0.5098ms)
+(node:6688) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/case-work/overview.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ recover existing private photo once without upload, scoped to case and author (426.6414ms)
+✔ missing object stays uncertain and cannot claim successful storage (66.0332ms)
+✔ foreign or inaccessible photo never invokes completion or storage (45.8681ms)
+✔ mechanic progress and note save independently of all Quibi configuration and READ (55.622ms)
+(node:29444) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/case-work/photo-recovery.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ only bounded real image signatures; SVG, mismatched MIME and oversized content fail (3.4807ms)
+✔ repair progress cannot issue documents, prices or financial states (1.1022ms)
+✔ gallery upload transports only prepared JPEG, preserving caption and removing original image (78.6987ms)
+✔ unreadable mobile image produces Slovenian guidance without leaking decoder errors (3.8771ms)
+(node:22892) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/case-work/policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ internal admin review uses current local evidence and stores a simulated audit without Quibi (607.8004ms)
+✔ actual invoice review and closure re-read linked invoice and payments, preserve unpaid state and do not issue/send (114.9849ms)
+✔ stale evidence, mechanic, uncertain document, missing invoice and changed SHA never save audit (316.4921ms)
+✔ internal accept and return remain usable during Quibi outage without a second confirmation (106.6232ms)
+✔ invoice verification still requires explicit confirmation and a fresh external read (81.5224ms)
+✔ internal review still rejects wrong roles, stale evidence, unfinished work and missing return note (258.8629ms)
+(node:16848) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/case-work/review-actions.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mechanic completion outranks stale appointment and sent invoice, but never implies review or closure (3.6011ms)
+✔ review then current invoice check then explicit simulated closure are separate stages (3.0443ms)
+✔ new evidence, changed invoice and uncertain CREATE cannot inherit closure (0.791ms)
+✔ review is limited to owner/admin, and QA does not depend on a magic case UUID (1.613ms)
+✔ A73 work review remains simulated only for exact DEV case and vehicle (0.4964ms)
+(node:28716) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/case-work/review-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ only two confirmed links in the current hosted environment establish current identity (2.8509ms)
+✔ current identity supersedes known persisted automatic identity warnings only (0.6054ms)
+✔ unrelated errors, unknown CREATE and current failed link notices remain visible (0.6009ms)
+(node:30492) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/cases/identity-notice.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ new inquiry offers a real intake form and never claims an estimate exists (4.1362ms)
+✔ unverified vehicle takes precedence over acceptance and points to identity resolution (0.4921ms)
+✔ missing data and reception explain how to unblock the case (0.7278ms)
+✔ preparation, review, sending and customer approval have distinct targets (0.8687ms)
+✔ phone approval permits order preparation without fabricating delivery or order (0.6204ms)
+✔ unknown document outcome never suggests creating again (0.5972ms)
+✔ verified order leads to repair and closed is explicit (0.7163ms)
+✔ business order exists before mechanic assignment and must not offer CREATE again (1.1556ms)
+✔ inspection and published price retain their existing forms (0.604ms)
+✔ closed repair phase overrides stale inquiry state (0.6312ms)
+✔ existing order never hides unknown financial document outcome (0.5563ms)
+✔ accepted fixed price advances beyond the response form (0.4215ms)
+✔ rejected estimate opens its existing revision form in the review section (0.3377ms)
+✔ failed and queued sends stay prominent without blocking a real phone approval (0.7962ms)
+✔ DEV email is optional and routes a reviewed estimate to separately recorded approval (0.4476ms)
+✔ automatic preparation skips a separate intake click but preserves uncertainty and missing-data gates (0.7476ms)
+✔ new vehicle is the next task for owner and a concrete owner handoff for admin (0.4104ms)
+✔ DEV admin capability exposes vehicle confirmation without a separate acceptance (0.3563ms)
+✔ synthetic DEV approval is never described as a real customer answer (0.3833ms)
+✔ completed and reviewed repairs lead to review, invoice or handover instead of restarting repair (0.4363ms)
+✔ invoice navigation distinguishes preparation and existing invoice (0.3658ms)
+(node:30352) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/cases/journey.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ missing data continues the same case before any offer step (3.9776ms)
+✔ prepared case directs staff to create and link a real Quibi estimate (0.5555ms)
+✔ changed customer data blocks the next Quibi-dependent step (0.381ms)
+✔ confirmed internal appointment never claims external calendar sync (0.6148ms)
+✔ selected manual slot asks for the real external booking instead of repeating the offer (0.9539ms)
+✔ published final price uses a distinct human review and decision path (0.4405ms)
+✔ declined repair after inspection remains visible as a manual billing task (0.831ms)
+✔ ordered repair after inspection returns to explicit intake review (0.652ms)
+✔ converted cases direct work execution, parts and invoice closure (2.1025ms)
+✔ synthetic appointment never claims an external reservation (0.8321ms)
+✔ unknown Quibi CREATE is the next action instead of a new estimate (0.4562ms)
+✔ recorded customer approval proceeds to direct Quibi business flow without inventing delivery (0.5014ms)
+✔ verified approval overrides stale offer status without requiring delivery; uncertain CREATE and invalid identity still block (1.5231ms)
+✔ definitive CREATE rejection directs review and never suggests a new document (0.3933ms)
+✔ verified invoice replaces stale appointment next action without claiming receipt or closure (1.6298ms)
+✔ rejected empty CREATE preserves verified invoice progress; unknown SEND blocks new send (0.5454ms)
+✔ old-version SEND does not confirm current invoice version (0.3675ms)
+✔ unpaid preliminary inspection is not hidden by existing Quibi business progress (0.3939ms)
+✔ dashboard without case-specific write readiness offers preview without inventing a configuration failure (0.3814ms)
+(node:22584) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/cases/next-step.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ short reference uses exact eight hex digits and refuses ambiguous results (3.4097ms)
+✔ Slovenian dates preserve ISO and reject invalid dates without timezone changes (3.7617ms)
+(node:20288) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/cases/rea-p11.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual short-link lookup retains authenticated RLS, explicit organization and archived filter, and refuses ambiguity (276.011ms)
+(node:30672) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/cases/reference-lookup.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ the actionable form comes first and every other form remains present exactly once (5.044ms)
+✔ external order links keep the repair context and unknown links retain the intake (0.549ms)
+✔ button outcomes explain preparation versus actual sending and creation (0.8751ms)
+(node:30052) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/cases/workspace.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ completed manual data returns to explicit intake review (14.9757ms)
+✔ web completion cannot lower contact requirements (0.777ms)
+✔ partial completion keeps unresolved identity input instead of silently clearing it (2.4114ms)
+(node:19260) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/completion/lifecycle.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual draft asks for either contact, web asks for both (2.9945ms)
+✔ draft preserves safe URL and the same case without machine field names (0.801ms)
+(node:29464) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/completion/message.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ completion origin is a configured HTTPS origin only (3.0007ms)
+✔ plain HTTP is limited to loopback in explicitly isolated environments (0.6631ms)
+(node:1868) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/completion/origin.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ completion accepts absent VIN but rejects malformed supplied VIN (3.8009ms)
+(node:1028) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/completion/validate.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unlinked intake can be completed; linked Quibi identity rejects local divergence but permits notes (2.9817ms)
+(node:26604) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/customers/quibi-owned-fields.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ converted cases remain active until actual repair and handover are complete (2.0713ms)
+(node:14996) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/dashboard/db-status.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ customer-only link never marks the intake ready for Quibi business actions (3.0492ms)
+✔ wrong local/remote party, stale sync and mixed environments require review (0.7334ms)
+(node:30504) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/dashboard/intake-connection.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ one queue covers each open state once and excludes closed/unlinked display rows (98.3717ms)
+✔ real slot progress determines the action, not just the new intake status (1.1209ms)
+✔ filters and search preserve all-period queue and newest-first ordering (1.3089ms)
+✔ expired offer requires service action, never waiting on the customer (0.6585ms)
+✔ approved repair ready for Quibi work does not acquire an artificial appointment gate (0.773ms)
+✔ estimate review, sending and replies use the action section before broad status (0.599ms)
+✔ approved handoff and repair phases do not remain in customer waiting (1.5556ms)
+✔ attention is first and stale slot proposals cannot override the repair action (0.5951ms)
+✔ published-price review, send and customer response stay in the published-price section (0.6358ms)
+✔ seven dashboard groups include every case once while preserving action routing (1.9141ms)
+✔ dashboard attention and mismatches stay visible as decisions even after booking (0.728ms)
+✔ only explicit QA-SIM/TEST markers leave normal daily work; data stays accessible (1.1605ms)
+✔ one case remains one row even when a snapshot contains an older duplicate (1.1349ms)
+✔ verified repair phases split manager review, invoice and handover without duplicating cases (1.1949ms)
+✔ invoice phase does not inherit an obsolete manager-review badge (0.5015ms)
+✔ search matches short/full reference, Quibi order, customer and registration including isolated TEST rows (1.6904ms)
+✔ dashboard starts in the first nonempty real group without counting synthetic cases (9.1284ms)
+(node:21912) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/dashboard/intake-queue.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ dashboard uses verified repair phase and last activity without rewriting historical intake (7.0192ms)
+(node:21136) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/dashboard/repair-phase.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ remote demo requires its own project and rejects external configuration (5.2106ms)
+✔ preproduction requires the pinned hosted project and server-only Quibi DEV reads (103.9586ms)
+✔ local review with DEV reads still requires synthetic communication evidence (1.3711ms)
+✔ preproduction refuses Quibi demo even with credentials (0.5713ms)
+✔ remote Quibi fixture never returns another customer's vehicle or estimate (5.0597ms)
+✔ configured remote demo uses only synthetic reads and QA-SIM evidence (2.0277ms)
+(node:4840) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/demo/config.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ inspection cannot be started or completed after the case leaves offer preparation (2.4036ms)
+(node:9264) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/inspections/eligibility.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ completeness is new only when phone, email, vin, make, model present (4.8079ms)
+✔ completeness lists missing fields for needs_data (0.6974ms)
+✔ Quibi-completed fields replace stale missing flags and return to review, never to offer approval (0.9093ms)
+✔ immutable web provenance retains strict contacts and unknown requirements (0.4233ms)
+(node:13544) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/completeness.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual accepts email only with complete vehicle (4.0364ms)
+✔ manual accepts phone only with complete vehicle (0.5018ms)
+✔ manual needs at least one contact and VIN make model (2.6422ms)
+✔ web completeness still requires both contacts (0.7265ms)
+(node:1660) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/contact-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ M4 RPC defines is_valid_intake_email and rejects invalid email before write (3.3922ms)
+(node:17148) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/email-rpc-validation.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ migration uses private snapshot table and DEFINER intake RPC (5.2019ms)
+✔ canonical material covers all 19 approved business fields (1.7321ms)
+✔ idempotency_conflict has Slovenian UI message without auto-create (0.5705ms)
+(node:24468) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/idempotency-snapshot.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ M4 RPC does not overwrite mileage_latest on existing vehicle update (3.4755ms)
+(node:10896) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/mileage-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ normalizeIntakePhone strips separators and preserves leading + (2.8634ms)
+✔ normalizeIntakeEmail lowercases and trims (0.5178ms)
+✔ normalizeIntakeVin uppercases (0.5144ms)
+✔ normalizeIntakeRegistration strips non-alphanumeric (0.55ms)
+(node:23232) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/normalize.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ configured public origin wins over an internal Next origin (3.2873ms)
+✔ invalid and untrusted configured origins fail closed (0.5212ms)
+✔ Vercel Preview accepts only its declared deployment and branch hosts (0.6965ms)
+✔ CLI Preview has no Git branch but accepts only its own declared HTTPS host (0.8289ms)
+(node:23980) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/trusted-origin.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ validate maps mileage to mileageReportedKm without inventing vehicle cache (4.3603ms)
+✔ validate rejects negative mileage (2.4586ms)
+✔ validate requires phone or email (0.8249ms)
+✔ validate rejects vehicle selection without customer (1.3229ms)
+✔ validate rejects invalid email format (0.9544ms)
+✔ validate rejects invalid email even when phone is present (0.7194ms)
+✔ validate requires clientRequestId (0.583ms)
+✔ manual permits email only for all operator channels (0.6779ms)
+✔ manual intake rejects a supplied VIN with the wrong length (0.7802ms)
+(node:29412) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/validate.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ empty or absent trap permits normal validation without losing inquiry fields (6.9279ms)
+✔ autofilled website is flagged rather than treated as persisted inquiry (2.2525ms)
+✔ verification rejection remains failure through public response sanitization (0.9372ms)
+✔ malformed and non-successful server results cannot become confirmation (0.38ms)
+(node:21152) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/intake/web-public.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ fresh article validation uses a bounded active list read, never a bulk catalog or write (117.0398ms)
+(node:10516) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/article-active.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ reads every cursor page including a short nonterminal page, once and in order (7.6097ms)
+✔ empty terminal page is valid; missing cursor, malformed data and duplicate/regressing IDs fail closed (4.5963ms)
+✔ never silently truncates or accepts a repeated page, missing price or mismatched references (2.4258ms)
+✔ service index excludes bulk stock data but validates every ID and reports unsupported service rows (1.31ms)
+✔ blank SKU is accepted only for explicitly non-stock rows when free-line fallback is enabled (1.1108ms)
+(node:14008) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/article-pages.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual and website inputs share automatic preparation, with persistent serializable rows and no document operations (158.8464ms)
+✔ positive free-named inspection remains a choice, unknown brake service stays without price (2.738ms)
+✔ a missing service price is explicit, and unknown customer pricing fails closed (3.6308ms)
+✔ fresh article reference changes reject the cached automatic draft (10.3513ms)
+✔ automatic preparation stores historical suggestions without silently replacing current catalog prices (12.876ms)
+(node:2056) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/automatic-estimate-draft.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ automatic intake creates both parties, rereads, persists IDs and never duplicates replay (17.3797ms)
+✔ exact existing identities link with zero writes; partial and duplicate contacts require review (2.9945ms)
+✔ timeout reconciles by READ and never repeats customer POST (2.1327ms)
+✔ missing vehicle data preserves linked customer without inventing vehicle (1.2713ms)
+✔ storage failure after verified customer create recovers without another customer write (8.5319ms)
+✔ partial vehicle is filled from a uniquely identified owned Quibi vehicle without CREATE (2.999ms)
+✔ empty identifiers never select a vehicle and incomplete unmatched intake never creates one (1.0082ms)
+✔ conflicting or ambiguous partial vehicles require review; failed enrichment never saves a link (1.5623ms)
+✔ missing contact is recovered from fresh unique identity without a customer CREATE (1.3172ms)
+✔ name alone and conflicting supplied contacts are never automatic identity proof (0.872ms)
+✔ registration formatting identifies the same owned vehicle but fresh data must be persisted before linking (1.0032ms)
+✔ four intake scenarios: existing/existing, existing/new, new/new and mismatched identity (6.0718ms)
+✔ background intake requires owner approval for a new vehicle; matching existing vehicles still link with zero writes (4.9032ms)
+(node:30456) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/automatic-intake-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ work_order UPDATE preserves ID and number; exact reread and repeated key dispatch once (9.2398ms)
+✔ invoice UPDATE preserves ID and number; exact reread and repeated key dispatch once (20.5974ms)
+✔ changed prepared SHA or missing ID cannot dispatch or clone (3.2912ms)
+✔ fresh baseline, customer and vehicle are checked before UPDATE (4.898ms)
+✔ timeout keeps target and UNKNOWN, retry performs no dispatch (1.9751ms)
+✔ a read can resolve timeout only when requested changed content is present (1.9063ms)
+✔ double click claims one request only (1.9645ms)
+✔ unchanged reread is not evidence of a successful UPDATE (1.3953ms)
+✔ provider returning a different document cannot be accepted (1.1354ms)
+✔ already matching business lines do not justify a WRITE (1.2807ms)
+✔ issued and fiscalized invoices cannot be overwritten by the normal update flow (1.2632ms)
+(node:12864) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/business-document-update.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ business kinds use separate stable external IDs; invoice needs actual service date (14.7229ms)
+✔ durable create, exact reread, double click and changed request never duplicate (7.324ms)
+✔ timeout remains unknown and does not POST on retry (1.8284ms)
+✔ wrong vehicle reread retains document ID and uncertain state (2.3903ms)
+✔ reread rejects changed units, VAT, discount or amount (1.7325ms)
+✔ definitive business CREATE rejection is failed, locked and never redispatched (1.6466ms)
+✔ PDF issuance is finalized before capturing business SHA; one CREATE only (1.5685ms)
+✔ failed PDF keeps accepted document uncertain and never repeats CREATE (2.0966ms)
+(node:29860) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/business-document-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ case proceeds from Quibi work order to invoice without a local order (4.2412ms)
+✔ only explicit failure before dispatch permits corrected preparation (0.5813ms)
+✔ READ source preview autoloads before numbering choice, including invoice, never an update (0.5925ms)
+✔ recorded approval requires immutable decision evidence and matching SHA, independently of delivery status (0.6234ms)
+✔ one explicit business click binds confirmation to the fresh reviewed request SHA (2.1442ms)
+✔ business headers inherit verified source sale type and unique numbering; ambiguous or invalid choices never allow CREATE (3.2492ms)
+(node:2396) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/business-form-state.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ business dispatch is durably locked; same content does not send again (5.4216ms)
+✔ definitive provider rejection and timeout keep different outcomes and neither retries (1.8058ms)
+✔ old QA document and changed recipient are blocked (2.1098ms)
+✔ simultaneous business send claims dispatch exactly once (1.4194ms)
+✔ single controlled UNKNOWN SEND recovers provider ID using READ only and preserves request (4.8654ms)
+✔ ambiguous attempts or missing attempted evidence never recover or resend (1.3387ms)
+(node:18932) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/business-send-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ business document transfer preserves each Quibi unit, VAT and discount without staff re-entry (3.4015ms)
+✔ business transfer rejects missing or unknown references, invalid discounts and quantities (1.6139ms)
+✔ approved non-stock code price is preserved when current base changes; stock override is forbidden (2.8769ms)
+(node:5056) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/business-source-lines.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ normal DEV case supports business order without internal order (3.8126ms)
+✔ case invoice requires explicit completed repair confirmation (0.8664ms)
+✔ case path cannot bypass production, demo or workflow stage (3.4123ms)
+✔ only verified journal is a document reference (4.9587ms)
+✔ latest verified update SHA replaces reference without copying document (55.3247ms)
+✔ duplicate create or revision without original create is blocked (0.7361ms)
+✔ switching between internal task and direct case never creates a second business document (1.0451ms)
+✔ approved repair can prepare Quibi order before manual appointment, but invoice still needs completion (0.6577ms)
+✔ invoice READ preview never implies completion or allows an unconfirmed dispatch (1.2316ms)
+✔ definitive rejection without a document does not erase verified earlier business references (0.9385ms)
+✔ corrected invoice namespace requires preserved failed original and exact retry reference (0.6568ms)
+(node:30336) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/case-business-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ offer review, customer answer and scheduling never unlock a business CREATE early (3.1013ms)
+✔ unknown, incomplete and closed cases do not offer business operations (0.5718ms)
+✔ hosted DEV skips internal tables by default while keeping existing environments unchanged (0.6919ms)
+✔ recorded customer approval unlocks preparation despite a stale offer status; incomplete cases stay closed (0.6667ms)
+(node:13524) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/case-process-stage.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cache isolates origin/account, coalesces concurrent reads and retains no failed snapshot (315.679ms)
+(node:22160) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/catalog-cache.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ catalog reads preserve provider IDs and distinguish empty from failed (5.5926ms)
+✔ warehouses and address types preserve the actual provider field names (0.5909ms)
+(node:816) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/catalog-read.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ local review fails closed when fixture flags are incomplete (4.6644ms)
+✔ local review can opt into DEV reads only with an explicit mode and credentials (1.8945ms)
+✔ read client uses only approved dev endpoints and filters documents (83.6338ms)
+✔ invoice reads use the documented list endpoint and keep only the confirmed customer (17.0591ms)
+✔ document status reads exact api2_view document (8.5947ms)
+✔ read client rejects arbitrary customer IDs (2.3675ms)
+✔ vehicle adapter reads only the confirmed customer's Quibi vehicles and validates detail ownership (5.4823ms)
+✔ global duplicate candidates include orphan vehicles without granting ownership (14.5692ms)
+(node:13576) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/client.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ missing DEV document status is explicit rather than invented (3.1294ms)
+✔ document lists project their own Quibi amount without treating it as a case price (1.2479ms)
+✔ vehicle reads use Quibi id and internastevilka without assuming VIN uniqueness (3.3451ms)
+✔ customer response projects only documented fields and rejects malformed envelopes (1.5253ms)
+✔ document response keeps only a linked customer's documents (0.5888ms)
+✔ estimate detail exposes real review fields only for the linked customer (66.0366ms)
+✔ api2_view status belongs to the exact document and customer (1.3396ms)
+✔ fingerprint is stable across superficial formatting but detects changes (1.0356ms)
+✔ vehicle fingerprint tracks VIN, registration and model changes (1.3148ms)
+(node:20512) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/contracts.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ success displays freshly read Quibi amount and ID; linking and sending are separate (4.367ms)
+✔ changed amount, identity, missing vehicle or digest cannot be reported as verified success (2.2317ms)
+(node:28468) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/created-estimate-summary.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unassigned customer gets verified base price, never the unrelated special list (4.6553ms)
+✔ explicitly assigned customer list supplies documented non-stock custom price and discount (0.705ms)
+✔ unknown customer policy, unavailable list and unsupported stock override stop preparation (1.0938ms)
+✔ both customer list and detail preserve explicit null and assigned price list IDs (1.7348ms)
+✔ unrelated price lists never invalidate the approved base price; actual assigned changes do (1.8637ms)
+(node:13940) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/customer-catalog-pricing.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ customer reference fits observed Quibi limit and preserves every UUID bit (4.4663ms)
+(node:23116) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/customer-remote-id.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ same case stages and direct document permissions in both environments (7.2985ms)
+✔ production needs separate database and independent read/write/send approvals (1.5036ms)
+✔ write preparation is independent from mail configuration; send recipients remain isolated (22.1374ms)
+✔ automatic intake uses shared actor checks and explicit mode-specific activation (1.9105ms)
+(node:12008) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/deployment-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ direct document read stays inside authenticated operational DEV Preview scope (15.1844ms)
+✔ PDF is read only after fresh customer, kind membership and document identity (3.0594ms)
+✔ read-only invoice draft preview must not trigger PDF finalization (4.5439ms)
+(node:28424) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/direct-document-read.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ document detail must belong to selected kind and customer (4.0886ms)
+✔ work order linkage requires exact vehicle and unchanged displayed content (17.8434ms)
+(node:26700) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/document-read.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ linked document remains visible when provider omits it or read fails (3.3874ms)
+✔ fresh content is compared with staff confirmed content without changing reference (0.5246ms)
+(node:30396) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/document-reference-state.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ three service/part/material lines are freshly resolved once each and preserve quantity, VAT and discount (21.3198ms)
+✔ assigned price list is honored and unverifiable stock price override requires review (5.9821ms)
+✔ add/remove/edit/discount/current price changes invalidate the approved source and payload hashes (25.2904ms)
+✔ round each line in cents and sum cents; reject malformed/over-limit drafts and unknown VAT (3.5918ms)
+✔ repeated article rows reuse one READ without merging separately reviewed discounts (1.4635ms)
+✔ one isolated real-logic flow: multi-line preview → estimate → explicit QA approval → work order → completed repair → invoice → simulated production SEND protocol (51.8033ms)
+✔ explicit gross price for a verified non-stock row freezes actual net and matching review totals (4.3767ms)
+✔ explicit row prices fail closed for stock, unknown stock metadata and malformed decimals (6.2775ms)
+✔ gross edits with identical rounded net still invalidate the source fingerprint (7.9406ms)
+✔ three explicit free services work without catalog access and preserve reviewed gross totals (5.7159ms)
+✔ free review preserves entered cent price at a fractional-quantity half-cent boundary (0.9903ms)
+✔ base catalog identity reads active article and current price on every review; changed price invalidates source (2.7015ms)
+✔ known non-stock article without SKU uses verified free payload and preserves fresh price without a fake code (1.7973ms)
+(node:23456) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-catalog-lines.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Quibi data fills the estimate and the payload delegates pricing to the Quibi article (12.0388ms)
+✔ only one exact service match is automatically selected; ambiguity and fuzzy names require a human (1.2294ms)
+✔ different price list is explicit and never silently overrides the article; unsupported VAT and duplicate rows fail closed (1.2085ms)
+✔ price, discount and article metadata changes invalidate the source fingerprint even if the document code is unchanged (0.942ms)
+✔ documented price lists plus individual article READ work even when the bulk article list is unavailable (1.5362ms)
+✔ failed article READ is reported without blocking other available services (1.4613ms)
+✔ unit gross price keeps precision for quantities; total is rounded only at document review (0.6515ms)
+✔ all price-list article references are read without the old sixty-article truncation (5.2998ms)
+✔ documented non-stock price is frozen in the approved payload; stock price is never overridden (1.0177ms)
+✔ price-list conflicts stay on the corresponding options without a global warning (24.1745ms)
+✔ paginated service index includes base-priced services absent from price lists without fake list IDs (1.3689ms)
+(node:3960) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-catalog.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ confirmed customer pricing is reused without a typed price or repeated confirmation (18.9929ms)
+✔ row choices and discount produce per-line cents and incomplete input has no false total (1.6296ms)
+✔ AI quantities remain unknown instead of being invented, and exact service starts filled (0.6694ms)
+✔ a cleared price blocks a false total while an explicit free line remains zero (0.6322ms)
+✔ each article uses its assigned customer list even when another list appeared first (0.9155ms)
+✔ all three requested services survive without AI; only reliable exact matches receive catalog prices (15.1967ms)
+✔ duplicate price lists are one article, ambiguous articles never guessed and hourly quantity stays blank (0.726ms)
+✔ one clear transposition pre-fills only an existing catalog service (2.8724ms)
+✔ ambiguous AI offers row choices; confident AI uses only validated catalog references (3.7594ms)
+✔ bounded synonymous service names match but never expand a generic service to parts replacement (2.1392ms)
+✔ known regular service synonym is filled, but a nonzero free-named inspection remains a choice (3.2135ms)
+✔ brake inspection never suggests a different inspection system or brake replacement (0.825ms)
+✔ actual website escaped line breaks and explicit QA heading do not swallow three requested services (0.6614ms)
+(node:1032) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-editor.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ same vehicle invoices produce traceable median/range and deduplicate same day/service/price (12.8699ms)
+✔ estimates, invalid statuses, credits, missing metadata and expired evidence do not set price (1.4012ms)
+✔ brake inspection is not pads/discs replacement; different quantity/VAT/unit cannot be averaged (0.9272ms)
+✔ same vehicle evidence outranks unrelated vehicle; cross-vehicle is only low-confidence orientation (4.6376ms)
+✔ bounded READ scan tolerates failures; credit uncertainty never becomes usable evidence (13.9172ms)
+✔ an issued estimate remains explicitly non-execution evidence and never mixes into invoice median (1.5378ms)
+✔ an even-sample median rounds a half cent explicitly, without binary drift (1.0647ms)
+(node:30620) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-history-prices.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ exact service basket preserves quantities and compares historical prices with live prices (13.5092ms)
+✔ similar service is never selected; code may match renamed description (2.0616ms)
+✔ same description cannot override different article identity; incomplete basket stays blocked (0.8563ms)
+✔ missing vehicle and foreign owner are never vehicle repair evidence (1.2089ms)
+✔ multiple prices are ambiguous and invalid quantities cannot be approved (7.4689ms)
+✔ history SHA or live price change invalidates approval, even with unchanged article code (1.3912ms)
+✔ fresh source rechecks document membership and full basket; browser prices are ignored (124.7887ms)
+✔ failed list is explicit, missing vehicle falls back to other documented lists (7.1906ms)
+✔ all basket lines use fresh individual article READ when not in price list (2.1048ms)
+✔ real detail fields project date and article identity without inventing missing metadata (60.0604ms)
+✔ a changed or missing historical unit never silently reinterprets quantities (1.0105ms)
+✔ history scan continues beyond ten documents in bounded application pages (6.3914ms)
+✔ assigned customer price and discount fill the whole history basket and are rechecked (16.1116ms)
+✔ missing assigned list or unsupported stock price never falls back to base pricing (2.2873ms)
+✔ explicit base-price customer ignores unrelated lists and discounts (5.1948ms)
+✔ history transfers the actual sale type; changed live unit or VAT metadata requires a new review (1.4416ms)
+(node:24996) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-history.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ intake with only a problem can prepare an explicitly reviewed line without invented service (2.8214ms)
+(node:17456) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-line-description.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual 59 and 20 remain exact through JSON persistence, fresh server review and Quibi payload (119.4632ms)
+✔ quantities, comma discounts and mixed VAT remain explicit (1.5172ms)
+(node:23048) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-money-regression.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ preparation uses the same body and digest as dispatch; changed amount changes digest (11.6959ms)
+✔ preparation fails closed for missing or ambiguous numbering, unknown VAT or unit (3.8053ms)
+✔ review exposes the linked identity and exact validated line without changing the dispatch body (1.2099ms)
+(node:25456) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-preparation.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ temporary READ error offers safe preview retry without blaming identity or logging raw error (1004.8072ms)
+✔ actual changed identity still requires review instead of blindly retrying (428.6177ms)
+✔ Quibi READ denial is reported as API access, not a wrong vehicle (281.8477ms)
+(node:29504) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-preview-failure.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ exact persisted body and two identical READs recover without any CREATE (6.795ms)
+✔ absence never unlocks CREATE or changes uncertain state (1.3678ms)
+✔ duplicate references and failed READs cannot be treated as safe recovery (1.3468ms)
+✔ vehicle, unit, tax and price mismatches require review (3.0322ms)
+✔ journal tampering and document changing between READs are rejected (12.366ms)
+(node:26368) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-reconciliation.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ revision preview binds existing Quibi ID and changes SHA without mutating original (4.8171ms)
+✔ revision refuses no-op, changed identity and obsolete catalog (2.7715ms)
+✔ revision never silently removes extra lines (0.7672ms)
+✔ revision never overwrites changed source unit, VAT, quantity or discount (0.8897ms)
+(node:9316) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/estimate-revision-preparation.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ simulated writes stay on the isolated loopback adapter and can never send (4.1518ms)
+(node:23528) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/fixture-write-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ missing test recipient is distinct from disabled WRITE, without exposing credentials (4.4541ms)
+✔ synthetic mailbox is never a permitted DEV transport recipient (1.415ms)
+✔ activation migration is independent DEV journal only and preserves data (2.0965ms)
+(node:10664) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/hosted-activation-requirements.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ review ties service pricing to same case, identity, findings and quantity (6.1766ms)
+✔ missing verified price source or invalid quantity never produces a review (2.2407ms)
+✔ technical inspection never becomes the conditional preliminary inspection service (1.3867ms)
+(node:22280) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/inspection-billing-review.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual inspection form separates basis, invoice preview and explicit CREATE (1146.7453ms)
+(node:29560) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/inspection-billing-ui.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ estimate entry routes inspected identifiers to the canonical composer without dispatch (1034.6686ms)
+(node:29836) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/inspection-catalog-ui.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ inspection lines reuse only exact current Quibi names or codes, without prices or invented quantities (6.5809ms)
+✔ similar services and prose are never treated as exact matches (1.2408ms)
+✔ multiple price lists or conflicting codes require a human choice (0.66ms)
+✔ empty findings and duplicate catalog rows do not duplicate draft lines (0.659ms)
+(node:22472) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/inspection-catalog.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ valid preview returns no configuration blocker without dispatching (7.7401ms)
+✔ specific missing setting and mixed environments produce actionable safe errors (1.7549ms)
+(node:15468) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/intake-sync-configuration.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ overview uses actual reader results and successful empty documents are distinct from failure (8.8326ms)
+✔ overview rejects invalid identity before reading and mixed customer results (2.8219ms)
+✔ failed estimate listing does not block work orders or invoices; mixed document customer is rejected (4.5374ms)
+(node:4100) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/integration-overview.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual invoice preparation action builds multi-line preview, current headers, dates and SHA without journal inserts or WRITE (1254.2685ms)
+✔ missing payment choice, wrong total and changed final work never silently acquire an issuance SHA (614.4741ms)
+✔ inspection billing basis needs no work order and refuses free or incomplete inspections (517.8463ms)
+✔ assigned repair can be previewed, but invoice dispatch requires current manager review (1463.2344ms)
+✔ inspection requires separate confirmation of fresh review; stale price/source and unresolved invoices block continuation (774.2201ms)
+✔ linked invoice blocks a second inspection charge and mechanics cannot prepare billing (577.3231ms)
+✔ inspection prepares a dated Quibi invoice payload without a work order, persistence or WRITE (253.5308ms)
+✔ isolated full inspection invoice dispatch journals and verifies once; next request finds existing invoice (225.7809ms)
+✔ missing due date never silently becomes the issue date or starts a write (224.7457ms)
+(node:14828) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/invoice-action.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ invoice uses fresh spaces and payment methods, never configuration from another invoice (3.2581ms)
+✔ ambiguous payment choices are offered rather than guessed; removed choices reject (1.8979ms)
+(node:28108) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/invoice-header.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ corrected invoice retry retains rejected evidence and dispatches once even on duplicate confirmation (14.4586ms)
+✔ unknown or accepted original cannot use rejected header correction path (26.1616ms)
+✔ retry cannot change prices or remove confirmed header (1.7243ms)
+✔ accepted draft becomes issued after PDF without another CREATE (3.189ms)
+(node:17488) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/invoice-retry.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ verified multi-line invoice preserves work, parts, quantities, discounts and VAT; a wrong total is rejected (5.8155ms)
+✔ approved estimate and final work order are compared without confusing note metadata for a price change (18.0376ms)
+✔ invoice dates are real calendar dates and cannot silently precede completed service (5.0912ms)
+✔ payment status comes from exact provider payment sums, including partial payment and overpayment (1.8357ms)
+✔ issued invoice cannot be updated as a draft (2.4834ms)
+✔ actual Quibi dates, tax totals and payment reference are projected without inventing absent dates (84.0106ms)
+✔ overdue state needs a verified provider date and an outstanding recorded balance (1.2942ms)
+✔ provider dates are checked when returned and absent values are never synthesized (1.2369ms)
+(node:10560) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/invoice-review.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Quibi READ line total is never multiplied as a unit price (3.666ms)
+✔ quantity and discount are independently verified (2.4161ms)
+✔ gross UI price becomes documented unit net and unknown VAT blocks preparation (1.7541ms)
+✔ decimal half-up cents, comma inputs, quantity and discount never drift (7.695ms)
+(node:15096) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/line-pricing.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ explicit approved loopback permits unified config and preproduction app without Vercel spoofing (4.5398ms)
+✔ local send rejects missing opt-ins, hosted modes, wrong origin and other recipients (2.8271ms)
+✔ request must use exact configured loopback host and send Origin (110.045ms)
+✔ local permission is scoped to one existing approved case/quote/document and 122 EUR (3.7381ms)
+✔ local transport permits only send/status; customer/document writes never reach network (61.6291ms)
+(node:30300) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/local-send-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ scoped local permission admits only reviewed customer update; no sending or documents (8.9282ms)
+✔ local write denies hosted environment, external origin, missing flags and protected QA customer (116.7183ms)
+✔ local creation permission is limited to one synthetic body and forbids every other write (8.0539ms)
+✔ one approved DEV vehicle create permits only exact synthetic scope and payload SHA (2.1206ms)
+(node:21156) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/local-write-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ approved manual document sends once without an estimate creation journal (14.1138ms)
+✔ configured mailbox only; example.test and customer's mailbox are rejected (2.6352ms)
+✔ SHA, customer, vehicle, document and empty lines mismatches stop before sending (3.5412ms)
+✔ unapproved, stale or different-case quotes and unauthorized roles are rejected (1.9058ms)
+✔ missing Quibi vehicle requires recorded manual attestation; explicit mismatch never bypasses it (2.2828ms)
+✔ two concurrent confirmed clicks dispatch at most once (1.8209ms)
+✔ timeout is uncertain and retry cannot dispatch again (8.3858ms)
+✔ saved send_id retries poll only and retain terminal failed or sent states (5.2137ms)
+✔ final reauthorization stops changed approval before the external call (3.3621ms)
+✔ manual send requires Preview; local escape flags, demo, disabled and wrong domains are rejected (3.2953ms)
+✔ explicit another-case service identity overrides no manual confirmation (0.9324ms)
+✔ document SHA changed after journal claim blocks the final dispatch (1.2117ms)
+✔ status-only API cannot dispatch, including an uncertain operation without send_id (1.6177ms)
+(node:27344) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/manual-send-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ addresses require the requested customer, never a different identity (10.2008ms)
+✔ stock parses the actual DEV wrapper and allows negative quantities without inventing zero (1.7409ms)
+✔ empty lots and payment methods are genuine provider lists, not simulated data (3.9766ms)
+✔ payment amounts stay provider data and unrecognized output is not an unpaid invoice (4.7823ms)
+✔ vehicle metadata stays customer-scoped and does not synthesize service intervals (2.556ms)
+✔ extra document lists use only the documented read paths and filter customer ownership (117.4701ms)
+✔ stock input rejects path injection and a non-boolean reservation flag before HTTP (2.2129ms)
+✔ new document detail cannot open a record absent from the correct kind listing (3.7569ms)
+✔ direct vehicle metadata respects role and Preview DEV isolation (5.4056ms)
+✔ actual DEV stock row without an article code remains readable and never receives a synthetic SKU (1.0895ms)
+(node:28480) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/operational-read.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ party update distinguishes rejection, preflight block and unknown without leaking errors (3.1329ms)
+(node:1752) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/party-update-result.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ party update re-reads target and repeated revision never posts twice (16.6341ms)
+✔ party timeout never retries update and detects changed requests (2.2605ms)
+✔ fresh conflicting remote data blocks write before durable claim (2.8344ms)
+✔ a rejected or timed out no-op is not proof of WRITE permission (3.3013ms)
+(node:6016) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/party-update-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ server-action customer input accepts a valid 8-4-4-4-12 UUID (117.5738ms)
+✔ server-action vehicle input accepts valid customer and vehicle UUIDs (10.4298ms)
+✔ server-action input rejects malformed UUIDs and missing confirmation (1.1307ms)
+(node:18824) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/party-write-input.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ customer create re-reads exact remote_id and never repeats ambiguous create (10.5488ms)
+✔ customer preflight blocks an existing possible match (1.2915ms)
+✔ customer without readable remote_id stays uncertain and is not posted twice (1.9671ms)
+✔ vehicle create timeout reconciles only one exact owner-scoped vehicle (2.8234ms)
+✔ ambiguous vehicle result never repeats create (1.6206ms)
+✔ vehicle preflight blocks duplicate registration before any POST (1.6068ms)
+✔ legacy uncertain UUID request remains immutable and truncated prefix is never automatic proof (7.9323ms)
+✔ global VIN or registration conflicts, including disabled vehicles, prevent CREATE (1.1947ms)
+✔ definitive vehicle rejection remains failed and never dispatches again (1.5724ms)
+(node:26804) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/party-write-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDF export uses only document rendering and validates binary format (173.5332ms)
+✔ PDF export rejects oversized provider responses (20.5076ms)
+(node:23032) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/pdf-read.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ proposes only exact linked Quibi document price, never a final price (8.6256ms)
+✔ Tadej's review changes proposed to approved, not final (0.5362ms)
+✔ case price requires the exact current customer and vehicle link (2.7939ms)
+✔ document vehicle mismatch rejects proposed case price (1.5777ms)
+(node:20880) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/price-suggestion.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pricing keeps price list and master article prices distinct and preserves provider IDs (6.0561ms)
+✔ pricing rejects mismatched article, catalog references and malformed prices (1.7481ms)
+(node:18372) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/pricing-read.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 403 captures redacted endpoint and challenge evidence without emitting private response data (121.6345ms)
+✔ API denial is distinct from HTML; only bounded metadata is retained (1.4457ms)
+✔ actual read client does not retry denied requests (6.7896ms)
+✔ server READ uses a bounded 15-second wait with the documented credential headers (3.9265ms)
+(node:480) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/read-rejection.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual top-level Quibi SEND and status retain send_id; wrapped compatibility remains supported (9.6238ms)
+✔ one POST saves provider ID from actual envelope; subsequent checks use GET only (224.7009ms)
+✔ latest status READ does not require write enablement and never dispatches (2.7125ms)
+(node:17876) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/send-envelope.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ accepted provider reference is distinct from receipt (3.3022ms)
+✔ definitive rejection is rejected, timeout stays unknown (0.4787ms)
+✔ only explicit provider rejection is definitive (1.1101ms)
+✔ no attempt permits send, every claimed idempotency key blocks it (0.4621ms)
+✔ status-only client can read with writes disabled and never sends (236.8317ms)
+✔ malformed provider envelope is unknown, not a rejection (2.6672ms)
+✔ immediate sent response preserves accepted provider ID and status (3.9679ms)
+✔ write-disabled local app retains same-origin login and status actions but rejects send (2.8027ms)
+✔ rejection diagnostics expose categories without provider messages or private values (1.4633ms)
+(node:20152) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/send-outcome.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unchanged remote data clears an earlier read error (4.6992ms)
+✔ remote drift does not overwrite the confirmed baseline (0.4795ms)
+✔ local drift is persisted even when Quibi is unchanged (0.442ms)
+✔ simultaneous local and Quibi drift is not reduced to one side (0.4199ms)
+✔ read failure classification never stores upstream details (0.8088ms)
+(node:15436) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/sync-state.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ explicit synthetic evidence is limited to marked own DEV Preview case (4.1543ms)
+✔ A73 requires the exact authorized DEV fixture identity, not generic TEST markers (0.8963ms)
+(node:14560) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/synthetic-case-evidence.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_OUTCOME {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  outcome: 'UNKNOWN',
+  code: 'QUIBI_SEND_UNCONFIRMED'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_OUTCOME {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  outcome: 'REJECTED',
+  code: 'QUIBI_API_REJECTED'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+QUIBI_SEND_ACCEPTED {
+  operationId: 'ab9f75b2-e6f3-45c7-82de-e36c82faab7b',
+  sendId: 'fixture-send',
+  status: 'queued'
+}
+✔ one click approves and queues; DEV sends exclusively to test mailbox (26.2341ms)
+✔ already approved quote sends without approving again (2.2551ms)
+✔ production dispatch uses verified actual address and independently enabled config (3.1867ms)
+✔ wrong environments and missing production opt-ins reject before authorize (2.8189ms)
+✔ unreviewed body cannot be changed between displayed review and dispatch (1.9234ms)
+✔ customer, vehicle, amount and stale quote are rejected (1.9268ms)
+✔ concurrent clicks dispatch once; same quote retry never sends again (2.382ms)
+✔ timeout blocks retry with no duplicate dispatch (2.6925ms)
+✔ status-only polling records production acceptance without claiming receipt (2.4056ms)
+✔ DEV status sent never creates production delivery evidence (1.9207ms)
+✔ document mismatch and missing identity require strict persisted manual proof (2.7987ms)
+✔ fresh final check blocks changed email after approval and before external dispatch (10.2213ms)
+✔ failed status never becomes customer acceptance and cannot retry (2.5601ms)
+✔ local acceptance failure reconciles without sending twice (2.1582ms)
+✔ case #9D40C42F synthetic DEV customer: document 2176888, approved 122 EUR, test mailbox only (2.62ms)
+✔ synthetic email does not bypass DEV remote identity or document mismatch (1.6459ms)
+✔ production synthetic matching customer email remains rejected before approval or dispatch (0.8134ms)
+✔ approved local permission sends this existing quote once to the exact authorized mailbox (4.2257ms)
+✔ QA exception records unverified identity only for the approved local synthetic case (2.7226ms)
+✔ explicit provider rejection is persisted as failed and cannot dispatch again (1.7944ms)
+✔ approved estimate can be sent after telephone approval without reverting case or delivery (3.9579ms)
+✔ selected approved DEV recipient is immutable and same quote cannot send to another mailbox (2.0245ms)
+(node:25480) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/unified-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ administrator may explicitly confirm only hosted Quibi DEV vehicles (3.1411ms)
+(node:14412) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/vehicle-create-permission.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ wrong or absent VIN blocks vehicle UPDATE before dispatch (4.4299ms)
+✔ same physical VIN can proceed; disabled vehicle cannot (0.8172ms)
+✔ corrected intake never silently authorizes a new vehicle; confirmed/fresh normal intake paths stay unchanged (0.5694ms)
+(node:29516) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/vehicle-identity.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual vehicle UPDATE action refuses a different physical VIN before journal claim or dispatch (2013.8628ms)
+✔ legacy vehicle CREATE action also requires owner before initializing a write client (2410.9732ms)
+(node:30396) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/vehicle-update-guard.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ production transport uses only exact documented origin and send/send_status (247.7533ms)
+✔ production recipient cannot be spoofed and reserved/missing actual address fails (7.1597ms)
+✔ transport fails closed if send opt-in is removed after client construction (3.4554ms)
+✔ DEV synthetic matching customer email selects only configured test recipient (2.1419ms)
+✔ DEV rejects missing/reserved test recipient and any customer mailbox as recipient (0.9851ms)
+✔ DEV transport rejects customer address even when synthetically matched (3.1032ms)
+✔ DEV status-only transport remains readable with write and send disabled (2.1169ms)
+✔ DEV approved allowlist supports selection, never an arbitrary or customer recipient (3.3226ms)
+✔ production ignores DEV allowlist and rejects a selected test address (0.8983ms)
+✔ DEV delivery is off by default while document preparation and recipient review remain available (1.2214ms)
+(node:9828) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/workflow-config.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"event":"quibi_transport_failure","path":"/api2/glavadokumenta/form","status":409,"validation":{"message":"","errors":{},"summary":""}}
+✔ DEV write guard rejects production, demo, and missing explicit enablement (7.403ms)
+✔ Quibi external_id conflict fails without choosing a new document ID (128.9377ms)
+✔ create body and external_id stay byte identical for retry (21.8938ms)
+✔ customer and vehicle create use documented DEV forms and stable identifiers (3.9012ms)
+✔ write client uses exact DEV endpoints, complete update lines, and test recipient only (7.9203ms)
+✔ send's HTTP guard rejects the approved-local exception without any network request (0.8582ms)
+✔ document header uses verified customer ID without an ignored customer block (0.5557ms)
+✔ conflicting compatibility customer ID is rejected before any network write (1.2683ms)
+✔ free rows send explicit verified net field and reject conflicting net aliases (1.1969ms)
+(node:27848) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/write-contract.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"event":"quibi_api_rejection","path":"/api2/glavadokumenta/form","status":200,"fields":[],"reasons":[],"errorShape":"string","validation":{"message":"Zavrnitev","errors":{"document":"Skladišče je obvezno"},"summary":"Zavrnitev document: Skladišče je obvezno"}}
+✔ documented warehouse is part of approved payload identity; redundant customer ignored block omitted (6.6801ms)
+✔ safe validation retains message and string or field errors but redacts credentials and personal contacts (3.6995ms)
+✔ provider rejection preserves safe reason and performs exactly one request (512.917ms)
+✔ string encoded field errors are decoded and sanitized (0.8045ms)
+(node:19316) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/write-validation.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ create persists exact payload first, re-reads owner/vehicle/document, then immutable retry (12.5709ms)
+✔ uncertain create without returned ID blocks a second dispatch; owner mismatch prevents verification (3.6305ms)
+✔ update uses explicit revision and changed-document guard; send polls stored send_id without repeat (9.0739ms)
+✔ ambiguous send never retries and changed approved document blocks dispatch (3.1492ms)
+✔ concurrent create attempts cannot both dispatch (1.9679ms)
+✔ a replayed create result verifies the same Quibi document (1.4065ms)
+✔ re-read refuses a document under another customer or document ID (2.7631ms)
+✔ CREATE accepts reviewed request SHA and rejects drift before journal insert or dispatch (3.7223ms)
+✔ definitive estimate rejection is failed and never redispatched, unlike an unknown response (4.0002ms)
+✔ estimate PDF issuance is finalized before final approval SHA without another CREATE (1.5677ms)
+✔ re-read mismatch in approved multi-line contents remains uncertain and cannot dispatch again (1.8117ms)
+✔ final verification after PDF still checks approved content before marking verified (0.9822ms)
+(node:18424) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/quibi/write-workflow.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ one refresh for a burst of notes, photos and status events (3.4948ms)
+✔ typing or hidden tab defers but never loses invalidation (1.2559ms)
+✔ cleanup cancels a queued refresh and ignores late events (1.5897ms)
+✔ reconnection invalidation uses the same scheduler; no refresh without a change (4.8034ms)
+✔ subscription only includes the existing operational tables (2.2468ms)
+(node:7152) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/supabase/realtime-refresh.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ owner can name an existing organization mechanic; blank restores email fallback (6.9758ms)
+✔ admin, mechanic and foreign/nonmechanic targets cannot edit names (3.288ms)
+(node:22256) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/team/mechanic-name.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual action only updates profiles.full_name after scoped owner check and revalidates dashboard (1460.9653ms)
+✔ actual action denies admin/mechanic and foreign target before privileged client construction (792.1682ms)
+(node:23660) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/team/name-actions.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ whole password submission accepts verified invite only after password and routes mechanic (5.8531ms)
+✔ cancelled, expired and foreign invitations create no usable access or redirect (0.9813ms)
+✔ bad link or password update failure never accepts membership (2.3345ms)
+✔ missing migration and membership lookup error fail closed; existing owner recovery survives (3.3764ms)
+✔ accepted invite cannot route an unexpected elevated role (0.7118ms)
+✔ unconfirmed or unknown membership never gains dashboard access (0.7034ms)
+(node:22756) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/team/password-onboarding.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ only confirmed owner can invite; malformed email and header injection fail (4.2194ms)
+✔ invitation reserves once before external dispatch; existing/pending account prevents send (1.2125ms)
+✔ unknown invite records uncertain and never automatically retries (5.3418ms)
+✔ Auth success is not acceptance; rejection creates no membership (1.0487ms)
+(node:13088) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/team/policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mechanic projection admits only expected organization and requested order (6.1543ms)
+(node:30272) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/work-orders/mechanic-access.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ only bounded image signatures can enter private photo storage (3.5088ms)
+(node:29352) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/work-orders/photo-policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ repair progression requires explicit work and a ready state before close (3.2508ms)
+✔ inspection fee follows actual repair decision and never invents a price (0.6363ms)
+(node:29684) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/work-orders/policy.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ work order errors distinguish schema absence, denied access and unknown read failure without leaking provider details (3.111ms)
+(node:26368) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/lib/work-orders/read-error.test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ℹ tests 594
+ℹ suites 0
+ℹ pass 576
+ℹ fail 18
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 119808.64
+
+✖ failing tests:
+
+test at src\components\dashboard\AdministrativeFlow.test.ts:30:1
+✖ customer approval and rejection work without delivery, stay explicitly synthetic and refresh the case (551.4265ms)
+  AssertionError [ERR_ASSERTION]: Referenca dejanskega odgovora stranke
+      at fillLabel (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/AdministrativeFlow.test.ts:27:139)
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/AdministrativeFlow.test.ts:33:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\AdministrativeFlow.test.ts:40:1
+✖ synthetic decision cannot be mistaken for real customer evidence (73.3995ms)
+  AssertionError [ERR_ASSERTION]: Referenca dejanskega odgovora stranke
+      at fillLabel (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/AdministrativeFlow.test.ts:27:139)
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/AdministrativeFlow.test.ts:42:2)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiBusinessDocumentForm.test.ts:12:1
+✖ invoice form exposes completed-work confirmation and explicit dates; READ preview never dispatches or refreshes away fields (856.1157ms)
+  TypeError: (0 , useInvoiceDraftDates_1.useInvoiceDraftDates) is not a function
+      at Object.QuibiBusinessDocumentForm (evalmachine.<anonymous>:23:115)
+      at Object.render (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiBusinessDocumentForm.test.ts:9:43)
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiBusinessDocumentForm.test.ts:12:167)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+
+test at src\components\dashboard\QuibiBusinessDocumentForm.test.ts:13:1
+✖ existing issued invoice is a review link, never a preselected UPDATE or another CREATE (207.4729ms)
+  TypeError: (0 , useInvoiceDraftDates_1.useInvoiceDraftDates) is not a function
+      at Object.QuibiBusinessDocumentForm (evalmachine.<anonymous>:23:115)
+      at Object.render (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiBusinessDocumentForm.test.ts:9:43)
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiBusinessDocumentForm.test.ts:13:142)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:22:2
+✖ failed: READ preview remains available while confirmed CREATE cannot dispatch (757.1377ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - 'form'
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:23:45)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'form',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:22:2
+✖ uncertain: READ preview remains available while confirmed CREATE cannot dispatch (214.9549ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - 'form'
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:23:45)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'form',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:22:2
+✖ dispatching: READ preview remains available while confirmed CREATE cannot dispatch (218.0364ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - 'form'
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:23:45)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'form',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:22:2
+✖ verified: READ preview remains available while confirmed CREATE cannot dispatch (172.9804ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - 'form'
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:23:45)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'form',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:31:1
+✖ failed CREATE no longer suppresses history READ (165.7769ms)
+  TypeError: p.effects[0] is not a function
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:31:102)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:32:1
+✖ normal confirmed CREATE still uses its original action (138.786ms)
+  TypeError: p.element.props.onSubmit is not a function
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:32:146)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:34:1
+✖ temporary READ failure can be retried and does not refresh the case or dispatch (140.0273ms)
+  TypeError: submit is not a function
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:34:268)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:36:1
+✖ explicit catalog choice stops additional history scans but keeps the preview form (132.5317ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(select)
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:36:485)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:42:1
+✖ automatic READ waits for existing required fields instead of locking an incomplete form (155.04ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(select)
+
+      at selectCatalogForAutomaticPreview (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:40:38)
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:43:39)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:51:1
+✖ multi-line editor adds, removes, edits quantities and discounts and clears approval without losing rows (178.0611ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(quantity)
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:54:93)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:63:1
+✖ AI prepared lines populate the existing editor and bypass history selection, never CREATE (163.7351ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(field)
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:65:74)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiDevWritePanel.test.ts:70:1
+✖ unknown AI quantity is left empty for review, not guessed (124.4044ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(field)
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiDevWritePanel.test.ts:71:152)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiSendAvailability.test.ts:17:2
+✖ server-authorized DEV SEND uses the same existing form (777.4992ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - true
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiSendAvailability.test.ts:20:11)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src\components\dashboard\QuibiSendAvailability.test.ts:17:2
+✖ server-authorized production SEND uses the same existing form (262.9821ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - true
+
+      at TestContext.<anonymous> (file:///C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/src/components/dashboard/QuibiSendAvailability.test.ts:20:11)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

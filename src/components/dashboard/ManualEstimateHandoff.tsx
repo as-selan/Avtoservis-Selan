@@ -50,7 +50,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
     return <p className="text-sm">{syntheticQa?"Simulirana QA odločitev":"Strankina odločitev"}: {decision === "approved" ? "odobreno" : decision === "rejected" ? "zavrnjeno" : decision}. Evidentirana je za to različico predračuna.</p>;
   }
 
-  const decisionReady = decisionReference.trim().length >= 4 && decisionReference.trim().length <= 200;
+  const decisionReady = (!syntheticQa||decisionReference.trim().startsWith('QA-SIM-'))&&decisionReference.trim().length >= 4 && decisionReference.trim().length <= 200;
   const deliveryReady = deliveryReference.trim().length >= 4 && deliveryReference.trim().length <= 200;
   return <section className="space-y-3 border-t pt-3">
     <h3 className="font-medium">{syntheticQa?"Simulirana QA odločitev (brez dejanske stranke)":"Odločitev stranke"}</h3>
@@ -58,9 +58,9 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
       {syntheticQa?"Ta sintetični DEV preizkus evidentira samo simulirano QA odobritev ali zavrnitev. Ne potrjuje dejanske strankine odločitve.":demo ? "Demo – uporabljajte samo sintetično referenco QA-SIM-." : "Če je stranka odgovorila osebno, po telefonu ali drugače, zabeležite njen dejanski odgovor. Predhodno evidentiranje pošiljanja ni potrebno."}
       {delivered && apiDispatch ? " Quibi je sporočilo predal poštnemu strežniku; prejem ni potrjen." : ""}
     </p>
-    <label className="block text-sm">{demo ? "Referenca odgovora QA-SIM-" : "Referenca dejanskega odgovora stranke"}
+    <label className="block text-sm">{(demo||syntheticQa) ? "Referenca simulirane odločitve QA-SIM-" : "Referenca dejanskega odgovora stranke"}
       <input className="mt-1 block w-full rounded border px-2 py-1" value={decisionReference} maxLength={200}
-        onChange={event => setDecisionReference(event.target.value)} placeholder={demo ? "QA-SIM-odgovor" : "Sledljiv zapis pogovora ali sporočila"} />
+        onChange={event => setDecisionReference(event.target.value)} placeholder={(demo||syntheticQa) ? "QA-SIM-SELAN-A73-ODOBRITEV" : "Sledljiv zapis pogovora ali sporočila"} />
     </label>
     <div className="flex flex-wrap gap-2">
       <button type="button" disabled={pending || !decisionReady} onClick={() => submit("approved")}
@@ -68,7 +68,7 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
       <button type="button" disabled={pending || !decisionReady} onClick={() => submit("rejected")}
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">{syntheticQa?"Evidentiraj simulirano QA zavrnitev":"Stranka je zavrnila predračun"}</button>
     </div>
-    {!delivered && <details className="space-y-2 rounded border p-3 text-sm">
+    {!syntheticQa&&!delivered && <details className="space-y-2 rounded border p-3 text-sm">
       <summary className="cursor-pointer">Ločeno evidentiraj dejansko dostavo predračuna (neobvezno)</summary>
       <p className="pt-2">To uporabite samo, če je bil predračun dejansko izročen ali poslan. Evidentiranje dostave ni pogoj za zapis odločitve.</p>
       <label className="block">Uporabljen kanal

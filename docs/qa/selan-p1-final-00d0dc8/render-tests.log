@@ -1,0 +1,23 @@
+✔ dashboard loads fixed-price cases using their actual schema and keeps draft state on offer_preparations (2809.7402ms)
+✔ confirmed invoice vehicle has no resolution DOM or unnecessary remote read (1929.1535ms)
+✔ new vehicle still exposes explicit confirmation (280.1339ms)
+✔ unresolved existing link retains corrections but never CREATE (295.8653ms)
+✔ business page does not render configuration names; correction route remains (22.4802ms)
+✔ DEV admin may explicitly record marked QA approval without fabricated delivery (2126.3054ms)
+✔ production, reception, foreign fixture and ordinary A73 response are rejected without RPC writes (1557.0844ms)
+✔ completed and locked work hide reassignment, progress and upload forms (1381.1519ms)
+✔ active manager retains secondary reassignment; mechanic never gets assignment (2600.8454ms)
+✔ unassigned work has only assignment, and mechanic cannot assign (271.2431ms)
+✔ DEV admin explicit CREATE links verified result and schedules preparation exactly once (3374.2017ms)
+✔ production admin, mechanic and absent explicit confirmation cannot reach DB or CREATE (741.3952ms)
+✔ owner production permission is preserved (126.5093ms)
+✔ stale input cannot create; failed link cannot start preparation (365.7996ms)
+✔ linking an existing verified vehicle schedules preparation without CREATE (120.6771ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15646.3657

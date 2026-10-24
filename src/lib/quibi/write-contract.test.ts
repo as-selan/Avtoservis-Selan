@@ -108,3 +108,9 @@ test("send's HTTP guard rejects the approved-local exception without any network
 test('document header uses verified customer ID without an ignored customer block',()=>{const body=buildEstimateBody({numberingId:'2061',saleTypeId:'1',customerId:'405957',vehicleId:'2388',serviceRequestId:'00000000-0000-4000-8000-000000000001',lines:[{sifra:'TEST',kolicina:1}]});assert.equal(body.Stranka,undefined);assert.equal(body.Glavadokumenta.stranka_id,405957);});
 
 test('conflicting compatibility customer ID is rejected before any network write',async()=>{let calls=0;const client=createQuibiDevWriteClient({username:'test-only',password:'test-only',environment:env,fetcher:async()=>{calls++;return Response.json({})}});const body=buildEstimateBody(input);await assert.rejects(client.createEstimate({...body,Stranka:{id:999999}}),/CUSTOMER_MISMATCH/);assert.equal(calls,0);assert.deepEqual(withDocumentId(body,'123').Stranka,body.Stranka);});
+
+
+test('free rows send explicit verified net field and reject conflicting net aliases',()=>{
+ const body=buildEstimateBody(input);const line=body.Postavkedokumenta['1'];assert.ok(!('sifra' in line));assert.equal(line.cenaBrezDDV,line.cenaZDDV);
+ assert.throws(()=>buildEstimateBody({...input,lines:[{...input.lines[0],cenaBrezDDV:999}]}),/INVALID_ESTIMATE_LINE/);
+});

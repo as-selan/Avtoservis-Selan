@@ -4,7 +4,7 @@ import {join} from 'node:path';
 import {createServer} from 'node:http';import test from 'node:test';import assert from 'node:assert/strict';
 import {createBusinessFixture} from './quibi-business-fixture.mjs';
 import {createQuibiReadClient} from '../../src/lib/quibi/client.ts';
-import {createQuibiWorkflowWriteClient} from '../../src/lib/quibi/write-http.ts';
+import {createQuibiWorkflowWriteClient,QuibiValidationError} from '../../src/lib/quibi/write-http.ts';
 import {customerRemoteId} from '../../src/lib/quibi/customer-remote-id.ts';
 import {buildEstimateBody} from '../../src/lib/quibi/write-contract.ts';
 import {businessDocumentBody,confirmBusinessContent} from '../../src/lib/quibi/business-document-workflow.ts';
@@ -20,8 +20,9 @@ test('existing HTTP clients simulate customer, vehicle, estimate, work order and
   await write.createCustomer(customer);await write.createCustomer(customer);assert.equal((await read.customers()).length,1);const c=(await read.customers())[0];assert.equal((await read.customer(c.id)).remoteId,customer.remote_id);
   const v=await write.createVehicle({stranka_id:c.id,registrskastevilka:'QA SELAN AI',internastevilka:'TESTSELANAI2026011',proizvajalec:'TEST',model:'QA AI'});assert.equal((await read.vehicle(v,c.id)).customerId,c.id);
   await write.updateVehicle(v,{internastevilka:'TESTSELANAI202601',registrskastevilka:'QA SELAN AI',proizvajalec:'TEST',model:'QA AI'});assert.equal((await read.vehicle(v,c.id)).vin,'TESTSELANAI202601');assert.equal((await read.vehicles(c.id)).length,1);assert.equal((await read.allVehicles()).length,1);assert.equal((await read.catalog('vat')).find(v=>v.id==='5').label,'22 %');
-  await assert.rejects(write.updateVehicle(v,{internastevilka:'INVALID'}),/HTTP_403/);
-  const input={serviceRequestId:'11111111-1111-4111-8111-111111111112',customerId:c.id,vehicleId:v,numberingId:'2061',saleTypeId:'1',lines:[{opis:'QA storitev',enota_id:'1',ddv_id:'5',kolicina:1,cenaZDDV:122,popust:0}]};
+  await assert.rejects(write.updateVehicle(v,{internastevilka:'INVALID'}),error=>error instanceof QuibiValidationError&&error.message==='QUIBI_API_REJECTED');
+  assert.equal((await read.vehicle(v,c.id)).vin,'TESTSELANAI202601');
+  const input={serviceRequestId:'11111111-1111-4111-8111-111111111112',customerId:c.id,vehicleId:v,numberingId:'2061',saleTypeId:'1',lines:[{opis:'QA storitev',enota_id:'1',ddv_id:'5',kolicina:1,cenaZDDV:100,popust:0}]};
   const bodies=[buildEstimateBody(input),businessDocumentBody('work_order','11111111-1111-4111-8111-111111111113',{...input,numberingId:'6483'}),businessDocumentBody('invoice','11111111-1111-4111-8111-111111111113',{...input,numberingId:'2060'},'2026-10-11')];
   for(const body of bodies){const result=await write.createEstimate(body),again=await write.createEstimate(body);assert.equal(again.id,result.id);const doc=await read.documentDetail(result.id,c.id);confirmBusinessContent(doc,body);assert.equal(doc.amount,'122.00');assert.ok(doc.number.startsWith('QA-SIM-'));const pdf=await read.documentPdf(result.id);assert.equal(new TextDecoder().decode(pdf.slice(0,5)),'%PDF-');assert.match(new TextDecoder().decode(pdf),/QA-SIM/);await assert.rejects(write.createEstimate({...body,Postavkedokumenta:{0:{...body.Postavkedokumenta[0],cenaZDDV:123}}}),/HTTP_409/)}
   assert.equal((await read.estimates(c.id)).length,1);assert.equal((await read.workOrders(c.id)).length,1);assert.equal((await read.invoices(c.id)).length,1);

@@ -17,7 +17,7 @@ export function WorkshopRealtime({ organizationId }: { organizationId: string })
     const scheduler = createRefreshScheduler({
       refresh: () => startTransition(() => router.refresh()),
       canRefresh: () => document.visibilityState === "visible" &&
-        !document.activeElement?.matches('input,textarea,select,[contenteditable="true"]'),
+        !document.querySelector('[data-unsaved="true"]') && !document.activeElement?.matches('input,textarea,select,[contenteditable="true"]'),
       schedule: (callback, delay) => window.setTimeout(callback, delay),
       cancel: (id) => window.clearTimeout(id),
     });

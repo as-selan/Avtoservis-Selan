@@ -43,6 +43,10 @@ LATER_MIGRATIONS=(
   "20261014184946_team_case_work_and_private_evidence.sql"
   "20261014212032_case_vehicle_resolution.sql"
   "20261017195305_case_work_manager_review_closure.sql"
+  "20261017233803_completion_existing_customer_vehicle.sql"
+  "20261024094647_automatic_offer_drafts.sql"
+  "20261024100001_save_automatic_offer_edits.sql"
+  "20261024100417_automatic_offer_identity_and_notifications.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"

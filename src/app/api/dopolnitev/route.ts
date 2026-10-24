@@ -18,7 +18,7 @@ import {
 } from "@/lib/completion/public";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function json(body: unknown, status = 200): NextResponse {
   const sanitized = sanitizeCompletionPublicResponse(body);
@@ -105,3 +105,4 @@ export async function POST(request: NextRequest) {
     return json(publicCompletionUnavailable(), 400);
   }
 }
+

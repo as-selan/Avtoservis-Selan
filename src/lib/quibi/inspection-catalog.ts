@@ -10,3 +10,6 @@ export function inspectionCatalogSuggestions<T extends {key:string;name:string;c
  }
  return {matches,unmatched,ambiguous};
 }
+
+/** A technical-roadworthiness inspection is not the conditional preliminary repair assessment. */
+export function isPretechnicalInspection(name:string){return /pred\s+tehnic/.test(name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase());}

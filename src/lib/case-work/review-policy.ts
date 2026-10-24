@@ -24,3 +24,6 @@ export function repairPhase(status:string,state?:ReviewState,invoice?:{id:string
 export function reviewReference(value:unknown){if(typeof value!=='string'||value.trim().length<12||value.trim().length>1000)throw Error('REFERENCE_REQUIRED');return value.trim();}
 export function requireReviewRole(role:string){if(!['owner','admin'].includes(role))throw Error('FORBIDDEN');}
 export function syntheticRepair(problem:string){return /QA-SIM|QA PREIZKUS|SINTETIČNI|SYNTHETIC/i.test(problem);}
+
+/** Explicitly authorized synthetic DEV work stays labelled through review and closure. */
+export function a73SyntheticWork(environment:string,caseId:string,vin:string,problem:string){return environment==='dev'&&caseId==='a73db6be-7216-4677-bc0a-26e97693ad75'&&vin==='TESTSELANBX202602'&&problem.startsWith('TESTNO POVPRAŠEVANJE – AVTOSERVIS SELAN');}

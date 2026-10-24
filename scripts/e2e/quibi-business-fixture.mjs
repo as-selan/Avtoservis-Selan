@@ -41,8 +41,9 @@ export function createBusinessFixture(customers,send,stateFile){
   if(body.Glavadokumenta){const h=body.Glavadokumenta;if(!customers.some(c=>c.id===String(h.stranka_id)&&c.naziv==='TEST-SELAN-AI')||!vehicles.some(v=>v.id===String(h.vozila_id)&&v.stranka_id===String(h.stranka_id))||!['2061','2060','6483'].includes(String(h.stevilcenje_id))||!h.external_id||h.id){send(res,403,{error:true});return true}
    const existing=requests.get(h.external_id);if(!existing&&documents.some(d=>d.Glavadokumenta.external_id===h.external_id)){send(res,409,{error:true,message:"Existing document requires journal review"});return true}if(existing){if(existing.raw!==raw){send(res,409,{error:true});return true}send(res,200,existing.response);return true}
    const lines=Object.values(body.Postavkedokumenta??{});if(!lines.length||lines.some(l=>l.sifra||l.enota_id!=='1'||!['1','5'].includes(l.ddv_id))){send(res,400,{error:true});return true}
-   const id=String(++nextDocument),ZapSt=`QA-SIM-${id}`,znesek=lines.reduce((sum,l)=>sum+Number(l.kolicina)*Number(l.cenaZDDV)*(1-Number(l.popust??0)/100),0).toFixed(2);
-   const document={Glavadokumenta:{...h,id,ZapSt,znesek,stranka_id:String(h.stranka_id),vozila_id:String(h.vozila_id)},Statusi:{id:'1',naziv:'QA-SIM Osnutek'},Postavkedokumenta:lines};documents.push(document);const response={error:false,id,ZapSt};requests.set(h.external_id,{raw,response});persist();send(res,200,response);return true;
+   const viewLines=lines.map(line=>{const rate=line.ddv_id==='5'?22:0,unitNet=Number(line.cenaZDDV),lineNet=Number((unitNet*Number(line.kolicina)*(1-Number(line.popust??0)/100)).toFixed(2));return {...line,cenaBrezDDV:unitNet,cenaZDDV:lineNet,Ddv:{stopnjaDDV:rate,naziv:rate+' %'}}});
+   const id=String(++nextDocument),ZapSt=`QA-SIM-${id}`,znesek=viewLines.reduce((sum,line)=>sum+line.cenaZDDV*(1+line.Ddv.stopnjaDDV/100),0).toFixed(2);
+   const document={Glavadokumenta:{...h,id,ZapSt,znesek,stranka_id:String(h.stranka_id),vozila_id:String(h.vozila_id)},Statusi:{id:'1',naziv:'QA-SIM Osnutek'},Postavkedokumenta:viewLines};documents.push(document);const response={error:false,id,ZapSt};requests.set(h.external_id,{raw,response});persist();send(res,200,response);return true;
   }
   send(res,400,{error:true});return true;
  };

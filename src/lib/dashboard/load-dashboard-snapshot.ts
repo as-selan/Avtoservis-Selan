@@ -70,6 +70,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           "vehicle_id",
           "status",
           "summary",
+          "problem_description",
           "next_action",
           "attention_needed",
           "attention_reason",
@@ -126,10 +127,12 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       }
     }
 
+    const automaticStates=new Map<string,import('@/lib/quibi/automatic-estimate-draft').AutomaticDraftState>();
     const preparedRequestIds = await loadReadyOfferPreparationIds(
       supabase,
       access.organizationId,
       requests.map((r) => r.id),
+      automaticStates,
     );
     const fixedPriceByRequest = new Map<string, string>();
     const slotByRequest = new Map<string, string>();
@@ -237,7 +240,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
-            repairNextAction:repairsByCase.get(row.id)?.phase?.step,repairUpdatedAt:repairsByCase.get(row.id)?.lastActivity,repairUiStatus:repairsByCase.get(row.id)?.phase?.uiStatus,
+            quibiWorkOrderId:repairsByCase.get(row.id)?.quibiId??businessRowsByRequest.get(row.id)?.find(r=>r.kind==='work_order'&&r.state==='verified')?.quibi_id??undefined,repairPhase:repairsByCase.get(row.id)?.phase?.id,mechanicName:repairsByCase.get(row.id)?.mechanicName,mechanicEmail:repairsByCase.get(row.id)?.mechanicEmail,repairNextAction:repairsByCase.get(row.id)?.phase?.step,repairUpdatedAt:repairsByCase.get(row.id)?.lastActivity,repairUiStatus:repairsByCase.get(row.id)?.phase?.uiStatus,
             businessNextAction:quibiBusinessNextAction(businessRowsByRequest.get(row.id)??[]),
             customerApprovalVerified: (()=>{const approval=approvalByRequest.get(row.id),quote=quoteByRequest.get(row.id);return !!approval&&!!quote&&approval.quote_id===quote.id&&hasRecordedCustomerApproval(approval,quote.content_sha256)})(),
             quibiCreateRejected:rejectedEstimateRequests.has(row.id),
@@ -246,6 +249,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
             quibiSendStatus: quoteSendByRequest.get(row.id)?.status,
             directQuibiBusiness: process.env.APP_ENV === 'preproduction' && process.env.QUIBI_MODE === 'dev' && process.env.VERCEL_ENV === 'preview',
             workOrderStatus: workOrderByRequest.get(row.id),
+            automaticDraftState:!quoteByRequest.has(row.id)&&!fixedPriceByRequest.has(row.id)?automaticStates.get(row.id):undefined,
             offerPrepared: preparedRequestIds.has(row.id),
             quibiLinked: connection.linked,
             intakeConnectionLabel:connection.label,
@@ -295,6 +299,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 type OfferPreparationRow = {
+  auto_state?:import('@/lib/quibi/automatic-estimate-draft').AutomaticDraftState;
   service_request_id: string;
   status: string;
 };
@@ -307,6 +312,7 @@ async function loadReadyOfferPreparationIds(
   supabase: SupabaseServerClient,
   organizationId: string,
   serviceRequestIds: string[],
+  states?:Map<string,import('@/lib/quibi/automatic-estimate-draft').AutomaticDraftState>,
 ): Promise<Set<string>> {
   const ready = new Set<string>();
   if (serviceRequestIds.length === 0) {
@@ -315,7 +321,7 @@ async function loadReadyOfferPreparationIds(
 
   const { data: prepRows, error: prepError } = await supabase
     .from("offer_preparations")
-    .select("service_request_id, status")
+    .select("service_request_id, status, auto_state")
     .eq("organization_id", organizationId)
     .eq("status", OFFER_PREPARATION_STATUS_READY_FOR_PROVIDER)
     .in("service_request_id", serviceRequestIds);
@@ -330,6 +336,7 @@ async function loadReadyOfferPreparationIds(
       typeof row.service_request_id === "string"
     ) {
       ready.add(row.service_request_id);
+      if(row.auto_state)states?.set(row.service_request_id,row.auto_state);
     }
   }
 

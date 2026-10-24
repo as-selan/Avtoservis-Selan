@@ -7,6 +7,7 @@ name: Code checks
 on:
   push:
     branches:
+      - codex/selan-p0-guided-case
       - cursor/m3-business-data-prep-v1
       - cursor/m4-manual-intake-prep-v1
       - codex/quibi-integration-prep
@@ -16,6 +17,7 @@ on:
       - codex/selan-pr18-manual-qa
   pull_request:
     branches:
+      - codex/selan-pr18-manual-qa
       - main
       - cursor/m3-business-data-prep-v1
       - cursor/phase14b-customer-vehicle-create-v1
@@ -42,7 +44,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies
@@ -54,27 +56,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # M4 only: runner + tests live on the M4 prep branch; skipped on M3.
-      - name: M4 offline intake tests (when present)
-        run: |
-          set -euo pipefail
-          RUNNER="scripts/ts-ext-register.mjs"
-          shopt -s nullglob
-          tests=(src/lib/intake/*.test.ts)
-          if [[ -f "$RUNNER" && ${#tests[@]} -gt 0 ]]; then
-            echo "Running M4 offline intake tests (${#tests[@]} files)..."
-            node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
-          else
-            echo "Skipping M4 offline intake tests (runner or test files not present on this branch)."
-          fi
-
-      - name: Workflow and Quibi V1 contract tests
-        run: |
-          shopt -s nullglob
-          tests=(src/app/login/recovery-link.test.ts src/lib/quibi/*.test.ts src/lib/cases/*.test.ts src/lib/completion/*.test.ts src/lib/appointments/*.test.ts src/lib/intake/trusted-origin.test.ts)
-          if (( ${#tests[@]} > 0 )); then
-            node --import ./scripts/ts-ext-register.mjs --experimental-strip-types --test "${tests[@]}"
-          fi
+      - name: Complete offline regression suite
+        run: npm run test:unit
 
   build:
     name: Build
@@ -93,11 +76,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: npm run build -- --webpack

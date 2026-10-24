@@ -56,7 +56,7 @@ export function nextCaseStep(input: {
         ? "Odpri primer in preglej ponudbo s svežimi Quibijevimi postavkami in cenami. Ustvarjanje potrdiš ločeno."
         : input.quibiDevWriteEnabled
         ? "Pripravi in preveri predračun prek Quibi API-ja. Tadej mora pred pošiljanjem odobriti dejansko ceno."
-        : "Poveži obstoječi predračun ali konfiguriraj preverjeno ustvarjanje prek Quibi API-ja.");
+        : "Samo predogled – ustvarjanje v Quibiju ni omogočeno. Uredite postavke in preglejte predračun.");
     case "awaiting_customer_approval": return step("await_customer", input.fixedPriceStatus
       ? "Po dejanskem sporočilu objavljene cene počakajte na odločitev stranke."
       : "Pošlji predračun, če še ni poslan, in zabeleži dejansko odločitev stranke. Odobritev po telefonu ne zahteva potrjene dostave.");

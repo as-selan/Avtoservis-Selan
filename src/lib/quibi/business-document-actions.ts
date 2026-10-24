@@ -1,4 +1,5 @@
 "use server";
+import {isPretechnicalInspection} from './inspection-catalog';
 import {inspectionBillingReview} from "./inspection-billing-review";
 import {caseBusinessReference} from "./case-business-policy";
 import {loadCaseWork} from '@/lib/case-work/read';import {reviewDecision} from '@/lib/case-work/review-policy';
@@ -87,7 +88,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    if(form.get('dispatch')==='yes')throw Error('CATALOG_INVALID');
    return {...review,ok:true,headerSelectionRequired:true,message:'Postavke so prebrane iz preverjenega Quibi dokumenta. Izberite veljavno številčenje in vrsto prodaje; priprava se nato samodejno preveri.'};
   }
-  if(!reconciling&&kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Potrdite opravljeno popravilo in dejanski datum; Selan nato samodejno preveri pripravo za CREATE.'};
+  if(!reconciling&&kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')||!String(form.get('dueDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Preverite opravljeno delo ter datum storitve in zapadlosti. Dokument še ni ustvarjen.'};
   if(reconciling){
    if(!directCase||kind!=='invoice')throw Error('RECONCILIATION_FORBIDDEN');
    const opId=String(form.get('operationId')??'');
@@ -123,11 +124,11 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   }
   const invoiceHeader=kind==='invoice'?await verifiedInvoiceHeader(read,numberingId,{spaceId:String(form.get('spaceId')??''),paymentMethod:String(form.get('paymentMethod')??'')}):undefined;
   if(invoiceHeader){review.invoiceHeader=invoiceHeader;if(!invoiceHeader.ready){if(form.get('dispatch')==='yes')throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');return {...review,message:'Izberite način plačila in poslovni prostor iz aktualnih Quibi šifrantov. Podatkov ne kopiramo iz drugih računov.'};}}
-  if(kind==='invoice')review.invoiceDates=invoiceDates(String(form.get('serviceDate')??''),String(form.get('issueDate')||quibiToday()),String(form.get('dueDate')||form.get('issueDate')||quibiToday()));
+  if(kind==='invoice')review.invoiceDates=invoiceDates(String(form.get('serviceDate')??''),String(form.get('issueDate')||quibiToday()),String(form.get('dueDate')??''));
   const journalForRetry=quibiWorkflowJournal(access.organizationId,access.userId);
   const rejected=directCase&&!updating?await journalForRetry.get(kind,orderId):null;
   const retryOperationId=kind==='invoice'&&rejected?.state==='failed'&&!rejected.quibiId?rejected.id:undefined;
-  const syntheticQa=syntheticCaseEvidenceAllowed(process.env,{description:caseContext?.order.problem_description,name:customer.display_name,email:customer.email,vin:vehicle.vin});
+  const syntheticQa=syntheticCaseEvidenceAllowed(process.env,{caseId:caseContext?.order.service_request_id,description:caseContext?.order.problem_description,name:customer.display_name,email:customer.email,vin:vehicle.vin});
   const warehouses=await read.catalog('warehouses');
   if(warehouses.length&&!warehouses.some(w=>w.id===source.warehouseId))throw Error('WAREHOUSE_UNVERIFIED');
   let body=businessDocumentBody(kind,orderId,{spaceId:invoiceHeader?.spaceId,paymentMethod:invoiceHeader?.paymentMethod,warehouseId:source.warehouseId,serviceRequestId:order.service_request_id,numberingId,saleTypeId,customerId:link.external_id,vehicleId:vehicleLink.quibi_vehicle_id,lines,note:`${syntheticQa?'QA-SIM ':''}Selan ${order.service_request_id}; vir ${source.id}; SHA ${source.contentSha256}${directCase&&kind==='invoice'?(syntheticQa?'; QA-SIM: simulirani zaključek, dejanskega popravila ni; potrjeno: ':'; popravilo opravljeno, potrjeno: ')+access.userId:''}`},String(form.get('serviceDate')??''));
@@ -185,7 +186,7 @@ export async function prepareInspectionBillingBasis(form:FormData):Promise<Busin
   if(remoteVehicle.disabled||customerFingerprint({name:customer.display_name,email:customer.email??'',phone:customer.phone??''})!==link.local_fingerprint||customerFingerprint(remote)!==link.external_fingerprint||vehicleFingerprint({vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''})!==vlink.local_fingerprint||vehicleFingerprint(remoteVehicle)!==vlink.external_fingerprint)throw Error('IDENTITY_UNVERIFIED');
   if(existing){const invoice=await loadQuibiDocument(read,'invoice',existing.quibi_document_id,link.external_id);if(invoice.vehicleId!==vlink.quibi_vehicle_id||invoice.contentSha256!==existing.content_sha256)throw Error('INSPECTION_INVOICE_UNRESOLVED');return {ok:false,documentId:invoice.id,manualCustomerId:request.customer_id,message:'Za ta primer je račun že povezan. Preglejte obstoječi račun in PDF; novega obračuna pregleda ne pripravljamo.'};}
   const units=await read.catalog('units'),vatRates=await read.catalog('vat');
-  const source=await estimateCatalogSource(form,read,{units,vatRates},remote);if(!source||source.option.stockManaged!==false)throw Error('INSPECTION_SERVICE_REQUIRED');
+  const source=await estimateCatalogSource(form,read,{units,vatRates},remote);if(!source||source.option.stockManaged!==false||isPretechnicalInspection(source.option.name))throw Error('INSPECTION_SERVICE_REQUIRED');
   const review=inspectionBillingReview({caseId,customerId:link.external_id,vehicleId:vlink.quibi_vehicle_id,findings:inspection.findings??'',sourceSha:source.option.sourceSha,quantity:source.reviewedLine.quantity,total:source.total});
   const confirming=form.get('reviewInspection')==='yes'||invoiceRequested;
   if(confirming&&(form.get('inspectionServiceConfirmed')!=='yes'||form.get('expectedReviewSha')!==review.sha))throw Error('INSPECTION_REVIEW_CHANGED');

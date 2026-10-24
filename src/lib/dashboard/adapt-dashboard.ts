@@ -1,3 +1,4 @@
+import {automaticDraftPresentation} from '../quibi/automatic-draft-state';
 import { nextCaseStep } from "@/lib/cases/next-step";
 import { mapDbStatusToUiStatus } from "./db-status";
 import { formatRelativeUpdatedLabel } from "./relative-time";
@@ -13,6 +14,7 @@ export type ServiceRequestRow = {
   vehicle_id: string | null;
   status: string;
   summary: string;
+  problem_description?: string|null;
   next_action: string | null;
   attention_needed: boolean;
   attention_reason: string | null;
@@ -59,7 +61,7 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null},
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {automaticDraftState?:import('../quibi/automatic-estimate-draft').AutomaticDraftState;intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null;repairPhase?:string;quibiWorkOrderId?:string;mechanicName?:string|null;mechanicEmail?:string|null},
 ): ServiceOrderDemo {
   const updatedAt=stepInput.repairUpdatedAt??row.updated_at;
   const uiStatus = stepInput.repairUiStatus??mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
@@ -72,10 +74,13 @@ export function adaptServiceRequestToOrder(
     vehicleMakeModel: vehicleMakeModel(vehicle),
     registration: vehicle?.registration_current?.trim() || undefined,
     requestSummary: row.summary,
+    synthetic:[row.summary,row.problem_description,customer?.display_name].some(value=>/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(value?.trim()??'')),
     intakeConnectionLabel:stepInput.intakeConnectionLabel,
+    repairPhase:stepInput.repairPhase,quibiWorkOrderId:stepInput.quibiWorkOrderId,mechanicName:stepInput.mechanicName,mechanicEmail:stepInput.mechanicEmail,
     status: uiStatus,
-    nextActionLabel: nextCaseStep({ ...stepInput, status: row.status }).label,
-    nextActionKind: nextCaseStep({ ...stepInput, status: row.status }).kind,
+    nextActionLabel: stepInput.automaticDraftState?automaticDraftPresentation(stepInput.automaticDraftState).action:nextCaseStep({ ...stepInput, status: row.status }).label,
+    nextActionKind: stepInput.automaticDraftState?'automatic_estimate':nextCaseStep({ ...stepInput, status: row.status }).kind,
+    fixedPriceStatus: stepInput.fixedPriceStatus,
     requiresAttention: row.has_error || row.attention_needed,
     offerPreparationReady: stepInput.offerPrepared,
     locationLabel: undefined,

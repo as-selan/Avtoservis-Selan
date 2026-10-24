@@ -1,4 +1,5 @@
 "use client";
+import {EstimateComposer} from './EstimateComposer';
 import {inspectionCatalogSuggestions} from '@/lib/quibi/inspection-catalog';
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -10,10 +11,10 @@ import type { EstimateReview } from '@/lib/quibi/estimate-preparation';
 import type { CreatedEstimateSummary } from '@/lib/quibi/created-estimate-summary';
 import type { QuibiChoice } from "@/lib/quibi/write-options";
 
-export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, inspectionFindings, aiEstimateLines=[], writeEnabled=true }: {
+function LegacyQuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, sendStatus, sendId, operationState, lineDescription, catalogOptions=[], catalogIssues=[], initialCatalogSource, inspectionFindings, aiEstimateLines=[], writeEnabled=true }: {
   serviceRequestId: string; mode: "prepare" | "create" | "update" | "send"; quoteId?: string;
-  writeEnabled?:boolean; inspectionFindings?:string|null; aiEstimateLines?:Array<{key:string;quantity:number|null}>;
-  catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;
+  offerPrepared?:boolean;customerPriceListId?:string|null;writeEnabled?:boolean; inspectionFindings?:string|null; aiEstimateLines?:Array<{key:string;quantity:number|null}>;
+  catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;requestedService?:string|null;requestDescription?:string|null;aiServiceMatches?:import("@/lib/assistance/intake-analysis").IntakeServiceMatch[];
   lineDescription?: string;
   choices?: { saleTypes: QuibiChoice[]; units: QuibiChoice[]; vatRates: QuibiChoice[]; warehouses?: QuibiChoice[] };
   sendStatus?: string | null; sendId?: string | null; operationState?: string;
@@ -229,3 +230,5 @@ export function QuibiDevWritePanel({ serviceRequestId, mode, quoteId, choices, s
     {message.includes("\n") && <details className="text-xs"><summary>Podrobnosti priprave za pregled</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">{message.slice(message.indexOf("\n")+1)}</pre></details>}
   </fieldset></form>;
 }
+
+export function QuibiDevWritePanel(props:Parameters<typeof LegacyQuibiDevWritePanel>[0]){return props.mode==='prepare'||props.mode==='create'?<EstimateComposer {...props} mode={props.mode}/>:<LegacyQuibiDevWritePanel {...props}/>;}

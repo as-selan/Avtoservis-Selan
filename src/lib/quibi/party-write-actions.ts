@@ -1,4 +1,5 @@
 "use server";
+import {canConfirmQuibiVehicleCreate} from './vehicle-create-permission';
 
 import {headers} from 'next/headers';
 import {assertLocalPartyWriteRequest} from './local-write-policy';
@@ -86,7 +87,7 @@ export async function createQuibiDevVehicle(form: FormData): Promise<Result> {
   const { customerId, vehicleId } = inputIds;
   if(process.env.QUIBI_DEV_LOCAL_WRITE_ACTION==="create_vehicle" && vehicleId!==process.env.QUIBI_DEV_LOCAL_WRITE_VEHICLE_ID)return fail("Lokalno dovoljenje ne velja za to vozilo.");
   try {
-    if((await requirePhase1OperationalAccess()).role!=="owner")return fail("Novo vozilo lahko izrecno potrdi samo lastnik.");
+    if(!canConfirmQuibiVehicleCreate((await requirePhase1OperationalAccess()).role,process.env))return fail("Novo vozilo lahko izrecno potrdi samo lastnik.");
     const ctx = await context();
     const [{ data: customer }, { data: link }, { data: vehicle }, { data: existingLink },
       { data: serviceCase }] = await Promise.all([
