@@ -30,10 +30,11 @@ export async function loadEstimateCatalog(read:{priceLists():Promise<QuibiPriceL
  return {options,issues:[...new Set(issues)],...(snapshot?.stats?{stats:snapshot.stats}:{})};
 }
 
-export function catalogDocumentLine(option:EstimateCatalogOption,quantity:number):DocumentLine {return {sifra:option.code,kolicina:quantity,popust:option.discount,ddv_id:option.vatId,...(option.stockManaged===false&&Number.isFinite(option.unitNetPrice)?{cena:option.unitNetPrice,opis:option.name}:{})};}
+export function catalogDocumentLine(option:EstimateCatalogOption,quantity:number):DocumentLine {if(!option.code){if(option.stockManaged!==false||!Number.isFinite(option.unitNetPrice))throw Error('QUIBI_UNCODED_STOCK_UNSUPPORTED');return {opis:option.name,enota_id:option.unitId,ddv_id:option.vatId,kolicina:quantity,cenaZDDV:option.unitNetPrice!,popust:option.discount};}return {sifra:option.code,kolicina:quantity,popust:option.discount,ddv_id:option.vatId,...(option.stockManaged===false&&Number.isFinite(option.unitNetPrice)?{cena:option.unitNetPrice,opis:option.name}:{})};}
 
 /** Explicit base article identity, not a fabricated Quibi price-list ID. */
 export function baseEstimateCatalogOption(article:QuibiArticle):EstimateCatalogOption{
+ if(!article.code&&article.stockManaged!==false)throw Error('QUIBI_UNCODED_STOCK_UNSUPPORTED');
  const rate=article.vatLabel.trim().match(/^(\d+(?:[.,]\d+)?)\s*%$/);if(!rate||Number(rate[1].replace(',','.'))>100)throw Error('QUIBI_CATALOG_VAT_UNSUPPORTED');
  return {key:'article:'+article.id,articleId:article.id,priceListId:'',priceListName:'Osnovna cena artikla',name:article.name,code:article.code,unitId:article.unitId,unitLabel:article.unitLabel,vatId:article.vatId,vatLabel:article.vatLabel,grossPrice:Number((Number(article.netPrice)*(1+Number(rate[1].replace(',','.'))/100)).toFixed(8)),unitNetPrice:Number(article.netPrice),discount:0,priceListNetPrice:article.netPrice,priceListDiscount:0,priceListDiffers:false,stockManaged:article.stockManaged,sourceSha:createHash('sha256').update(JSON.stringify({article,priceListId:null})).digest('hex')};
 }

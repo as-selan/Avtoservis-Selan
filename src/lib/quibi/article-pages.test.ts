@@ -11,3 +11,9 @@ test('service index excludes bulk stock data but validates every ID and reports 
  const selected=await readArticlePages(async()=>rows,3,{include:r=>Number((r.Sifranti as {id:string}).id)>1,invalid:id=>invalid.push(id)});assert.deepEqual(selected.map(r=>r.id),['3']);assert.deepEqual(invalid,['2']);
  await assert.rejects(readArticlePages(async()=>page([1,1],null),3,{include:()=>false}),/DUPLICATE/);
 });
+
+
+test('blank SKU is accepted only for explicitly non-stock rows when free-line fallback is enabled',async()=>{
+ const value=page([1],null);value.data.Sifranti[0].Sifranti.sifra='';assert.equal((await readArticlePages(async()=>value,500,{allowUncoded:true}))[0].code,'');
+ value.data.Sifranti[0].Sifranti.vodiZalogo='1';await assert.rejects(readArticlePages(async()=>value,500,{allowUncoded:true}));
+});

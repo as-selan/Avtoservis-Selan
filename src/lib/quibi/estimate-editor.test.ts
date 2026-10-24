@@ -44,3 +44,9 @@ test('known regular service synonym is filled, but a nonzero free-named inspecti
  const rows=assistedEstimateRows(requestedEstimateRows('Avtomehanika','SERVIS VOZILA\nPREGLED PRED TEHNIČNIM\nPREGELD ZAVOR',options),options);
  assert.equal(rows.length,3);assert.equal(rows[0].key,'article:1');assert.equal(rows[0].quantity,'1');assert.equal(rows[1].key,'');assert.ok(rows[1].candidateKeys?.includes('article:2'));assert.equal(rows[2].key,'');
 });
+
+
+test('brake inspection never suggests a different inspection system or brake replacement',()=>{
+ const make=(id:string,name:string)=>({key:'article:'+id,articleId:id,priceListId:'',name,code:id,priceListName:'Osnovna',unitId:'1',unitLabel:'kos',vatId:'5',vatLabel:'22 %',grossPrice:29,discount:0,priceListNetPrice:'23.77',priceListDiscount:0,priceListDiffers:false,sourceSha:'a'.repeat(64),stockManaged:false});
+ const options=[make('1','KONTROLA PODVOZJA'),make('2','ZAMENJAVA ZAVORNE TEKOČINE')];const [row]=assistedEstimateRows(requestedEstimateRows('', 'PREGELD ZAVOR',options),options);assert.equal(row.key,'');assert.deepEqual(row.candidateKeys,[]);
+});

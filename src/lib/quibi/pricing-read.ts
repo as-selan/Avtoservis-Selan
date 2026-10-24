@@ -9,9 +9,9 @@ export function parseQuibiPriceLists(value:unknown):QuibiPriceList[]{
  const rows=data(value).Cenik;if(!Array.isArray(rows)||rows.length>1000)throw Error('QUIBI_INVALID_PRICING');
  return rows.map(row=>{const wrapper=object(row),list=object(wrapper.Cenik),lines=wrapper.Artiklicenika;if(!Array.isArray(lines)||lines.length>10000)throw Error('QUIBI_INVALID_PRICING');const listId=id(list.id);return {id:listId,name:name(list.naziv),lines:lines.map(value=>{const line=object(value);if(id(line.cenik_id)!==listId)throw Error('QUIBI_PRICELIST_MISMATCH');const discount=decimal(line.popust);if(Number(discount)>100)throw Error('QUIBI_INVALID_PRICING');return {articleId:id(line.sifranti_id),netPrice:decimal(line.cenaBrezDDV),discount}})}});
 }
-export function parseQuibiArticle(value:unknown,expectedId:string):QuibiArticle{
+export function parseQuibiArticle(value:unknown,expectedId:string,allowUncoded=false):QuibiArticle{
  const wrapper=object(data(value).Sifranti),article=object(wrapper.Sifranti),vat=object(wrapper.Ddv),unit=object(wrapper.Enota);
  const articleId=id(article.id);if(articleId!==id(expectedId))throw Error('QUIBI_ARTICLE_MISMATCH');
  const vatId=id(article.ddv_id),unitId=id(article.enota_id);if(id(vat.id)!==vatId||id(unit.id)!==unitId)throw Error('QUIBI_ARTICLE_REFERENCE_MISMATCH');
- return {...([0,1,'0','1',false,true].includes(article.vodiZalogo as string|number|boolean)?{stockManaged:article.vodiZalogo===1||article.vodiZalogo==='1'||article.vodiZalogo===true}:{}),id:articleId,code:name(article.sifra),name:name(article.naziv),netPrice:decimal(article.cenaBrezDDV),vatId,vatLabel:name(vat.naziv),unitId,unitLabel:name(unit.naziv)};
+ return {...([0,1,'0','1',false,true].includes(article.vodiZalogo as string|number|boolean)?{stockManaged:article.vodiZalogo===1||article.vodiZalogo==='1'||article.vodiZalogo===true}:{}),id:articleId,code:allowUncoded&&[0,'0',false].includes(article.vodiZalogo as string|number|boolean)&&typeof article.sifra==='string'?article.sifra.trim():name(article.sifra),name:name(article.naziv),netPrice:decimal(article.cenaBrezDDV),vatId,vatLabel:name(vat.naziv),unitId,unitLabel:name(unit.naziv)};
 }

@@ -125,3 +125,12 @@ test('base catalog identity reads active article and current price on every revi
  await assert.rejects(estimateCatalogRows(form([{key:'article:11',quantity:'1'}]),{...read,activeArticle:async()=>{throw Error('QUIBI_ARTICLE_INACTIVE')}},catalogs,{priceListId:null}),/INACTIVE/);
  await assert.rejects(estimateCatalogRows(form([{key:'article:11',quantity:'1'}]),read,catalogs,{}),/PRICING_UNVERIFIED/);
 });
+
+
+test('known non-stock article without SKU uses verified free payload and preserves fresh price without a fake code',async()=>{
+ const article={...articles[0],code:'',unitId:'1',unitLabel:'kos'};const read={priceLists:async()=>[],article:async()=>article,activeArticle:async()=>article};
+ const result=(await estimateCatalogRows(form([{key:'article:11',quantity:'1',discount:''}]),read,catalogs,{priceListId:null}))!;
+ assert.equal(result.lines.length,1);assert.ok(!('sifra' in result.lines[0]));assert.equal(result.lines[0].cenaZDDV,100);assert.equal(result.reviewedLines[0].unitPrice,122);
+ const changed=(await estimateCatalogRows(form([{key:'article:11',quantity:'1',discount:'',unitPrice:'100'}]),read,catalogs,{priceListId:null}))!;assert.ok(!('sifra' in changed.lines[0]));assert.equal(changed.lines[0].cenaZDDV,81.96721311);
+ await assert.rejects(estimateCatalogRows(form([{key:'article:11',quantity:'1'}]),{...read,activeArticle:async()=>({...article,stockManaged:true})},catalogs,{priceListId:null}),/UNCODED_STOCK/);
+});

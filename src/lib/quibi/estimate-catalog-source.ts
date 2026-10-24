@@ -48,12 +48,12 @@ export async function estimateCatalogRows(form:FormData,read:Parameters<typeof e
   const source=await estimateCatalogSource(one,cached,catalogs,customer);if(!source)throw Error('QUIBI_CATALOG_LINES_INVALID');
   if(Object.prototype.hasOwnProperty.call(row,'unitPrice')){
    hasPriceOverrides=true;
-   if(source.option.stockManaged!==false||!('sifra' in source.line))throw Error('QUIBI_CATALOG_PRICE_OVERRIDE_UNSUPPORTED');
+   if(source.option.stockManaged!==false)throw Error('QUIBI_CATALOG_PRICE_OVERRIDE_UNSUPPORTED');
    if(typeof row.unitPrice!=='string'||!/^\d+(?:[.,]\d{1,8})?$/.test(row.unitPrice))throw Error('QUIBI_CATALOG_PRICE_INVALID');
    const gross=Number(row.unitPrice.replace(',','.'));
    if(!Number.isFinite(gross)||gross<0||gross>1000000)throw Error('QUIBI_CATALOG_PRICE_INVALID');
    const net=unitNetFromGross(gross,source.option.vatId,catalogs.vatRates);
-   source.line.cena=net;source.option.unitNetPrice=net;source.reviewedLine.unitPrice=gross;
+   if('sifra' in source.line)source.line.cena=net;else source.line.cenaZDDV=net;source.option.unitNetPrice=net;source.reviewedLine.unitPrice=gross;
   }
   const discount=row.discount==null||row.discount===''?source.option.discount:Number(row.discount);
   if(!['undefined','string','number'].includes(typeof row.discount)||!Number.isFinite(discount)||discount<0||discount>100)throw Error('QUIBI_CATALOG_DISCOUNT_INVALID');
