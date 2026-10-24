@@ -38,7 +38,7 @@ export function requestedEstimateRows(wanted:string|null|undefined,description:s
  });
 }
 
-const serviceWords=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\bkontrola\b/g,'pregled').replace(/\b(avta|avtomobila)\b/g,'vozila').replace(/\bzavornega sistema\b/g,'zavor').replace(/\bpred tehnicnim(?: pregledom)?\b/g,'pred tehnicnim pregledom').split(/\s+/);
+const serviceWords=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\bredni servis vozila\b/g,'servis vozila').replace(/\bbrezplacni\b/g,'').replace(/\bpregled vozila pred tehnicnim pregledom\b/g,'pregled pred tehnicnim pregledom').replace(/\bkontrola\b/g,'pregled').replace(/\b(avta|avtomobila)\b/g,'vozila').replace(/\bzavornega sistema\b/g,'zavor').replace(/\bpred tehnicnim(?: pregledom)?\b/g,'pred tehnicnim pregledom').split(/\s+/);
 function editDistance(a:string,b:string){const d=Array.from({length:a.length+1},()=>Array<number>(b.length+1).fill(0));for(let i=0;i<=a.length;i++)d[i][0]=i;for(let j=0;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++){d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+Number(a[i-1]!==b[j-1]));if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])d[i][j]=Math.min(d[i][j],d[i-2][j-2]+1);}return d[a.length][b.length];}
 /** Suggestions carry catalog identities only. Prices always remain fresh Quibi data. */
 export function assistedEstimateRows(rows:EstimateDraftRow[],options:EstimateCatalogOption[],matches:IntakeServiceMatch[]=[]):EstimateDraftRow[]{
@@ -50,7 +50,8 @@ export function assistedEstimateRows(rows:EstimateDraftRow[],options:EstimateCat
   const candidates=[...new Set([...(ai?.key?[ai.key]:[]),...(ai?.alternatives??[]),...ranked.slice(0,3).map(x=>x.o.key)])].filter(key=>options.some(o=>o.key===key)).slice(0,3);
   const highAi=ai?.confidence==='high'&&ai.key&&!(ai.alternatives??[]).some(k=>k!==ai.key)?options.find(o=>o.key===ai.key):undefined;
   const typo=ranked[0]?.score>=0.9&&ranked[0].score-(ranked[1]?.score??0)>=0.12?ranked[0].o:undefined;
-  const selected=highAi??typo;
+  const proposed=highAi??typo;
+  const selected=proposed&&/brezpla[čc]n/i.test(proposed.name)&&proposed.grossPrice>0?undefined:proposed;
   return {...row,key:selected?.key??'',candidateKeys:candidates,matchSource:highAi?'AI predlog za pregled':typo?'Ujemanje opisa storitve':undefined,quantity:selected?(['kos','kom','storitev','piece','pcs'].includes(serviceWords(selected.unitLabel).join(' '))?'1':''):row.quantity};
  });
 }

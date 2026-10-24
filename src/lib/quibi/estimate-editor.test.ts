@@ -36,3 +36,11 @@ test('bounded synonymous service names match but never expand a generic service 
  const rows=assistedEstimateRows(requestedEstimateRows(null,'Kontrola zavornega sistema\nPregled pred tehničnim',options,'9'),options);assert.deepEqual(rows.map(r=>r.key),['9:11','9:12']);
  assert.equal(assistedEstimateRows(requestedEstimateRows(null,'Servis vozila',options,'9'),[{...option,name:'Menjava olja'}])[0].key,'');
 });
+
+
+test('known regular service synonym is filled, but a nonzero free-named inspection remains a choice',()=>{
+ const make=(id:string,name:string,grossPrice:number)=>({key:'article:'+id,articleId:id,priceListId:'',name,code:id,priceListName:'Osnovna cena',unitId:'1',unitLabel:'kos',vatId:'5',vatLabel:'22 %',grossPrice,discount:0,priceListNetPrice:'27',priceListDiscount:0,priceListDiffers:false,sourceSha:'a'.repeat(64),stockManaged:false});
+ const options=[make('1','REDNI SERVIS VOZILA',32.94),make('2','BREZPLAČNI PREGLED VOZILA PRED TEHNIČNIM PREGLEDOM',59)];
+ const rows=assistedEstimateRows(requestedEstimateRows('Avtomehanika','SERVIS VOZILA\nPREGLED PRED TEHNIČNIM\nPREGELD ZAVOR',options),options);
+ assert.equal(rows.length,3);assert.equal(rows[0].key,'article:1');assert.equal(rows[0].quantity,'1');assert.equal(rows[1].key,'');assert.ok(rows[1].candidateKeys?.includes('article:2'));assert.equal(rows[2].key,'');
+});

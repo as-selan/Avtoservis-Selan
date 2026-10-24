@@ -1,14 +1,26 @@
-// Explicit hosted Preview READ-only check. No DB, WRITE or SEND imports.
+// Hosted Preview READ-only: no DB, WRITE or SEND imports. Credentials stay in Vercel.
 import assert from 'node:assert/strict';
+import {createQuibiReadClient} from '../src/lib/quibi/client.ts';
+import {quibiWorkflowConfig} from '../src/lib/quibi/workflow-config.ts';
+import {loadEstimateCatalog} from '../src/lib/quibi/estimate-catalog.ts';
+import {canonicalEstimateOptions,requestedEstimateRows,assistedEstimateRows} from '../src/lib/quibi/estimate-editor.ts';
+import {estimateCatalogRows} from '../src/lib/quibi/estimate-catalog-source.ts';
+import {estimateReviewTotal} from '../src/lib/quibi/estimate-preparation.ts';
 assert.equal(process.env.VERCEL_PROJECT_ID,'prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU');assert.equal(process.env.VERCEL_ENV,'preview');assert.equal(process.env.QUIBI_MODE,'dev');
-const origin='https://dev.quibi.net',headers={username:process.env.QUIBI_DEV_USERNAME,password:process.env.QUIBI_DEV_PASSWORD,'Content-Type':'application/json'};assert.ok(headers.username&&headers.password);
-const get=async(path)=>{assert.ok(path.startsWith('/api2/sifranti/seznam?')||path==='/api2/cenik');const r=await fetch(origin+path,{method:'GET',headers,redirect:'error',cache:'no-store',signal:AbortSignal.timeout(15000)});assert.equal(r.status,200,'CATALOG_HTTP_'+r.status);const d=await r.json();assert.equal(d.error,false,'CATALOG_REJECTED');return d;};
-const rows=[],seen=new Set(),pages=[];let po=0;
-for(let n=0;n<1000;n++){const d=await get('/api2/sifranti/seznam?po='+po+'&limit=500&arhivirano=0');assert.ok(Array.isArray(d.data?.Sifranti));assert.ok(d.data.Sifranti.length<=500);let last=po;for(const row of d.data.Sifranti){const id=Number(row.Sifranti?.id);assert.ok(Number.isSafeInteger(id)&&id>last,'CATALOG_UNORDERED_OR_DUPLICATE');assert.ok(!seen.has(id));seen.add(id);last=id;rows.push(row);}pages.push({po,count:d.data.Sifranti.length,next:d.naslednji_po});if(d.naslednji_po===null)break;assert.ok(Number.isSafeInteger(Number(d.naslednji_po))&&Number(d.naslednji_po)>=last&&Number(d.naslednji_po)>po);po=Number(d.naslednji_po);assert.ok(n<999,'CATALOG_PAGE_LIMIT');}
-const fields=[...new Set(rows.flatMap(r=>Object.keys(r.Sifranti??{})))],nonStock=rows.filter(r=>[0,'0',false].includes(r.Sifranti?.vodiZalogo));
-const sample=r=>({id:r.Sifranti.id,code:r.Sifranti.sifra,name:r.Sifranti.naziv,netPrice:r.Sifranti.cenaBrezDDV,stockManaged:r.Sifranti.vodiZalogo,archived:r.Sifranti.arhivirano,unit:r.Enota,vat:r.Ddv,category:r.Kategorije});
-const services=nonStock.filter(r=>/servis|pregled|zavor|tehni|delo|menjav|diagnost|centrir|monta/i.test(r.Sifranti.naziv??''));
-const lists=await get('/api2/cenik');
-console.log('SELAN_CATALOG_READ_RESULT '+JSON.stringify({at:new Date().toISOString(),endpoint:'/api2/sifranti/seznam',params:{limit:500,arhivirano:0,po:'cursor'},total:rows.length,unique:seen.size,pageCount:pages.length,firstPage:pages[0],lastPage:pages.at(-1),wrapperKeys:Object.keys(rows[0]??{}),articleFields:fields,nonStock:nonStock.length,serviceNameMatches:services.length,sample:rows[0]?sample(rows[0]):null,priceLists:(lists.data?.Cenik??[]).map(r=>({id:r.Cenik?.id,name:r.Cenik?.naziv,count:r.Artiklicenika?.length})),write:false,send:false}));
-console.log('SELAN_CATALOG_SERVICES '+JSON.stringify(services.slice(0,8).map(r=>({id:r.Sifranti.id,code:r.Sifranti.sifra,name:r.Sifranti.naziv,net:r.Sifranti.cenaBrezDDV,unit:r.Enota?.naziv,vat:r.Ddv?.naziv,stock:r.Sifranti.vodiZalogo}))));
-console.log('SELAN_CATALOG_REQUEST_MATCHES '+JSON.stringify(nonStock.filter(r=>/tehni|zavor|servis vozil/i.test(r.Sifranti.naziv??'')).slice(0,15).map(r=>({id:r.Sifranti.id,code:r.Sifranti.sifra,name:r.Sifranti.naziv,net:r.Sifranti.cenaBrezDDV}))));
+const config=quibiWorkflowConfig(process.env,'read');assert.equal(config.origin,'https://dev.quibi.net');
+let first,requests=0;const calls={};
+const read=createQuibiReadClient({...config,fetcher:async(url,init)=>{
+ assert.equal(init?.method,'GET','READ_ONLY_NO_WRITE_OR_PDF');const parsed=new URL(String(url));assert.equal(parsed.origin,config.origin);
+ assert.ok(['/api2/sifranti/seznam','/api2/cenik','/api2/enota','/api2/ddv','/api2/stranka/view/405956'].includes(parsed.pathname)||/^\/api2\/sifranti\/view\/\d+$/.test(parsed.pathname),'READ_PATH_FORBIDDEN');requests++;calls[parsed.pathname]=(calls[parsed.pathname]??0)+1;
+ const response=await fetch(url,init);if(!first&&parsed.pathname==='/api2/sifranti/seznam'){const data=await response.clone().json();const row=data.data?.Sifranti?.[0];first={wrapperKeys:Object.keys(row??{}),articleFields:Object.keys(row?.Sifranti??{}),unitFields:Object.keys(row?.Enota??{}),vatFields:Object.keys(row?.Ddv??{}),categoryFields:Object.keys(row?.Kategorije??{})};}return response;
+}});
+const snapshot=await read.catalogSnapshot();assert.ok(snapshot.stats.total>0);assert.equal(snapshot.stats.pages,Math.ceil(snapshot.stats.total/500));
+const catalog=await loadEstimateCatalog({...read,catalogSnapshot:async()=>snapshot});const customer=await read.customer('405956');assert.ok(customer.name.startsWith('TEST-AUTOSERVIS-SELAN-'));assert.notEqual(customer.priceListId,undefined,'CUSTOMER_PRICE_LIST_UNKNOWN');
+const options=canonicalEstimateOptions(catalog.options,customer.priceListId),rows=assistedEstimateRows(requestedEstimateRows('Avtomehanika','SERVIS VOZILA\nPREGLED PRED TEHNIČNIM\nPREGELD ZAVOR',options,customer.priceListId),options);assert.equal(rows.length,3);
+const filled=rows.filter(row=>row.key&&row.quantity),[units,vatRates]=await Promise.all([read.catalog('units'),read.catalog('vat')]);
+const form=new FormData();form.set('catalogLines',JSON.stringify(filled));const verified=filled.length?await estimateCatalogRows(form,read,{units,vatRates},customer):null;
+for(const row of filled){const option=options.find(o=>o.key===row.key),detail=await read.article(option.articleId);assert.equal(Number(detail.netPrice),Number(option.unitNetPrice));assert.equal(detail.unitId,option.unitId);assert.equal(detail.vatId,option.vatId);}
+const line=o=>({id:o.articleId,code:o.code,name:o.name,unit:o.unitLabel,vat:o.vatLabel,unitNet:o.unitNetPrice,unitGross:o.grossPrice,stockManaged:o.stockManaged});
+console.log('SELAN_CATALOG_READ_RESULT '+JSON.stringify({at:new Date().toISOString(),endpoint:'/api2/sifranti/seznam',params:{po:'cursor to null',limit:500,arhivirano:0},...snapshot.stats,selectableArticles:new Set(options.map(o=>o.articleId)).size,first,priceLists:snapshot.lists.map(l=>({id:l.id,name:l.name,count:l.lines.length})),requests,calls,customerPriceListId:customer.priceListId,write:false,send:false}));
+for(const row of rows)console.log('SELAN_CATALOG_ROW '+JSON.stringify({requested:row.requestedService,selected:row.key?line(options.find(o=>o.key===row.key)):null,quantity:row.quantity||null,candidates:(row.candidateKeys??[]).slice(0,3).map(key=>line(options.find(o=>o.key===key)))}));
+console.log('SELAN_CATALOG_PREPARATION '+JSON.stringify({scope:'Real Quibi DEV READ + real preparation functions; no saved draft/document',freshVerifiedRows:verified?.reviewedLines??[],knownSubtotal:verified?estimateReviewTotal(verified.reviewedLines):null,completeTotal:filled.length===3&&verified?estimateReviewTotal(verified.reviewedLines):null,unknownsPreserved:true}));

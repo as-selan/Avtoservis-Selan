@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';import {runInNewContext} from 'node:vm';import {createHash} from 'node:crypto';import ts from 'typescript';
 import {unitNetFromGross} from './line-pricing.ts';
-import {catalogDocumentLine} from './estimate-catalog.ts';import {customerCatalogPricing} from './customer-catalog-pricing.ts';
+import {catalogDocumentLine,baseEstimateCatalogOption} from './estimate-catalog.ts';import {customerCatalogPricing} from './customer-catalog-pricing.ts';
 const exported:Record<string,unknown>={};
-runInNewContext(ts.transpileModule(readFileSync(new URL('./estimate-catalog-source.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exported,require:(name:string)=>({'server-only':{},'node:crypto':{createHash},'./line-pricing':{unitNetFromGross},'./estimate-catalog':{catalogDocumentLine},'./customer-catalog-pricing':{customerCatalogPricing}}[name]),FormData,Map,JSON,Number,Error});
+runInNewContext(ts.transpileModule(readFileSync(new URL('./estimate-catalog-source.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exported,require:(name:string)=>({'server-only':{},'node:crypto':{createHash},'./line-pricing':{unitNetFromGross},'./estimate-catalog':{catalogDocumentLine,baseEstimateCatalogOption},'./customer-catalog-pricing':{customerCatalogPricing}}[name]),FormData,Map,JSON,Number,Error});
 const estimateCatalogRows=exported.estimateCatalogRows as typeof import('./estimate-catalog-source.ts').estimateCatalogRows;
 import {estimatePreparationPayload,estimateReviewTotal} from './estimate-preparation.ts';
 import type {QuibiArticle} from './pricing-read.ts';
@@ -114,4 +114,14 @@ test('free review preserves entered cent price at a fractional-quantity half-cen
  const resolved=(await estimateCatalogRows(form([row]),reader(),catalogs,{}))!;
  const payload=estimatePreparationPayload({...input,lines:resolved.lines},catalogs,resolved.reviewedLines);
  assert.equal(payload.review.total,0.02);assert.equal(payload.review.lines[0].unitPrice,10);assert.equal(payload.review.total,estimateReviewTotal(resolved.reviewedLines));
+});
+
+
+test('base catalog identity reads active article and current price on every review; changed price invalidates source',async()=>{
+ let price='100',reads=0;const read={priceLists:async()=>[list],article:async()=>{throw Error('STALE_DETAIL_PATH')},activeArticle:async()=>{reads++;return {...articles[0],netPrice:price}}};
+ const first=(await estimateCatalogRows(form([{key:'article:11',quantity:'1',discount:''}]),read,catalogs,{priceListId:null}))!;
+ assert.equal(first.reviewedLines[0].unitPrice,122);price='110';const next=(await estimateCatalogRows(form([{key:'article:11',quantity:'1',discount:''}]),read,catalogs,{priceListId:null}))!;
+ assert.equal(reads,2);assert.notEqual(first.sourceSha,next.sourceSha);assert.equal(next.reviewedLines[0].unitPrice,134.2);
+ await assert.rejects(estimateCatalogRows(form([{key:'article:11',quantity:'1'}]),{...read,activeArticle:async()=>{throw Error('QUIBI_ARTICLE_INACTIVE')}},catalogs,{priceListId:null}),/INACTIVE/);
+ await assert.rejects(estimateCatalogRows(form([{key:'article:11',quantity:'1'}]),read,catalogs,{}),/PRICING_UNVERIFIED/);
 });

@@ -1,3 +1,4 @@
+import {readArticlePages} from './article-pages.ts';
 import {quibiReadRejection,quibiReadEndpoint} from './read-rejection.ts';
 import {extraDocumentPaths,type ExtraDocumentKind} from './document-read.ts';
 import {parseVehicleInfo,parseAddresses,parseLots,parseStock,parsePaymentMethods,parseDocumentPayments} from './operational-read.ts';
@@ -57,6 +58,17 @@ export function createQuibiReadClient(config: Config) {
     async paymentMethods(){return parsePaymentMethods(await read('/api2/glavadokumenta/placila'))},
     async documentPayments(documentId:string){return parseDocumentPayments(await read('/api2/delnaplacila/placiladokumenta/'+validId(documentId)),documentId)},
     async documents(kind:ExtraDocumentKind,customerId:string){if(!Object.hasOwn(extraDocumentPaths,kind))throw Error('QUIBI_INVALID_DOCUMENT');const id=validId(customerId);return parseDocuments(await read(extraDocumentPaths[kind],'POST',id),id)},
+    async catalogSnapshot(){
+      const lists=parseQuibiPriceLists(await read('/api2/cenik')),listed=new Set(lists.flatMap(l=>l.lines.map(r=>r.articleId)));let total=0,nonStock=0,pages=0;const invalid:string[]=[];
+      const articles=await readArticlePages(path=>read(path),500,{page:rows=>{pages++;total+=rows.length;nonStock+=rows.filter(r=>[0,'0',false].includes((r.Sifranti as Record<string,unknown>)?.vodiZalogo as string|number|boolean)).length},include:r=>{const a=r.Sifranti as Record<string,unknown>;return [0,'0',false].includes(a.vodiZalogo as string|number|boolean)||listed.has(String(a.id))},invalid:id=>invalid.push(id)});
+      return {articles,lists,issues:invalid.length?['Nekatere postavke nimajo preverljive šifre, cene, enote ali DDV; zanje uporabite prosto storitev.']:[],stats:{total,nonStock,pages,indexed:articles.length,unsupported:invalid.length}};
+    },
+    async activeArticle(id:string){
+      const articleId=validId(id);if(Number(articleId)<1)throw Error('QUIBI_INVALID_ARTICLE_ID');
+      const value=await read('/api2/sifranti/seznam?po='+(Number(articleId)-1)+'&limit=1&arhivirano=0') as {error?:unknown;data?:{Sifranti?:Array<{Sifranti?:{id?:unknown}}>}};
+      const row=value.data?.Sifranti?.[0];if(value.error!==false||value.data?.Sifranti?.length!==1||!row||String(row.Sifranti?.id)!==articleId)throw Error('QUIBI_ARTICLE_INACTIVE');
+      return parseQuibiArticle({error:false,data:{Sifranti:row}},articleId);
+    },
     async priceLists() { return parseQuibiPriceLists(await read("/api2/cenik")); },
     async article(id: string) { return parseQuibiArticle(await read(`/api2/sifranti/view/${validId(id)}`), id); },
     async customers() { return parseCustomers(await read("/api2/stranka")); },
@@ -119,14 +131,16 @@ export function createQuibiReadClient(config: Config) {
   };
 }
 
+function withCatalogCache(config:Config){const read=createQuibiReadClient(config);return {...read,catalogSnapshot:async()=>{const {cachedCatalogSnapshot}=await import('./catalog-cache');return cachedCatalogSnapshot(config)}};}
+
 export function configuredQuibiReadClient() {
   if (process.env.APP_ENV === "production" || process.env.QUIBI_MODE === "production") {
     const config = quibiWorkflowConfig(process.env, "read");
-    return createQuibiReadClient(config);
+    return withCatalogCache(config);
   }
   if (process.env.APP_ENV === "preproduction") {
     assertPreproductionQuibiConfiguration();
-    return createQuibiReadClient({
+    return withCatalogCache({
       username: process.env.QUIBI_DEV_USERNAME ?? "",
       password: process.env.QUIBI_DEV_PASSWORD ?? "",
     });
