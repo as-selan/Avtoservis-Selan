@@ -2,6 +2,9 @@
   "scope": "Hydrated real workspace with synthetic action fixtures. No authenticated app, DB writes or Quibi document created.",
   "results": [
     {
+      "editedRowsSaveAndReloadFixture": true,
+      "automaticSavedRowsReload": true,
+      "manualAndWebSingleReview": true,
       "newCatalogServicePrefill": true,
       "noUnrelatedBrakeInspection": true,
       "unknownCatalogPriceRemainsBlank": true,
@@ -28,6 +31,9 @@
       "pageErrors": 0
     },
     {
+      "editedRowsSaveAndReloadFixture": true,
+      "automaticSavedRowsReload": true,
+      "manualAndWebSingleReview": true,
       "newCatalogServicePrefill": true,
       "noUnrelatedBrakeInspection": true,
       "unknownCatalogPriceRemainsBlank": true,
@@ -54,6 +60,9 @@
       "pageErrors": 0
     },
     {
+      "editedRowsSaveAndReloadFixture": true,
+      "automaticSavedRowsReload": true,
+      "manualAndWebSingleReview": true,
       "newCatalogServicePrefill": true,
       "noUnrelatedBrakeInspection": true,
       "unknownCatalogPriceRemainsBlank": true,

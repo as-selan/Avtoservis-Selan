@@ -53,3 +53,5 @@ test('DEV email is optional and routes a reviewed estimate to separately recorde
  const j=caseJourney({...base,status:'preparing_offer',quoteReviewed:true,devNoEmail:true,sendAttempted:true,sendState:'failed'});
  assert.equal(j.action.href,'#odobritev');assert.match(j.blocker!,/DEV ne pošilja/);assert.equal(j.completed[3],false);assert.equal(j.completed[4],false);
 });
+
+test('automatic preparation skips a separate intake click but preserves uncertainty and missing-data gates',()=>{for(const [state,label] of [['ready','Preglej in potrdi'],['ambiguous','Izberi storitev'],['missing_price','Vnesi ceno']] as const){const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:state});assert.equal(j.action.label,label);assert.equal(j.action.href,'#predracun');}assert.equal(caseJourney({...base,automaticPreparation:true,automaticDraftState:'ready',identityReady:false}).action.href,'#quibi-povezava');});

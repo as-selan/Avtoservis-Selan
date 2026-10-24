@@ -1,3 +1,4 @@
+import {automaticDraftPresentation} from '../quibi/automatic-draft-state';
 import { nextCaseStep } from "@/lib/cases/next-step";
 import { mapDbStatusToUiStatus } from "./db-status";
 import { formatRelativeUpdatedLabel } from "./relative-time";
@@ -60,7 +61,7 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null},
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {automaticDraftState?:import('../quibi/automatic-estimate-draft').AutomaticDraftState;intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null},
 ): ServiceOrderDemo {
   const updatedAt=stepInput.repairUpdatedAt??row.updated_at;
   const uiStatus = stepInput.repairUiStatus??mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
@@ -76,8 +77,8 @@ export function adaptServiceRequestToOrder(
     synthetic:[row.summary,row.problem_description,customer?.display_name].some(value=>/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(value?.trim()??'')),
     intakeConnectionLabel:stepInput.intakeConnectionLabel,
     status: uiStatus,
-    nextActionLabel: nextCaseStep({ ...stepInput, status: row.status }).label,
-    nextActionKind: nextCaseStep({ ...stepInput, status: row.status }).kind,
+    nextActionLabel: stepInput.automaticDraftState?automaticDraftPresentation(stepInput.automaticDraftState).action:nextCaseStep({ ...stepInput, status: row.status }).label,
+    nextActionKind: stepInput.automaticDraftState?'automatic_estimate':nextCaseStep({ ...stepInput, status: row.status }).kind,
     fixedPriceStatus: stepInput.fixedPriceStatus,
     requiresAttention: row.has_error || row.attention_needed,
     offerPreparationReady: stepInput.offerPrepared,

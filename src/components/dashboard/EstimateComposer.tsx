@@ -1,4 +1,5 @@
 "use client";
+import {saveAutomaticOfferRows} from '@/lib/quibi/automatic-draft-actions';
 import {reviewServiceRequestIntake} from '@/lib/cases/review-intake-action';
 import type {IntakeServiceMatch} from '@/lib/assistance/intake-analysis';
 import {useRef,useState,useTransition} from 'react';
@@ -11,21 +12,23 @@ import type {EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
 import type {EstimateReview} from '@/lib/quibi/estimate-preparation';
 import type {QuibiChoice} from '@/lib/quibi/write-options';
 import type {CreatedEstimateSummary} from '@/lib/quibi/created-estimate-summary';
-export type EstimateComposerProps={initialRows?:EstimateDraftRow[];intakeReviewRequired?:boolean;serviceRequestId:string;mode:'prepare'|'create';offerPrepared?:boolean;writeEnabled?:boolean;customerPriceListId?:string|null;catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;requestedService?:string|null;requestDescription?:string|null;aiServiceMatches?:IntakeServiceMatch[];inspectionFindings?:string|null;aiEstimateLines?:Array<{key:string;quantity:number|null}>;operationState?:string;choices?:{saleTypes:QuibiChoice[];units:QuibiChoice[];vatRates:QuibiChoice[];warehouses?:QuibiChoice[];defaults?:{saleTypeId?:string;warehouseId?:string;unitId?:string;vatId?:string}}};
+export type EstimateComposerProps={draftPersistence?:{run:string;updatedAt:string};initialRows?:EstimateDraftRow[];intakeReviewRequired?:boolean;serviceRequestId:string;mode:'prepare'|'create';offerPrepared?:boolean;writeEnabled?:boolean;customerPriceListId?:string|null;catalogOptions?:EstimateCatalogOption[];catalogIssues?:string[];initialCatalogSource?:string;requestedService?:string|null;requestDescription?:string|null;aiServiceMatches?:IntakeServiceMatch[];inspectionFindings?:string|null;aiEstimateLines?:Array<{key:string;quantity:number|null}>;operationState?:string;choices?:{saleTypes:QuibiChoice[];units:QuibiChoice[];vatRates:QuibiChoice[];warehouses?:QuibiChoice[];defaults?:{saleTypeId?:string;warehouseId?:string;unitId?:string;vatId?:string}}};
 const money=(n:number)=>n.toLocaleString('sl-SI',{style:'currency',currency:'EUR'});
-export function EstimateComposer({initialRows,intakeReviewRequired=false,serviceRequestId,mode,offerPrepared=true,writeEnabled=true,customerPriceListId,catalogOptions:allCatalogOptions=[],catalogIssues=[],initialCatalogSource,requestedService,requestDescription,aiServiceMatches=[],inspectionFindings,aiEstimateLines=[],operationState,choices}:EstimateComposerProps){
+export function EstimateComposer({draftPersistence,initialRows,intakeReviewRequired=false,serviceRequestId,mode,offerPrepared=true,writeEnabled=true,customerPriceListId,catalogOptions:allCatalogOptions=[],catalogIssues=[],initialCatalogSource,requestedService,requestDescription,aiServiceMatches=[],inspectionFindings,aiEstimateLines=[],operationState,choices}:EstimateComposerProps){
  const router=useRouter(),lock=useRef(false),casePrepared=useRef(offerPrepared),reviewedForm=useRef<FormData|null>(null);
  const catalogOptions=canonicalEstimateOptions(allCatalogOptions,customerPriceListId);
  const [rows,setRows]=useState<EstimateDraftRow[]>(()=>(initialRows??(requestedEstimateRows(requestedService,requestDescription,allCatalogOptions,customerPriceListId).length?assistedEstimateRows(requestedEstimateRows(requestedService,requestDescription,allCatalogOptions,customerPriceListId),catalogOptions,aiServiceMatches):initialEstimateRows(aiEstimateLines,initialCatalogSource))).map(row=>({...row,description:row.requestedService,unitId:choices?.defaults?.unitId??(choices?.units.length===1?choices.units[0].id:undefined),vatId:choices?.defaults?.vatId??(choices?.vatRates.length===1?choices.vatRates[0].id:undefined),key:catalogOptions.find(o=>o.articleId===allCatalogOptions.find(source=>source.key===row.key)?.articleId)?.key??row.key})));
+ const savedVersion=useRef(draftPersistence?.updatedAt),dirty=useRef(false),currentRows=useRef(rows),saving=useRef<Promise<boolean>|null>(null);
+ async function persistRows():Promise<boolean>{if(!draftPersistence)return true;if(saving.current){if(!await saving.current)return false;if(!dirty.current)return true;}const save=async()=>{let didSave=false;while(dirty.current){const snapshot=currentRows.current;dirty.current=false;try{const result=await saveAutomaticOfferRows(serviceRequestId,draftPersistence!.run,savedVersion.current!,snapshot);if(!result.ok){dirty.current=true;setMessage('Spremembe niso shranjene. Preverite, ali je primer urejal drug uporabnik; vnosi ostajajo na zaslonu.');return false;}savedVersion.current=result.updatedAt;didSave=true;}catch{dirty.current=true;setMessage('Spremembe še niso shranjene. Pred odhodom ponovno preglejte predračun.');return false;}}if(didSave)router.refresh();return true;};saving.current=save();const result=await saving.current;saving.current=null;return result;}
  const [pending,start]=useTransition(),[message,setMessage]=useState(''),[review,setReview]=useState<EstimateReview|null>(null),[sha,setSha]=useState<string|null>(null),[sourceSha,setSourceSha]=useState<string|null>(null),[dispatchStarted,setDispatchStarted]=useState(false),[document,setDocument]=useState<CreatedEstimateSummary|null>(null);
  const canWrite=mode==='create'&&writeEnabled,locked=['failed','uncertain','dispatching','verified'].includes(operationState??''),total=draftTotal(rows,catalogOptions,customerPriceListId);
  const ready=!!review&&!!sha;
- function edit(next:EstimateDraftRow[]){setRows(next);setReview(null);setSha(null);setSourceSha(null);reviewedForm.current=null;setMessage('');}
+ function edit(next:EstimateDraftRow[]){currentRows.current=next;dirty.current=true;setRows(next);setReview(null);setSha(null);setSourceSha(null);reviewedForm.current=null;setMessage('');}
  async function prepareCase(){if(intakeReviewRequired){const accepted=await reviewServiceRequestIntake(serviceRequestId);if(!accepted.ok){setMessage(accepted.message);return false;}casePrepared.current=accepted.prepared;}if(casePrepared.current)return true;const result=await prepareOfferAction(serviceRequestId);if(!result.ok){setMessage(result.message);return false;}casePrepared.current=true;return true;}
  function changeRow(index:number,patch:Partial<EstimateDraftRow>){edit(rows.map((row,i)=>i===index?{...row,...patch}:row));}
  const suggestions=inspectionCatalogSuggestions(inspectionFindings,catalogOptions);
  const configured=!!choices?.saleTypes.length&&!!choices.units.length&&!!choices.vatRates.length;
- return <form aria-label="Priprava predračuna" className="space-y-4" onSubmit={event=>{
+ return <form onBlurCapture={()=>{void persistRows()}} aria-label="Priprava predračuna" className="space-y-4" onSubmit={event=>{
   event.preventDefault();if(lock.current||pending||dispatchStarted)return;
   const dispatch=(event.nativeEvent as SubmitEvent).submitter?.getAttribute('data-create')==='yes';
   if(dispatch&&(!canWrite||locked||!ready||!reviewedForm.current))return;
@@ -33,6 +36,7 @@ export function EstimateComposer({initialRows,intakeReviewRequired=false,service
   form.set('serviceRequestId',serviceRequestId);
   if(dispatch){form.set('expectedSha',sha!);if(sourceSha)form.set('expectedSourceSha',sourceSha);form.set('createConfirmed','yes');form.set('serviceMatchConfirmed','yes');setDispatchStarted(true);}
   lock.current=true;start(async()=>{try{
+   if(!dispatch&&!await persistRows())return;
    if(!dispatch&&!await prepareCase())return;
    const result=dispatch?await createQuibiDevEstimate(form):await prepareQuibiEstimate(form);
    if(!result.ok){setMessage(result.message);setReview(null);setSha(null);reviewedForm.current=null;if(dispatch)router.refresh();return;}

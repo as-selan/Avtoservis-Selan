@@ -24,6 +24,7 @@ export function intakeQueue(orders:ServiceOrderDemo[]):IntakeQueueItem[]{
   else if(['review_estimate','revise_estimate','send_estimate'].includes(order.nextActionKind??'')){group='estimate';anchor='pregled-predracuna';}
   else if(order.nextActionKind==='await_customer'){group='customer';anchor='odobritev';}
   else if(order.nextActionKind==='manual_external_handoff'){group='service';}
+  else if(order.nextActionKind==='automatic_estimate'){group='estimate';anchor='predracun';}
   else if(order.nextActionKind==='link_quibi'){anchor='quibi-povezava';}
   else if(order.slotOfferExpired){anchor='termini';label='Predlogi terminov so potekli. Umakni ponudbo in preveri nove možnosti.';}
   else if(order.slotOfferStatus&&order.slotOfferStatus!=='confirmed'){

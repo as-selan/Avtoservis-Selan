@@ -127,10 +127,12 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       }
     }
 
+    const automaticStates=new Map<string,import('@/lib/quibi/automatic-estimate-draft').AutomaticDraftState>();
     const preparedRequestIds = await loadReadyOfferPreparationIds(
       supabase,
       access.organizationId,
       requests.map((r) => r.id),
+      automaticStates,
     );
     const fixedPriceByRequest = new Map<string, string>();
     const slotByRequest = new Map<string, string>();
@@ -192,7 +194,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const slotRequestIds = requests.filter((row) => ["awaiting_slot_selection", "appointment_confirmed"].includes(row.status) || requestedInspections.has(row.id)).map((row) => row.id);
     if (process.env.SELAN_FIXED_PRICE_V1 === "1" && priceRequestIds.length > 0) {
       const { data, error } = await supabase.from("published_fixed_price_cases")
-        .select("service_request_id, status").eq("organization_id", access.organizationId)
+        .select("service_request_id, status, auto_state").eq("organization_id", access.organizationId)
         .in("service_request_id", priceRequestIds);
       if (error) return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
       for (const row of data ?? []) fixedPriceByRequest.set(row.service_request_id, row.status);
@@ -247,6 +249,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
             quibiSendStatus: quoteSendByRequest.get(row.id)?.status,
             directQuibiBusiness: process.env.APP_ENV === 'preproduction' && process.env.QUIBI_MODE === 'dev' && process.env.VERCEL_ENV === 'preview',
             workOrderStatus: workOrderByRequest.get(row.id),
+            automaticDraftState:!quoteByRequest.has(row.id)&&!fixedPriceByRequest.has(row.id)?automaticStates.get(row.id):undefined,
             offerPrepared: preparedRequestIds.has(row.id),
             quibiLinked: connection.linked,
             intakeConnectionLabel:connection.label,
@@ -296,6 +299,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 type OfferPreparationRow = {
+  auto_state?:import('@/lib/quibi/automatic-estimate-draft').AutomaticDraftState;
   service_request_id: string;
   status: string;
 };
@@ -308,6 +312,7 @@ async function loadReadyOfferPreparationIds(
   supabase: SupabaseServerClient,
   organizationId: string,
   serviceRequestIds: string[],
+  states?:Map<string,import('@/lib/quibi/automatic-estimate-draft').AutomaticDraftState>,
 ): Promise<Set<string>> {
   const ready = new Set<string>();
   if (serviceRequestIds.length === 0) {
@@ -316,7 +321,7 @@ async function loadReadyOfferPreparationIds(
 
   const { data: prepRows, error: prepError } = await supabase
     .from("offer_preparations")
-    .select("service_request_id, status")
+    .select("service_request_id, status, auto_state")
     .eq("organization_id", organizationId)
     .eq("status", OFFER_PREPARATION_STATUS_READY_FOR_PROVIDER)
     .in("service_request_id", serviceRequestIds);
@@ -331,6 +336,7 @@ async function loadReadyOfferPreparationIds(
       typeof row.service_request_id === "string"
     ) {
       ready.add(row.service_request_id);
+      if(row.auto_state)states?.set(row.service_request_id,row.auto_state);
     }
   }
 
