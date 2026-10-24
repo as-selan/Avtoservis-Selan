@@ -55,3 +55,5 @@ test('DEV email is optional and routes a reviewed estimate to separately recorde
 });
 
 test('automatic preparation skips a separate intake click but preserves uncertainty and missing-data gates',()=>{for(const [state,label] of [['ready','Preglej in potrdi'],['ambiguous','Izberi storitev'],['missing_price','Vnesi ceno']] as const){const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:state});assert.equal(j.action.label,label);assert.equal(j.action.href,'#predracun');}assert.equal(caseJourney({...base,automaticPreparation:true,automaticDraftState:'ready',identityReady:false}).action.href,'#quibi-povezava');});
+
+test('new vehicle is the next task for owner and a concrete owner handoff for admin',()=>{for(const role of ['owner','admin']){const result=caseJourney({...base,role,identityReady:false,newVehicleRequired:true});assert.equal(result.action.href,'#quibi-povezava');assert.equal(result.blocker,null);assert.equal(result.action.label,role==='owner'?'Preveri in potrdi vozilo':'Navodilo za lastnika');}});

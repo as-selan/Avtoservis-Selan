@@ -76,3 +76,5 @@ test('only explicit QA-SIM/TEST markers leave normal daily work; data stays acce
  for(const customerName of ['QA Novak','Testar Janez','Atest d.o.o.'])assert.equal(isSyntheticOrder(order('x','novo',{customerName})),false);
  const rows=dashboardQueue([order('x','priprava_ponudbe',{nextActionKind:'review_estimate'})]);assert.equal(shortNextAction(rows[0]),'Preglej predračun');
 });
+
+test('one case remains one row even when a snapshot contains an older duplicate',()=>{const rows=dashboardQueue([order('same','novo'),order('same','novo'),order('done','zakljuceno'),order('done','zakljuceno')]);assert.deepEqual(rows.map(r=>r.order.serviceRequestId),['same','done']);});

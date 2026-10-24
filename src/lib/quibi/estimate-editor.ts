@@ -24,7 +24,7 @@ export function canonicalEstimateOptions(options:EstimateCatalogOption[],custome
 export function requestedEstimateRows(wanted:string|null|undefined,description:string|null|undefined,options:EstimateCatalogOption[],customerPriceListId?:string|null):EstimateDraftRow[]{
  const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('sl').replace(/[^a-z0-9]+/g,' ').trim();
  const categories=new Set(['avtomehanika','druga storitev']);
- const split=(value:string)=>value.split(/[\n\r;•]+/).map(v=>v.replace(/^\s*(?:[-*]|\d+[.)])\s*/,'').trim()).filter(Boolean);
+ const split=(value:string)=>value.replace(/\\r\\n|\\n|\\r/g,'\n').split(/[\n\r;•]+/).map(v=>v.replace(/^\s*(?:[-*]|\d+[.)])\s*/,'').trim()).filter(v=>!!v&&!/^TESTNO POVPRAŠEVANJE\s*[-–:]\s*AVTOSERVIS SELAN$/iu.test(v));
  const detailed=split(description??'');
  const labels=[...split(wanted??'').filter(v=>!detailed.length||!categories.has(normalize(v))),...detailed];
  const unique=labels.filter((v,i)=>labels.findIndex(other=>normalize(other)===normalize(v))===i);

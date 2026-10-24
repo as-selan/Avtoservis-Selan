@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {dashboardQueue, isSyntheticOrder, shortNextAction, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
+import {uniqueDashboardOrders, dashboardQueue, isSyntheticOrder, shortNextAction, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
 import {useRouter} from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { DashboardPeriodId, DashboardSnapshot, WorkflowStatusId } from "@/lib/dashboard/types";
@@ -12,7 +12,6 @@ import { useDashboardNow } from "@/lib/dashboard/useDashboardNow";
 import { WORKFLOW_STATUSES, getStatusLabel, getStatusBadgeClass } from "@/lib/dashboard/statuses";
 import { DashboardPeriodFilter } from "@/components/dashboard/DashboardPeriodFilter";
 import { WorkflowStatusSummary } from "@/components/dashboard/WorkflowStatusSummary";
-import { ActiveServiceOrders } from "@/components/dashboard/ActiveServiceOrders";
 import { AppointmentList } from "@/components/dashboard/AppointmentList";
 import { AttentionList } from "@/components/dashboard/AttentionList";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
@@ -28,7 +27,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   useEffect(()=>{let lastRefresh=Date.now();const refresh=()=>{const active=document.activeElement;if(document.visibilityState!=='visible'||active?.matches('input,textarea,select,[contenteditable="true"]')||Date.now()-lastRefresh<15000)return;lastRefresh=Date.now();startRefresh(()=>router.refresh());};const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh)}},[router]);
   const [queueGroup,setQueueGroup]=useState<DashboardGroup>('new');
   const [queueSearch,setQueueSearch]=useState('');
-  const testOrders=useMemo(()=>initialData.ok?initialData.orders.filter(isSyntheticOrder):[],[initialData]);
+  const testOrders=useMemo(()=>initialData.ok?uniqueDashboardOrders(initialData.orders).filter(isSyntheticOrder):[],[initialData]);
   const testIds=new Set(testOrders.map(order=>order.serviceRequestId));
   const queue=useMemo(()=>initialData.ok?dashboardQueue(initialData.orders.filter(order=>!isSyntheticOrder(order))):[],[initialData]);
   const visibleQueue=filterDashboardQueue(queue,queueGroup,queueSearch);
@@ -44,11 +43,6 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
       isDateInPeriod(o.updatedAt, period, now),
     );
   }, [period, now, initialData]);
-
-  const filteredOrders = useMemo(() => {
-    if (statusFilter === "all") return orders;
-    return orders.filter((o) => o.status === statusFilter);
-  }, [orders, statusFilter]);
 
   const workflowCounts = useMemo(() => {
     return WORKFLOW_STATUSES.map((status) => {
@@ -144,13 +138,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
         }}
       />
 
-      <ActiveServiceOrders
-        orders={filteredOrders}
-        totalCount={orders.length}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        onOpenManualEntry={() => setManualOpen(true)}
-      />
+      <p className="text-sm text-slate-500">Vsi primeri so prikazani enkrat v zgornjih štirih skupinah. Zaključene najdete pod »Zaključeno«.</p>
         </div>
       </details>
 

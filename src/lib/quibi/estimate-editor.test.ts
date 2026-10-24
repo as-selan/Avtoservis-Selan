@@ -50,3 +50,5 @@ test('brake inspection never suggests a different inspection system or brake rep
  const make=(id:string,name:string)=>({key:'article:'+id,articleId:id,priceListId:'',name,code:id,priceListName:'Osnovna',unitId:'1',unitLabel:'kos',vatId:'5',vatLabel:'22 %',grossPrice:29,discount:0,priceListNetPrice:'23.77',priceListDiscount:0,priceListDiffers:false,sourceSha:'a'.repeat(64),stockManaged:false});
  const options=[make('1','KONTROLA PODVOZJA'),make('2','ZAMENJAVA ZAVORNE TEKOČINE')];const [row]=assistedEstimateRows(requestedEstimateRows('', 'PREGELD ZAVOR',options),options);assert.equal(row.key,'');assert.deepEqual(row.candidateKeys,[]);
 });
+
+test('actual website escaped line breaks and explicit QA heading do not swallow three requested services',()=>{const rows=requestedEstimateRows(null,'TESTNO POVPRAŠEVANJE – AVTOSERVIS SELAN\\n\\nServis vozila\\nPregled pred tehničnim pregledom\\nPregled zavor',[]);assert.deepEqual(rows.map(r=>r.requestedService),['Servis vozila','Pregled pred tehničnim pregledom','Pregled zavor']);});

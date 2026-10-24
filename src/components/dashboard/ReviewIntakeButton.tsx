@@ -21,6 +21,7 @@ export function ReviewIntakeButton({ serviceRequestId, blockedReason }: { servic
     });
   }
 
+  if(blockedReason)return null;
   return <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
     <p className="font-semibold">Tadejev pregled sprejema</p>
     <p>Pred nadaljevanjem preverite kontaktne podatke, stranko, vozilo in opis storitve. Sprejem ne ustvari predračuna.</p>

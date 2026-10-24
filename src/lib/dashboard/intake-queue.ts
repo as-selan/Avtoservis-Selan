@@ -55,7 +55,9 @@ export const DASHBOARD_GROUPS = [
 ] as const;
 export type DashboardGroup = typeof DASHBOARD_GROUPS[number]['id'];
 export type DashboardQueueItem = Omit<IntakeQueueItem,'group'> & {group:DashboardGroup};
+export function uniqueDashboardOrders(orders:ServiceOrderDemo[]){const unique=new Map<string,ServiceOrderDemo>();for(const order of orders){const key=order.serviceRequestId??order.id;const prior=unique.get(key);if(!prior||order.updatedAt>prior.updatedAt)unique.set(key,order);}return [...unique.values()];}
 export function dashboardQueue(orders:ServiceOrderDemo[]):DashboardQueueItem[]{
+ orders=uniqueDashboardOrders(orders);
  const open:DashboardQueueItem[]=intakeQueue(orders).map(row=>({
   ...row,
   group:row.order.requiresAttention||row.order.nextActionKind==='review_quibi_mismatch'?'decision':row.group==='new'?'new':row.group==='work'||row.group==='review'||row.order.status==='termin_potrjen'?'work':'decision',
@@ -74,6 +76,7 @@ export function isSyntheticOrder(order:ServiceOrderDemo){return order.synthetic=
 export function shortNextAction(item:DashboardQueueItem){
  const anchor=item.href.split('#')[1];
  if(item.group==='done')return 'Odpri primer';
+ if(item.order.nextActionKind==='automatic_estimate')return item.order.nextActionLabel.replace(/[.!]$/,'');
  if(item.order.nextActionKind==='review_quibi_mismatch')return 'Preveri dokument';
  return ({podatki:'Preveri podatke','quibi-povezava':'Preveri povezavo',predracun:'Pripravi predračun','pregled-predracuna':'Preglej predračun',odobritev:'Zabeleži odgovor',termini:'Uredi dogovor',popravilo:item.group==='work'?'Odpri delo':'Preglej delo','objavljena-cena':'Preglej storitev'} as Record<string,string>)[anchor]??'Odpri primer';
 }

@@ -16,6 +16,20 @@
       "hydratedInteraction": true
     },
     {
+      "scenario": "vehicle-admin",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-owner",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
       "scenario": "dashboard",
       "width": 390,
       "noOverflow": true,
@@ -24,6 +38,20 @@
     },
     {
       "scenario": "mechanic",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-owner",
       "width": 390,
       "noOverflow": true,
       "pageErrors": 0,
@@ -38,6 +66,20 @@
     },
     {
       "scenario": "mechanic",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-owner",
       "width": 350,
       "noOverflow": true,
       "pageErrors": 0,

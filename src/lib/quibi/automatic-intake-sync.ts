@@ -100,7 +100,7 @@ export async function processIntakeSynchronization(caseId:string,restarts=0){
   const code=error instanceof Error?error.message:'';
   const review=/REVIEW|MISMATCH|CHANGED|REJECTED/.test(code);
   await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):code==='INTAKE_VEHICLE_CREATE_APPROVAL_REVIEW_REQUIRED'?'Vozila v Quibiju ni mogoče potrditi. V tem primeru pripravite novo vozilo in pridobite izrecno potrditev lastnika. Samodejni CREATE ni dovoljen.':code==='INTAKE_RESOLUTION_REVIEW_REQUIRED'?'Po popravku povpraševanja izberite in potrdite pravo Quibi vozilo v tem primeru. Če ga ni, novo vozilo izrecno potrdi lastnik; samodejni CREATE je ustavljen.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
-  if(review||code.startsWith('INTAKE_CONFIG:')){await finish('blocked');return;}
+  if(review||code.startsWith('INTAKE_CONFIG:')){const saved=await finish('blocked');if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1);return;}
   if(attempt===2)await finish('failed');
  }
 }
