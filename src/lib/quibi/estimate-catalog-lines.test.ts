@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';import {runInNewContext} from 'node:vm';import {createHash} from 'node:crypto';import ts from 'typescript';
-import {unitNetFromGross} from './line-pricing.ts';
+import {unitNetFromGross,moneyLineCents} from './line-pricing.ts';
 import {catalogDocumentLine,baseEstimateCatalogOption} from './estimate-catalog.ts';import {customerCatalogPricing} from './customer-catalog-pricing.ts';
 const exported:Record<string,unknown>={};
-runInNewContext(ts.transpileModule(readFileSync(new URL('./estimate-catalog-source.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exported,require:(name:string)=>({'server-only':{},'node:crypto':{createHash},'./line-pricing':{unitNetFromGross},'./estimate-catalog':{catalogDocumentLine,baseEstimateCatalogOption},'./customer-catalog-pricing':{customerCatalogPricing}}[name]),FormData,Map,JSON,Number,Error});
+runInNewContext(ts.transpileModule(readFileSync(new URL('./estimate-catalog-source.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exported,require:(name:string)=>({'server-only':{},'node:crypto':{createHash},'./line-pricing':{unitNetFromGross,moneyLineCents},'./estimate-catalog':{catalogDocumentLine,baseEstimateCatalogOption},'./customer-catalog-pricing':{customerCatalogPricing}}[name]),FormData,Map,JSON,Number,Error});
 const estimateCatalogRows=exported.estimateCatalogRows as typeof import('./estimate-catalog-source.ts').estimateCatalogRows;
 import {estimatePreparationPayload,estimateReviewTotal} from './estimate-preparation.ts';
 import type {QuibiArticle} from './pricing-read.ts';

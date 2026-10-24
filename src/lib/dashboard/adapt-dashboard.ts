@@ -61,7 +61,7 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {automaticDraftState?:import('../quibi/automatic-estimate-draft').AutomaticDraftState;intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null},
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {automaticDraftState?:import('../quibi/automatic-estimate-draft').AutomaticDraftState;intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null;repairPhase?:string;mechanicName?:string|null;mechanicEmail?:string|null},
 ): ServiceOrderDemo {
   const updatedAt=stepInput.repairUpdatedAt??row.updated_at;
   const uiStatus = stepInput.repairUiStatus??mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
@@ -76,6 +76,7 @@ export function adaptServiceRequestToOrder(
     requestSummary: row.summary,
     synthetic:[row.summary,row.problem_description,customer?.display_name].some(value=>/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(value?.trim()??'')),
     intakeConnectionLabel:stepInput.intakeConnectionLabel,
+    repairPhase:stepInput.repairPhase,mechanicName:stepInput.mechanicName,mechanicEmail:stepInput.mechanicEmail,
     status: uiStatus,
     nextActionLabel: stepInput.automaticDraftState?automaticDraftPresentation(stepInput.automaticDraftState).action:nextCaseStep({ ...stepInput, status: row.status }).label,
     nextActionKind: stepInput.automaticDraftState?'automatic_estimate':nextCaseStep({ ...stepInput, status: row.status }).kind,

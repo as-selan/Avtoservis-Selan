@@ -351,7 +351,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {id:"poslovni-nalog",title:"Delovni nalog",content:(<>
       <div id="poslovni-nalog" tabIndex={-1} className="scroll-mt-20">
           {internalOrdersEnabled && request.status === "appointment_confirmed" && <CreateWorkOrder caseId={serviceRequestId} />}
-      {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations syntheticQa={syntheticQa} organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
+      {!workOrder&&customer&&["owner","admin"].includes(access.role)&&<QuibiCaseBusinessOperations repairReviewed={['invoice_review','handover','closed'].includes(repairWork?.phase?.id??'')} syntheticQa={syntheticQa} organizationId={access.organizationId} userId={access.userId} caseId={serviceRequestId} customerId={customer.id} status={request.status}/>}
       </div>
 
       </>)},

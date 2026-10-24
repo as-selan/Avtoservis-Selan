@@ -46,12 +46,15 @@ export function filterIntakeQueue(rows:IntakeQueueItem[],group:IntakeQueueGroup,
  return rows.filter(row=>(group==='all'||row.group===group)&&(!query||[row.order.id,row.order.customerName,row.order.registration,row.order.vehicleMakeModel,row.order.requestSummary].join(' ').toLocaleLowerCase('sl-SI').includes(query)));
 }
 
-/** Four presentation groups; action routing remains owned by intakeQueue. */
+/** Presentation groups derive from existing repair phases; no business transition. */
 export const DASHBOARD_GROUPS = [
- {id:'new',label:'NOVO'},
- {id:'decision',label:'ČAKA ODLOČITEV'},
- {id:'work',label:'V DELU'},
- {id:'done',label:'ZAKLJUČENO'},
+ {id:'new',label:'Nova povpraševanja'},
+ {id:'decision',label:'Čaka pripravo ali odobritev'},
+ {id:'work',label:'V popravilu'},
+ {id:'review',label:'Čaka vodjo'},
+ {id:'invoice',label:'Priprava računa'},
+ {id:'handover',label:'Čaka prevzem ali plačilo'},
+ {id:'done',label:'Zaključeno'},
 ] as const;
 export type DashboardGroup = typeof DASHBOARD_GROUPS[number]['id'];
 export type DashboardQueueItem = Omit<IntakeQueueItem,'group'> & {group:DashboardGroup};
@@ -59,8 +62,8 @@ export function uniqueDashboardOrders(orders:ServiceOrderDemo[]){const unique=ne
 export function dashboardQueue(orders:ServiceOrderDemo[]):DashboardQueueItem[]{
  orders=uniqueDashboardOrders(orders);
  const open:DashboardQueueItem[]=intakeQueue(orders).map(row=>({
-  ...row,
-  group:row.order.requiresAttention||row.order.nextActionKind==='review_quibi_mismatch'?'decision':row.group==='new'?'new':row.group==='work'||row.group==='review'||row.order.status==='termin_potrjen'?'work':'decision',
+  ...row,href:row.order.repairPhase==='invoice_review'?'/dashboard/primeri/'+row.order.serviceRequestId+'#poslovni-nalog':row.href,
+  group:row.order.repairPhase==='invoice_review'?'invoice':row.order.repairPhase==='handover'?'handover':row.order.repairPhase==='review_required'?'review':row.order.requiresAttention||row.order.nextActionKind==='review_quibi_mismatch'?'decision':row.group==='new'?'new':row.group==='work'||row.group==='review'||row.order.status==='termin_potrjen'?'work':'decision',
  }));
  const closed:DashboardQueueItem[]=orders.filter(order=>order.status==='zakljuceno'&&order.serviceRequestId).map(order=>({order,group:'done',label:'Odpri zaključen primer',href:'/dashboard/primeri/'+order.serviceRequestId}));
  return [...open,...closed.sort((a,b)=>b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id))];
@@ -75,6 +78,9 @@ export function filterDashboardQueue(rows:DashboardQueueItem[],group:DashboardGr
 export function isSyntheticOrder(order:ServiceOrderDemo){return order.synthetic===true||[order.customerName,order.requestSummary].some(value=>/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(value.trim()));}
 export function shortNextAction(item:DashboardQueueItem){
  const anchor=item.href.split('#')[1];
+ if(item.group==='invoice')return 'Pripravi ali preglej račun';
+ if(item.group==='review')return 'Preglej opravljeno delo';
+ if(item.group==='handover')return 'Uredi prevzem in plačilo';
  if(item.group==='done')return 'Odpri primer';
  if(item.order.nextActionKind==='automatic_estimate')return item.order.nextActionLabel.replace(/[.!]$/,'');
  if(item.order.nextActionKind==='review_quibi_mismatch')return 'Preveri dokument';

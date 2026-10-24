@@ -88,7 +88,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    if(form.get('dispatch')==='yes')throw Error('CATALOG_INVALID');
    return {...review,ok:true,headerSelectionRequired:true,message:'Postavke so prebrane iz preverjenega Quibi dokumenta. Izberite veljavno številčenje in vrsto prodaje; priprava se nato samodejno preveri.'};
   }
-  if(!reconciling&&kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Potrdite opravljeno popravilo in dejanski datum; Selan nato samodejno preveri pripravo za CREATE.'};
+  if(!reconciling&&kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')||!String(form.get('dueDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Preverite opravljeno delo ter datum storitve in zapadlosti. Dokument še ni ustvarjen.'};
   if(reconciling){
    if(!directCase||kind!=='invoice')throw Error('RECONCILIATION_FORBIDDEN');
    const opId=String(form.get('operationId')??'');
@@ -124,7 +124,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   }
   const invoiceHeader=kind==='invoice'?await verifiedInvoiceHeader(read,numberingId,{spaceId:String(form.get('spaceId')??''),paymentMethod:String(form.get('paymentMethod')??'')}):undefined;
   if(invoiceHeader){review.invoiceHeader=invoiceHeader;if(!invoiceHeader.ready){if(form.get('dispatch')==='yes')throw Error('QUIBI_INVOICE_CONFIGURATION_UNVERIFIED');return {...review,message:'Izberite način plačila in poslovni prostor iz aktualnih Quibi šifrantov. Podatkov ne kopiramo iz drugih računov.'};}}
-  if(kind==='invoice')review.invoiceDates=invoiceDates(String(form.get('serviceDate')??''),String(form.get('issueDate')||quibiToday()),String(form.get('dueDate')||form.get('issueDate')||quibiToday()));
+  if(kind==='invoice')review.invoiceDates=invoiceDates(String(form.get('serviceDate')??''),String(form.get('issueDate')||quibiToday()),String(form.get('dueDate')??''));
   const journalForRetry=quibiWorkflowJournal(access.organizationId,access.userId);
   const rejected=directCase&&!updating?await journalForRetry.get(kind,orderId):null;
   const retryOperationId=kind==='invoice'&&rejected?.state==='failed'&&!rejected.quibiId?rejected.id:undefined;

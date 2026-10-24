@@ -2,6 +2,10 @@
   "scope": "Hydrated real workspace with synthetic action fixtures. No authenticated app, DB writes or Quibi document created.",
   "results": [
     {
+      "invoiceDatesSurviveReload": true,
+      "invoiceDueDateExplicit": true,
+      "invoiceWriteDisabledNoCreateButton": true,
+      "invoiceReviewedNoRepeatCheckbox": true,
       "manualGross11194": true,
       "commaPriceSaveReload": true,
       "historyOnlyOnExplicitChoice": true,
@@ -36,6 +40,10 @@
       "pageErrors": 0
     },
     {
+      "invoiceDatesSurviveReload": true,
+      "invoiceDueDateExplicit": true,
+      "invoiceWriteDisabledNoCreateButton": true,
+      "invoiceReviewedNoRepeatCheckbox": true,
       "manualGross11194": true,
       "commaPriceSaveReload": true,
       "historyOnlyOnExplicitChoice": true,
@@ -70,6 +78,10 @@
       "pageErrors": 0
     },
     {
+      "invoiceDatesSurviveReload": true,
+      "invoiceDueDateExplicit": true,
+      "invoiceWriteDisabledNoCreateButton": true,
+      "invoiceReviewedNoRepeatCheckbox": true,
       "manualGross11194": true,
       "commaPriceSaveReload": true,
       "historyOnlyOnExplicitChoice": true,

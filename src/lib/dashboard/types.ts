@@ -35,6 +35,9 @@ export interface ServiceOrderDemo {
   requestSummary: string;
   synthetic?: boolean;
   intakeConnectionLabel?:string;
+  repairPhase?:string;
+  mechanicName?:string|null;
+  mechanicEmail?:string|null;
   status: WorkflowStatusId;
   nextActionLabel: string;
   nextActionKind?: string;

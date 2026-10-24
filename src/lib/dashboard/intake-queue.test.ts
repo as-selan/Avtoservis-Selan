@@ -55,10 +55,10 @@ test('published-price review, send and customer response stay in the published-p
 });
 
 import {dashboardQueue,filterDashboardQueue,DASHBOARD_GROUPS} from './intake-queue.ts';
-test('four dashboard groups include every case once while preserving action routing',()=>{
+test('seven dashboard groups include every case once while preserving action routing',()=>{
  const orders=[order('new','novo'),order('data','manjkajo_podatki'),order('estimate','priprava_ponudbe',{nextActionKind:'review_estimate'}),order('customer','caka_potrditev_ponudbe'),order('scheduled','termin_potrjen'),order('repair','aktivno_popravilo'),order('review','potreben_pregled'),order('done','zakljuceno')];
  const rows=dashboardQueue(orders);
- assert.equal(DASHBOARD_GROUPS.length,4);assert.equal(rows.length,orders.length);assert.equal(new Set(rows.map(r=>r.order.id)).size,orders.length);
+ assert.equal(DASHBOARD_GROUPS.length,7);assert.equal(rows.length,orders.length);assert.equal(new Set(rows.map(r=>r.order.id)).size,orders.length);
  const groups=Object.fromEntries(rows.map(r=>[r.order.id,r.group]));
  assert.deepEqual(groups,{new:'new',data:'decision',estimate:'decision',customer:'decision',scheduled:'work',repair:'work',review:'work',done:'done'});
  for(const original of intakeQueue(orders)){const row=rows.find(r=>r.order.id===original.order.id)!;assert.equal(row.href,original.href);assert.equal(row.label,original.label);}
@@ -78,3 +78,8 @@ test('only explicit QA-SIM/TEST markers leave normal daily work; data stays acce
 });
 
 test('one case remains one row even when a snapshot contains an older duplicate',()=>{const rows=dashboardQueue([order('same','novo'),order('same','novo'),order('done','zakljuceno'),order('done','zakljuceno')]);assert.deepEqual(rows.map(r=>r.order.serviceRequestId),['same','done']);});
+
+test('verified repair phases split manager review, invoice and handover without duplicating cases',()=>{
+ const rows=dashboardQueue([order('a','potreben_pregled',{repairPhase:'review_required'}),order('b','potreben_pregled',{repairPhase:'invoice_review'}),order('c','pripravljeno_za_prevzem',{repairPhase:'handover'})]);
+ assert.deepEqual(rows.map(r=>r.group),['review','invoice','handover']);assert.ok(rows[1].href.endsWith('#poslovni-nalog'));assert.match(shortNextAction(rows[1]),/račun/);
+});
