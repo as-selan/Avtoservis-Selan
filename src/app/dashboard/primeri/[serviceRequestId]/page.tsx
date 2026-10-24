@@ -1,3 +1,4 @@
+import {canConfirmQuibiVehicleCreate} from '@/lib/quibi/vehicle-create-permission';
 import {automaticDraftPresentation} from '@/lib/quibi/automatic-draft-state';
 import {AutomaticPreparationRefresh} from '@/components/dashboard/AutomaticPreparationRefresh';
 import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
@@ -255,7 +256,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const currentAttention=visibleIdentityNotice(request.attention_reason,identityConfirmed);
     const currentError=visibleIdentityNotice(request.error_reason,identityConfirmed);
     const newVehicleRequired=!!customer&&link?.sync_status==='ok'&&!vehicleLink&&!quote&&['new','needs_data'].includes(request.status);
-    const journeyInput:JourneyInput={newVehicleRequired,automaticDraftState:!quote&&!fixedPrice?automaticState:undefined,automaticPreparation:!quote&&!fixedPrice&&['new','preparing_offer','needs_data'].includes(request.status),status:request.status,role:access.role,stepKind:step.kind,
+    const journeyInput:JourneyInput={canCreateVehicle:canConfirmQuibiVehicleCreate(access.role,process.env),newVehicleRequired,automaticDraftState:!quote&&!fixedPrice?automaticState:undefined,automaticPreparation:!quote&&!fixedPrice&&['new','preparing_offer','needs_data'].includes(request.status),status:request.status,role:access.role,stepKind:step.kind,
         intakeComplete:missing.length===0&&!!customer&&!!vehicle,identityReady:link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok'&&!resolvedVehicleNeedsReview&&(!isHostedQuibiEnvironment(process.env)||(link.quibi_environment===hostedQuibiEnvironment(process.env)&&vehicleLink.quibi_environment===hostedQuibiEnvironment(process.env))),
         hosted:isHostedQuibiEnvironment(process.env),offerPrepared:prep?.status==='ready_for_provider',quoteReviewed:quote?.internal_review_status==='approved_for_send',
         customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',

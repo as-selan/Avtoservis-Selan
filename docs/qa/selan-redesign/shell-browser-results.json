@@ -30,6 +30,13 @@
       "hydratedInteraction": true
     },
     {
+      "scenario": "vehicle-admin-production",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
       "scenario": "dashboard",
       "width": 390,
       "noOverflow": true,
@@ -58,6 +65,13 @@
       "hydratedInteraction": true
     },
     {
+      "scenario": "vehicle-admin-production",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
       "scenario": "dashboard",
       "width": 350,
       "noOverflow": true,
@@ -80,6 +94,13 @@
     },
     {
       "scenario": "vehicle-owner",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin-production",
       "width": 350,
       "noOverflow": true,
       "pageErrors": 0,

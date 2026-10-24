@@ -2,7 +2,7 @@ import type {AutomaticDraftState} from '../quibi/automatic-estimate-draft';
 import {automaticDraftPresentation} from '../quibi/automatic-draft-state.ts';
 /** Presentation only. Existing server actions remain the authority for every transition. */
 export type JourneyInput = {
- newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
+ canCreateVehicle?:boolean; newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
  identityReady: boolean; hosted: boolean; offerPrepared: boolean; quoteReviewed: boolean;
  customerApproved: boolean; dispatched: boolean; hasWorkOrder: boolean;
  writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
@@ -28,10 +28,10 @@ export function caseJourney(p: JourneyInput) {
  if(!p.intakeComplete||p.status==='needs_data'){
   blocker='Manjkajo podatki za nadaljevanje. V podatkih primera preverite seznam in ustvarite povezavo za dopolnitev istega povpraševanja.';return result();
  }
- if(p.newVehicleRequired){action={label:p.role==='owner'?'Preveri in potrdi vozilo':'Navodilo za lastnika',href:'#quibi-povezava'};blocker=null;return result();}
+ if(p.newVehicleRequired){action={label:(p.role==='owner'||p.canCreateVehicle)?'Preveri in potrdi vozilo':'Navodilo za lastnika',href:'#quibi-povezava'};blocker=null;return result();}
  if(p.hosted&&!p.identityReady){
   action={label:'Preveri stranko in vozilo',href:'#quibi-povezava'};
-  blocker='Povezava stranke in vozila s Quibijem še ni potrjena. Primerjajte podatke v razdelku Povezava s Quibijem; ustvarjanje manjkajočega vozila potrdi lastnik.';return result();
+  blocker='Povezava stranke in vozila s Quibijem še ni potrjena. Primerjajte podatke v razdelku Povezava s Quibijem; ustvarjanje manjkajočega vozila potrdi pooblaščeni uporabnik v prikazanem obrazcu.';return result();
  }
  if(p.stepKind==='manual_inspection_billing'){
   current=6;action={label:'Uredi račun pregleda',href:'#termini'};return result();

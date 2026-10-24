@@ -37,6 +37,6 @@ Klik »Preglej predračun« pri samodejno pripravljenem osnutku opravi tudi obst
 
 ## Novo vozilo po spletnem povpraševanju
 
-Če piše **Novo vozilo – potrebna potrditev**, je stranka že povezana, vozilo pa čaka pregled. Novo Quibi vozilo lahko potrdi samo **lastnik**. Administrator naj lastniku posreduje povezavo do istega primera; ne potrebuje ločenega sprejema ali ponovnega vnosa.
+Če piše **Novo vozilo – potrebna potrditev**, je stranka že povezana, vozilo pa čaka pregled. V gostovanem **DEV** lahko novo Quibi vozilo izrecno potrdi **administrator ali lastnik**. Produkcijska pravica ostaja lastniku. Ni ločenega sprejema ali ponovnega vnosa.
 
-Lastnik preveri prikazane podatke in izbere **Potrdi in ustvari vozilo v Quibiju**. Nato Selan sam nadaljuje pripravo predračuna. Dokumenti, zgodovina in tehnični podatki ostajajo pod **Več podrobnosti**. [Preizkus #A73DB6BE, posnetki in omejitve](qa/selan-a73-vehicle-2026-10-24/README.md).
+Administrator v DEV oziroma lastnik preveri prikazane podatke in izbere **Potrdi in ustvari vozilo v Quibiju**. Nato Selan sam nadaljuje pripravo predračuna. Dokumenti, zgodovina in tehnični podatki ostajajo pod **Več podrobnosti**. [Preizkus #A73DB6BE, posnetki in omejitve](qa/selan-a73-vehicle-2026-10-24/README.md).
