@@ -1,3 +1,4 @@
+import {buildAutomaticEstimateDraft} from './automatic-estimate-draft';
 import {isHostedQuibiEnvironment} from './deployment-policy';
 import {requiresResolvedVehicleConfirmation} from './vehicle-identity';
 import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from './intake-sync-configuration';
@@ -16,7 +17,7 @@ const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function scheduleIntakeSynchronization(caseId:string){
  if(isHostedQuibiEnvironment(process.env)&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId)});
 }
-export async function processIntakeSynchronization(caseId:string){
+export async function processIntakeSynchronization(caseId:string,restarts=0){
  if(!uuid.test(caseId)||!isHostedQuibiEnvironment(process.env))return;
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!secret)return;
@@ -25,6 +26,12 @@ export async function processIntakeSynchronization(caseId:string){
  if(orgError||!org)return;
  const {data:request,error}=await db.from('service_requests').select('id,customer_id,vehicle_id,attention_reason,status,source,channel,intake_request_id,missing_fields').eq('organization_id',org.id).eq('id',caseId).is('archived_at',null).single();
  if(error||!request?.customer_id)return;
+ if(!['new','needs_data','preparing_offer'].includes(request.status))return;
+ const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID; if(!actor||!uuid.test(actor))return;
+ const claim=await db.rpc('automatic_offer_job',{p_case:caseId,p_actor:actor,p_action:'claim'});
+ if(claim.error||!claim.data?.run)return;
+ const run=claim.data.run;
+ async function finish(state:string,draft:unknown=null){const saved=await db.rpc('automatic_offer_job',{p_case:caseId,p_actor:actor,p_action:'finish',p_run:run,p_state:state,p_draft:draft});if(saved.error)throw Error('AUTOMATIC_DRAFT_STORAGE_FAILED');revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+caseId);return saved.data?.saved===true;}
  async function status(message:string|null){
   // Do not clear or replace attention raised by other business steps.
   if(request!.attention_reason&&!request!.attention_reason.startsWith('Quibi povezava:'))return;
@@ -85,12 +92,16 @@ export async function processIntakeSynchronization(caseId:string){
     if(error)throw Error('INTAKE_COMPLETENESS_STORAGE_FAILED');
    }
   }
-  await status(result.vehicleId?null:'Stranka je povezana. Za povezavo vozila dopolnite VIN, registracijo, znamko in model.');return result;
+  await status(result.vehicleId?null:'Stranka je povezana. Za povezavo vozila dopolnite VIN, registracijo, znamko in model.');
+  if(!result.vehicleId){await finish('needs_data');return result;}
+  const preparation=await buildAutomaticEstimateDraft({wanted:claim.data.input.wanted,description:claim.data.input.description,customerId:result.customerId},createQuibiReadClient(config));
+  const saved=await finish(preparation.state,preparation.draft);if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1);return result;
  }catch(error){
   const code=error instanceof Error?error.message:'';
   const review=/REVIEW|MISMATCH|CHANGED|REJECTED/.test(code);
   await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):code==='INTAKE_VEHICLE_CREATE_APPROVAL_REVIEW_REQUIRED'?'Vozila v Quibiju ni mogoče potrditi. V tem primeru pripravite novo vozilo in pridobite izrecno potrditev lastnika. Samodejni CREATE ni dovoljen.':code==='INTAKE_RESOLUTION_REVIEW_REQUIRED'?'Po popravku povpraševanja izberite in potrdite pravo Quibi vozilo v tem primeru. Če ga ni, novo vozilo izrecno potrdi lastnik; samodejni CREATE je ustavljen.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
-  if(review||code.startsWith('INTAKE_CONFIG:'))return;
+  if(review||code.startsWith('INTAKE_CONFIG:')){await finish('blocked');return;}
+  if(attempt===2)await finish('failed');
  }
 }
 
@@ -112,5 +123,15 @@ export function schedulePersistedWebIntakeSynchronization(clientRequestId:string
  const {data:org,error:orgError}=await db.from('organizations').select('id').eq('slug','avtoservis-selan').single();if(orgError||!org)return;
  const {data,error}=await db.from('service_requests').select('id').eq('organization_id',org.id).eq('source','web_form').eq('intake_request_id',clientRequestId).is('archived_at',null).single();
  if(!error&&data)await processIntakeSynchronization(data.id);
+ });
+}
+
+export function schedulePendingIntakePreparations(){
+ if(!isHostedQuibiEnvironment(process.env))return;
+ after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
+  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
+  const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID;if(!actor||!uuid.test(actor))return;
+  const pending=await db.rpc('pending_automatic_offers',{p_actor:actor});
+  if(!pending.error&&Array.isArray(pending.data))for(const id of pending.data)if(typeof id==='string')await processIntakeSynchronization(id);
  });
 }

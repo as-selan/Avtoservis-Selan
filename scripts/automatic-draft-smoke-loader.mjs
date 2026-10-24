@@ -1,0 +1,2 @@
+import {resolve as normalResolve} from './contact-test-loader.mjs';
+export async function resolve(specifier,context,nextResolve){if(specifier==='next/cache'){return {shortCircuit:true,url:'data:text/javascript,'+encodeURIComponent('const values=new Map();export const revalidatePath=()=>{};export function unstable_cache(fn,keys){return ()=>{const key=JSON.stringify(keys);if(!values.has(key))values.set(key,fn().catch(e=>{values.delete(key);throw e}));return values.get(key)}}')}}return normalResolve(specifier,context,nextResolve);}

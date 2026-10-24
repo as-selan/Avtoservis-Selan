@@ -1,6 +1,8 @@
+import type {AutomaticDraftState} from '../quibi/automatic-estimate-draft';
+import {automaticDraftPresentation} from '../quibi/automatic-draft-state';
 /** Presentation only. Existing server actions remain the authority for every transition. */
 export type JourneyInput = {
- status: string; role: string; stepKind: string; intakeComplete: boolean;
+ automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
  identityReady: boolean; hosted: boolean; offerPrepared: boolean; quoteReviewed: boolean;
  customerApproved: boolean; dispatched: boolean; hasWorkOrder: boolean;
  writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
@@ -22,6 +24,7 @@ export function caseJourney(p: JourneyInput) {
   blocker='Podatki ali izid zadnjega poskusa zahtevajo pregled. Ne ponavljajte ustvarjanja ali pošiljanja; v spodnjem razdelku preverite obstoječi dokument in shranjeni izid.';return result();
  }
  if(p.hasWorkOrder){current=p.hasAssignedWork===false?5:6;action={label:p.hasAssignedWork===false?'Preglej delovni nalog':'Nadaljuj popravilo',href:p.workOrderHref??(p.hasAssignedWork===false?'#poslovni-nalog':'#popravilo')};return result();}
+ if(p.automaticPreparation&&!p.quoteReviewed&&!p.customerApproved&&p.intakeComplete&&p.identityReady){current=2;action=automaticDraftPresentation(p.automaticDraftState);return result();}
  if(!p.intakeComplete||p.status==='needs_data'){
   blocker='Manjkajo podatki za nadaljevanje. V podatkih primera preverite seznam in ustvarite povezavo za dopolnitev istega povpraševanja.';return result();
  }

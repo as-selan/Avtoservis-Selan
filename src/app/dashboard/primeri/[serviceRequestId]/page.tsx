@@ -1,3 +1,6 @@
+import {AutomaticPreparationRefresh} from '@/components/dashboard/AutomaticPreparationRefresh';
+import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
+import type {AutomaticEstimateDraft,AutomaticDraftState} from '@/lib/quibi/automatic-estimate-draft';
 import {requestedEstimateRows,canonicalEstimateOptions} from '@/lib/quibi/estimate-editor';
 import {EstimatePreparationWorkspace} from '@/components/dashboard/EstimatePreparationWorkspace';
 import {currentCaseIdentity,visibleIdentityNotice} from '@/lib/cases/identity-notice';
@@ -56,6 +59,7 @@ import type { QuibiEstimateDetail } from "@/lib/quibi/contracts";
 import { pollQuibiEstimateSend } from "@/lib/quibi/unified-actions";
 import type { Operation } from "@/lib/quibi/write-workflow";
 
+export const maxDuration=300;
 export const dynamic = "force-dynamic";
 const fixedPriceEnabled = process.env.SELAN_FIXED_PRICE_V1 === "1";
 
@@ -80,7 +84,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       request.vehicle_id ? db.from("vehicles").select("id, make, model, registration_current, vin")
         .eq("organization_id", access.organizationId).eq("id", request.vehicle_id)
         .is("archived_at", null).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      db.from("offer_preparations").select("id, status")
+      db.from("offer_preparations").select("id, status, auto_state, auto_draft, auto_run")
         .eq("organization_id", access.organizationId).eq("service_request_id", serviceRequestId).maybeSingle(),
       request.customer_id ? db.from("integration_links").select("external_id, sync_status, last_error_code,quibi_environment")
         .eq("organization_id", access.organizationId).eq("provider", "quibi")
@@ -115,6 +119,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
     const prep = prepResult.data;
+    const automaticDraft=prep?.auto_draft as AutomaticEstimateDraft|null;
+    const automaticState=prep?.auto_state as AutomaticDraftState|null;
+    if(!quoteResult.data?.length&&['new','needs_data','preparing_offer'].includes(request.status))scheduleIntakeSynchronization(serviceRequestId);
     const link = linkResult.data;
     const quote = quoteResult.data?.[0] ?? null;
     const fixedPrice = fixedPriceResult.data;
@@ -170,7 +177,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         writeReady = true;
       } catch { writeReady = false; }
     }
-    if (!quote && !fixedPrice && request.status === "preparing_offer" && ["owner","admin"].includes(access.role) && !writeChoices) {
+    if (!quote && !fixedPrice && ["new","preparing_offer"].includes(request.status) && ["owner","admin"].includes(access.role) && !writeChoices) {
       try {
         const read=configuredQuibiReadClient();
         const [saleTypes,units,vatRates,warehouses]=await Promise.all([read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat'),read.catalog('warehouses')]);
@@ -183,6 +190,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       try{const read=configuredQuibiReadClient();estimateCatalog=await loadEstimateCatalog(read);if(link?.sync_status==='ok'){try{customerPriceListId=(await read.customer(link.external_id)).priceListId;}catch{/* Fresh server review remains authoritative. */}}if(customerPriceListId)estimateCatalog.options.sort((a,b)=>Number(b.priceListId===customerPriceListId)-Number(a.priceListId===customerPriceListId));}
       catch{estimateCatalog.issues=['Quibijevih cenikov ni mogoče prebrati. Podatki niso nadomeščeni z lokalnim cenikom.'];}
     }
+    if(automaticDraft){const saved=new Map(automaticDraft.options.map(option=>[option.key,option]));estimateCatalog.options=[...estimateCatalog.options.filter(option=>!saved.has(option.key)),...saved.values()];if(customerPriceListId===undefined)customerPriceListId=automaticDraft.customerPriceListId;}
     // Journal evidence remains visible with all external writes disabled.
     if (quote && !createdOperation){try{createdOperation=await quibiWorkflowJournal(access.organizationId,access.userId).get("estimate",serviceRequestId)}catch{}}
     if (quote && !sendOperation) {
@@ -245,7 +253,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const identityConfirmed=currentCaseIdentity({environment:isHostedQuibiEnvironment(process.env)?hostedQuibiEnvironment(process.env):null,customerId:link?.external_id??null,vehicleId:vehicleLink?.quibi_vehicle_id??null,customerSyncStatus:link?.sync_status??null,vehicleSyncStatus:vehicleLink?.sync_status??null,customerEnvironment:link?.quibi_environment??null,vehicleEnvironment:vehicleLink?.quibi_environment??null,resolvedVehicleNeedsReview});
     const currentAttention=visibleIdentityNotice(request.attention_reason,identityConfirmed);
     const currentError=visibleIdentityNotice(request.error_reason,identityConfirmed);
-    const journeyInput:JourneyInput={status:request.status,role:access.role,stepKind:step.kind,
+    const journeyInput:JourneyInput={automaticDraftState:!quote&&!fixedPrice?automaticState:undefined,automaticPreparation:!quote&&!fixedPrice&&['new','preparing_offer','needs_data'].includes(request.status),status:request.status,role:access.role,stepKind:step.kind,
         intakeComplete:missing.length===0&&!!customer&&!!vehicle,identityReady:link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok'&&!resolvedVehicleNeedsReview&&(!isHostedQuibiEnvironment(process.env)||(link.quibi_environment===hostedQuibiEnvironment(process.env)&&vehicleLink.quibi_environment===hostedQuibiEnvironment(process.env))),
         hosted:isHostedQuibiEnvironment(process.env),offerPrepared:prep?.status==='ready_for_provider',quoteReviewed:quote?.internal_review_status==='approved_for_send',
         customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',
@@ -267,7 +275,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             : <p className="text-sm text-amber-800">Stranka še ni povezana s primerom.</p>}
           {vehicle ? <p className="text-sm">{[vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vozilo"} · {vehicle.registration_current || vehicle.vin || "brez oznake"}</p>
             : <p className="text-sm text-amber-800">Vozilo še ni povezano s primerom.</p>}
-      {request.status === "new" && inspectionResult.data?.repair_decision !== "not_ordered" &&
+      {request.status === "new" && !automaticDraft && inspectionResult.data?.repair_decision !== "not_ordered" &&
         ["owner", "admin"].includes(access.role) &&
         <ReviewIntakeButton key={request.updated_at} serviceRequestId={serviceRequestId} blockedReason={isHostedQuibiEnvironment(process.env)&&!(link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok')?'Najprej preverite povezavo stranke in pravega vozila v razdelku »Povezava s Quibijem«. Če vozila ni, njegovo ustvarjanje potrdi lastnik. Nato sprejmite primer za pripravo ponudbe.':null} />}
         </section>
@@ -288,8 +296,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {request.status === "new" && !fixedPrice && estimateCatalog.options.length>0 && <p className="text-sm">Iz Quibija so pripravljene postavke iz cenikov ({estimateCatalog.options.length}). Po potrditvi pregleda primera bodo na voljo v pripravi predračuna; stranke in vozila ni treba ponovno vnašati.</p>}
           {writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
           {!quote && !fixedPrice && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) && !(link?.sync_status === "ok" && vehicleLink?.sync_status === "ok") && <p role="status" className="text-sm text-amber-800">Predogled predračuna bo na voljo po potrjeni povezavi stranke in pravega vozila. Najprej preverite podatke v razdelku »Povezava s Quibijem«; podatkov in cen ne vnašajte ponovno.</p>}
-          {!quote && !fixedPrice && request.status === "preparing_offer" && link?.sync_status === "ok" && vehicleLink?.sync_status === "ok" && ["owner", "admin"].includes(access.role) &&
-            <EstimatePreparationWorkspace aiServiceMatches={assistance.serviceMatches} requestedService={request.service_wanted} requestDescription={request.problem_description} offerPrepared={prep?.status === "ready_for_provider"} customerPriceListId={customerPriceListId} aiEstimateLines={assistance.estimateLines} inspectionFindings={inspectionResult.data?.status === "completed" ? inspectionResult.data.findings : null} serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} operationState={createdOperation?.state} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
+          {!quote && !fixedPrice && ["new","preparing_offer"].includes(request.status) && (!!automaticDraft||!isHostedQuibiEnvironment(process.env)) && link?.sync_status === "ok" && vehicleLink?.sync_status === "ok" && ["owner", "admin"].includes(access.role) &&
+            <EstimatePreparationWorkspace key={prep?.auto_run??serviceRequestId} initialRows={automaticDraft?.rows} intakeReviewRequired={request.status==='new'} aiServiceMatches={assistance.serviceMatches} requestedService={request.service_wanted} requestDescription={request.problem_description} offerPrepared={prep?.status === "ready_for_provider"} customerPriceListId={customerPriceListId} aiEstimateLines={assistance.estimateLines} inspectionFindings={inspectionResult.data?.status === "completed" ? inspectionResult.data.findings : null} serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} operationState={createdOperation?.state} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
             : <p className="text-sm text-slate-600">Primer še nima ustvarjenega predračuna. Pregled zgoraj še ne ustvari dokumenta in ga ne pošlje stranki.</p>}
@@ -386,7 +394,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Poslovna faza: {repairWork?.phase?.label??getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p>{repairWork&&<details className="text-xs text-slate-500"><summary>Ločena izvorna stanja</summary><p>Stanje povpraševanja: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}. To stanje ne potrjuje trenutne faze popravila, računa, plačila ali prevzema.</p></details>}</header>
 
       <CaseOverview status={repairWork?.phase?.label??getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))} prepared={quote ? `Predračun · različica ${quote.version_no}${quote.internal_review_status === "approved_for_send" ? " · interno potrjen" : quote.internal_review_status === "rejected_for_revision" ? " · potrebuje popravek" : " · čaka na interni pregled"}${approval && quote && hasRecordedCustomerApproval(approval,quote.content_sha256) ? " · stranka je odobrila" : ""}` : fixedPrice ? "Objavljena končna cena" : prep?.status === "ready_for_provider" ? "Osnutek za predračun; dokument še ni ustvarjen." : "Predračun še ni pripravljen."} customer={customer?.display_name || "Stranka še ni povezana"} vehicle={vehicle ? [vehicle.make,vehicle.model,vehicle.registration_current || vehicle.vin].filter(Boolean).join(" · ") || "Vozilo brez oznake" : "Vozilo še ni povezano"} request={[request.problem_description,request.service_wanted].filter(Boolean).join("\n") || request.summary || "Opis še ni vnesen"} missing={[...(!customer?["povezava stranke"]:[]),...(!vehicle?["povezava vozila"]:[]),...missing.map(field=>intakeFieldLabels[field]??"dodatni podatek")]}/>
-      <CaseJourney explanation={step.label} input={journeyInput}/>
+      <AutomaticPreparationRefresh active={!quote&&!fixedPrice&&(!automaticState||automaticState==='preparing')}/><CaseJourney explanation={step.label} input={journeyInput}/>
       {((request.has_error&&(!request.error_reason||currentError)) || (request.attention_needed&&(!request.attention_reason||currentAttention)) || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>
         {request.has_error && (!request.error_reason||currentError) && <p>{currentError || "Primer ima zabeleženo napako."}</p>}

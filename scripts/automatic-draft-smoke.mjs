@@ -1,0 +1,16 @@
+// Hosted synthetic persisted worker verification. Quibi GET only, no document operations.
+import assert from 'node:assert/strict';import {createClient} from '@supabase/supabase-js';
+assert.equal(process.env.VERCEL_PROJECT_ID,'prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU');assert.equal(process.env.VERCEL_ENV,'preview');assert.equal(process.env.QUIBI_MODE,'dev');assert.equal(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,'verxxsjbewmkgoxwqvxo.supabase.co');
+const original=globalThis.fetch;let quibiGets=0;globalThis.fetch=async(input,init)=>{const url=new URL(typeof input==='string'||input instanceof URL?input:input.url);if(url.hostname==='dev.quibi.net'){assert.equal(init?.method??'GET','GET','QUIBI_WRITES_FORBIDDEN');quibiGets++;}else assert.equal(url.hostname,'verxxsjbewmkgoxwqvxo.supabase.co');return original(input,init)};
+const {processIntakeSynchronization}=await import('../src/lib/quibi/automatic-intake-sync.ts');
+const {configuredQuibiReadClient}=await import('../src/lib/quibi/client.ts');
+const db=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+const ids=['564fb87d-1915-4bd6-b549-5722e2f30f1b'];
+for(const id of ids){const before=await db.from('service_requests').select('customer_id,vehicle_id').eq('id',id).single();assert.ifError(before.error);assert.equal(before.data.customer_id,'dfa5f6bf-586d-4dd7-867f-219fd1cef7ad');const journals=await db.from('quibi_dev_operation_journal').select('id').eq('service_request_id',id);assert.ifError(journals.error);
+ await Promise.all([processIntakeSynchronization(id),processIntakeSynchronization(id)]);
+ const saved=await db.from('offer_preparations').select('id,auto_run,auto_state,auto_draft').eq('service_request_id',id).single();assert.ifError(saved.error);assert.ok(saved.data.auto_draft,'DRAFT_NOT_SAVED_'+saved.data.auto_state);assert.equal(saved.data.auto_draft.rows.length,3);assert.equal(saved.data.auto_state,'ambiguous');assert.equal(saved.data.auto_draft.rows[0].key,'article:89158');
+ await processIntakeSynchronization(id);const reread=await db.from('offer_preparations').select('id,auto_run,auto_state,auto_draft').eq('service_request_id',id).single();assert.ifError(reread.error);assert.deepEqual(reread.data,saved.data);
+ const after=await db.from('quibi_dev_operation_journal').select('id').eq('service_request_id',id);assert.ifError(after.error);assert.deepEqual(after.data,journals.data);
+ console.log('SELAN_AUTOMATIC_DRAFT '+JSON.stringify({caseId:id,state:saved.data.auto_state,rows:saved.data.auto_draft.rows,options:saved.data.auto_draft.options.map(o=>({id:o.articleId,name:o.name,gross:o.grossPrice})),persistentReread:true,concurrentReplaySafe:true,noQuibiWrites:true,noDocuments:true}));}
+const read=configuredQuibiReadClient();const customers=await read.customers();let complete=[];for(const c of customers.filter(c=>c.name.startsWith('TEST-AUTOSERVIS-SELAN')&&c.phone&&c.email.endsWith('.test')).slice(0,5)){const vehicles=await read.vehicles(c.id);const v=vehicles.find(v=>!v.disabled&&v.vin&&v.registration&&v.make&&v.model);if(v)complete.push({customer:c,vehicle:v});}
+console.log('SELAN_AUTOMATIC_FIXTURE_DISCOVERY '+JSON.stringify({completeSyntheticCandidates:complete,quibiGets,write:false,send:false}));

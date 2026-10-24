@@ -17,7 +17,7 @@ import {
 } from "@/lib/intake/web-public";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function json(body: unknown, status = 200): NextResponse {
   const sanitized = sanitizeWebIntakePublicResponse(body);
