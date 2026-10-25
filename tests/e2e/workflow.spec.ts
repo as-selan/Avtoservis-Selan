@@ -465,6 +465,7 @@ test("missing data link completes the original case without exposing the token i
 
 test('mechanic starts, uploads a private photo batch and completes work without a note; owner sees the same evidence',async({page},testInfo)=>{
  const id=seed.mechanicCases[testInfo.project.name==='mobile-chromium'?'mobile':'desktop'];
+ if(testInfo.project.name==='mobile-chromium')await page.setViewportSize({width:390,height:844});
  await login(page,seed.mechanic);await page.goto('/dashboard/mehanik/'+id);
  await expect(page.getByText('Mehanik QA',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Začni delo',exact:true}).click();
@@ -487,4 +488,5 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await expect(page.locator('[data-work-form="assign"]')).toHaveCount(0);await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
  await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2);
  await noHorizontalOverflow(page);await page.screenshot({path:'test-results/p3-review-'+testInfo.project.name+'.png',fullPage:true});
+ if(testInfo.project.name==='mobile-chromium'){await page.setViewportSize({width:350,height:844});await noHorizontalOverflow(page);await page.screenshot({path:'test-results/p3-review-350.png',fullPage:true});}
 });
