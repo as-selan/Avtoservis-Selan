@@ -1,6 +1,6 @@
 # Selan P1 – odpravljanje NO-GO blokad
 
-Izhodišče: `00d0dc8`, PR #19, base `codex/selan-pr18-manual-qa`. Brez spremembe UI/poslovne produkcijske kode, RLS, Quibi zastavic, gostovane migracijske zgodovine ali dokumentov.
+Izhodišče: `00d0dc8`, PR #19, base `codex/selan-pr18-manual-qa`. Omejen popravek dostopnosti neobveznega predhodnega pregleda; brez sprememb RLS, Quibi zastavic, gostovane migracijske zgodovine ali dokumentov.
 
 ## Implementirani popravki
 
@@ -51,7 +51,7 @@ Dokler tega ni, ostaja **NO-GO za merge**. Ne povezovati našega DEV z Gitom in 
 
 Offline nabor: **622/622 PASS, 0 FAIL, 0 skipped**; vključuje prvotnih 594 testov in širšo discovery ter štiri nove migracijske regresije. `npm run lint`, root `npx tsc --noEmit` v čistem izvozu in lokalni `npm run build -- --webpack` so PASS (exit 0). Dodaten TypeScript pregled aktivnega drevesa je v prilogah. Build ima opozorilo o več lockfilih zaradi lokalnega izvoza pod QA mapo, ne napake aplikacije. Rezultati so v `verification.json` in logih. CI na novem SHA po pushu se spremlja posebej; lokalni PASS ne pomeni, da so DB/browser CI jobi že uspešni. Lokalni Docker daemon še ni na voljo; ni lokalnega hosted DB replaya. Na novo vključeni isolated DB/browser workflowi tečejo samo z disposable Docker/loopback podatki in brez hosted secrets. Njihovega rezultata ne enačiti z offline unit testi; morebitni FAIL/BLOCKED se poroča posebej.
 
-UX P1 je nespremenjen: nobena poslovna TSX komponenta, cena ali dokument nista spremenjena. Obstoječi REA 8/8 na 00d0dc8 ostaja dokaz za isto UI kodo; novega prijavljenega E2E nisem razglasil. Quibi CREATE/UPDATE/SEND, produkcijska objava, merge, history repair in retarget niso izvedeni.
+Prvi popravek ni spremenil UX P1. Naknadni browser CI je odkril in popravil omejeno vidnost neobveznega predhodnega pregleda (spodaj); cene in dokumenti ostajajo nespremenjeni. REA 8/8 na 00d0dc8 je predhodni dokaz, ne nov prijavljeni E2E te spremembe. Quibi CREATE/UPDATE/SEND, produkcijska objava, merge, history repair in retarget niso izvedeni.
 
 ## Pravila in veščine
 
@@ -73,3 +73,11 @@ Na d69874a Code checks in izolirana DB preverjanja uspejo. Browser CI 4014397459
 Odkrita je tudi omejena napaka produkcijske kode: začetek neobveznega predhodnega pregleda je bil filtriran iz podrobnosti. Zdaj je dostopen v new/preparing_offer pred predračunom oziroma nalogom; ne dodaja opravila v fazi računa. Regresija preverja vse izključitvene pogoje. Nobena cena, dovoljenje ali Quibi dokument ni spremenjen. Predhodni REA 8/8 ne pomeni ponovljenega prijavljenega E2E te spremembe.
 
 Lokalno: celotni offline nabor 624/624 PASS (0 preskokov), nato nov samostojni READ fixture test 1/1 PASS. Skupaj 625 uspešnih preverjanj; celotno novo discovery mora potrditi še CI. Aktualne rezultate CI je treba preveriti po pushu. Produkcijski sprožilec ostaja nepreverjen zaradi 403, ciljna veja ni spremenjena: NO-GO ostaja.
+
+## Končna browser regresija
+
+Na 192c244: celoten CI offline nabor **625/625 PASS, 0 FAIL, 0 skipped**, ESLint, TypeScript in produkcijski build PASS. Izolirana DB suite PASS. Browser: **25 PASS, 1 FAIL, 8 obstoječih preskokov**. Zadnji neuspeh je vidnost zgodovine termina: po potrjeni rezervaciji se primer pravilno premakne na delovni nalog, zato je referenca termina pod zloženimi podrobnostmi. 22f6af3 zdaj najprej počaka na shranjeno referenco, uporabniško odpre ustrezni razdelek in preveri vidnost. Novi CI mora potrditi končni rezultat; aktualne Actions povezave so v PR.
+
+Predhodna dva testa dopolnitve ne zahtevata več sprejema brez Quibi identitete: po ponovni osvežitvi preverita pravilni isti primer, VIN in stanje new ter odsotnost nedovoljenega sprejema. Predračun fixture vsebuje dejansko zahtevano service_wanted; strežniška poslovna validacija ni oslabljena. 8 preskokov ni dodanih s temi popravki (mobilne ponovitve enkratnih skupnih mutacij in obstoječi Auth scenariji). Gostovani prijavljeni REA ni ponovljen.
+
+Nedestruktivni merge-tree na 192c244: exit 0, 2035260f6e1b63aa2d745f2dcf70d99c253b6d99. Base PR ostaja codex/selan-pr18-manual-qa, Draft, brez retarget/merge. Pooblaščen uporabnik mora še vedno preveriti produkcijski Vercel sprožilec po zgornjem seznamu; 403 ni obit. **NO-GO** do te potrditve in odobritve kumulativnega integracijskega obsega.
