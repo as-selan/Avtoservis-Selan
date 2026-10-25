@@ -305,8 +305,8 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("textbox", { name: "Quibijev ID predračuna" }).fill("4001");
   await page.getByRole("checkbox", { name: /Ročno sem preveril, da gre za predračun/ }).check();
   await page.getByRole("button", { name: "Preveri in poveži predračun" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "predračun je povezan" }))
-    .toContainText("različica #1");
+  // Successful refresh unmounts the linking form; assert the persisted quote, not its transient toast.
+  await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed", {exact:false})).toBeAttached();
   await openCaseSection(page, "predracun");
   await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed", {exact:false})).toBeVisible();
   await page.getByRole("checkbox", { name: /Odprl sem Quibijev dokument/ }).check();
