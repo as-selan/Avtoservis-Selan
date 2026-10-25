@@ -4,7 +4,7 @@ import {quibiSourceNotes} from './business-source-lines.ts';
 import {createHash} from 'node:crypto';
 import {buildEstimateBody,stableEstimatePayload,type CreateEstimateInput,type EstimateBody} from './write-contract.ts';
 import {loadQuibiDocument,type QuibiDocumentKind} from './document-read.ts';
-import type {OperationJournal} from './write-workflow.ts';
+import type {Operation,OperationJournal} from './write-workflow.ts';
 import type {QuibiEstimateDetail} from './contracts.ts';
 export type BusinessKind='work_order'|'invoice';
 export function businessDocumentBody(kind:BusinessKind,orderId:string,input:CreateEstimateInput,serviceDate?:string):EstimateBody{
@@ -31,6 +31,20 @@ export function confirmBusinessContent(doc:QuibiEstimateDetail,body:EstimateBody
  }))throw Error('QUIBI_DOCUMENT_LINES_MISMATCH');
 }
 type Reader={documentPdf?:(id:string)=>Promise<unknown>;workOrders:(id:string)=>Promise<{id:string}[]>;invoices:(id:string)=>Promise<{id:string}[]>;estimates:(id:string)=>Promise<{id:string}[]>;documentDetail:(id:string,customerId:string)=>Promise<QuibiEstimateDetail>};
+async function exactExistingInvoice(read:Reader,customerId:string,externalId:string){const listed=await read.invoices(customerId);const matches:QuibiEstimateDetail[]=[];for(const row of listed){const doc=await read.documentDetail(row.id,customerId);if(doc.id!==row.id||doc.customerId!==customerId)throw Error('QUIBI_RECONCILIATION_UNVERIFIED');if(doc.externalId===externalId)matches.push(doc);}if(matches.length>1)throw Error('QUIBI_RECONCILIATION_UNVERIFIED');return matches[0];}
+/** Reconcile an uncertain invoice by exact external identity; GET/list only, never CREATE or PDF. */
+export async function reconcileBusinessInvoice(op:Operation,read:Reader,journal:OperationJournal,expectedAmount:string,expectedUnitNetPrices?:number[],expectedUnitIds?:string[]){
+ if(op.kind!=='invoice'||op.state!=='uncertain')throw Error('QUIBI_RECONCILIATION_UNVERIFIED');
+ const body=JSON.parse(op.requestBody) as EstimateBody;
+ if(stableEstimatePayload(body).sha256!==op.requestSha256||body.Glavadokumenta.external_id!==op.externalId||!op.externalId?.startsWith('selan-work-order:'))throw Error('QUIBI_RECONCILIATION_UNVERIFIED');
+ const customerId=String(body.Glavadokumenta.stranka_id);let id=op.quibiId;
+ if(!id){const match=await exactExistingInvoice(read,customerId,op.externalId);if(!match)throw Error('QUIBI_RECONCILIATION_UNVERIFIED');id=match.id;}
+ const doc=await loadQuibiDocument(read,'invoice',id,customerId);confirmBusinessContent(doc,body,expectedUnitNetPrices,expectedUnitIds);
+ if(Number(doc.amount)!==Number(expectedAmount)||!Number.isFinite(Number(expectedAmount)))throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH');
+ if(!doc.number||doc.number==='Osnutek'||op.documentNumber&&op.documentNumber!=='Osnutek'&&op.documentNumber!==doc.number)throw Error('QUIBI_DOCUMENT_NUMBER_MISMATCH');
+ return journal.patch(op.id,'uncertain',{state:'verified',quibiId:doc.id,documentNumber:doc.number,quibiContentSha256:doc.contentSha256});
+}
+
 export async function createBusinessDocument(args:{kind:BusinessKind;orderId:string;caseId:string;expectedAmount:string;retryOperationId?:string;expectedUnitNetPrices?:number[];expectedUnitIds?:string[];body:EstimateBody;journal:OperationJournal;read:Reader;write:{createEstimate:(body:EstimateBody)=>Promise<{id:string;number:string}>}}){
  const {kind,body,journal,read}=args;
  if(!['work_order','invoice'].includes(kind)||body.Glavadokumenta.external_id!==`selan-work-order:${args.retryOperationId??args.orderId}:${kind}`||'id' in body.Glavadokumenta)throw Error('QUIBI_INVALID_BUSINESS_INPUT');
@@ -43,9 +57,12 @@ export async function createBusinessDocument(args:{kind:BusinessKind;orderId:str
   if(!op.quibiId)throw Error('QUIBI_DOCUMENT_UNVERIFIED');const doc=await reread(op.quibiId);
   if(doc.contentSha256!==op.quibiContentSha256)throw Error('QUIBI_DOCUMENT_CHANGED');return op;
  }
+ if(op.state==='uncertain'&&kind==='invoice')return reconcileBusinessInvoice(op,read,journal,args.expectedAmount,args.expectedUnitNetPrices,args.expectedUnitIds);
  if(op.state==='uncertain'&&op.quibiId){const doc=await reread(op.quibiId);if(kind==='invoice'&&doc.number==='Osnutek')throw Error('QUIBI_INVOICE_STILL_DRAFT');return journal.patch(op.id,'uncertain',{state:'verified',documentNumber:doc.number,quibiContentSha256:doc.contentSha256})}
+ const alreadyCreated=kind==='invoice'&&op.state==='prepared'?await exactExistingInvoice(read,String(body.Glavadokumenta.stranka_id),body.Glavadokumenta.external_id):undefined;
  if(op.state!=='prepared'||!await journal.claim(op.id,'prepared'))throw Error('QUIBI_OPERATION_REQUIRES_RECONCILIATION');
  try{
+  if(alreadyCreated){const found=await journal.patch(op.id,'dispatching',{state:'uncertain',quibiId:alreadyCreated.id});return reconcileBusinessInvoice(found,read,journal,args.expectedAmount,args.expectedUnitNetPrices,args.expectedUnitIds);}
   const result=await args.write.createEstimate(JSON.parse(op.requestBody) as EstimateBody);
   await journal.patch(op.id,'dispatching',{state:'uncertain',quibiId:result.id,documentNumber:result.number});
   await reread(result.id);
