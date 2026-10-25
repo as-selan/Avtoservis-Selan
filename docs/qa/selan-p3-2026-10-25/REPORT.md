@@ -2,7 +2,7 @@
 
 ## Spremembe
 
-Odstranjenih je osem vrst odvečnih interakcij (ne osem korakov v vsakem primeru): potrditveno polje sprejema, potrditveno polje pregleda predračuna, potrditveno polje pregleda računa, ponovljeno polje potrditve prevzema, ločeno shranjevanje izbranih fotografij, ročni zagon READ preverjanja že ustvarjenega predračuna, navigacijski klik do aktivnega obrazca in dodatni nivo menija za napredek.
+Odstranjenih je enajst vrst odvečnih interakcij (ne enajst korakov v vsakem primeru): potrditveno polje sprejema, potrditveno polje pregleda predračuna, potrditveno polje pregleda računa, ponovljeno polje potrditve prevzema, ločeno shranjevanje izbranih fotografij, ročni zagon READ preverjanja že ustvarjenega predračuna, navigacijski klik do aktivnega obrazca dodatni nivo menija za napredek, dodatni checkbox pred pošiljanjem, obvezno prepisovanje prevzema in obvezno prepisovanje stanja plačila.
 
 Glavni poslovni gumb aktivnega opravila se prestavi v dosegljivo glavo primera; obrazec ostane povezan z gumbom. Kratke vrstice na nadzorni plošči ohranijo obstoječe skupine in ločitev testov. Dokumenti, podatki številčenja in daljša tehnična sporočila so pod podrobnostmi.
 
@@ -18,14 +18,14 @@ READ in povezava lahko tečeta ob odprtju. Pregled oziroma odobritev se nikoli n
 
 ## Preverjanje
 
-- Lokalni celotni nabor: 638/638 PASS, nič preskočenih testov.
+- Končni lokalni celotni nabor: 642/642 PASS, brez preskočenih testov. TypeScript in ESLint izvorne kode PASS. Za lokalni pregled so izključene samo ignorirane kopije deploymentov iz qa-visual; čisti CI uporablja običajne ukaze. Končni browser CI rezultat je naveden v PR.
 - Dodani regresijski primeri: oba načina DDV zaokroževanja, napačen znesek zavrnjen, ponovljeni READ brez podvajanja, spremenjena vsebina zavrnjena, natančna sintetična identiteta, en klik brez potrditvenega polja ter kratek razlog vrnitve.
 - Izolirani browser scenarij vključuje zasebno nalaganje dveh fotografij, začetek in zaključek dela, osvežitev, isto dokazilo za vodjo in namizni/mobilni prikaz. Končni CI rezultat je naveden v PR.
 - Prijavljeni gostovani E2E ni potrjen; razpoložljivi brskalnik je na prijavi. READ rezultati niso predstavljeni kot opravljen uporabniški E2E.
 
 ## Ohranjene omejitve
 
-WRITE/SEND, dovoljenja, RLS, preprečevanje podvajanja in dejanske poslovne odločitve ostajajo. AI brez ključa ni omogočen; opis težave ni obračunska postavka. MyPlanly ostaja ročen. Pošiljanje ima obstoječo izrecno potrditev; prevzem še vedno zahteva obstoječi zapis prevzema in obravnavo plačila. Samodejni varnostni pregled je zavrnil odstranitev teh kontrol brez konkretne potrditve; pojasnili uporabniku sta poslani, odgovor še ni prejet. Nobenega produkcijskega posega, merge ali zunanjega WRITE/SEND ni bilo.
+WRITE/SEND, dovoljenja, RLS, preprečevanje podvajanja in dejanske poslovne odločitve ostajajo. AI brez ključa ni omogočen; opis težave ni obračunska postavka. MyPlanly ostaja ročen. Uporabnik je nato izrecno odobril odstranitev dodatnega checkboxa SEND in obveznih polj prevzema/plačila. Pošiljanje sproži samo izrecni gumb z vidnim naslovom in zneskom; strežniške pravice, pregled, dovoljeni naslovi in dnevnik preprečevanja ponovitve ostanejo. Prevzem zabeleži izrecni klik in svež Quibi READ; neplačano ali neznano plačilo ostane tako shranjeno. Nobenega avtomatskega prevzema ali pošiljanja ob nalaganju ni. Nobenega produkcijskega posega, merge ali zunanjega WRITE/SEND ni bilo.
 
 ## Prebrane usmeritve in uporabljene veščine
 

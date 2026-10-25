@@ -56,6 +56,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
   {p.dev&&!p.sendEnabled&&<p className="text-sm">DEV: nova pošiljanja so izključena. Preverite dokument in prejemnika; stanje morebitnega prejšnjega poskusa je prikazano spodaj.</p>}
   {p.dev&&!sendAllowed&&!!p.allowedRecipients?.length&&<label className="block text-sm">Prejemnik za pregled<select value={recipient} onChange={e=>setRecipient(e.target.value)} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
   {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<p className="text-sm text-slate-600">Pošiljanje trenutno ni na voljo. Odobritev stranke lahko zabeležite ločeno.</p>}
+  {p.operationState&&<p role="status" className="text-sm">{status==='failed'?'Pošiljanje ni uspelo.':status==='sent'?'Predračun je predan poštnemu strežniku; prejem še ni potrjen.':p.sendId?'Pošiljanje je v čakalni vrsti.':'Izid pošiljanja še ni potrjen. Ne pošiljajte ponovno.'}</p>}
   {p.operationState&&<details className="space-y-2 text-sm"><summary>Več podrobnosti pošiljanja</summary><p>{outcome.outcome}: {outcome.message}</p>
    <p>Čas poskusa (UTC): {p.attemptedAt??"ni zabeležen"}</p><p>Referenca dnevnika: {p.operationId}</p>
    {p.sendId&&<p>Quibi send_id: {p.sendId}</p>}
