@@ -84,7 +84,10 @@ async function recordThreeManualSlots(page: Page, label: string) {
   await page.getByRole("textbox", { name: "Referenca dejanske ročne rezervacije" }).fill(`${label}-BOOKING`);
   await page.getByRole("checkbox", { name: "Izbrani termin sem dejansko rezerviral v svojem koledarju." }).check();
   await page.getByRole("button", { name: "Potrdi ročno rezerviran termin" }).click();
-  await expect(page.getByText(`Referenca ročne rezervacije: ${label}-BOOKING`)).toBeVisible();
+  const savedBooking=page.getByText(`Referenca ročne rezervacije: ${label}-BOOKING`);
+  await expect(savedBooking).toBeAttached();
+  await openCaseSection(page, "termini");
+  await expect(savedBooking).toBeVisible();
 }
 
 test.beforeEach(async () => { await fixtureMode("normal"); });
