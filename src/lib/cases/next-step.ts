@@ -94,6 +94,6 @@ export function quibiBusinessNextAction(rows:BusinessStepRecord[]):CaseStep|unde
   return step('manual_external_handoff','Račun #'+invoice.quibi_id+' je ustvarjen. Preglej dokument in PDF ter potrdi pošiljanje.');
  }
  const orders=rows.filter(r=>r.kind==='work_order'&&r.state==='verified'&&r.quibi_id);
- if(orders.length===1)return step('manual_external_handoff','Quibi nalog #'+orders[0].quibi_id+' je ustvarjen. Po opravljenem popravilu potrdi datum storitve in pripravi račun iz naloga.');
+ if(orders.length===1)return step('manual_external_handoff','Dodeli mehaniku');
  return undefined;
 }

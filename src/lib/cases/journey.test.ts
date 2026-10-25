@@ -31,7 +31,7 @@ test('verified order leads to repair and closed is explicit',()=>{
 });
 
 test('business order exists before mechanic assignment and must not offer CREATE again',()=>{
- const j=caseJourney({...base,status:'awaiting_slot_selection',hasWorkOrder:true,hasAssignedWork:false,customerApproved:true,stepKind:'manual_external_handoff'});assert.equal(j.current,5);assert.equal(j.action.href,'#poslovni-nalog');assert.match(j.action.label,/Preglej/);
+ const j=caseJourney({...base,status:'awaiting_slot_selection',hasWorkOrder:true,hasAssignedWork:false,customerApproved:true,stepKind:'manual_external_handoff'});assert.equal(j.current,5);assert.equal(j.action.href,'#popravilo');assert.equal(j.action.label,'Dodeli mehaniku');
 });
 test('inspection and published price retain their existing forms',()=>{
  assert.equal(caseJourney({...base,inspectionPending:true}).action.href,'#termini');
@@ -76,3 +76,5 @@ test('a verified created estimate routes one operator approval to the approval s
  const result=caseJourney(input);assert.equal(result.action.href,'#odobritev');assert.equal(result.action.label,'Stranka je odobrila');
  assert.equal(caseJourney({...input,identityReady:false}).action.href,'#quibi-povezava');
 });
+
+test('existing Quibi order without assignment leads to existing mechanic assignment, never invoicing',()=>{const j=caseJourney({...base,status:'awaiting_slot_selection',customerApproved:true,hasWorkOrder:true,hasAssignedWork:false});assert.equal(j.action.label,'Dodeli mehaniku');assert.equal(j.action.href,'#popravilo');});

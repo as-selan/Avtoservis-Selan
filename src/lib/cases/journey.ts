@@ -26,7 +26,7 @@ export function caseJourney(p: JourneyInput) {
  if(p.hasWorkOrder&&p.repairPhase==='invoice_review'){current=6;action={label:p.hasInvoice?'Preglej račun':'Pripravi račun',href:'#poslovni-nalog'};return result();}
  if(p.hasWorkOrder&&p.repairPhase==='review_required'){current=6;action={label:'Preglej opravljeno delo',href:'#popravilo'};return result();}
  if(p.hasWorkOrder&&p.repairPhase==='handover'){current=6;action={label:'Uredi prevzem vozila',href:'#popravilo'};return result();}
- if(p.hasWorkOrder){current=p.hasAssignedWork===false?5:6;action={label:p.hasAssignedWork===false?'Preglej delovni nalog':'Nadaljuj popravilo',href:p.workOrderHref??(p.hasAssignedWork===false?'#poslovni-nalog':'#popravilo')};return result();}
+ if(p.hasWorkOrder){current=p.hasAssignedWork===false?5:6;action={label:p.hasAssignedWork===false?'Dodeli mehaniku':'Nadaljuj popravilo',href:p.hasAssignedWork===false?'#popravilo':p.workOrderHref??'#popravilo'};return result();}
  if(p.automaticPreparation&&!p.quoteReviewed&&!p.customerApproved&&p.intakeComplete&&p.identityReady){current=2;const prepared=automaticDraftPresentation(p.automaticDraftState);action={label:prepared.action,href:prepared.href};return result();}
  if(!p.intakeComplete||p.status==='needs_data'){
   blocker='Manjkajo podatki za nadaljevanje. V podatkih primera preverite seznam in ustvarite povezavo za dopolnitev istega povpraševanja.';return result();

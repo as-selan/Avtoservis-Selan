@@ -24,6 +24,7 @@ export function intakeQueue(orders:ServiceOrderDemo[]):IntakeQueueItem[]{
   else if(order.fixedPriceStatus&&['review_estimate','send_estimate','await_customer'].includes(order.nextActionKind??'')){group=order.nextActionKind==='await_customer'?'customer':'estimate';anchor='objavljena-cena';}
   else if(['review_estimate','revise_estimate','send_estimate'].includes(order.nextActionKind??'')){group='estimate';anchor='pregled-predracuna';}
   else if(order.nextActionKind==='await_customer'){group='customer';anchor='odobritev';}
+  else if(order.nextActionKind==='manual_external_handoff'&&order.nextActionLabel==='Dodeli mehaniku'&&order.quibiWorkOrderId&&!order.repairPhase){group='work';anchor='popravilo';label='Dodeli mehaniku';}
   else if(order.nextActionKind==='manual_external_handoff'){group='service';}
   else if(order.nextActionKind==='automatic_estimate'){group='estimate';anchor='predracun';}
   else if(order.nextActionKind==='link_quibi'){anchor='quibi-povezava';}
@@ -79,6 +80,7 @@ export function filterDashboardQueue(rows:DashboardQueueItem[],group:DashboardGr
 export function isSyntheticOrder(order:ServiceOrderDemo){return order.synthetic===true||[order.customerName,order.requestSummary].some(value=>/^(?:QA-SIM(?:\b|[-_])|TEST(?:[-_\s:]|$))/i.test(value.trim()));}
 export function shortNextAction(item:DashboardQueueItem){
  const anchor=item.href.split('#')[1];
+ if(item.order.quibiWorkOrderId&&!item.order.repairPhase&&item.label==='Dodeli mehaniku')return 'Dodeli mehaniku';
  if(item.group==='invoice')return 'Pripravi ali preglej račun';
  if(item.group==='review')return 'Preglej opravljeno delo';
  if(item.group==='handover')return 'Uredi prevzem in plačilo';

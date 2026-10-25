@@ -466,7 +466,7 @@ test("missing data link completes the original case without exposing the token i
 test('mechanic starts, uploads a private photo batch and completes work without a note; owner sees the same evidence',async({page},testInfo)=>{
  const id=seed.mechanicCases[testInfo.project.name==='mobile-chromium'?'mobile':'desktop'];
  if(testInfo.project.name==='mobile-chromium')await page.setViewportSize({width:390,height:844});
- await login(page,seed.mechanic);await page.goto('/dashboard/mehanik/'+id);
+ await login(page,seed.mechanic);await page.goto('/dashboard/mehanik');await expect(page.locator('a[href="/dashboard/mehanik/'+id+'"]')).toBeVisible();await page.goto('/dashboard/mehanik/'+id);
  await expect(page.getByText('Mehanik QA',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Začni delo',exact:true}).click();
  await expect(page.getByRole('button',{name:'Zaključi delo',exact:true})).toBeVisible();

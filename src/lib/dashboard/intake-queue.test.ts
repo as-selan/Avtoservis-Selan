@@ -100,3 +100,5 @@ test('dashboard starts in the first nonempty real group without counting synthet
  assert.equal(defaultDashboardGroup([order('test','novo',{synthetic:true}),order('repair','aktivno_popravilo')]),'work');
  assert.equal(defaultDashboardGroup([]),'new');
 });
+
+test('an unassigned Quibi work order routes to assignment without reclassifying existing invoice progress',()=>{const row=order('c066','caka_izbiro_termina',{quibiWorkOrderId:'2176935',nextActionKind:'manual_external_handoff',nextActionLabel:'Dodeli mehaniku'});const queued=intakeQueue([row])[0];assert.equal(queued.group,'work');assert.ok(queued.href.endsWith('#popravilo'));const invoiced=intakeQueue([{...row,nextActionLabel:'Račun je ustvarjen.'}])[0];assert.notEqual(invoiced.label,'Dodeli mehaniku');});

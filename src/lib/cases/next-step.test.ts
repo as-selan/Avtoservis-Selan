@@ -100,3 +100,5 @@ test('dashboard without case-specific write readiness offers preview without inv
  const step=nextCaseStep({status:'preparing_offer',offerPrepared:true,quibiLinked:true});
  assert.match(step.label,/preglej ponudbo/);assert.doesNotMatch(step.label,/konfiguriraj/);
 });
+
+test('a verified work order requests assignment, not an invoice',()=>{const step=quibiBusinessNextAction([{kind:'work_order',state:'verified',quibi_id:'2176935'}])!;assert.equal(step.label,'Dodeli mehaniku');});

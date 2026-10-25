@@ -7,3 +7,11 @@ test('new evidence, changed invoice and uncertain CREATE cannot inherit closure'
 test('review is limited to owner/admin, and QA does not depend on a magic case UUID',()=>{requireReviewRole('admin');requireReviewRole('owner');assert.throws(()=>requireReviewRole('mechanic'),/FORBIDDEN/);assert.throws(()=>requireReviewRole('reception'),/FORBIDDEN/);assert.equal(syntheticRepair('QA-SIM: preizkus'),true);assert.equal(syntheticRepair('Actual brake repair'),false);});
 
 test('A73 work review remains simulated only for exact DEV case and vehicle',()=>{const id='a73db6be-7216-4677-bc0a-26e97693ad75',problem='TESTNO POVPRAŠEVANJE – AVTOSERVIS SELAN';assert.equal(a73SyntheticWork('dev',id,'TESTSELANBX202602',problem),true);for(const args of [['production',id,'TESTSELANBX202602',problem],['dev','other','TESTSELANBX202602',problem],['dev',id,'REALVIN',problem],['dev',id,'TESTSELANBX202602','real repair']])assert.equal(a73SyntheticWork(...args as [string,string,string,string]),false);});
+
+test('assignment and actual work must precede manager review and invoice preparation',()=>{
+ for(const status of ['assigned','in_progress','awaiting_parts']){const phase=repairPhase(status,state([]));assert.notEqual(phase.id,'invoice_review');}
+ assert.equal(repairPhase('work_completed',state([])).id,'review_required');
+ assert.equal(repairPhase('work_completed',state([event('returned')])).id,'review_required');
+ assert.equal(repairPhase('work_completed',state([event('accepted')])).id,'invoice_review');
+ const stale={...event('accepted'),evidence_sha:'c'.repeat(64)};assert.equal(repairPhase('work_completed',state([stale])).id,'review_required');
+});
