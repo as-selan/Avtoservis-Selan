@@ -466,11 +466,15 @@ test("missing data link completes the original case without exposing the token i
 test('mechanic starts, uploads a private photo batch and completes work without a note; owner sees the same evidence',async({page},testInfo)=>{
  const id=seed.mechanicCases[testInfo.project.name==='mobile-chromium'?'mobile':'desktop'];
  if(testInfo.project.name==='mobile-chromium')await page.setViewportSize({width:390,height:844});
- await login(page,seed.mechanic);await page.goto('/dashboard/mehanik');await expect(page.locator('a[href="/dashboard/mehanik/'+id+'"]')).toBeVisible();await page.goto('/dashboard/mehanik/'+id);
+ await login(page,seed.mechanic);await page.goto('/dashboard/mehanik');await expect(page.locator('a[href="/dashboard/mehanik/'+id+'"]')).toBeVisible();
+ await expect(page.locator('main ul li a').first()).toHaveAttribute('href','/dashboard/mehanik/'+seed.mechanicCases.mobile);
+ const watch=await page.context().newPage();await watch.goto('/dashboard/mehanik');await expect(watch.locator('[data-workshop-realtime]')).toHaveAttribute('data-workshop-realtime','subscribed');
+ await page.goto('/dashboard/mehanik/'+id);
  await expect(page.getByText('Mehanik QA',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Začni delo',exact:true}).click();
  await expect(page.getByRole('button',{name:'Zaključi delo',exact:true})).toBeVisible();
  await expect(page.locator('#case-primary-action [data-case-primary]')).toHaveText('Zaključi delo');
+ await watch.bringToFront();await expect(watch.locator('a[href="/dashboard/mehanik/'+id+'"]')).toContainText('Delo poteka',{timeout:15000});await page.bringToFront();
  await page.getByText('Dodaj fotografije',{exact:true}).click();
  const camera=page.getByLabel('Fotografiraj vozilo ali del');await expect(camera).toHaveAttribute('capture','environment');
  const gallery=page.getByLabel('Ali izberi iz galerije');await expect(gallery).toHaveAttribute('multiple','');
@@ -481,6 +485,7 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await page.screenshot({path:'test-results/p3-mechanic-'+testInfo.project.name+'.png',fullPage:true});
  await page.getByRole('button',{name:'Zaključi delo',exact:true}).click();
  await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
+ await watch.bringToFront();await expect(watch.locator('a[href="/dashboard/mehanik/'+id+'"]')).toContainText('Delo opravljeno',{timeout:15000});await expect(watch.locator('main ul li a').first()).toHaveAttribute('href','/dashboard/mehanik/'+seed.mechanicCases.mobile);await watch.close();
  await page.reload();await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
  await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2);
  await noHorizontalOverflow(page);

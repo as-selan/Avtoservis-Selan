@@ -31,6 +31,11 @@ fi
 pwsh -NoProfile -File "${REPO_ROOT}/supabase/tests/verify_isolated_docker_target.ps1" \
   -ExpectedContainerName "${EXPECTED_CONTAINER_NAME}" -ExpectedHostPort "${EXPECTED_HOST_PORT}"
 (cd "${CI_WORKDIR}" && supabase migration up)
+# Mirror the existing DEV assignment publication only in the verified disposable container.
+# Hosted publication configuration is unchanged; this is not a hosted migration.
+docker exec "${EXPECTED_CONTAINER_NAME}" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  -c 'ALTER PUBLICATION supabase_realtime ADD TABLE public.service_case_assignments;'
+
 
 STATUS_JSON="$(cd "${CI_WORKDIR}" && supabase status -o json)"
 status_value() {
