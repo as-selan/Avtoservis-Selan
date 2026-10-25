@@ -29,3 +29,11 @@ test('returning work needs one actual reason without an arbitrary typing minimum
  const f=fixture();const form=f.form('returned');form.set('reference','Pokrov');assert.equal((await f.action(form)).ok,true);assert.equal((f.saved[0].p_body as {reference:string}).reference,'Razlog vrnitve: Pokrov');
  const missing=fixture();const blank=missing.form('returned');blank.set('reference',' ');assert.equal((await missing.action(blank)).ok,false);assert.equal(missing.saved.length,0);
 });
+
+for(const unknown of [false,true])test(`explicit pickup needs no repeated fields and preserves ${unknown?'unknown':'unpaid'} Quibi payment`,async()=>{
+ const f=fixture();f.accept();assert.equal((await f.action(f.form('invoice_checked'))).ok,true);const checked=f.saved[0].p_body as Record<string,unknown>;f.work.review.events.push({id:'checked',action:'invoice_checked',evidence_sha:sha,created_at:'2026-10-17T11:00:00Z',simulated:true,body:checked});
+ if(unknown)f.read.documentPayments=async()=>{throw Error('READ_TIMEOUT');};
+ const form=f.form('closed');form.delete('handoverReference');form.delete('paymentHandling');form.delete('reference');assert.equal((await f.action(form)).ok,true);const body=f.saved[1].p_body as Record<string,unknown>;assert.match(String(body.handoverReference),/uporabnikov klik/);assert.equal(body.handoverRecordedBy,'actor');assert.equal(body.operatorNote,null);
+ if(unknown){assert.equal(body.payment,null);assert.match(String(body.paymentHandling),/neznano/);}else{assert.equal((body.payment as {remaining:number}).remaining,45.99);assert.match(String(body.paymentHandling),/preostanek 45.99/);}
+ const noClick=fixture();const invalid=noClick.form('closed');invalid.delete('confirmed');assert.equal((await noClick.action(invalid)).ok,false);assert.equal(noClick.saved.length,0);
+});

@@ -36,3 +36,7 @@ test('an unreviewed estimate cannot offer sending before separate Tadej approval
  const estimate=render('QuibiEstimateWorkflowPanel',{dev:true,sendEnabled:true,documentId:'doc',reviewStatus:'unreviewed',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',alreadyDelivered:false});
  assert.equal(!!find(estimate,n=>n.type==='form'),false);
 });
+
+test('explicit estimate send button replaces only the redundant review checkbox',()=>{
+ const estimate=render('QuibiEstimateWorkflowPanel',{dev:true,sendEnabled:true,serviceRequestId:'case',quoteId:'quote',documentId:'doc',reviewStatus:'approved_for_send',sha256:'sha',amount:'45.99',lines:[{description:'QA',quantity:'1',grossPrice:'45.99'}],recipient:'qa@example.test',manualIdentityRequired:false,alreadyDelivered:false});assert.ok(find(estimate,n=>n.type==='form'));assert.equal(find(estimate,n=>n.props.name==='reviewConfirmed'),undefined);assert.ok(find(estimate,n=>n.type==='button'));
+});

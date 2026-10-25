@@ -10,7 +10,7 @@ type Props={serviceRequestId:string;quoteId:string;documentId:string;reviewStatu
 export function QuibiEstimateWorkflowPanel(p:Props){
  const router=useRouter(),lock=useRef(false),polling=useRef(false);
  const [pending,startTransition]=useTransition(),[attempted,setAttempted]=useState(false),[message,setMessage]=useState("");
- const [recipient,setRecipient]=useState(p.recipient??""),[reviewed,setReviewed]=useState(false);
+ const [recipient,setRecipient]=useState(p.recipient??"");
  const [status,setStatus]=useState(p.sendStatus),[pollCount,setPollCount]=useState(0);
  const formIds=()=>{const f=new FormData();f.set("serviceRequestId",p.serviceRequestId);f.set("quoteId",p.quoteId);return f};
  async function poll(){
@@ -38,7 +38,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
   {sendAllowed&&<form id={"send-estimate-"+p.serviceRequestId} className="space-y-3" onSubmit={e=>{
    e.preventDefault();if(lock.current)return;lock.current=true;setAttempted(true);
    const f=new FormData(e.currentTarget);f.set("serviceRequestId",p.serviceRequestId);f.set("quoteId",p.quoteId);
-   f.set("recipient",recipient);f.set("displayedSha256",p.sha256);f.set("displayedAmount",p.amount!);
+   f.set("reviewConfirmed","yes");f.set("recipient",recipient);f.set("displayedSha256",p.sha256);f.set("displayedAmount",p.amount!);
    startTransition(async()=>{try{const r=await approveAndSendQuibiEstimate(f);setMessage(r.ok?r.detail:r.message);if(r.ok)setStatus(r.status)}
     catch{setMessage("Izid ni znan. Ne ponavljajte pošiljanja; preverite dnevnik.")}finally{lock.current=false;router.refresh()}})
   }}>
@@ -48,10 +48,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
    {p.manualIdentityRequired&&p.qaIdentityExceptionAvailable&&<label className="flex gap-2 text-sm text-amber-800"><input name="qaIdentityLimitationConfirmed" type="checkbox" value="yes" required />
     Izrecna QA izjema samo za sintetični lokalni DEV primer #9D40C42F, predračun #2176888, 122 EUR in online.gold100@gmail.com: API ne vrača ID-ja vozila. Povezava dokumenta z vozilom in storitvijo ni neodvisno dokazana. Potrjujem to omejitev; zapis ni dokaz ujemanja.
    </label>}
-   {p.dev&&!!p.allowedRecipients?.length&&<label className="block text-sm">Dovoljeni testni prejemnik<select name="recipient" value={recipient} onChange={e=>{setRecipient(e.target.value);setReviewed(false)}} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
-   <label className="flex gap-2 text-sm"><input name="reviewConfirmed" type="checkbox" value="yes" checked={reviewed} onChange={e=>setReviewed(e.target.checked)} required />
-    Pregledal sem postavke, znesek, stranko, vozilo in storitev. Potrjujem enkratno pošiljanje na prikazani naslov.
-   </label>
+   {p.dev&&!!p.allowedRecipients?.length&&<label className="block text-sm">Dovoljeni testni prejemnik<select name="recipient" value={recipient} onChange={e=>{setRecipient(e.target.value)}} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
    <CasePrimaryAction>   <button form={"send-estimate-"+p.serviceRequestId} disabled={pending} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
     {pending?"Preverjam in pošiljam…":"Pošlji predračun"}
    </button></CasePrimaryAction>
