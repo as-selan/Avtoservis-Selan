@@ -103,7 +103,7 @@ await insert("vehicles", { id: preparedVehicleId, organization_id: org, customer
 await insert("service_requests", { id: caseId, organization_id: org, customer_id: customer,
   vehicle_id: vehicle, status: "new", source: "manual", summary: "Izolirani E2E primer" });
 await insert("service_requests", { id: preparedCaseId, organization_id: org, customer_id: linkedCustomer,
-  vehicle_id: preparedVehicleId, status: "preparing_offer", source: "manual", summary: "Quibi predračun" });
+  vehicle_id: preparedVehicleId, status: "preparing_offer", source: "manual", summary: "Quibi predračun", service_wanted: "Preizkusna storitev" });
 await insert("offer_preparations", { organization_id: org, service_request_id: preparedCaseId,
   created_by_profile_id: owner.id, status: "ready_for_provider" });
 await insert("service_requests", [

@@ -336,7 +336,7 @@ test("completed preliminary inspection remains payable when repair is not ordere
   await openCaseSection(page, "termini");
   await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
   await recordThreeManualSlots(page, "INSPECTION");
-  await expect(page.getByText(/diagnosis · interno: confirmed/)).toBeVisible();
+  await expect(page.getByText("Referenca ročne rezervacije: INSPECTION-BOOKING")).toBeVisible();
   await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Pregled je bil opravljen brez naročila popravila.");
   await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
   await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
@@ -449,8 +449,10 @@ test("missing data link completes the original case without exposing the token i
   await page.goto(`/dashboard/primeri/${caseId}`);
   await expect.poll(()=>caseStatus(caseId)).toBe("new");
   await openCaseSection(page, "podatki");
-  await expect(page.getByText("Tadejev pregled sprejema")).toBeVisible();
-  await page.getByRole("checkbox", { name: "Preveril sem podatke tega primera in ga sprejemam za pripravo ponudbe." }).check();
-  await page.getByRole("button", { name: "Sprejmi primer za pripravo ponudbe" }).click();
-  await expect.poll(()=>caseStatus(caseId)).toBe("preparing_offer");
+  // Completion restores local data, but must not bypass confirmed Quibi identity.
+  await expect(page.getByRole("button", {name:"Sprejmi primer za pripravo ponudbe"})).toHaveCount(0);
+  await page.reload();
+  await expect.poll(()=>caseStatus(caseId)).toBe("new");
+  await expect(page.getByRole("region", {name:"Povzetek povpraševanja"})).toContainText(mobile ? "TST00000000000003" : "TST00000000000002");
+
 });
