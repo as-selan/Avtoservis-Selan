@@ -470,6 +470,7 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await expect(page.getByText('Mehanik QA',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Začni delo',exact:true}).click();
  await expect(page.getByRole('button',{name:'Zaključi delo',exact:true})).toBeVisible();
+ await expect(page.locator('#case-primary-action [data-case-primary]')).toHaveText('Zaključi delo');
  await page.getByText('Dodaj fotografije',{exact:true}).click();
  const camera=page.getByLabel('Fotografiraj vozilo ali del');await expect(camera).toHaveAttribute('capture','environment');
  const gallery=page.getByLabel('Ali izberi iz galerije');await expect(gallery).toHaveAttribute('multiple','');
