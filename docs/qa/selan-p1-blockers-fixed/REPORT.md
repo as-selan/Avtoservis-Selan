@@ -81,3 +81,24 @@ Na 192c244: celoten CI offline nabor **625/625 PASS, 0 FAIL, 0 skipped**, ESLint
 Predhodna dva testa dopolnitve ne zahtevata več sprejema brez Quibi identitete: po ponovni osvežitvi preverita pravilni isti primer, VIN in stanje new ter odsotnost nedovoljenega sprejema. Predračun fixture vsebuje dejansko zahtevano service_wanted; strežniška poslovna validacija ni oslabljena. 8 preskokov ni dodanih s temi popravki (mobilne ponovitve enkratnih skupnih mutacij in obstoječi Auth scenariji). Gostovani prijavljeni REA ni ponovljen.
 
 Nedestruktivni merge-tree na 192c244: exit 0, 2035260f6e1b63aa2d745f2dcf70d99c253b6d99. Base PR ostaja codex/selan-pr18-manual-qa, Draft, brez retarget/merge. Pooblaščen uporabnik mora še vedno preveriti produkcijski Vercel sprožilec po zgornjem seznamu; 403 ni obit. **NO-GO** do te potrditve in odobritve kumulativnega integracijskega obsega.
+
+## Potrjeno končno stanje in pojasnilo lastnika (25. 10. 2026)
+
+Na commitu **70a6cc8** so dokončno uspešni vsi trije CI sklopi:
+
+- [Code checks 40146062525](https://github.com/as-selan/Avtoservis-Selan/actions/runs/40146062525): **625/625 PASS**, brez failures/preskokov; TypeScript, ESLint in produkcijski build PASS.
+- [Isolated DB 40146062536](https://github.com/as-selan/Avtoservis-Selan/actions/runs/40146062536): PASS.
+- [Isolated browser E2E 40146062531](https://github.com/as-selan/Avtoservis-Selan/actions/runs/40146062531): **26 PASS, 0 FAIL, 8 obstoječih preskokov**. Predhodni neuspešni browser rezultati zgoraj so zgodovina odpravljanja napak, ne aktualne blokade. Gostovani prijavljeni REA ni ponovljen.
+
+Lastnik je ročno preveril Vercel: vidi samo ekipo azalar7-lang's projects (Hobby) in projekt avtoservis-selan-dev, ki ni povezan z GitHubom. Druge ekipe ali produkcijskega projekta ne vidi. **Produkcijski Vercel pregled: BLOCKED — manjka dostop.** S tem ni potrjeno, da produkcijski projekt oziroma sprožilec ne obstaja; ni ga mogoče preveriti z razpoložljivim dostopom. Brez nadaljnjega poskušanja obhoda dovoljenj ali sprememb konfiguracije.
+
+Sveže lokalno preverjanje po odgovoru uporabnika: štiri migracijske regresije PASS; vse tri kanonične vsebine in popoln CI manifest so ohranjeni. Brez ponavljanja SQL, db push ali hosted history repair. Svež fetch main in osnovne veje: 158 commitov nad PR #18 ostaja; merge-tree main → 70a6cc8 uspe brez konfliktov (drevo 45b30d211684c1a4ad9febe12db664975fd0f07f). Nobena tehnična napaka testov/migracij ali konflikt Git ni več ugotovljen.
+
+Odprti odločitvi pred merge:
+
+1. **BLOCKED:** pooblaščen dostop do dejanskega produkcijskega Vercel projekta in potrditev Git/deploy sprožilcev.
+2. **ČAKA ODOBRITEV:** kumulativni obseg 158 commitov osnovne veje in predlagani retarget istega PR #19 na main. Pripravljena analiza in inventar ostajata veljavna; retarget ni izveden.
+
+**Sklep: NO-GO za merge.** PR ostaja Draft na codex/selan-pr18-manual-qa. Noben merge, deployment, produkcijska sprememba ali realni Quibi CREATE/UPDATE/SEND ni izveden. Ta dopolnitev spreminja samo poročilo.
+
+Ponovno prebrano: AGENTS.md in CLAUDE.md v C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1, C:/Users/Admin/.ai-os/ORCHESTRATION_GUIDE.md. Uporabljeni veščini: C:/Users/Admin/.agents/skills/ai-orchestrator/SKILL.md in C:/Users/Admin/.agents/skills/superpowers/verification-before-completion/SKILL.md.
