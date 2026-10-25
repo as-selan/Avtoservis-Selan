@@ -1,3 +1,4 @@
+import {latestBusinessActivity} from './adapt-dashboard';
 import {manualOfferExpired} from "@/lib/appointments/manual-slot-draft";
 import {formatRelativeUpdatedLabel} from './relative-time';
 import {loadCaseWork} from '@/lib/case-work/read';
@@ -240,7 +241,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           vehicle,
           now,
           {
-            quibiWorkOrderId:repairsByCase.get(row.id)?.quibiId??businessRowsByRequest.get(row.id)?.find(r=>r.kind==='work_order'&&r.state==='verified')?.quibi_id??undefined,repairPhase:repairsByCase.get(row.id)?.phase?.id,mechanicName:repairsByCase.get(row.id)?.mechanicName,mechanicEmail:repairsByCase.get(row.id)?.mechanicEmail,repairNextAction:repairsByCase.get(row.id)?.phase?.step,repairUpdatedAt:repairsByCase.get(row.id)?.lastActivity,repairUiStatus:repairsByCase.get(row.id)?.phase?.uiStatus,
+            quibiWorkOrderId:repairsByCase.get(row.id)?.quibiId??businessRowsByRequest.get(row.id)?.find(r=>r.kind==='work_order'&&r.state==='verified')?.quibi_id??undefined,repairPhase:repairsByCase.get(row.id)?.phase?.id,mechanicName:repairsByCase.get(row.id)?.mechanicName,mechanicEmail:repairsByCase.get(row.id)?.mechanicEmail,repairNextAction:repairsByCase.get(row.id)?.phase?.step,businessUpdatedAt:latestBusinessActivity(...(businessRowsByRequest.get(row.id)??[]).map(operation=>operation.created_at),approvalByRequest.get(row.id)?.decided_at),repairUpdatedAt:repairsByCase.get(row.id)?.lastActivity,repairUiStatus:repairsByCase.get(row.id)?.phase?.uiStatus,
             businessNextAction:quibiBusinessNextAction(businessRowsByRequest.get(row.id)??[]),
             customerApprovalVerified: (()=>{const approval=approvalByRequest.get(row.id),quote=quoteByRequest.get(row.id);return !!approval&&!!quote&&approval.quote_id===quote.id&&hasRecordedCustomerApproval(approval,quote.content_sha256)})(),
             quibiCreateRejected:rejectedEstimateRequests.has(row.id),

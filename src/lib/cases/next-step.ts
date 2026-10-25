@@ -51,11 +51,11 @@ export function nextCaseStep(input: {
       if (input.quoteReviewStatus === "unreviewed")
         return step("review_estimate", "Tadej naj pregleda postavke in znesek v Selanu ter odobri in pošlje predračun.");
       if (input.quoteReviewStatus === "approved_for_send" && input.deliveryStatus !== "delivered")
-        return step("send_estimate", "Pošlji odobreni predračun iz Selana prek Quibi API-ja; stanje se shrani samodejno.");
+        return step("send_estimate", "Pošlji odobreni predračun iz Selana v Quibiju; stanje se shrani samodejno.");
       return step("manual_quibi_estimate", input.quibiDevWriteEnabled === undefined
         ? "Odpri primer in preglej ponudbo s svežimi Quibijevimi postavkami in cenami. Ustvarjanje potrdiš ločeno."
         : input.quibiDevWriteEnabled
-        ? "Pripravi in preveri predračun prek Quibi API-ja. Tadej mora pred pošiljanjem odobriti dejansko ceno."
+        ? "Pripravi in preveri predračun v Quibiju. Tadej mora pred pošiljanjem odobriti dejansko ceno."
         : "Samo predogled – ustvarjanje v Quibiju ni omogočeno. Uredite postavke in preglejte predračun.");
     case "awaiting_customer_approval": return step("await_customer", input.fixedPriceStatus
       ? "Po dejanskem sporočilu objavljene cene počakajte na odločitev stranke."
@@ -81,7 +81,7 @@ export type BusinessStepRecord={kind:string;state:string;quibi_id:string|null;qu
 /** UI progress only: never closes a case, confirms receipt or changes Quibi data. */
 export function quibiBusinessNextAction(rows:BusinessStepRecord[]):CaseStep|undefined{
  const step=(kind:CaseStepKind,label:string):CaseStep=>({kind,label,externalConfirmed:false});
- if(rows.some(r=>['work_order','invoice','work_order_update','invoice_update'].includes(r.kind)&&['prepared','dispatching','uncertain'].includes(r.state)))return step('review_quibi_mismatch','Preveri obstoječi Quibi dokument in njegov izid. Nov CREATE ali SEND je ustavljen do preverljive razrešitve.');
+ if(rows.some(r=>['work_order','invoice','work_order_update','invoice_update'].includes(r.kind)&&['prepared','dispatching','uncertain'].includes(r.state)))return step('review_quibi_mismatch','Preveri obstoječi Quibi dokument in njegov izid. Ponovno ustvarjanje in pošiljanje sta do razrešitve ustavljena.');
  const invoiceCreates=rows.filter(r=>r.kind==='invoice'&&r.state==='verified'&&r.quibi_id);
  if(invoiceCreates.length>1)return step('review_quibi_mismatch','Povezava računa zahteva pregled; ne ustvarjaj novega dokumenta.');
  if(invoiceCreates.length===1){const invoice=[...rows.filter(r=>(r.kind==='invoice'||r.kind==='invoice_update')&&r.state==='verified'&&r.quibi_id===invoiceCreates[0].quibi_id)].sort((a,b)=>(b.created_at??'').localeCompare(a.created_at??''))[0];

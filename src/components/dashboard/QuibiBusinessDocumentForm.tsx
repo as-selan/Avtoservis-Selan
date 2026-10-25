@@ -100,7 +100,7 @@ export function InspectionBillingBasisForm({caseId,options}:{caseId:string;optio
  </>}
  <button type="submit" data-invoice="yes" className="rounded border px-3 py-2">Pripravi predogled računa za izdajo</button>
  {result.sha&&!dispatchStarted&&<><label className="flex items-start gap-2"><input type="checkbox" name="invoiceConfirmed" checked={invoiceConfirmed} onChange={e=>setInvoiceConfirmed(e.target.checked)}/>Pregledal sem stranko, vozilo, potrjeno storitev, znesek in datume. Izrecno potrjujem izdajo enega računa.</label><button type="submit" data-invoice="yes" data-dispatch="yes" disabled={!invoiceConfirmed||pending} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">Ustvari en račun pregleda v Quibiju</button></>}
- {dispatchStarted&&!result.documentId&&<p role="alert">Ponovitev CREATE je ustavljena. Pred nadaljevanjem preverite shranjeno operacijo in obstoječi dokument.</p>}
+ {dispatchStarted&&!result.documentId&&<p role="alert">Ponovno ustvarjanje je ustavljeno. Najprej preverite obstoječi dokument.</p>}
  </section>}
  {result.inspectionReview?.confirmed&&<><p>Račun še ni izdan. Za ročno izdajo uporabite referenco: <strong className="break-all">{result.inspectionReview.reference}</strong>. Pred izdajo preverite, da račun za ta pregled še ne obstaja; po izdaji ne pripravljajte novega.</p>{result.manualQuibiUrl&&<a className="block text-blue-700 underline" href={result.manualQuibiUrl} target="_blank" rel="noopener noreferrer">Nadaljuj ročno v Quibiju →</a>}</>}
  {result.documentId&&result.manualCustomerId&&<Link className="block text-blue-700 underline" href={'/dashboard/stranke/'+result.manualCustomerId+'/quibi/dokumenti/invoice/'+result.documentId}>Račun #{result.documentId}: odpri dokument in PDF →</Link>}

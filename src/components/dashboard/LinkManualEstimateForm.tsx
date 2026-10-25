@@ -21,7 +21,7 @@ export function LinkManualEstimateForm({ serviceRequestId }: { serviceRequestId:
     });
   }}>
     <h3 className="font-medium">Poveži dejanski predračun, izdelan ročno v Quibiju</h3>
-    <p className="text-xs text-slate-600">V Quibiju ustvarite dokument ali poiščite obstoječega. Preverite ID stranke, vozilo, storitev in povezavo z delovnim nalogom (če obstaja). Selan pred povezavo znova prebere dokument in postavke; Quibi API teh povezav za ta primer še ne potrjuje samodejno.</p>
+    <p className="text-xs text-slate-600">Povežite obstoječi dokument po preverjanju stranke, vozila in storitev. Selan podatke pred povezavo ponovno preveri.</p>
     <label className="block text-sm">Quibijev ID predračuna
       <input className="mt-1 block w-full rounded border px-3 py-2" inputMode="numeric" pattern="[0-9]+" required value={estimateId}
         onChange={(event) => setEstimateId(event.target.value)} />

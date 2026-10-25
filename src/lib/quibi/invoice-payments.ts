@@ -11,3 +11,9 @@ export function invoiceDueStatus(value:string|undefined,remaining:number,today:s
  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)||!Number.isFinite(Date.parse(iso+'T00:00:00Z'))||new Date(iso+'T00:00:00Z').toISOString().slice(0,10)!==iso)return null;
  return iso<today?'Preostanek po Quibijevi evidenci je zapadel.':iso===today?'Preostanek po Quibijevi evidenci zapade danes.':'Preostanek po Quibijevi evidenci še ni zapadel.';
 }
+
+/** Business copy only; absence of a receipt is never proof of non-payment. */
+export function paymentPresentation(summary?:{paid:number;remaining:number}|null){
+ if(!summary||!Number.isFinite(summary.paid)||!Number.isFinite(summary.remaining))return {label:'Plačilo ni potrjeno',remaining:undefined};
+ return {label:summary.paid>0?(summary.remaining<=0?'Plačano':'Delno plačano'):'Plačilo ni potrjeno',remaining:Math.max(0,summary.remaining)};
+}

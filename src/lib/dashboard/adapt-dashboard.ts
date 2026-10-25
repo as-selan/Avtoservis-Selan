@@ -61,9 +61,9 @@ export function adaptServiceRequestToOrder(
   customer: CustomerRow | undefined,
   vehicle: VehicleRow | undefined,
   now: Date,
-  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {automaticDraftState?:import('../quibi/automatic-estimate-draft').AutomaticDraftState;intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null;repairPhase?:string;quibiWorkOrderId?:string;mechanicName?:string|null;mechanicEmail?:string|null},
+  stepInput: Omit<Parameters<typeof nextCaseStep>[0], "status"> & {automaticDraftState?:import('../quibi/automatic-estimate-draft').AutomaticDraftState;intakeConnectionLabel?:string;repairUiStatus?:import('./types').WorkflowStatusId;repairUpdatedAt?:string|null;businessUpdatedAt?:string|null;repairPhase?:string;quibiWorkOrderId?:string;mechanicName?:string|null;mechanicEmail?:string|null},
 ): ServiceOrderDemo {
-  const updatedAt=stepInput.repairUpdatedAt??row.updated_at;
+  const updatedAt=latestBusinessActivity(stepInput.repairUpdatedAt,stepInput.businessUpdatedAt,row.updated_at)??row.updated_at;
   const uiStatus = stepInput.repairUiStatus??mapDbStatusToUiStatus(row.status,stepInput.workOrderStatus);
 
   return {
@@ -129,3 +129,6 @@ export function adaptServiceRequestToAttention(
     occurredAt: row.updated_at,
   };
 }
+
+/** Compare actual instants, including provider timestamps with different UTC offsets. */
+export function latestBusinessActivity(...values:(string|null|undefined)[]){return values.filter((value):value is string=>!!value&&Number.isFinite(Date.parse(value))).sort((a,b)=>Date.parse(b)-Date.parse(a))[0]??null;}

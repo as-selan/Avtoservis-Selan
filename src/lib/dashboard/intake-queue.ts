@@ -2,7 +2,7 @@ import {getStatusLabel} from './statuses.ts';
 import type {ServiceOrderDemo} from './types';
 
 export const INTAKE_QUEUE_GROUPS = [
-  {id:'all',label:'Vsi odprti'}, {id:'new',label:'Nova povpraševanja'},
+  {id:'all',label:'Vsi odprti'}, {id:'new',label:'Novo'},
   {id:'data',label:'Manjkajo podatki'}, {id:'slots',label:'Čaka izbiro termina'},
   {id:'estimate',label:'Pregled in pošiljanje predračuna'},
   {id:'customer',label:'Odgovor stranke'}, {id:'service',label:'Odločitve servisa'},
@@ -50,12 +50,12 @@ export function filterIntakeQueue(rows:IntakeQueueItem[],group:IntakeQueueGroup,
 
 /** Presentation groups derive from existing repair phases; no business transition. */
 export const DASHBOARD_GROUPS = [
- {id:'new',label:'Nova povpraševanja'},
- {id:'decision',label:'Čaka pripravo ali odobritev'},
- {id:'work',label:'V popravilu'},
- {id:'review',label:'Čaka vodjo'},
- {id:'invoice',label:'Priprava računa'},
- {id:'handover',label:'Čaka prevzem ali plačilo'},
+ {id:'new',label:'Novo'},
+ {id:'decision',label:'Čaka odločitev'},
+ {id:'work',label:'V delu'},
+ {id:'review',label:'Pregled vodje'},
+ {id:'invoice',label:'Račun'},
+ {id:'handover',label:'Prevzem'},
  {id:'done',label:'Zaključeno'},
 ] as const;
 export type DashboardGroup = typeof DASHBOARD_GROUPS[number]['id'];
@@ -64,11 +64,11 @@ export function uniqueDashboardOrders(orders:ServiceOrderDemo[]){const unique=ne
 export function dashboardQueue(orders:ServiceOrderDemo[]):DashboardQueueItem[]{
  orders=uniqueDashboardOrders(orders);
  const open:DashboardQueueItem[]=intakeQueue(orders).map(row=>({
-  ...row,href:row.order.repairPhase==='invoice_review'?'/dashboard/primeri/'+row.order.serviceRequestId+'#poslovni-nalog':row.href,
+  ...row,href:row.order.repairPhase==='handover'?'/dashboard/primeri/'+row.order.serviceRequestId+'#prevzem':row.order.repairPhase==='invoice_review'?'/dashboard/primeri/'+row.order.serviceRequestId+'#poslovni-nalog':row.href,
   group:row.order.repairPhase==='invoice_review'?'invoice':row.order.repairPhase==='handover'?'handover':row.order.repairPhase==='review_required'?'review':row.order.requiresAttention||row.order.nextActionKind==='review_quibi_mismatch'?'decision':row.group==='new'?'new':row.group==='work'||row.group==='review'||row.order.status==='termin_potrjen'?'work':'decision',
  }));
  const closed:DashboardQueueItem[]=orders.filter(order=>order.status==='zakljuceno'&&order.serviceRequestId).map(order=>({order,group:'done',label:'Odpri zaključen primer',href:'/dashboard/primeri/'+order.serviceRequestId}));
- return [...open,...closed.sort((a,b)=>b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id))];
+ return [...open.sort((a,b)=>b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id)),...closed.sort((a,b)=>b.order.updatedAt.localeCompare(a.order.updatedAt)||a.order.id.localeCompare(b.order.id))];
 }
 export function filterDashboardQueue(rows:DashboardQueueItem[],group:DashboardGroup,search:string){
  const query=search.trim().toLocaleLowerCase('sl-SI');
@@ -81,9 +81,10 @@ export function isSyntheticOrder(order:ServiceOrderDemo){return order.synthetic=
 export function shortNextAction(item:DashboardQueueItem){
  const anchor=item.href.split('#')[1];
  if(item.order.quibiWorkOrderId&&!item.order.repairPhase&&item.label==='Dodeli mehaniku')return 'Dodeli mehaniku';
- if(item.group==='invoice')return 'Pripravi ali preglej račun';
+ if(item.group==='new')return 'Preglej povpraševanje';
+ if(item.group==='invoice')return 'Odpri račun';
  if(item.group==='review')return 'Preglej opravljeno delo';
- if(item.group==='handover')return 'Uredi prevzem in plačilo';
+ if(item.group==='handover')return 'Prevzem vozila';
  if(item.group==='done')return 'Odpri primer';
  if(item.order.nextActionKind==='automatic_estimate')return item.order.nextActionLabel.replace(/[.!]$/,'');
  if(item.order.nextActionKind==='review_quibi_mismatch')return 'Preveri dokument';
@@ -91,7 +92,7 @@ export function shortNextAction(item:DashboardQueueItem){
 }
 
 export function dashboardStatusLabel(order:ServiceOrderDemo){
- return ({assigned:'Dodeljeno mehaniku',in_progress:'Delo poteka',awaiting_parts:'Čaka dele',review_required:'Čaka vodjo',invoice_review:'Priprava računa',handover:'Čaka prevzem ali plačilo',document_unknown:'Preveri dokument',closed:'Zaključeno'} as Record<string,string>)[order.repairPhase??'']??getStatusLabel(order.status);
+ return ({assigned:'Dodeljeno mehaniku',in_progress:'Delo poteka',awaiting_parts:'Čaka dele',review_required:'Čaka vodjo',invoice_review:'Priprava računa',handover:'Čaka prevzem',document_unknown:'Preveri dokument',closed:'Zaključeno'} as Record<string,string>)[order.repairPhase??'']??getStatusLabel(order.status);
 }
 
 /** Operates only on the authenticated, organization-scoped snapshot. */

@@ -39,7 +39,7 @@ export default async function QuibiEstimatePage({ params }: {
 
   const {data:approved}=await db.from("quotes").select("content_sha256").eq("organization_id",access.organizationId).eq("evidence_kind","quibi_manual_estimate").eq("evidence_payload->>external_id",estimateId).eq("internal_review_status","approved_for_send").eq("quibi_environment",link.quibi_environment).order("version_no",{ascending:false}).limit(1).maybeSingle();
   return <div className="space-y-5">
-    {approved&&approved.content_sha256!==estimate.contentSha256&&<p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-red-900">Aktualni SHA dokumenta se razlikuje od odobrenega SHA v Selanu. Prejšnja odobritev ne potrjuje trenutne vsebine. Ne pošiljajte ponovno; najprej razjasnite spremembo.</p>}
+    {approved&&approved.content_sha256!==estimate.contentSha256&&<p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-red-900">Dokument se je po odobritvi spremenil. Pred ponovnim pošiljanjem preglejte spremembo.</p>}
     <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customerId}/quibi`}>
       ← Nazaj na povezano stranko
     </Link>

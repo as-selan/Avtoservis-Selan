@@ -1,3 +1,4 @@
+import {businessLineDescription} from '../src/lib/quibi/price-presentation.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -10,7 +11,7 @@ const jsx=require('react/jsx-runtime');
 async function panel(status,{locked=false,role='admin',assigned=true}={}){
  const work={caseId:'case',quibiId:'2176933',mechanicId:'mechanic',status,vehicle:{make:'QA',model:'Car',registration:'TEST',vin:'TEST'},review:{workLocked:locked}};
  const db={from(table){const result={data:table==='service_requests'?{customer_id:'customer'}:table==='customers'?{display_name:'QA Customer'}:[]};const q={...result,select:()=>q,eq:()=>q,in:()=>q,order:()=>q,single:async()=>result,maybeSingle:async()=>result};return q;},rpc:async()=>({data:[]}),auth:{getUser:async()=>({data:{user:{id:'actor'}}})},storage:{from:()=>({createSignedUrl:()=>{throw Error('No photo path in fixture')}})}};
- const imports={'./CasePickupPanel':{CasePickupPanel:'pickup-panel'},'react':require('react'),'react/jsx-runtime':jsx,'next/image':()=>null,'./CaseReviewPanel':{CaseReviewPanel:()=>null},'./CaseWorkSummary':{CaseWorkSummary:()=>null},'@/lib/case-work/overview':{activityTime:()=>''},'@/lib/case-work/read':{loadCaseWork:async()=>({db,rows:assigned?[work]:[],error:null}),verifiedRepairLines:()=>{throw Error('No Quibi transport allowed')}},'./CaseWorkForms':{CaseWorkForm:Form}};
+ const imports={'@/lib/quibi/price-presentation':{businessLineDescription},'./CasePickupPanel':{CasePickupPanel:'pickup-panel'},'react':require('react'),'react/jsx-runtime':jsx,'next/image':()=>null,'./CaseReviewPanel':{CaseReviewPanel:()=>null},'./CaseWorkSummary':{CaseWorkSummary:()=>null},'@/lib/case-work/overview':{activityTime:()=>''},'@/lib/case-work/read':{loadCaseWork:async()=>({db,rows:assigned?[work]:[],error:null}),verifiedRepairLines:()=>{throw Error('No Quibi transport allowed')}},'./CaseWorkForms':{CaseWorkForm:Form}};
  const exports={};const code=ts.transpileModule(readFileSync('src/components/dashboard/CaseWorkPanel.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  runInNewContext(code,{exports,require:name=>{if(!(name in imports))throw Error('Unexpected import '+name);return imports[name]},Map,Set,Promise});
  const tree=await exports.CaseWorkPanel({caseId:'case',role});const forms=[];function visit(node){if(!node||typeof node!=='object')return;if(Array.isArray(node)){node.forEach(visit);return;}if(node.type===Form)forms.push(node.props.mode);visit(node.props?.children)}visit(tree);return forms;

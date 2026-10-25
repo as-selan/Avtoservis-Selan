@@ -102,3 +102,6 @@ test('dashboard starts in the first nonempty real group without counting synthet
 });
 
 test('an unassigned Quibi work order routes to assignment without reclassifying existing invoice progress',()=>{const row=order('c066','caka_izbiro_termina',{quibiWorkOrderId:'2176935',nextActionKind:'manual_external_handoff',nextActionLabel:'Dodeli mehaniku'});const queued=intakeQueue([row])[0];assert.equal(queued.group,'work');assert.ok(queued.href.endsWith('#popravilo'));const invoiced=intakeQueue([{...row,nextActionLabel:'Račun je ustvarjen.'}])[0];assert.notEqual(invoiced.label,'Dodeli mehaniku');});
+
+test('daily dashboard sorts newest business activity first, without pinning an older attention row',()=>{const rows=dashboardQueue([order('old','priprava_ponudbe',{requiresAttention:true,updatedAt:'2026-10-24T12:00:00Z'}),order('new','novo',{updatedAt:'2026-10-25T12:00:00Z'})]);assert.deepEqual(rows.map(r=>r.order.id),['new','old']);});
+test('pickup is not payment collection and routes directly to the same case pickup',()=>{const row=dashboardQueue([order('pickup','pripravljeno_za_prevzem',{repairPhase:'handover'})])[0];assert.equal(dashboardStatusLabel(row.order),'Čaka prevzem');assert.equal(shortNextAction(row),'Prevzem vozila');assert.ok(row.href.endsWith('#prevzem'));});

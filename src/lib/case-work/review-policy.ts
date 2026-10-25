@@ -18,7 +18,7 @@ export function repairPhase(status:string,state?:ReviewState,invoice?:{id:string
    }
   }
  }
- if(uncertain&&id!=='review_required'){id='document_unknown';label='Poslovni dokument zahteva preverjanje';next='Izid Quibi operacije ni znan. Preveri obstoječi dokument; CREATE in SEND ne ponavljaj.';uiStatus='potreben_pregled';attention=true;}
+ if(uncertain&&id!=='review_required'){id='document_unknown';label='Poslovni dokument zahteva preverjanje';next='Izid Quibi operacije ni znan. Preveri obstoječi dokument; ustvarjanja in pošiljanja ne ponavljaj.';uiStatus='potreben_pregled';attention=true;}
  return {id,label,next,uiStatus,attention,step:{kind:id==='closed'?'closed':'manual_external_handoff',label:next,externalConfirmed:false}};
 }
 export function reviewReference(value:unknown){if(typeof value!=='string'||value.trim().length<12||value.trim().length>1000)throw Error('REFERENCE_REQUIRED');return value.trim();}

@@ -8,6 +8,6 @@ export function QuibiPartyUpdate({customerId,vehicleId,baseline,enabled}:{custom
  <p>Posodobi obstoječo Quibi {vehicleId?'vozilo':'stranko'} z zgoraj prikazanimi lokalnimi podatki. Nov zapis ne bo ustvarjen.</p>
  <label className="flex gap-2"><input type="checkbox" name="confirmed" value="yes" required/>Pregledal sem oba zapisa in potrjujem prenos lokalnih podatkov v obstoječi Quibi zapis.</label>
  <button disabled={pending||!enabled||completed||stopped} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{pending?'Preverjam spremembo…':completed?'Posodobitev preverjena':stopped?'Nova zahteva ustavljena':'Posodobi in ponovno preberi Quibi'}</button>
- {!enabled&&<p>WRITE je izključen; potrebna je ločena odobritev preizkusa.</p>}{message&&<p role="status">{message}</p>}
+ {!enabled&&<p>Spreminjanje podatkov trenutno ni omogočeno.</p>}{message&&<p role="status">{message}</p>}
  </form>;
 }
