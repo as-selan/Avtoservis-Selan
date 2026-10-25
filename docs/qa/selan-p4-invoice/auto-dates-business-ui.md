@@ -2,7 +2,7 @@
 
 ## Dejanski DEV READ C066482D
 
-service_case_assignments ima status work_completed in zadnji zapis stanja 2026-10-25T18:11:19.810906Z, tj. 25. 10. 2026 ob 20:11 Europe/Ljubljana. Zapis pregleda vodje accepted je poznejši: 18:14:15 UTC in simulated=true. Datum storitve za ta označeni testni primer zato izhaja iz zabeleženega zaključenega dela, ne iz pregleda vodje.
+service_case_assignments ima status work_completed in zadnji zapis stanja 2026-10-25T18:11:19.810906Z, tj. 25. 10. 2026 ob 19:11 Europe/Ljubljana (UTC+1). Zapis pregleda vodje accepted je poznejši: 18:14:15 UTC in simulated=true. Datum storitve za ta označeni testni primer zato izhaja iz zabeleženega zaključenega dela, ne iz pregleda vodje.
 
 Pravilo uporablja datum zadnjega zabeleženega stanja zaključenega dela (assignment.updated_at ob potrjenem work_completed), ne splošne zadnje aktivnosti, datuma fotografij, zapiskov ali pregleda. To je obstoječi zapis trenutnega stanja, ne nova nespremenljiva zgodovina prehodov. Stanje assignmenta in prebranega naloga se morata ujemati; pri nekončanem ali neznanem stanju datuma ne sklepamo. Izrecni datum Quibi storitve in uporabnikovi popravki imajo prednost. Pregled vodje še vedno ostaja samostojen strežniški predpogoj izdaje.
 
@@ -32,3 +32,9 @@ Izdaj račun ostane edino dejanje pri popolni pripravi. Samodejno branje ne nast
 ## Pravila in veščine
 
 C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1/AGENTS.md in CLAUDE.md; C:/Users/Admin/.ai-os/ORCHESTRATION_GUIDE.md; C:/Users/Admin/.agents/skills/ai-orchestrator/SKILL.md; C:/Users/Admin/.agents/skills/superpowers/verification-before-completion/SKILL.md; C:/Users/Admin/.agents/skills/security-review/SKILL.md; C:/Users/Admin/.agents/skills/deploy-to-vercel/SKILL.md; C:/Users/Admin/.codex/plugins/cache/openai-curated-remote/supabase/1.0.0/skills/supabase/SKILL.md; node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md.
+
+## Končni strežniški dokaz
+
+Končni Preview build je izključno z GET ponovno prebral assignment in pregled istega primera ter obstoječi Quibi nalog in stranko. Isti aplikacijski helperji so vrnili serviceDate=2026-10-25, issueDate=2026-10-25, dueDate=2026-10-30, paymentTermDays=5 in amount=50. Zapis zaključka je 18:11:19 UTC (19:11 Ljubljana), pregled pa 18:14:15 UTC (19:14 Ljubljana). QA simulated=true ostaja interno ohranjen. Ta READ ni prijavljeni E2E in ne izda računa.
+
+Code checks za implementacijo de16157: 675/675 PASS, TypeScript, ESLint in produkcijski build PASS. Poznejši dokumentacijski popravek popravlja samo uro v tem poročilu; aplikacijska pretvorba datuma je že uporabljala Europe/Ljubljana.
