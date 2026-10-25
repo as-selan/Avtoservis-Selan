@@ -65,3 +65,11 @@ Na `2fe0a06` sta dejansko uspešna GitHub Code checks (run 40118409435: 622/622,
 Seed zdaj vsebuje popolno sintetično spletno povpraševanje. Nov test izvrši dejansko web validacijo nad dejanskim seed objektom in preveri, da manjkajoča e-pošta ostane zavrnjena; anon RPC kontrola ostane. Spletni browser scenarij izpolni nove obvezne podatke. Dve stari browser pričakovanji sta usklajeni z že potrjenim UI: Naslednje opravilo namesto odstranjenega seznama faz in mehanikov lastni dashboard namesto prepovedi vseh dashboardov. Imenik strank ostaja nedostopen mehaniku.
 
 Bootstrap obeh disposable Supabase CI skript ne izpisuje več izhoda `supabase start`, ki lahko vsebuje ključe začasnega sklada; izhod ostane samo v začasni CI mapi in ni del artefaktov. Noben hosted ključ ni bil pridobljen. Lokalni offline nabor po popravku: **623/623 PASS, 0 FAIL, 0 skipped**. Ponovljeni browser CI je treba oceniti na novem SHA; ta dodatek ga še ne označuje kot uspešnega.
+
+## Nadaljevanje browser CI (25. 10.)
+
+Na d69874a Code checks in izolirana DB preverjanja uspejo. Browser CI 40143974596 je dejansko izvedel 34 scenarijev: 9 PASS, 17 FAIL, 8 že obstoječih preskokov. To ni potrjen E2E. Preostali popravki: aktualni poslovni lokatorji in odpiranje zloženih podrobnosti; popolni spletni podatki; ločeni nepovezani stranki za preizkus urejanja; preverjanje internih statusov z READ izključno na disposable loopback DB; pravilna pot sintetičnega Quibi vozila /api2/vozila/index/2001. Dodan samostojen regresijski test dejanskega fixture strežnika.
+
+Odkrita je tudi omejena napaka produkcijske kode: začetek neobveznega predhodnega pregleda je bil filtriran iz podrobnosti. Zdaj je dostopen v new/preparing_offer pred predračunom oziroma nalogom; ne dodaja opravila v fazi računa. Regresija preverja vse izključitvene pogoje. Nobena cena, dovoljenje ali Quibi dokument ni spremenjen. Predhodni REA 8/8 ne pomeni ponovljenega prijavljenega E2E te spremembe.
+
+Lokalno: celotni offline nabor 624/624 PASS (0 preskokov), nato nov samostojni READ fixture test 1/1 PASS. Skupaj 625 uspešnih preverjanj; celotno novo discovery mora potrditi še CI. Aktualne rezultate CI je treba preveriti po pushu. Produkcijski sprožilec ostaja nepreverjen zaradi 403, ciljna veja ni spremenjena: NO-GO ostaja.

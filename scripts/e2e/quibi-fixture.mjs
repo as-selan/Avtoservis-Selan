@@ -42,7 +42,7 @@ http.createServer(async(req, res) => {
       ...customer, naziv: mode === "changed" ? `${customer.naziv} spremenjen` : customer.naziv,
     } } } });
   }
-  if (url.pathname === "/api2/vozila" && req.method === "GET") {
+  if (/^\/api2\/vozila(?:\/index(?:\/\d+)?)?$/.test(url.pathname) && req.method === "GET") {
     return send(res, 200, { error: false, data: { Vozila: [{ Vozila: {
       id: "5001", stranka_id: "2001", internastevilka: "TST00000000000006",
       registrskastevilka: mode === "changed" ? "LJ QB2" : "LJ QB1",

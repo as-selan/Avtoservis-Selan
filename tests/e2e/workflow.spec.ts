@@ -6,7 +6,8 @@ type Seed = { owner: string; reception: string; mechanic: string; foreign: strin
   invitedEmail: string; inviteActionLink: string;
   customer: string; linkedCustomer: string; vehicle: string; caseId: string;
   preparedCaseId: string;
-  incompleteCases: { desktop: string; mobile: string } };
+  incompleteCases: { desktop: string; mobile: string };
+  editable: {desktop:{customer:string;name:string};mobile:{customer:string;name:string}} };
 const path = process.env.E2E_FIXTURES_PATH;
 if (process.env.CI !== "true" || process.env.SELAN_ISOLATED_E2E !== "1" || !path || !process.env.E2E_PASSWORD) {
   throw new Error("Playwright E2E requires disposable CI fixtures");
@@ -16,6 +17,25 @@ const fixtureOrigin = process.env.SELAN_E2E_FIXTURE_ORIGIN ?? "http://127.0.0.1:
 const appOrigin = process.env.SELAN_E2E_APP_ORIGIN ?? "http://127.0.0.1:3000";
 for (const origin of [fixtureOrigin, appOrigin]) {
   if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) throw new Error("E2E origin must be loopback");
+}
+
+
+async function caseStatus(id:string){
+ const url=process.env.E2E_API_URL??'',key=process.env.SUPABASE_SERVICE_ROLE_KEY;
+ if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(url)||!key)throw Error("Isolated DB READ required");
+ const db=createSupabaseClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+ const result=await db.from('service_requests').select('status').eq('id',id).single();
+ if(result.error)throw Error('Synthetic case READ failed');return result.data.status;
+}
+async function openCaseSection(page:Page,id:string){
+ const target=page.locator('#'+id);
+ const secondary=page.locator(`details[data-case-secondary="${id}"]`);
+ if(await secondary.count()){
+  const outer=page.locator('details').filter({has:secondary}).first();
+  if(await outer.getAttribute('open')===null)await outer.locator(':scope > summary').click();
+  if(await secondary.getAttribute('open')===null)await secondary.locator(':scope > summary').click();
+ }
+ await expect(target).toBeVisible();
 }
 
 async function login(page: Page, email: string, password = process.env.E2E_PASSWORD!) {
@@ -186,6 +206,7 @@ test("real owner login opens dashboard and canonical case", async ({ page }) => 
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
   await page.goto(`/dashboard/primeri/${seed.caseId}`);
   await expect(page.getByRole("heading", { name: /Primer #/ })).toBeVisible();
+  await page.getByText("Zahtevane storitve in opis", {exact:true}).click();
   await expect(page.getByText("Izolirani E2E primer")).toBeVisible();
   for (const width of [1440, 390, 350]) {
     await page.setViewportSize({ width, height: 900 });
@@ -261,6 +282,9 @@ test("vehicle ID needs manual confirmation and later drift is visible", async ({
   await fixtureMode("changed");
   await page.getByRole("button", { name: "Ponovno preveri vozilo" }).click();
   await expect(page.getByText(/Podatki vozila so se spremenili/)).toBeVisible();
+  await fixtureMode("normal");
+  await page.getByRole("button", {name:"Ponovno preveri vozilo"}).click();
+  await expect(page.getByRole("status")).toContainText("Povezava vozila je znova preverjena");
 });
 
 test("manual estimate ID is linked only after a live Quibi read", async ({ page }, testInfo) => {
@@ -270,41 +294,46 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("button", { name: "Ponovno preveri Quibi" }).click();
   await expect(page.getByRole("status")).toContainText("Quibijeva povezava je znova preverjena");
   await page.goto(`/dashboard/primeri/${seed.preparedCaseId}`);
+  await openCaseSection(page, "termini");
   await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
   await expect(page.getByText(/Pregled je potreben/)).toBeVisible();
   await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Izoliran pregled vozila je bil opravljen.");
   await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
   await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
+  await openCaseSection(page, "predracun");
+  await page.getByText("Napredno – poveži obstoječ predračun", {exact:true}).click();
   await page.getByRole("textbox", { name: "Quibijev ID predračuna" }).fill("4001");
   await page.getByRole("checkbox", { name: /Ročno sem preveril, da gre za predračun/ }).check();
   await page.getByRole("button", { name: "Preveri in poveži predračun" }).click();
   await expect(page.getByRole("status").filter({ hasText: "predračun je povezan" }))
     .toContainText("različica #1");
-  await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed")).toBeVisible();
+  await openCaseSection(page, "predracun");
+  await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed", {exact:false})).toBeVisible();
   await page.getByRole("checkbox", { name: /Odprl sem Quibijev dokument/ }).check();
-  await page.getByRole("button", { name: "Odobri ceno za pošiljanje" }).click();
-  await expect(page.getByText("Zabeležena različica ponudbe #1: approved_for_send")).toBeVisible();
-  await page.getByRole("textbox", { name: "Referenca poslanega sporočila" }).fill("QA-MESSAGE-4001");
-  await page.getByRole("checkbox", { name: /Ta predračun sem dejansko poslal/ }).check();
-  await page.getByRole("button", { name: "Evidentiraj dejansko pošiljanje" }).click();
-  await expect(page.getByText("Ročno poslano prek email; referenca: QA-MESSAGE-4001.", { exact: false })).toBeVisible();
-  await expect(page.getByText(/Status: awaiting_customer_approval/)).toBeVisible();
-  await page.getByRole("textbox", { name: "Referenca dejanskega odgovora" }).fill("QA-REPLY-4001");
-  await page.getByRole("checkbox", { name: /Prejel sem dejanski odgovor stranke/ }).check();
-  await page.getByRole("button", { name: "Stranka potrdi popravilo" }).click();
-  await expect(page.getByText(/Status: awaiting_slot_selection/)).toBeVisible();
-  await expect(page.getByText("Strankina odločitev: approved.", { exact: false })).toBeVisible();
+  await openCaseSection(page, "pregled-predracuna");
+  await page.getByRole("button", { name: "Odobri predračun" }).click();
+  await openCaseSection(page, "odobritev");
+  await page.getByText("Ločeno evidentiraj dejansko dostavo predračuna (neobvezno)", {exact:true}).click();
+  await page.getByRole("textbox", { name: "Referenca dejanske dostave", exact:true }).fill("QA-MESSAGE-4001");
+  await page.getByRole("button", { name: "Evidentiraj dejansko dostavo", exact:true }).click();
+  await expect.poll(() => caseStatus(seed.preparedCaseId)).toBe("awaiting_customer_approval");
+  await openCaseSection(page, "odobritev");
+  await page.getByRole("textbox", { name: "Referenca dejanskega odgovora stranke", exact:true }).fill("QA-REPLY-4001");
+  await page.getByRole("button", { name: "Stranka je potrdila popravilo", exact:true }).click();
+  await expect.poll(() => caseStatus(seed.preparedCaseId)).toBe("awaiting_slot_selection");
+  await openCaseSection(page, "termini");
   await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();
   await page.getByRole("button", { name: "Popravilo naročeno" }).click();
   await expect(page.getByText(/predhodni pregled je brezplačen/)).toBeVisible();
   await recordThreeManualSlots(page, "REPAIR");
-  await expect(page.getByText(/Status: appointment_confirmed/)).toBeVisible();
+  await expect.poll(() => caseStatus(seed.preparedCaseId)).toBe("appointment_confirmed");
 });
 
 test("completed preliminary inspection remains payable when repair is not ordered", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "A single isolated inspection outcome is recorded once.");
   await login(page, seed.reception);
   await page.goto(`/dashboard/primeri/${seed.caseId}`);
+  await openCaseSection(page, "termini");
   await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
   await recordThreeManualSlots(page, "INSPECTION");
   await expect(page.getByText(/diagnosis · interno: confirmed/)).toBeVisible();
@@ -317,13 +346,14 @@ test("completed preliminary inspection remains payable when repair is not ordere
   await noHorizontalOverflow(page);
 });
 
-test("customer search and customer and vehicle edits persist in the same organization", async ({ page }) => {
+test("customer search and customer and vehicle edits persist in the same organization", async ({ page }, testInfo) => {
+  const editable=seed.editable[testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop"];
   await login(page, seed.reception);
   await page.goto("/dashboard/stranke");
-  await page.getByRole("searchbox", { name: /Išči po imenu/ }).fill("Ana Preizkus");
-  await expect(page.getByRole("link", { name: "Ana Preizkus" })).toBeVisible();
-  await page.getByRole("link", { name: "Ana Preizkus" }).click();
-  await expect(page).toHaveURL(new RegExp(`/dashboard/stranke/${seed.customer}$`));
+  await page.getByRole("searchbox", { name: /Išči po imenu/ }).fill(editable.name);
+  await expect(page.getByRole("link", { name: editable.name })).toBeVisible();
+  await page.getByRole("link", { name: editable.name }).click();
+  await expect(page).toHaveURL(new RegExp(`/dashboard/stranke/${editable.customer}$`));
 
   await page.getByRole("button", { name: "Uredi stranko" }).click();
   await page.getByLabel("Telefon").fill("+38640999888");
@@ -346,9 +376,9 @@ test("public inquiry creates a case that staff can find through the same custome
   await page.getByLabel("Ime in priimek / naziv").fill(name);
   await page.getByLabel("Telefon").fill(suffix === "Namizje" ? "+38640777111" : "+38640777222");
   await page.getByLabel("E-pošta").fill(`selan-e2e-web-${suffix.toLowerCase()}@example.test`);
-  await page.getByLabel("VIN / številka šasije", {exact:true}).fill(suffix === "Namizje" ? "TST00000000000071" : "TST00000000000072");
-  await page.getByLabel("Znamka", {exact:true}).fill("Test");
-  await page.getByLabel("Model", {exact:true}).fill("Web E2E");
+  await page.getByLabel(/^VIN \/ številka šasije/).fill(suffix === "Namizje" ? "TST00000000000071" : "TST00000000000072");
+  await page.getByLabel(/^Znamka/).fill("Test");
+  await page.getByLabel(/^Model/).fill("Web E2E");
   await page.getByLabel("Opis težave").fill("Preizkus spletnega sprejema v izoliranem okolju.");
   await page.getByRole("button", { name: "Pošlji povpraševanje" }).click();
   await expect(page.getByText("Hvala. Vaše povpraševanje smo prejeli.")).toBeVisible();
@@ -361,7 +391,7 @@ test("public inquiry creates a case that staff can find through the same custome
 
 test("manual phone intake explicitly reuses the selected customer and vehicle", async ({ page }) => {
   await login(page, seed.owner);
-  await page.getByRole("button", { name: "Ročni vnos" }).first().click();
+  await page.getByRole("button", { name: "+ Novo povpraševanje", exact:true }).click();
   const dialog = page.getByRole("dialog", { name: "Ročni vnos" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("textbox", { name: "Iskanje" }).fill("Ana Preizkus");
@@ -380,7 +410,7 @@ test("manual intake creates a new customer and vehicle for the same case", async
   const phone = mobile ? "+38640777555" : "+38640777444";
   const vin = mobile ? "TST00000000000005" : "TST00000000000004";
   await login(page, seed.reception);
-  await page.getByRole("button", { name: "Ročni vnos" }).first().click();
+  await page.getByRole("button", { name: "+ Novo povpraševanje", exact:true }).click();
   const dialog = page.getByRole("dialog", { name: "Ročni vnos" });
   await dialog.getByRole("button", { name: "Telefon", exact: true }).click();
   await dialog.getByRole("textbox", { name: "Ime in priimek *" }).fill(name);
@@ -417,9 +447,10 @@ test("missing data link completes the original case without exposing the token i
   await expect(page.getByRole("status")).toContainText("Podatki so dopolnjeni");
 
   await page.goto(`/dashboard/primeri/${caseId}`);
-  await expect(page.getByText("Status: new", { exact: true })).toBeVisible();
+  await expect.poll(()=>caseStatus(caseId)).toBe("new");
+  await openCaseSection(page, "podatki");
   await expect(page.getByText("Tadejev pregled sprejema")).toBeVisible();
   await page.getByRole("checkbox", { name: "Preveril sem podatke tega primera in ga sprejemam za pripravo ponudbe." }).check();
   await page.getByRole("button", { name: "Sprejmi primer za pripravo ponudbe" }).click();
-  await expect(page.getByText("Status: preparing_offer", { exact: true })).toBeVisible();
+  await expect.poll(()=>caseStatus(caseId)).toBe("preparing_offer");
 });

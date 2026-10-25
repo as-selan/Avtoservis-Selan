@@ -83,6 +83,7 @@ const vehicle = randomUUID();
 const caseId = randomUUID();
 const preparedCaseId = randomUUID();
 const preparedVehicleId = randomUUID();
+const editable={desktop:{customer:randomUUID(),name:'Nepovezana stranka Namizje'},mobile:{customer:randomUUID(),name:'Nepovezana stranka Mobilno'}};
 const incompleteCustomers = { desktop: randomUUID(), mobile: randomUUID() };
 const incompleteCases = { desktop: randomUUID(), mobile: randomUUID() };
 await insert("customers", [
@@ -91,6 +92,10 @@ await insert("customers", [
   { id: incompleteCustomers.desktop, organization_id: org, display_name: "Dopolnitev Namizje", phone: "+38640555111", email: "dopolnitev-n@example.test", source: "manual" },
   { id: incompleteCustomers.mobile, organization_id: org, display_name: "Dopolnitev Mobilno", phone: "+38640555222", email: "dopolnitev-m@example.test", source: "manual" },
 ]);
+for(const [index,item] of Object.values(editable).entries()){
+ await insert("customers",{id:item.customer,organization_id:org,display_name:item.name,phone:'+3864088811'+index,email:'editable-'+index+'@example.test',source:'manual'});
+ await insert("vehicles",{organization_id:org,customer_id:item.customer,vin:'TST0000000000008'+index,registration_current:'TEST-EDIT-'+index,make:'Test',model:'Editable'});
+}
 await insert("vehicles", { id: vehicle, organization_id: org, customer_id: customer,
   registration_current: "LJ E2E", vin: "TST00000000000001", make: "Test", model: "Model" });
 await insert("vehicles", { id: preparedVehicleId, organization_id: org, customer_id: linkedCustomer,
@@ -136,6 +141,6 @@ if (webError || webProbe?.ok !== true) {
 await writeFile(E2E_FIXTURES_PATH, JSON.stringify({
   owner: owner.email, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
   invitedEmail, inviteActionLink: invited.properties.action_link,
-  customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases,
+  customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases, editable,
 }), { mode: 0o600 });
 console.log(manual ? "Fresh manual QA records seeded on isolated loopback." : "Isolated E2E users and synthetic business records seeded on loopback.");

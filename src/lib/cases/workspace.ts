@@ -18,3 +18,8 @@ export function journeyActionDescription(href: string): string {
  };
  return descriptions[href]??'Odprite obstoječi nalog in nadaljujte delo na istem primeru.';
 }
+
+/** Optional preliminary inspection remains discoverable before a quote or repair order. */
+export function canStartPreliminaryInspection(input:{status:string;hasQuote:boolean;hasFixedPrice:boolean;hasWorkOrder:boolean}){
+ return !input.hasQuote&&!input.hasFixedPrice&&!input.hasWorkOrder&&['new','preparing_offer'].includes(input.status);
+}
