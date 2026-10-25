@@ -69,7 +69,7 @@ test('completed and reviewed repairs lead to review, invoice or handover instead
  }
 });
 
-test('invoice navigation distinguishes preparation and existing invoice',()=>{const input={...base,hasWorkOrder:true,repairPhase:'invoice_review'};assert.equal(caseJourney(input).action.label,'Pripravi račun');assert.equal(caseJourney({...input,hasInvoice:true}).action.label,'Preglej račun');});
+test('invoice navigation distinguishes preparation and existing invoice',()=>{const input={...base,hasWorkOrder:true,repairPhase:'invoice_review'};assert.equal(caseJourney(input).action.label,'Preglej račun');assert.equal(caseJourney({...input,hasInvoice:true}).action.label,'Preglej račun');});
 
 test('a verified created estimate routes one operator approval to the approval section without a second price review',()=>{
  const input={status:'preparing_offer',role:'admin',stepKind:'review_estimate',intakeComplete:true,identityReady:true,hosted:true,offerPrepared:true,quoteReviewed:false,customerApproved:false,dispatched:false,hasWorkOrder:false,writeReady:true,sendReady:false,operatorApprovalReady:true};

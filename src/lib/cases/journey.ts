@@ -23,7 +23,7 @@ export function caseJourney(p: JourneyInput) {
   current=p.customerApproved?5:2;action={label:'Preveri povezavo in izid dokumenta',href:p.workOrderHref??(p.customerApproved||p.hasWorkOrder?'#poslovni-nalog':'#predracun')};
   blocker='Podatki ali izid zadnjega poskusa zahtevajo pregled. Ne ponavljajte ustvarjanja ali pošiljanja; v spodnjem razdelku preverite obstoječi dokument in shranjeni izid.';return result();
  }
- if(p.hasWorkOrder&&p.repairPhase==='invoice_review'){current=6;action={label:p.hasInvoice?'Preglej račun':'Pripravi račun',href:'#poslovni-nalog'};return result();}
+ if(p.hasWorkOrder&&p.repairPhase==='invoice_review'){current=6;action={label:'Preglej račun',href:'#poslovni-nalog'};return result();}
  if(p.hasWorkOrder&&p.repairPhase==='review_required'){current=6;action={label:'Preglej opravljeno delo',href:'#popravilo'};return result();}
  if(p.hasWorkOrder&&p.repairPhase==='handover'){current=6;action={label:'Uredi prevzem vozila',href:'#popravilo'};return result();}
  if(p.hasWorkOrder){current=p.hasAssignedWork===false?5:6;action={label:p.hasAssignedWork===false?'Dodeli mehaniku':'Nadaljuj popravilo',href:p.hasAssignedWork===false?'#popravilo':p.workOrderHref??'#popravilo'};return result();}
