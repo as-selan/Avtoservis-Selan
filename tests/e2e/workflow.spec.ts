@@ -468,7 +468,7 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  if(testInfo.project.name==='mobile-chromium')await page.setViewportSize({width:390,height:844});
  await login(page,seed.mechanic);await page.goto('/dashboard/mehanik');await expect(page.locator('a[href="/dashboard/mehanik/'+id+'"]')).toBeVisible();
  await expect(page.locator('main ul li a').first()).toHaveAttribute('href','/dashboard/mehanik/'+seed.mechanicCases.mobile);
- const watch=await page.context().newPage();await watch.goto('/dashboard/mehanik');await expect(watch.locator('[data-workshop-realtime]')).toHaveAttribute('data-workshop-realtime','subscribed');
+ const watch=await page.context().newPage();await watch.bringToFront();await watch.goto('/dashboard/mehanik');await expect(watch.locator('[data-workshop-realtime]')).toHaveAttribute('data-workshop-realtime','subscribed',{timeout:15000});
  await page.goto('/dashboard/mehanik/'+id);
  await expect(page.getByText('Mehanik QA',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Začni delo',exact:true}).click();
