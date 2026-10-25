@@ -124,7 +124,7 @@ for(const [index,id] of Object.values(mechanicCases).entries()){
  const documentId=String(3001+index);
  const raw={error:false,data:{Dokumenti:[{Glavadokumenta:{id:documentId,stranka_id:'2001',vozila_id:'5001',stevilcenje_id:'1',ZapSt:'QA-'+documentId,znesek:'122.00'},Postavkedokumenta:[{opis:'Servis QA',kolicina:'1',cenaBrezDDV:'100',cenaZDDV:'100',popust:'0',enota_id:'1',ddv_id:'5',Ddv:{stopnjaDDV:'22',naziv:'22 %'}}]}]}};
  const detail=parseEstimateDetail(raw,documentId,'2001');
- await insert('service_requests',{id,organization_id:org,customer_id:linkedCustomer,vehicle_id:preparedVehicleId,status:'converted',source:'manual',service_wanted:'Servis QA',problem_description:'QA-SIM isolated mechanic workflow'});
+ await insert('service_requests',{id,organization_id:org,customer_id:linkedCustomer,vehicle_id:preparedVehicleId,status:'converted',source:'manual',summary:'QA-SIM mechanic workflow',service_wanted:'Servis QA',problem_description:'QA-SIM isolated mechanic workflow'});
  await insert('service_case_assignments',{case_id:id,organization_id:org,mechanic_id:mechanic.id,assigned_by:owner.id,vehicle_id:preparedVehicleId,quibi_customer_id:'2001',quibi_vehicle_id:'5001',quibi_work_order_id:documentId,quibi_content_sha256:detail.contentSha256});
 }
 
