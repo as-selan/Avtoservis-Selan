@@ -102,7 +102,7 @@ export function parseVehicleDetail(value: unknown, expectedId: string, customerI
 function statusFromDocument(entry: Record<string, unknown>): string {
   const header = object(entry.Glavadokumenta);
   const headerStatusId = field(header.statusi_id);
-  const status = entry.Statusi == null ? null : object(entry.Statusi);
+  const status = entry.Statusi == null || Array.isArray(entry.Statusi) ? null : object(entry.Statusi);
   const statusId = status ? field(status.id) : "";
   const label = status ? field(status.naziv) : "";
   if (!headerStatusId && !statusId && !label) return "";

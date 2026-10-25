@@ -11,7 +11,7 @@ export async function reconcileEstimate(read:ReconciliationRead,journal:Operatio
  if(op.state!=='uncertain')return {outcome:'blocked' as const};
  const body=JSON.parse(op.requestBody) as EstimateBody;
  if(op.serviceRequestId!==caseId||op.localEntityId!==caseId||createHash('sha256').update(op.requestBody).digest('hex')!==op.requestSha256||body.Glavadokumenta.external_id!==op.externalId||op.externalId!=='selan-service-request:'+caseId)throw Error('QUIBI_JOURNAL_INTEGRITY');
- const customer=String(body.Glavadokumenta.stranka_id),listed=await read.estimates(customer),found:QuibiEstimateDetail[]=[];let incomplete=false;
+ const customer=String(body.Glavadokumenta.stranka_id),all=await read.estimates(customer),listed=op.quibiId?all.filter(row=>row.id===op.quibiId):all,found:QuibiEstimateDetail[]=[];let incomplete=false;
  for(let i=0;i<listed.length;i+=4){const results=await Promise.allSettled(listed.slice(i,i+4).map(r=>read.estimateDetail(r.id,customer)));for(let j=0;j<results.length;j++){const result=results[j];if(result.status==='rejected'){incomplete=true;continue;}const doc=result.value;if(doc.id!==listed[i+j].id||doc.customerId!==customer){incomplete=true;continue;}if(doc.externalId===op.externalId)found.push(doc);}}
  if(incomplete)return {outcome:'incomplete' as const};
  if(found.length!==1)return {outcome:found.length?'ambiguous' as const:'not_found' as const};

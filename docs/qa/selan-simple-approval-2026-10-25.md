@@ -1,0 +1,11 @@
+# Enostavna odobritev in obstoječi predračun
+
+Primer C066482D je bil preverjen z dovoljenim DB READ: customer 405965 in vehicle 2392 sta verified; estimate 2176934 je uncertain, brez lokalne quotes vrstice. Noben CREATE/SEND ni bil izveden. Neposredni Quibi READ prek Vercel env run ni izvedljiv, ker občutljive Preview vezave niso na voljo lokalnemu procesu. Celotnih skrivnosti nismo shranjevali ali izpisovali. Brskalnik kaže /login; prijavljeni hosted E2E ni potrjen.
+
+Spremembe: parser sprejme tudi prazno Statusi relacijo kot neznan status, brez izmišljene odobritve. READ reconciliation za že znan ID bere samo ta dokument in preveri lastnika, vozilo, referenco, šifre/enote/DDV, cene, količine, vsoto in stabilni SHA; CREATE ostane zaklenjen. En eksplicitni klik pri obstoječem uncertain dokumentu obnovi in poveže isti dokument, uporabi obstoječi strežniški pregled ter evidentira uporabnikovo prejeto odobritev. Običajna odobritev ne zahteva dodatne reference; auditni opis nastane na strežniku in ne trdi, da je odobritev iz Quibija. Sintetični primeri ostanejo QA-SIM. Noben zunanji delovni nalog ali račun ne nastane samodejno.
+
+Opis težave ostaja kontekst, ne samodejna postavka. Storitve se pripravljajo iz service_wanted; nejasne postavke zahtevajo izbiro ali ceno, brez ugibanja. Dodan Počisti pri iskanju in sticky naslednje opravilo na telefonu. Ročni vnos že odpre isti novi primer; obstoječa imena iz profiles.full_name ostajajo primarna. Brez sprememb pravic, RLS, migracij, podatkov ali zaščite pred podvojenimi računi.
+
+Lokalni offline nabor: 630/630 PASS, 0 FAIL, 0 skipped. TypeScript/ESLint in build ter browser CI je treba oceniti na končnem commitu; aktualne povezave v PR #19. Ni nove trditve o prijavljenem gostovanem E2E.
+
+Prebrano: AGENTS.md in CLAUDE.md v C:/Users/Admin/.codex/worktrees/selan-p0-guided-case/m3-m4-ci-db-tests-v1, C:/Users/Admin/.ai-os/ORCHESTRATION_GUIDE.md, node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md. Veščine: C:/Users/Admin/.agents/skills/ai-orchestrator/SKILL.md, superpowers/systematic-debugging/SKILL.md, superpowers/verification-before-completion/SKILL.md, security-review/SKILL.md, vercel-react-best-practices/SKILL.md, deploy-to-vercel/SKILL.md (iste korenske poti); C:/Users/Admin/.codex/plugins/cache/openai-curated-remote/supabase/1.0.0/skills/supabase/SKILL.md.

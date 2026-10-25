@@ -105,6 +105,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
               <span className="sr-only">Poišči primer</span>
               <input type="search" value={queueSearch} onChange={event=>setQueueSearch(event.target.value)} className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="Poišči stranko, registracijo ali delo …" />
             </label>
+            {queueSearch&&<button type="button" onClick={()=>setQueueSearch('')} className="min-h-11 rounded-lg px-4 text-sm text-slate-600" aria-label="Počisti iskanje">Počisti</button>}
             <button type="button" disabled={refreshing} onClick={()=>startRefresh(()=>router.refresh())} className="min-h-11 rounded-lg px-4 text-sm text-slate-600 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50">{refreshing?'Osvežujem…':'Osveži'}</button>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Skupine primerov">

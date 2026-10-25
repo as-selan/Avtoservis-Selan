@@ -207,6 +207,9 @@ test("forgot-password requests recovery for invited and admin accounts without a
 test("real owner login opens dashboard and canonical case", async ({ page }) => {
   await login(page, seed.owner);
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
+  await page.getByRole('searchbox',{name:'Poišči primer'}).fill('neobstoječ test');
+  await page.getByRole('button',{name:'Počisti iskanje'}).click();
+  await expect(page.getByRole('searchbox',{name:'Poišči primer'})).toHaveValue('');
   await page.goto(`/dashboard/primeri/${seed.caseId}`);
   await expect(page.getByRole("heading", { name: /Primer #/ })).toBeVisible();
   await page.getByText("Zahtevane storitve in opis", {exact:true}).click();
@@ -217,6 +220,7 @@ test("real owner login opens dashboard and canonical case", async ({ page }) => 
     const primary = journey.locator('[data-case-primary]');
     await expect(primary).toHaveCount(1);
     await expect(journey).toHaveCount(1);
+    expect(await journey.evaluate(element=>getComputedStyle(element).position)).toBe('sticky');
     await primary.click();
     const target = await primary.getAttribute('href');
     expect(target?.startsWith('#')).toBe(true);
@@ -321,8 +325,7 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("button", { name: "Evidentiraj dejansko dostavo", exact:true }).click();
   await expect.poll(() => caseStatus(seed.preparedCaseId)).toBe("awaiting_customer_approval");
   await openCaseSection(page, "odobritev");
-  await page.getByRole("textbox", { name: "Referenca dejanskega odgovora stranke", exact:true }).fill("QA-REPLY-4001");
-  await page.getByRole("button", { name: "Stranka je potrdila popravilo", exact:true }).click();
+  await page.getByRole("button", { name: "Stranka je odobrila", exact:true }).click();
   await expect.poll(() => caseStatus(seed.preparedCaseId)).toBe("awaiting_slot_selection");
   await openCaseSection(page, "termini");
   await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();

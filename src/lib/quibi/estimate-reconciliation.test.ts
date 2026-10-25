@@ -6,3 +6,9 @@ test('absence never unlocks CREATE or changes uncertain state',async()=>{const f
 test('duplicate references and failed READs cannot be treated as safe recovery',async()=>{const f=fixture();assert.equal((await reconcileEstimate({...f.read,estimates:async()=>[{id:'9'},{id:'10'}],estimateDetail:async(id:string)=>({...f.doc,id})},f.journal,caseId)).outcome,'ambiguous');assert.equal((await reconcileEstimate({...f.read,estimateDetail:async()=>{throw Error('TIMEOUT')}},f.journal,caseId)).outcome,'incomplete');assert.equal(f.patches(),0)});
 test('vehicle, unit, tax and price mismatches require review',async()=>{for(const patch of [{vehicleId:'10'},{amount:'245'},{lines:[{...fixture().doc.lines[0],unitId:'2'}]},{lines:[{...fixture().doc.lines[0],unitNetPrice:'101'}]}]){const f=fixture();assert.equal((await reconcileEstimate({...f.read,estimateDetail:async()=>({...f.doc,...patch})},f.journal,caseId)).outcome,'review');assert.equal(f.patches(),0)}});
 test('journal tampering and document changing between READs are rejected',async()=>{const f=fixture();f.set({requestSha256:'b'.repeat(64)});await assert.rejects(reconcileEstimate(f.read,f.journal,caseId),/INTEGRITY/);const g=fixture();let calls=0;await assert.rejects(reconcileEstimate({...g.read,estimateDetail:async()=>({...g.doc,contentSha256:++calls===1?'a'.repeat(64):'b'.repeat(64)})},g.journal,caseId),/CHANGED/);assert.equal(g.patches(),0)});
+
+test('known uncertain document is recovered with absent status even if unrelated history cannot be read',async()=>{
+ const f=fixture();f.set({quibiId:'9'});
+ const read={...f.read,estimates:async()=>[{id:'9'},{id:'unrelated'}],estimateDetail:async(id:string)=>{assert.equal(id,'9');return f.doc;}};
+ assert.equal((await reconcileEstimate(read,f.journal,caseId)).outcome,'verified');assert.equal(f.patches(),1);assert.equal(f.doc.status,'');
+});

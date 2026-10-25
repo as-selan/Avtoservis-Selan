@@ -15,7 +15,7 @@ function text(tree:any):string{if(Array.isArray(tree))return tree.map(text).join
 function fixture(file:string,component:string,initialProps:Record<string,unknown>){
  const state:any[]=[],calls:{name:string;args:any[]}[]=[],pending:Promise<unknown>[]=[];let index=0,refreshes=0;
  const jsx=(type:unknown,props:Record<string,unknown>)=>({type,props});
- const actions=Object.fromEntries(['recordManualEstimateDecision','recordManualEstimateDelivery','reviewManualQuibiEstimate','proposeManualSlots','advanceManualSlotOffer','recordPreliminaryInspection'].map(name=>[name,async(...args:any[])=>{calls.push({name,args});return {ok:true}}]));
+ const actions=Object.fromEntries(['approveCaseEstimate','recordManualEstimateDecision','recordManualEstimateDelivery','reviewManualQuibiEstimate','proposeManualSlots','advanceManualSlotOffer','recordPreliminaryInspection'].map(name=>[name,async(...args:any[])=>{calls.push({name,args});return {ok:true}}]));
  const exports:Record<string,any>={};
  const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage,manualOfferExpired}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,Date,Number,JSON,Set,setTimeout,clearTimeout});
@@ -30,16 +30,15 @@ function attest(tree:any){const input=nodes(tree).find(n=>n.type==='input'&&n.pr
 test('customer approval and rejection work without delivery, stay explicitly synthetic and refresh the case',async()=>{
  for(const decision of ['approved','rejected']){
   const f=fixture('./ManualEstimateHandoff.tsx','ManualEstimateHandoff',{quoteId:'qa-quote',delivered:false,decision:null,syntheticQa:true,realDevWrite:true});
-  fillLabel(f.render(),'Referenca simulirane odločitve QA-SIM-','QA-SIM-admin-check');
   const label=decision==='approved'?'Evidentiraj simulirano QA odobritev':'Evidentiraj simulirano QA zavrnitev';
   const submit=button(f.render(),label);assert.equal(submit.props.disabled,false);submit.props.onClick();await f.flush();
-  assert.deepEqual(f.calls,[{name:'recordManualEstimateDecision',args:['qa-quote',decision,'QA-SIM-admin-check']}]);assert.equal(f.refreshes(),1);
+  assert.deepEqual(f.calls,[{name:'recordManualEstimateDecision',args:['qa-quote',decision,'QA-SIM-OPERATOR-'+decision]}]);assert.equal(f.refreshes(),1);
   assert.match(text(f.render({decision})),decision==='approved'?/odobreno/:/zavrnjeno/);
  }
 });
 test('synthetic decision cannot be mistaken for real customer evidence',async()=>{
  const f=fixture('./ManualEstimateHandoff.tsx','ManualEstimateHandoff',{quoteId:'qa',delivered:false,decision:null,syntheticQa:true});
- fillLabel(f.render(),'Referenca simulirane odločitve QA-SIM-','Unverified telephone call');button(f.render(),'Evidentiraj simulirano QA odobritev').props.onClick();await f.flush();assert.equal(f.calls.length,0);assert.match(text(f.render()),/QA-SIM-/);
+ assert.ok(!nodes(f.render()).some(n=>n.type==='input'));button(f.render(),'Evidentiraj simulirano QA odobritev').props.onClick();await f.flush();assert.equal(f.calls[0].args[2],'QA-SIM-OPERATOR-approved');assert.match(text(f.render()),/simulirano/i);
 });
 test('manual appointment UI progresses proposal, actual choice and booking evidence as separate actions',async()=>{
  const f=fixture('./ManualSlotOffer.tsx','ManualSlotOffer',{serviceRequestId:'case',appointmentType:'service',offer:null,realDevWrite:true});
@@ -77,4 +76,19 @@ test('expired or obsolete slot offers never present an actionable booking confir
  assert.match(text(f.render()),/Termini so potekli/);assert.ok(!nodes(f.render()).some(n=>n.type==='button'&&text(n)==='Potrdi ročno rezerviran termin'));
  assert.ok(button(f.render(),'Umakni ponudbo in pripravi nove možnosti'));
  assert.match(text(f.render({inactiveReason:'Pregled je že opravljen.'})),/Pregled je že opravljen/);
+});
+
+test('real customer approval needs one click and no reference field; source remains Selan',async()=>{
+ const f=fixture('./ManualEstimateHandoff.tsx','ManualEstimateHandoff',{quoteId:'qa',delivered:true,decision:null});
+ assert.ok(!nodes(f.render()).some(n=>n.type==='input'));
+ button(f.render(),'Stranka je odobrila').props.onClick();await f.flush();
+ assert.deepEqual(f.calls,[{name:'recordManualEstimateDecision',args:['qa','approved','']}]);
+ assert.match(text(f.render({decision:'approved'})),/ni prevzeta iz Quibija/);
+});
+
+test('existing uncertain estimate uses one locked approval click, never a create action',async()=>{
+ const f=fixture('./ApproveCaseEstimate.tsx','ApproveCaseEstimate',{caseId:'qa-case'});
+ const submit=button(f.render(),'Stranka je odobrila');submit.props.onClick();submit.props.onClick();await f.flush();
+ assert.deepEqual(f.calls,[{name:'approveCaseEstimate',args:['qa-case']}]);assert.equal(f.refreshes(),1);
+ assert.ok(!nodes(f.render()).some(n=>n.type==='input'));
 });

@@ -273,9 +273,11 @@ export async function recordManualEstimateDelivery(
 }
 
 export async function recordManualEstimateDecision(
-  quoteId: string, decision: "approved" | "rejected", reference: string,
+  quoteId: string, decision: "approved" | "rejected", reference = "",
 ): Promise<{ ok: true } | { ok: false; message: string; refreshed?: boolean }> {
   const access = await requirePhase1OperationalAccess();
+  // The authenticated click is the operator's attestation, not evidence received from Quibi.
+  if(!reference.trim()) reference = `Selan: uporabnik evidentiral ${decision === 'approved' ? 'odobritev' : 'zavrnitev'} stranke`;
   if(reference.trim().startsWith('QA-SIM-')&&(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'))return error('Simulirana QA odločitev je dovoljena samo v Quibi DEV Preview.');
   if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
@@ -311,4 +313,26 @@ export async function recordManualEstimateDecision(
     return error("Odločitve ni bilo mogoče shraniti. Preverite stanje primera.");
   }
   return { ok: true };
+}
+
+/** Explicit operator click. Recovers the existing document with READ only; never CREATE/SEND. */
+export async function approveCaseEstimate(caseId:string):Promise<{ok:boolean;message:string}>{
+ const access=await requirePhase1OperationalAccess();
+ if(!['owner','admin'].includes(access.role)||!/^[a-f0-9-]{36}$/i.test(caseId))return {ok:false,message:'Dejanje ni dovoljeno.'};
+ const db=await createClient();
+ const latest=()=>db.from('quotes').select('id,internal_review_status').eq('organization_id',access.organizationId).eq('service_request_id',caseId).eq('quibi_environment',quibiLinkEnvironment(process.env)).order('version_no',{ascending:false}).limit(1).maybeSingle();
+ let result=await latest();
+ if(!result.data&&!result.error){const {reconcileQuibiEstimate}=await import('./dev-write-actions');const recovered=await reconcileQuibiEstimate(caseId);if(!recovered.ok)return recovered;result=await latest();}
+ const quote=result.data;
+ if(result.error||!quote)return {ok:false,message:'Obstoječega predračuna ni mogoče preveriti. Nov dokument ni bil ustvarjen.'};
+ if(quote.internal_review_status==='unreviewed'){const reviewed=await reviewManualQuibiEstimate(quote.id,'approve');if(!reviewed.ok)return reviewed;}
+ else if(quote.internal_review_status!=='approved_for_send')return {ok:false,message:'Predračun potrebuje popravek pred odobritvijo stranke.'};
+ const {data:caseData,error:caseError}=await db.from('service_requests').select('problem_description,customer:customers(display_name,email),vehicle:vehicles(vin)').eq('organization_id',access.organizationId).eq('id',caseId).is('archived_at',null).single();
+ if(caseError||!caseData)return {ok:false,message:'Primer ni dostopen.'};
+ const subject=caseData as unknown as {problem_description:string|null;customer:{display_name:string;email:string|null}|null;vehicle:{vin:string|null}|null};
+ const simulated=syntheticCaseEvidenceAllowed(process.env,{caseId,description:subject.problem_description,name:subject.customer?.display_name,email:subject.customer?.email,vin:subject.vehicle?.vin});
+ const decision=await recordManualEstimateDecision(quote.id,'approved',simulated?'QA-SIM-OPERATOR-approved':'');
+ if(!decision.ok)return decision;
+ const {revalidatePath}=await import('next/cache');revalidatePath('/dashboard/primeri/'+caseId);revalidatePath('/dashboard');
+ return {ok:true,message:'Odobritev je evidentirana v Selanu. Nadaljujte na delovni nalog.'};
 }

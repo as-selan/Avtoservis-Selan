@@ -26,8 +26,9 @@ export function requestedEstimateRows(wanted:string|null|undefined,description:s
  const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('sl').replace(/[^a-z0-9]+/g,' ').trim();
  const categories=new Set(['avtomehanika','druga storitev']);
  const split=(value:string)=>value.replace(/\\r\\n|\\n|\\r/g,'\n').split(/[\n\r;•]+/).map(v=>v.replace(/^\s*(?:[-*]|\d+[.)])\s*/,'').trim()).filter(v=>!!v&&!/^TESTNO POVPRAŠEVANJE\s*[-–:]\s*AVTOSERVIS SELAN$/iu.test(v));
- const detailed=split(description??'');
- const labels=[...split(wanted??'').filter(v=>!detailed.length||!categories.has(normalize(v))),...detailed];
+ // Customer problem descriptions are context, never implicit billable services.
+ void description;
+ const labels=split(wanted??'').filter(v=>!categories.has(normalize(v)));
  const unique=labels.filter((v,i)=>labels.findIndex(other=>normalize(other)===normalize(v))===i);
  const catalog=canonicalEstimateOptions(options,customerPriceListId);
  return unique.slice(0,100).map(requestedService=>{

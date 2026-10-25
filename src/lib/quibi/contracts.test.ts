@@ -99,3 +99,12 @@ test("vehicle fingerprint tracks VIN, registration and model changes", () => {
   assert.equal(vehicleFingerprint(a), vehicleFingerprint({ ...a, vin: " WTEST123 ", registration: "LJ-01" }));
   assert.notEqual(vehicleFingerprint(a), vehicleFingerprint({ ...a, model: "B" }));
 });
+
+test('missing Quibi status relation does not invalidate an existing estimate or invent approval',()=>{
+ for(const Statusi of [[],null,{},undefined]){
+ const raw={error:false,data:{Dokumenti:[{Glavadokumenta:{id:'2176934',stranka_id:'7',znesek:'12.20'},Statusi,Postavkedokumenta:[{opis:'Servis',kolicina:'1',cenaZDDV:'10'}]}]}};
+ assert.equal(parseEstimateDetail(raw,'2176934','7').status,'');
+ assert.equal(parseDocumentStatus(raw,'2176934','7'),'');
+ assert.throws(()=>parseEstimateDetail(raw,'2176934','8'),/CUSTOMER_ID_MISMATCH/);
+ }
+});
