@@ -250,7 +250,7 @@ test("confirmed Quibi link shows only linked documents and records drift and rea
   await expect(page.getByText("Predračun #4001")).toBeVisible();
   await page.getByRole("link", { name: "Predračun #4001 · preveri vsebino" }).click();
   await expect(page.getByRole("heading", { name: "Quibijev predračun #4001" })).toBeVisible();
-  await expect(page.getByText("Preizkusna storitev")).toBeVisible();
+  await expect(page.getByText("Preizkusna storitev", { exact: true })).toBeVisible();
   await page.goto(`/dashboard/stranke/${seed.linkedCustomer}/quibi`);
   await noHorizontalOverflow(page);
 
