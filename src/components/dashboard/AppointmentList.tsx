@@ -69,7 +69,7 @@ export function AppointmentList({ appointments }: AppointmentListProps) {
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${type.className}`}
                 >
-                  {item.simulated ? "QA-SIM termin" : type.label}
+                  {item.simulated ? "Termin · Testni primer" : type.label}
                 </span>
               </li>
             );

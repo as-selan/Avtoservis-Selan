@@ -26,7 +26,7 @@ export function QuibiManualTestSendPanel({ serviceRequestId, quoteId, documentId
     });
   }
   return <section className="space-y-3 border-t pt-3">
-    <h3 className="font-medium">Testno pošiljanje obstoječega Quibi DEV predračuna</h3>
+    <h3 className="font-medium">Pošiljanje predračuna</h3><span data-test-case-badge className="text-xs text-slate-600">Testni primer</span>
     <p className="text-sm">Dokument #{documentId}, različica {version}. Prejemnik: {recipient}.</p>
     <p className="text-xs text-amber-800">Pošlje se obstoječi odobreni dokument. Status sent pomeni predajo poštnemu strežniku; prejem in dostava stranki nista potrjena.</p>
     {canSend && <form className="space-y-3" onSubmit={e => { e.preventDefault(); run(new FormData(e.currentTarget), false); }}>

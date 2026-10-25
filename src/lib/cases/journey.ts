@@ -36,7 +36,7 @@ export function caseJourney(p: JourneyInput) {
   action={label:'Preveri stranko in vozilo',href:'#quibi-povezava'};
   blocker='Povezava stranke in vozila s Quibijem še ni potrjena. Primerjajte podatke v razdelku Povezava s Quibijem; ustvarjanje manjkajočega vozila potrdi pooblaščeni uporabnik v prikazanem obrazcu.';return result();
  }
- if(p.operatorApprovalReady&&!p.customerApproved&&!p.hasWorkOrder){current=4;action={label:p.syntheticQa?'Evidentiraj QA odobritev':'Stranka je odobrila',href:'#odobritev'};return result();}
+ if(p.operatorApprovalReady&&!p.customerApproved&&!p.hasWorkOrder){current=4;action={label:'Stranka je odobrila',href:'#odobritev'};return result();}
  if(p.stepKind==='manual_inspection_billing'){
   current=6;action={label:'Uredi račun pregleda',href:'#termini'};return result();
  }
@@ -56,7 +56,7 @@ export function caseJourney(p: JourneyInput) {
  else if(p.stepKind==='revise_estimate')action={label:'Preglej zavrnitev in popravi predračun',href:'#pregled-predracuna'};
  else if(p.quoteReviewed){
   if(p.devNoEmail||p.dispatched||p.stepKind==='await_customer'){
-   current=4;action={label:p.syntheticQa?'Evidentiraj QA odobritev':'Zabeleži odobritev stranke',href:'#odobritev'};if(p.syntheticQa)blocker='Simulirana QA odločitev ne potrjuje dejanskega odgovora stranke. Dostava ni potrebna.';else if(p.devNoEmail)blocker='Quibi DEV ne pošilja e-pošte. Dokument ni poslan. Nadaljujte z ločeno zabeleženim dejanskim odgovorom ali jasno označeno sintetično odobritvijo QA-SIM.';
+   current=4;action={label:'Stranka je odobrila',href:'#odobritev'};if(p.syntheticQa)blocker='Odgovor za testni primer še ni evidentiran.';else if(p.devNoEmail)blocker='Dokument ni poslan. Prejeti odgovor lahko zabeležite neposredno.';
   }else{
    current=3;action={label:p.sendReady?'Pošlji predračun':'Preveri pošiljanje predračuna',href:'#pregled-predracuna'};
    if(!p.sendReady)blocker='Pošiljanje prek Quibija trenutno ni omogočeno ali nima vseh potrjenih podatkov. Dokument ni poslan. Preverite spodnji obrazec; dejanski odgovor po telefonu lahko ločeno zabeležite v razdelku Odločitev stranke.';

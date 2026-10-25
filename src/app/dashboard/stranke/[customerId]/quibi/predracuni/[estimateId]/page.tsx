@@ -44,16 +44,16 @@ export default async function QuibiEstimatePage({ params }: {
       ← Nazaj na povezano stranko
     </Link>
     <header>
-      <h1 className="text-2xl font-semibold">Quibijev predračun #{estimate.id}</h1>
-      <p className="text-sm text-slate-600">{simulated ? "QA-SIM: vsebina iz lokalnega simuliranega API-ja; ni dejanski Quibi dokument." : "Neposreden bralni prikaz iz Quibijevega testnega okolja."}</p>
+      <h1 className="text-2xl font-semibold">Quibijev predračun #{estimate.id}</h1>{simulated&&<span data-test-case-badge className="text-xs text-slate-600">Testni primer</span>}
+      <details className="text-xs text-slate-500"><summary>Podrobnosti povezave</summary><p className="text-sm text-slate-600">{simulated ? "QA-SIM: vsebina iz lokalnega simuliranega API-ja; ni dejanski Quibi dokument." : "Neposreden bralni prikaz iz Quibijevega testnega okolja."}</p></details>
     </header>
     {link.sync_status !== "ok" && <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
       Povezava stranke zahteva ponovni pregled. Ne potrjujte cene, dokler ne razrešite neskladja.
     </p>}
-    {<a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/estimate/${estimateId}/pdf`}>{simulated ? 'Odpri simuliran PDF QA-SIM' : 'Odpri dejanski PDF iz Quibija'}</a>}
-    {simulated && <p className="text-sm text-amber-800">PDF QA-SIM je ustvarjen samo v lokalnem simuliranem API-ju in ni poslovni dokument iz Quibija.</p>}
+    {<a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/estimate/${estimateId}/pdf`}>Odpri PDF</a>}
+    {simulated && <details className="text-xs text-slate-500"><summary>Več podrobnosti</summary><p className="text-sm text-amber-800">PDF QA-SIM je ustvarjen samo v lokalnem simuliranem API-ju in ni poslovni dokument iz Quibija.</p></details>}
     <section className="rounded-xl border bg-white p-4 space-y-2">
-      <h2 className="font-semibold">{simulated ? "Simulirana vsebina dokumenta QA" : "Dejanska vsebina dokumenta"}</h2>
+      <h2 className="font-semibold">Vsebina dokumenta</h2>
       <p className="text-sm">Status: {quibiDocumentStatusLabel(estimate.status)}</p>
       <p className="text-sm">Znesek, kot ga vrne Quibi: {estimate.amount}</p>
       <QuibiPriceSummary lines={estimate.lines} amount={estimate.amount} taxTotals={estimate.taxTotals}/>

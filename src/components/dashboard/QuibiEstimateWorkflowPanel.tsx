@@ -31,8 +31,8 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  const outcome=sendPresentation(p.operationState?{state:p.operationState,sendId:p.sendId??null,sendStatus:status??null}:null);
  const sendAllowed=p.reviewStatus==="approved_for_send"&&p.sendEnabled===true&&!!p.recipient&&!!p.amount&&p.lines.length>0&&!p.operationState&&!attempted&&!p.alreadyDelivered;
  return <section className="space-y-3 border-t pt-3">
-  <h3 className="font-medium">Predračun #{p.documentId}</h3>
-  {p.dev&&<p className="text-sm text-amber-800">DEV uporablja samo dovoljen testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
+  <h3 className="font-medium">Predračun #{p.documentId}</h3>{p.qaIdentityExceptionAvailable&&<><span data-test-case-badge className="text-xs text-slate-600">Testni primer</span><details className="text-xs text-slate-500"><summary>Več podrobnosti</summary><p>Izrecna QA izjema samo za sintetični lokalni DEV primer #9D40C42F, predračun #2176888, 122 EUR in online.gold100@gmail.com: API ne vrača ID-ja vozila. Povezava dokumenta z vozilom in storitvijo ni neodvisno dokazana. Potrjujem to omejitev; zapis ni dokaz ujemanja.</p></details></>}
+  {p.dev&&<p className="text-sm text-amber-800">Pošiljanje je omejeno na dovoljen prejemni naslov; dostava stranki ni potrjena.</p>}
   <QuibiPriceSummary lines={p.lines} amount={p.amount} taxTotals={p.taxTotals}/>
   <p className="text-sm">Predračun praviloma pošlji pred popravilom. Dejanska odobritev stranke je ločena in je lahko potrjena po telefonu; račun se pripravi šele po opravljenem popravilu.</p>
   <p className="text-sm">Prejemnik: {recipient??"pošiljanje ni konfigurirano ali naslov ni potrjen"}</p>
@@ -47,14 +47,14 @@ export function QuibiEstimateWorkflowPanel(p:Props){
     <textarea name="manualReference" required minLength={12} maxLength={1000} className="mt-1 block w-full rounded border px-3 py-2" />
    </label>}
    {p.manualIdentityRequired&&p.qaIdentityExceptionAvailable&&<label className="flex gap-2 text-sm text-amber-800"><input name="qaIdentityLimitationConfirmed" type="checkbox" value="yes" required />
-    Izrecna QA izjema samo za sintetični lokalni DEV primer #9D40C42F, predračun #2176888, 122 EUR in online.gold100@gmail.com: API ne vrača ID-ja vozila. Povezava dokumenta z vozilom in storitvijo ni neodvisno dokazana. Potrjujem to omejitev; zapis ni dokaz ujemanja.
+    Vozilo na izvirnem predračunu ni neodvisno potrjeno. Potrjujem to omejitev za označeni testni primer.
    </label>}
    {p.dev&&!!p.allowedRecipients?.length&&<label className="block text-sm">Dovoljeni testni prejemnik<select name="recipient" value={recipient} onChange={e=>{setRecipient(e.target.value)}} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
    <CasePrimaryAction>   <button form={"send-estimate-"+p.serviceRequestId} disabled={pending} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
     {pending?"Preverjam in pošiljam…":"Pošlji predračun"}
    </button></CasePrimaryAction>
   </form>}
-  {p.dev&&!p.sendEnabled&&<p className="text-sm">DEV: nova pošiljanja so izključena. Preverite dokument in prejemnika; stanje morebitnega prejšnjega poskusa je prikazano spodaj.</p>}
+  {p.dev&&!p.sendEnabled&&<p className="text-sm">Pošiljanje trenutno ni omogočeno. Stanje prejšnjega poskusa je prikazano spodaj.</p>}
   {p.dev&&!sendAllowed&&!!p.allowedRecipients?.length&&<label className="block text-sm">Prejemnik za pregled<select value={recipient} onChange={e=>setRecipient(e.target.value)} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
   {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<p className="text-sm text-slate-600">Pošiljanje trenutno ni na voljo. Odobritev stranke lahko zabeležite ločeno.</p>}
   {p.operationState&&<p role="status" className="text-sm">{status==='failed'?'Pošiljanje ni uspelo.':status==='sent'?'Predračun je predan poštnemu strežniku; prejem še ni potrjen.':p.sendId?'Pošiljanje je v čakalni vrsti.':'Izid pošiljanja še ni potrjen. Ne pošiljajte ponovno.'}</p>}

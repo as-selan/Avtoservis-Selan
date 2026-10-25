@@ -10,9 +10,9 @@ export default async function DashboardPage() {
   schedulePendingIntakePreparations();
   const snapshot = await loadDashboardSnapshot();
   return <>
-    {process.env.SELAN_LOCAL_REVIEW === "1" && process.env.QUIBI_DEV_WRITE_ENABLED !== "1" && <p role="note" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-      Lokalni QA: primeri in reference QA-SIM so sintetični. Aplikacija ne pošilja sporočil in ne rezervira terminov v MyPlanlyju.
-    </p>}
+    {process.env.SELAN_LOCAL_REVIEW === "1" && process.env.QUIBI_DEV_WRITE_ENABLED !== "1" && <div role="note" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      <details><summary>Podrobnosti povezave</summary>Lokalni QA: primeri in reference QA-SIM so sintetični. Aplikacija ne pošilja sporočil in ne rezervira terminov v MyPlanlyju.</details>
+    </div>}
     <DashboardPageClient initialData={snapshot} />
   </>;
 }

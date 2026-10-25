@@ -194,7 +194,7 @@ export async function recordManualEstimateDelivery(
   quoteId: string, channel: string, reference: string,
 ): Promise<{ ok: true } | { ok: false; message: string; refreshed?: boolean }> {
   const access = await requirePhase1OperationalAccess();
-  if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");
+  if (!demoEvidenceAllowed(reference)) return error("Podatki testnega primera niso veljavni. Osvežite primer.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
       || !["email", "sms", "in_person", "other"].includes(channel)
       || reference.trim().length < 4 || reference.trim().length > 200) {
@@ -276,8 +276,8 @@ export async function recordManualEstimateDecision(
   const access = await requirePhase1OperationalAccess();
   // The authenticated click is the operator's attestation, not evidence received from Quibi.
   if(!reference.trim()) reference = `Selan: uporabnik evidentiral ${decision === 'approved' ? 'odobritev' : 'zavrnitev'} stranke`;
-  if(reference.trim().startsWith('QA-SIM-')&&(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'))return error('Simulirana QA odločitev je dovoljena samo v Quibi DEV Preview.');
-  if (!demoEvidenceAllowed(reference)) return error("V demo okolju uporabite sintetično referenco QA-SIM-.");
+  if(reference.trim().startsWith('QA-SIM-')&&(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'))return error('Odločitev za testni primer ni dovoljena v tem okolju.');
+  if (!demoEvidenceAllowed(reference)) return error("Podatki testnega primera niso veljavni. Osvežite primer.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
       || !["approved", "rejected"].includes(decision)
       || reference.trim().length < 4 || reference.trim().length > 200) {
@@ -287,17 +287,17 @@ export async function recordManualEstimateDecision(
   if(process.env.APP_ENV==='preproduction'&&process.env.QUIBI_MODE==='dev'&&process.env.VERCEL_ENV==='preview'&&!reference.trim().startsWith('QA-SIM-')){
     const scoped=await createClient();
     const {data:fixtureQuote}=await scoped.from('quotes').select('service_request_id').eq('organization_id',access.organizationId).eq('id',quoteId).maybeSingle();
-    if(['a73db6be-7216-4677-bc0a-26e97693ad75','c066482d-0002-43c4-9090-b23833928f71'].includes(fixtureQuote?.service_request_id??''))return error('Ta sintetični DEV primer zahteva simulirano QA odločitev z referenco QA-SIM-.');
+    if(['a73db6be-7216-4677-bc0a-26e97693ad75','c066482d-0002-43c4-9090-b23833928f71'].includes(fixtureQuote?.service_request_id??''))return error('Za ta označeni testni primer uporabite ustrezno evidentiranje odločitve.');
   }
   if(reference.trim().startsWith('QA-SIM-')){
-    if(!['owner','admin'].includes(access.role))return error('QA odločitev lahko evidentira samo skrbnik.');
+    if(!['owner','admin'].includes(access.role))return error('Odločitev za testni primer lahko evidentira samo skrbnik.');
     const scoped=await createClient();
     const {data:qaQuote,error:qe}=await scoped.from('quotes').select('service_request_id').eq('organization_id',access.organizationId).eq('id',quoteId).single();
-    if(qe||!qaQuote)return error('QA predračun ni potrjen.');
+    if(qe||!qaQuote)return error('Predračun testnega primera ni potrjen.');
     const {data:qaCase,error:re}=await scoped.from('service_requests').select('customer_id,vehicle_id,problem_description').eq('organization_id',access.organizationId).eq('id',qaQuote.service_request_id).is('archived_at',null).single();
-    if(re||!qaCase?.customer_id||!qaCase.vehicle_id)return error('QA primer ni potrjen.');
+    if(re||!qaCase?.customer_id||!qaCase.vehicle_id)return error('Testni primer ni potrjen.');
     const [{data:qaCustomer,error:ce},{data:qaVehicle,error:ve}]=await Promise.all([scoped.from('customers').select('display_name,email').eq('organization_id',access.organizationId).eq('id',qaCase.customer_id).is('archived_at',null).single(),scoped.from('vehicles').select('vin').eq('organization_id',access.organizationId).eq('id',qaCase.vehicle_id).eq('customer_id',qaCase.customer_id).is('archived_at',null).single()]);
-    if(ce||ve||!syntheticCaseEvidenceAllowed(process.env,{caseId:qaQuote.service_request_id,description:qaCase.problem_description,name:qaCustomer?.display_name,email:qaCustomer?.email,vin:qaVehicle?.vin}))return error('Simulirana odločitev zahteva izrecno označen sintetični DEV primer.');
+    if(ce||ve||!syntheticCaseEvidenceAllowed(process.env,{caseId:qaQuote.service_request_id,description:qaCase.problem_description,name:qaCustomer?.display_name,email:qaCustomer?.email,vin:qaVehicle?.vin}))return error('Odločitev zahteva izrecno označen testni primer.');
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;

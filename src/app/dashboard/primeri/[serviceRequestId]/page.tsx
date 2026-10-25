@@ -328,7 +328,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {quote && !proposedPrice && <p role="alert" className="text-sm text-amber-800">{priceReadFailed ? "Predloga cene ni mogoče sveže prebrati iz Quibija." : "Cene ni varno predlagati: preverite povezavo stranke, dokument, vozilo in morebitne spremembe."} Povezava dokumenta s konkretnim vozilom in delovnim nalogom zahteva ročno potrditev.</p>}
           {!quote && link && !fixedPrice && <p className="text-xs text-amber-800">Quibijevi dokumenti stranke so lahko kandidati, vendar API ne potrjuje ujemanja storitve, vozila in delovnega naloga s tem primerom. Cene zato še ni varno samodejno predlagati.</p>}
           {customer && quibiEstimateId && <Link className="text-sm font-medium text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi/predracuni/${quibiEstimateId}`}>
-            {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri demo predračun" : "Podrobnosti predračuna v Selanu"} #{quibiEstimateId} →
+            {process.env.SELAN_REMOTE_DEMO === "1" ? "Odpri predračun" : "Podrobnosti predračuna v Selanu"} #{quibiEstimateId} →
           </Link>}
           {customer && quibiEstimateId && <a className="block text-sm font-medium text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customer.id}/estimate/${quibiEstimateId}/pdf`}>Odpri PDF predračuna iz Quibija</a>}
           {createdOperation?.state === "verified" && createdOperation.quibiId === quibiEstimateId &&
@@ -356,7 +356,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {operatorApprovalReady&&createdOperation?.quibiId&&['owner','admin'].includes(access.role)&&<ApproveCaseEstimate caseId={serviceRequestId} documentId={createdOperation.quibiId} backgroundRead={false} syntheticQa={syntheticQa}/>}
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} syntheticQa={syntheticQa} realDevWrite={realDevMode} apiDispatch={approval?.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
-          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Demo – ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
+          {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Quibi API: predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
           </div>{quote?.internal_review_status!=="approved_for_send"&&<p className="text-sm text-slate-600">Najprej interno preglejte in odobrite predračun. Šele nato zabeležite dejanski odgovor stranke za isto različico.</p>}</section>
       </>)},
       {id:"poslovni-nalog",title:"Delovni nalog",content:(<>
@@ -399,12 +399,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       </>)}
     ];
 
-    return <div className="mx-auto max-w-5xl space-y-5">
-      {process.env.SELAN_LOCAL_REVIEW === "1" && !realDevMode && <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-        Lokalni QA: reference QA-SIM pomenijo simuliran preizkus. Nobeno sporočilo ni dejansko poslano in noben termin ni rezerviran v MyPlanlyju. {process.env.QUIBI_E2E_WRITE_ENABLED === "1" ? "Quibi je lokalna simulacija." : process.env.QUIBI_MODE === "dev" ? "Quibi DEV: podatki so prebrani iz testnega okolja." : "Quibi je lokalna simulacija."}
-      </p>}
+    return <div className={`mx-auto max-w-5xl space-y-5 ${syntheticQa||repairWork?.review?.simulated?'test-case-context':''}`}>
+      {process.env.SELAN_LOCAL_REVIEW === "1" && !realDevMode && <div role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+        <details><summary>Podrobnosti povezave</summary>Lokalni QA: reference QA-SIM pomenijo simuliran preizkus. Nobeno sporočilo ni dejansko poslano in noben termin ni rezerviran v MyPlanlyju. {process.env.QUIBI_E2E_WRITE_ENABLED === "1" ? "Quibi je lokalna simulacija." : process.env.QUIBI_MODE === "dev" ? "Quibi DEV: podatki so prebrani iz testnega okolja." : "Quibi je lokalna simulacija."}</details>
+      </div>}
       <Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link>
-      <header><h1 className="text-2xl font-semibold text-slate-900">Primer #{toPresentationRef(request.id)}</h1>
+      <header><h1 className="text-2xl font-semibold text-slate-900">Primer #{toPresentationRef(request.id)}</h1>{(syntheticQa||repairWork?.review?.simulated)&&<span data-test-case-badge className="inline-block rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">Testni primer</span>}
 
         <p className="mt-1 text-xs text-slate-500">Vir: {({ web_form: "splet", phone: "telefon", sms: "sporočilo", manual: "ročni vnos", other: "drugo" } as Record<string, string>)[request.source] ?? "drugo"} · Poslovna faza: {repairWork?.phase?.label??getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}</p></header>
 

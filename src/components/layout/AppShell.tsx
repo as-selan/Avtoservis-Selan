@@ -34,7 +34,7 @@ function AppShellInner({
           onOpenManualEntry={() => setManualOpen(true)}
         />
         <main className="flex-1 overflow-x-hidden px-3 py-4 sm:px-5 lg:px-6 lg:py-5">
-          <div className="mx-auto w-full max-w-[1440px]">{simulatedQuibi && <p role="note" className="mb-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm">Simuliran Quibi API: dokumenti in statusi QA-SIM niso dejanski Quibi zapisi. Nobeno sporočilo ni poslano.</p>}{children}</div>
+          <div className="mx-auto w-full max-w-[1440px]">{simulatedQuibi && <div role="note" className="mb-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm"><details><summary>Podrobnosti povezave</summary>Simuliran Quibi API: dokumenti in statusi QA-SIM niso dejanski Quibi zapisi. Nobeno sporočilo ni poslano.</details></div>}{children}</div>
         </main>
       </div>
 

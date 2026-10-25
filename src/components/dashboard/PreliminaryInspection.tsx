@@ -34,21 +34,21 @@ export function PreliminaryInspection({ serviceRequestId, caseStatus, status, fi
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">Označi potreben predhodni pregled</button></>}
     {status === "requested" && canAdvancePreliminaryInspection(caseStatus, "complete") && <>
       <p className="text-sm text-amber-800">Pregled je potreben. Termin in razpoložljivost je treba potrditi ročno; v aplikaciji še ni zunanje rezervacije.</p>
-      <label className="block text-sm">{demo ? "Sintetične ugotovitve preizkusnega pregleda" : "Dejanske ugotovitve po opravljenem pregledu"}
+      <label className="block text-sm">{demo ? "Ugotovitve pregleda za označeni testni primer" : "Dejanske ugotovitve po opravljenem pregledu"}
         <textarea className="mt-1 block w-full rounded border px-2 py-1" value={text} maxLength={2000}
           onChange={(event) => setText(event.target.value)} />
       </label>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-        {demo ? "Potrjujem simulacijo pregleda na testnem primeru." : "Pregled je bil dejansko opravljen; navedene ugotovitve so resnične."}</label>
+        {demo ? "Potrjujem pregled za označeni testni primer." : "Pregled je bil dejansko opravljen; navedene ugotovitve so resnične."}</label>
       <button type="button" disabled={pending || !attested || text.trim().length < 4} onClick={() => submit("complete")}
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">Zabeleži opravljen pregled</button>
     </>}
     {status === "completed" && <>
-      <p className="text-sm">Ugotovitve: {findings}</p>
+      <p className="text-sm">Ugotovitve: {findings}</p>{demo&&<span data-test-case-badge className="text-xs text-slate-600">Testni primer</span>}
       {repairDecision === "pending" && canAdvancePreliminaryInspection(caseStatus, "repair_ordered") && <>
         <p className="text-sm text-amber-800">Obračun pregleda še ni določen: čaka na dejansko odločitev o popravilu. Cene in računa aplikacija ne ustvarja.</p>
         <label className="flex gap-2 text-sm"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-          {demo ? "Potrjujem simulirano odločitev na testnem primeru." : "Potrdil sem dejansko odločitev stranke o naročilu popravila."}</label>
+          {demo ? "Potrjujem odločitev za označeni testni primer." : "Potrdil sem dejansko odločitev stranke o naročilu popravila."}</label>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={pending || !attested} onClick={() => submit("repair_ordered")}
             className="rounded border px-3 py-2 text-sm disabled:opacity-50">Popravilo naročeno</button>

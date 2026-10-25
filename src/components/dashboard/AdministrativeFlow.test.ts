@@ -30,7 +30,7 @@ function attest(tree:any){const input=nodes(tree).find(n=>n.type==='input'&&n.pr
 test('customer approval and rejection work without delivery, stay explicitly synthetic and refresh the case',async()=>{
  for(const decision of ['approved','rejected']){
   const f=fixture('./ManualEstimateHandoff.tsx','ManualEstimateHandoff',{quoteId:'qa-quote',delivered:false,decision:null,syntheticQa:true,realDevWrite:true});
-  const label=decision==='approved'?'Evidentiraj simulirano QA odobritev':'Evidentiraj simulirano QA zavrnitev';
+  const label=decision==='approved'?'Stranka je odobrila':'Stranka je zavrnila predračun';
   const submit=button(f.render(),label);assert.equal(submit.props.disabled,false);submit.props.onClick();await f.flush();
   assert.deepEqual(f.calls,[{name:'recordManualEstimateDecision',args:['qa-quote',decision,'QA-SIM-OPERATOR-'+decision]}]);assert.equal(f.refreshes(),1);
   assert.match(text(f.render({decision})),decision==='approved'?/odobreno/:/zavrnjeno/);
@@ -38,7 +38,7 @@ test('customer approval and rejection work without delivery, stay explicitly syn
 });
 test('synthetic decision cannot be mistaken for real customer evidence',async()=>{
  const f=fixture('./ManualEstimateHandoff.tsx','ManualEstimateHandoff',{quoteId:'qa',delivered:false,decision:null,syntheticQa:true});
- assert.ok(!nodes(f.render()).some(n=>n.type==='input'));button(f.render(),'Evidentiraj simulirano QA odobritev').props.onClick();await f.flush();assert.equal(f.calls[0].args[2],'QA-SIM-OPERATOR-approved');assert.match(text(f.render()),/simulirano/i);
+ assert.ok(!nodes(f.render()).some(n=>n.type==='input'));button(f.render(),'Stranka je odobrila').props.onClick();await f.flush();assert.equal(f.calls[0].args[2],'QA-SIM-OPERATOR-approved');assert.match(text(f.render()),/Testni primer/);assert.match(text(f.render()),/Ne potrjuje dejanske strankine odločitve/);
 });
 test('manual appointment UI progresses proposal, actual choice and booking evidence as separate actions',async()=>{
  const f=fixture('./ManualSlotOffer.tsx','ManualSlotOffer',{serviceRequestId:'case',appointmentType:'service',offer:null,realDevWrite:true});
@@ -50,7 +50,7 @@ test('manual appointment UI progresses proposal, actual choice and booking evide
  for(const [status,label,reference,action] of [['proposed','Evidentiraj dejansko pošiljanje','Referenca dejansko poslanih možnosti','send'],['offered','Evidentiraj strankino izbiro','Referenca strankine izbire','select'],['selected','Potrdi ročno rezerviran termin','Referenca dejanske ročne rezervacije','confirm']]){
   f.render({offer:{...offer,status,selected_slot:status==='selected'?1:null}});fillLabel(f.render(),reference,'isolated-only evidence');attest(f.render());button(f.render(),label).props.onClick();await f.flush();assert.equal(f.calls.at(-1)?.args[1],action);
  }
- const confirmed=f.render({offer:{...offer,status:'confirmed',booking_reference:'QA-SIM-isolated',selected_slot:1}});assert.match(text(confirmed),/To NI rezervacija/);assert.ok(!nodes(confirmed).some(n=>n.type==='button'&&text(n)==='Potrdi ročno rezerviran termin'));
+ const confirmed=f.render({offer:{...offer,status:'confirmed',booking_reference:'QA-SIM-isolated',selected_slot:1}});assert.match(text(confirmed),/Zunanja rezervacija ni potrjena/);assert.ok(!nodes(confirmed).some(n=>n.type==='button'&&text(n)==='Potrdi ročno rezerviran termin'));
 });
 test('preliminary inspection explicitly distinguishes free ordered repair from payable declined repair',async()=>{
  const f=fixture('./PreliminaryInspection.tsx','PreliminaryInspection',{serviceRequestId:'case',caseStatus:'preparing_offer',status:null,findings:null,repairDecision:null});

@@ -8,3 +8,5 @@ test('mechanic queue keeps active first and sorts each group by assignment date,
  assert.deepEqual(selectMechanicWork(input).map(r=>r.caseId),['2176935','old','unknown','done-new','locked']);assert.equal(input[0].caseId,'old');
  const enriched=enrichWork([input[0]],[{case_id:'old',created_at:'2026-10-20T10:00:00Z',updated_at:'2026-10-30T10:00:00Z'}],[],[],[]);assert.equal(enriched[0].assignedAt,'2026-10-20T10:00:00Z');
 });
+
+test('service completion is taken only from matching completed mechanic status, never later notes/photos or manager activity',()=>{const row={caseId:'case',mechanicId:'one',status:'work_completed'};const assignment={case_id:'case',status:'work_completed',updated_at:'2026-10-25T18:11:19Z'};const work=enrichWork([row],[assignment],[{case_id:'case',created_at:'2026-10-27T12:00:00Z'}],[],[])[0];assert.equal(work.completedAt,'2026-10-25T18:11:19Z');assert.equal(work.lastActivity,'2026-10-27T12:00:00Z');assert.equal(enrichWork([row],[{...assignment,status:'in_progress'}],[],[],[])[0].completedAt,null);assert.equal(enrichWork([{...row,status:'in_progress'}],[assignment],[],[],[])[0].completedAt,null);});

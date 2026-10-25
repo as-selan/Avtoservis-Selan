@@ -51,7 +51,7 @@ test('failed and queued sends stay prominent without blocking a real phone appro
 
 test('DEV email is optional and routes a reviewed estimate to separately recorded approval',()=>{
  const j=caseJourney({...base,status:'preparing_offer',quoteReviewed:true,devNoEmail:true,sendAttempted:true,sendState:'failed'});
- assert.equal(j.action.href,'#odobritev');assert.match(j.blocker!,/DEV ne pošilja/);assert.equal(j.completed[3],false);assert.equal(j.completed[4],false);
+ assert.equal(j.action.href,'#odobritev');assert.match(j.blocker!,/Dokument ni poslan/);assert.equal(j.completed[3],false);assert.equal(j.completed[4],false);
 });
 
 test('automatic preparation skips a separate intake click but preserves uncertainty and missing-data gates',()=>{for(const [state,label] of [['ready','Preglej in potrdi'],['ambiguous','Izberi storitev'],['missing_price','Vnesi ceno']] as const){const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:state});assert.equal(j.action.label,label);assert.equal(j.action.href,'#predracun');}assert.equal(caseJourney({...base,automaticPreparation:true,automaticDraftState:'ready',identityReady:false}).action.href,'#quibi-povezava');});
@@ -60,7 +60,7 @@ test('new vehicle is the next task for owner and a concrete owner handoff for ad
 
 test('DEV admin capability exposes vehicle confirmation without a separate acceptance',()=>{const result=caseJourney({...base,role:'admin',canCreateVehicle:true,identityReady:false,newVehicleRequired:true});assert.equal(result.action.href,'#quibi-povezava');assert.equal(result.action.label,'Preveri in potrdi vozilo');assert.equal(result.blocker,null);});
 
-test('synthetic DEV approval is never described as a real customer answer',()=>{const j=caseJourney({...base,syntheticQa:true,quoteReviewed:true,devNoEmail:true,status:'preparing_offer'});assert.equal(j.action.label,'Evidentiraj QA odobritev');assert.match(j.blocker!,/ne potrjuje dejanskega odgovora/);});
+test('synthetic DEV approval is never described as a real customer answer',()=>{const j=caseJourney({...base,syntheticQa:true,quoteReviewed:true,devNoEmail:true,status:'preparing_offer'});assert.equal(j.action.label,'Stranka je odobrila');assert.match(j.blocker!,/testni primer/);});
 
 test('completed and reviewed repairs lead to review, invoice or handover instead of restarting repair',()=>{
  for(const [repairPhase,href] of [['review_required','#popravilo'],['invoice_review','#poslovni-nalog'],['handover','#popravilo']]){

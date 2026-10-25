@@ -93,11 +93,11 @@ export default async function QuibiCustomerPage({ params, searchParams }: {
   return <div className="space-y-5">
     <Link href={href} className="text-sm font-medium text-blue-700">← Nazaj na stranko</Link>
     <div><h1 className="text-2xl font-semibold">Quibi · {local.customer.displayName}</h1>
-      <p className="text-sm text-slate-600">{localSyntheticQaAllowed(process.env) ? "QA-SIM: lokalna simulacija Quibi; podatki niso dejanski DEV dokumenti." : process.env.SELAN_REMOTE_DEMO === "1"
+      <details className="text-xs text-slate-500"><summary>Podrobnosti povezave</summary><p className="text-sm text-slate-600">{localSyntheticQaAllowed(process.env) ? "QA-SIM: lokalna simulacija Quibi; podatki niso dejanski DEV dokumenti." : process.env.SELAN_REMOTE_DEMO === "1"
         ? "Quibi demo – podatki so simulirani. Povezave veljajo samo za sintetične testne primere."
         : process.env.QUIBI_MODE === "production" ? "Quibi: dokumenti in pošiljanje se upravljajo iz Selana. Produkcijski zapisi zahtevajo izrecno konfiguracijo." : process.env.QUIBI_DEV_WRITE_ENABLED === "1"
           ? "Quibi DEV – dejanski podatki iz testnega okolja. Ujemanje stranke in vozila ostaja ročno potrjeno; predračun je mogoče pripraviti v servisnem primeru, testna dostava gre samo na dovoljen naslov."
-          : "Quibi DEV – dejanski podatki iz testnega okolja. Povezava je ročno potrjena; zapisovanje in pošiljanje v Quibi nista avtomatska."}</p></div>
+          : "Quibi DEV – dejanski podatki iz testnega okolja. Povezava je ročno potrjena; zapisovanje in pošiljanje v Quibi nista avtomatska."}</p></details>{(localSyntheticQaAllowed(process.env)||process.env.SELAN_REMOTE_DEMO==="1")&&<span data-test-case-badge className="text-xs text-slate-600">Testni primer</span>}</div>
     {query.result === "linked" && <p role="status" className="text-green-700">Povezava je shranjena.</p>}
     {query.result === "changed" && <p role="alert" className="text-amber-800">Podatki v Quibiju so se od prikaza spremenili. Ponovno preverite stranko.</p>}
     {query.result === "already" && <p role="alert" className="text-amber-800">Povezava je v konfliktu: stranka ali Quibijev ID je povezan z drugim zapisom.</p>}

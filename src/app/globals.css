@@ -34,3 +34,7 @@ body {
 .mechanic-workspace [data-work-form] { border-top: 1px solid #e2e8f0; }
 .mechanic-workspace [data-work-form] button { width: 100%; }
 :where(a, button, input, select, textarea):focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+
+/* One persistent case marker; nested workspaces keep their marker when opened standalone. */
+.test-case-context [data-test-case-badge] { display: none; }
+.test-case-context > header > [data-test-case-badge] { display: inline-block; }
