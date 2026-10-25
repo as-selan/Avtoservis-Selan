@@ -1,3 +1,4 @@
+import {QuibiPriceSummary} from '@/components/dashboard/QuibiPriceSummary';
 import {quibiLinkEnvironment} from "@/lib/quibi/workflow-config";
 import {DocumentCommunicationDraft} from "@/components/dashboard/DocumentCommunicationDraft";
 import Link from "next/link";
@@ -55,9 +56,7 @@ export default async function QuibiEstimatePage({ params }: {
       <h2 className="font-semibold">{simulated ? "Simulirana vsebina dokumenta QA" : "Dejanska vsebina dokumenta"}</h2>
       <p className="text-sm">Status: {quibiDocumentStatusLabel(estimate.status)}</p>
       <p className="text-sm">Znesek, kot ga vrne Quibi: {estimate.amount}</p>
-      <ul className="space-y-2 text-sm">{estimate.lines.map((line, index) => <li key={index} className="border-t pt-2">
-        {line.description || "Postavka brez opisa"} · količina {line.quantity || "ni navedena"} · neto vrednost postavke po Quibiju {line.lineNetAmount ?? line.grossPrice ?? "ni navedena"} · cena na enoto z DDV {line.pricingVerified ? line.unitGrossPrice : "ni preverljiva"}
-      </li>)}</ul>
+      <QuibiPriceSummary lines={estimate.lines} amount={estimate.amount} taxTotals={estimate.taxTotals}/>
       {estimate.lines.length === 0 && <p className="text-sm text-amber-800">Quibi ne vrača postavk; predračuna ni mogoče vsebinsko preveriti.</p>}
     </section>
     <p className="text-sm text-amber-800">Ta bralni prikaz še ni dokaz o Tadejevi odobritvi, pošiljanju ali potrditvi stranke.</p>

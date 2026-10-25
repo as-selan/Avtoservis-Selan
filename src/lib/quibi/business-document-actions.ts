@@ -1,4 +1,5 @@
 "use server";
+import {invoiceDateDefaults} from './invoice-date-defaults';
 import {isPretechnicalInspection} from './inspection-catalog';
 import {inspectionBillingReview} from "./inspection-billing-review";
 import {caseBusinessReference} from "./case-business-policy";
@@ -26,7 +27,7 @@ import {stableEstimatePayload,withDocumentId} from './write-contract';
 import {configuredQuibiWorkflowWriteClient} from './write-client';
 import {quibiWorkflowJournal} from './write-journal';
 import {linkWorkOrderQuibiDocument} from './work-order-document-actions';
-export type BusinessPreparationResult={inspectionInvoiceChoices?:{numberings:{id:string;label:string}[];saleTypes:{id:string;label:string}[];warehouses:{id:string;label:string}[]};manualQuibiUrl?:string;inspectionReview?:{sha:string;reference:string;confirmed:boolean;serviceCode:string};manualCustomerId?:string;ok:boolean;message:string;sha?:string;sourceId?:string;sourceSha?:string;amount?:string;documentId?:string;baselineSha?:string;dispatchStarted?:boolean;lines?:{description:string;quantity:string;unit:string;vat:string;unitGrossPrice:string;discount:string}[];notes?:string[];headerSelectionRequired?:boolean;invoiceHeader?:Awaited<ReturnType<typeof verifiedInvoiceHeader>>;invoiceDates?:{serviceDate:string;issueDate:string;dueDate:string};billingChanges?:string[];customer?:string;vehicle?:string;issuer?:string;taxTotals?:{base:string;vat:string;total:string;vatId:string}[]};
+export type BusinessPreparationResult={inspectionInvoiceChoices?:{numberings:{id:string;label:string}[];saleTypes:{id:string;label:string}[];warehouses:{id:string;label:string}[]};manualQuibiUrl?:string;inspectionReview?:{sha:string;reference:string;confirmed:boolean;serviceCode:string};manualCustomerId?:string;ok:boolean;message:string;sha?:string;sourceId?:string;sourceSha?:string;amount?:string;documentId?:string;baselineSha?:string;dispatchStarted?:boolean;lines?:{description:string;quantity:string;unit:string;vat:string;unitGrossPrice:string;unitNetPrice?:string;lineNetAmount?:string;discount:string}[];notes?:string[];headerSelectionRequired?:boolean;invoiceHeader?:Awaited<ReturnType<typeof verifiedInvoiceHeader>>;invoiceDates?:{serviceDate:string;issueDate:string;dueDate:string};billingChanges?:string[];dateDefaults?:{serviceDate:string;issueDate:string;dueDate:string};customer?:string;vehicle?:string;issuer?:string;taxTotals?:{base:string;vat:string;total:string;vatId:string}[]};
 export async function prepareQuibiBusinessDocument(form:FormData):Promise<BusinessPreparationResult>{
  let dispatchStarted=false;
  const access=await requirePhase1OperationalAccess();
@@ -84,12 +85,13 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   const expectedUnitIds=source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>line.unitId!);
   const expectedUnitNetPrices=source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>Number(line.unitNetPrice));
   if(source.vehicleId!==vehicleLink.quibi_vehicle_id||!source.lines.length)throw Error('IDENTITY_UNVERIFIED');
-  const review:BusinessPreparationResult={ok:true,message:'',issuer:source.issuerName,taxTotals:source.taxTotals,customer:remoteCustomer.name,vehicle:[remoteVehicle.registration,remoteVehicle.make,remoteVehicle.model].filter(Boolean).join(' · '),sourceId:source.id,sourceSha:source.contentSha256,amount:source.amount,lines:source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>({description:line.description,quantity:line.quantity,unit:units.find(u=>u.id===line.unitId)!.label,vat:vat.find(v=>v.id===line.vatId)!.label,unitGrossPrice:line.unitGrossPrice!,discount:line.discount!})),notes:quibiSourceNotes(source).map(line=>line.description)};
+  const review:BusinessPreparationResult={ok:true,message:'',issuer:source.issuerName,taxTotals:source.taxTotals,customer:remoteCustomer.name,vehicle:[remoteVehicle.registration,remoteVehicle.make,remoteVehicle.model].filter(Boolean).join(' · '),sourceId:source.id,sourceSha:source.contentSha256,amount:source.amount,lines:source.lines.filter(line=>!quibiSourceNotes(source).includes(line)).map(line=>({description:line.description,quantity:line.quantity,unit:units.find(u=>u.id===line.unitId)!.label,vat:vat.find(v=>v.id===line.vatId)!.label,unitGrossPrice:line.unitGrossPrice!,unitNetPrice:line.unitNetPrice,lineNetAmount:line.lineNetAmount,discount:line.discount!})),notes:quibiSourceNotes(source).map(line=>line.description)};
+  if(kind==='invoice'){review.dateDefaults=invoiceDateDefaults({serviceDate:String(form.get('serviceDate')??''),issueDate:String(form.get('issueDate')||quibiToday()),dueDate:String(form.get('dueDate')??'')},source,remoteCustomer.paymentTermDays);for(const [key,value] of Object.entries(review.dateDefaults))if(!String(form.get(key)??'')&&value)form.set(key,value);}
   if(!header.ready&&!reconciling){
    if(form.get('dispatch')==='yes')throw Error('CATALOG_INVALID');
    return {...review,ok:true,headerSelectionRequired:true,message:'Postavke so prebrane iz preverjenega Quibi dokumenta. Izberite veljavno številčenje in vrsto prodaje; priprava se nato samodejno preveri.'};
   }
-  if(!reconciling&&kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')||!String(form.get('dueDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Preverite opravljeno delo ter datum storitve in zapadlosti. Dokument še ni ustvarjen.'};
+  if(!reconciling&&kind==='invoice'&&form.get('dispatch')!=='yes'&&((directCase&&form.get('repairCompleted')!=='yes')||!String(form.get('serviceDate')??'')||!String(form.get('dueDate')??'')))return {...review,ok:true,message:'Postavke računa so pridobljene iz preverjenega Quibi naloga. Dopolnite samo manjkajoči datum storitve ali zapadlosti. Dokument še ni ustvarjen.'};
   if(reconciling){
    if(!directCase||kind!=='invoice')throw Error('RECONCILIATION_FORBIDDEN');
    const opId=String(form.get('operationId')??'');

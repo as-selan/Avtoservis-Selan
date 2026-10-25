@@ -339,7 +339,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             (["unreviewed", "approved_for_send"].includes(quote.internal_review_status) || sendOperation) &&
             <QuibiEstimateWorkflowPanel sendEnabled={sendReady} key={quote.id} serviceRequestId={serviceRequestId} quoteId={quote.id} documentId={quibiEstimateId}
               reviewStatus={quote.internal_review_status} sha256={quote.content_sha256} amount={proposedPrice?.amount}
-              allowedRecipients={process.env.QUIBI_MODE==="dev"&&testRecipient?quibiDevTestRecipients(process.env).filter(email=>email!==customer?.email?.toLowerCase()):[]} lines={reviewDetail?.lines ?? []} recipient={operationRecipient ?? testRecipient} dev={process.env.QUIBI_MODE === "dev"}
+              allowedRecipients={process.env.QUIBI_MODE==="dev"&&testRecipient?quibiDevTestRecipients(process.env).filter(email=>email!==customer?.email?.toLowerCase()):[]} taxTotals={reviewDetail?.taxTotals} lines={reviewDetail?.lines ?? []} recipient={operationRecipient ?? testRecipient} dev={process.env.QUIBI_MODE === "dev"}
               operationId={sendOperation?.id} attemptedAt={sendOperation?.attemptedAt}
               operationState={sendOperation?.state} sendId={sendOperation?.sendId} sendStatus={sendOperation?.sendStatus}
               alreadyDelivered={approval?.delivery_status === "delivered"}

@@ -1,7 +1,7 @@
 import {quibiLinePricing} from './line-pricing.ts';
 import { createHash } from "node:crypto";
 
-export type QuibiCustomer = { id: string; name: string; phone: string; email: string; remoteId?: string; priceListId?:string|null };
+export type QuibiCustomer = { id: string; name: string; phone: string; email: string; remoteId?: string; priceListId?:string|null;paymentTermDays?:number };
 export type QuibiVehicle = {
   id: string; customerId: string; vin: string; registration: string;
   make: string; model: string; disabled: boolean;
@@ -51,6 +51,7 @@ export function parseCustomers(value: unknown): QuibiCustomer[] {
     const id = field(customer.id);
     if (!/^\d+$/.test(id)) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
     return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl),
+    ...(/^\d+$/.test(field(customer.dniZapadlosti))&&Number.isSafeInteger(Number(customer.dniZapadlosti))?{paymentTermDays:Number(customer.dniZapadlosti)}:{}),
       ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}), ...(customer.cenik_id===null?{priceListId:null}:/^[1-9]\d*$/.test(field(customer.cenik_id))?{priceListId:field(customer.cenik_id)}:{}) };
   });
 }
@@ -62,6 +63,7 @@ export function parseCustomerDetail(value: unknown): QuibiCustomer {
   const id = field(customer.id);
   if (!/^\d+$/.test(id)) throw new Error("QUIBI_INVALID_CUSTOMER_ID");
   return { id, name: field(customer.naziv), phone: field(customer.telst), email: field(customer.emajl),
+    ...(/^\d+$/.test(field(customer.dniZapadlosti))&&Number.isSafeInteger(Number(customer.dniZapadlosti))?{paymentTermDays:Number(customer.dniZapadlosti)}:{}),
     ...(field(customer.remote_id) ? { remoteId: field(customer.remote_id) } : {}), ...(customer.cenik_id===null?{priceListId:null}:/^[1-9]\d*$/.test(field(customer.cenik_id))?{priceListId:field(customer.cenik_id)}:{}) };
 }
 

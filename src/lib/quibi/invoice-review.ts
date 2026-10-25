@@ -1,5 +1,5 @@
 import type {QuibiEstimateDetail} from './contracts.ts';
-import {estimateReviewTotal} from './estimate-preparation.ts';
+import {quibiDocumentAmountMatches} from './line-pricing.ts';
 import {quibiSourceNotes} from './business-source-lines.ts';
 export function invoiceSourceChanges(approved:QuibiEstimateDetail,order:QuibiEstimateDetail){
  if(approved.customerId!==order.customerId||!approved.vehicleId||approved.vehicleId!==order.vehicleId)throw Error('IDENTITY_CHANGED');
@@ -14,9 +14,8 @@ export function invoiceSourceChanges(approved:QuibiEstimateDetail,order:QuibiEst
 export function verifyInvoiceSourceTotal(doc:QuibiEstimateDetail){
  const lines=doc.lines.filter(line=>!quibiSourceNotes(doc).includes(line));
  if(!lines.length||lines.some(line=>!line.pricingVerified||line.unitGrossPrice==null||line.discount==null))throw Error('SOURCE_LINE_METADATA_UNSUPPORTED');
- const total=estimateReviewTotal(lines.map(line=>({description:line.description,unit:line.unitId??'',vat:line.vatId??'',quantity:Number(line.quantity),unitPrice:Number(line.unitGrossPrice),discount:Number(line.discount)})));
- if(!Number.isFinite(Number(doc.amount))||Math.abs(total-Number(doc.amount))>0.010001)throw Error('QUIBI_INVOICE_TOTAL_MISMATCH');
- return total;
+ if(!quibiDocumentAmountMatches({...doc,lines}))throw Error('QUIBI_INVOICE_TOTAL_MISMATCH');
+ return Number(doc.amount);
 }
 export function invoiceDates(serviceDate:string,issueDate:string,dueDate:string){
  const valid=(s:string)=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;

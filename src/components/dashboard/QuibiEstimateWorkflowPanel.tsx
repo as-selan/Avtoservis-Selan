@@ -1,11 +1,13 @@
 "use client";
+import {QuibiPriceSummary} from './QuibiPriceSummary';
+import type {PriceLine} from '@/lib/quibi/price-presentation';
 import {CasePrimaryAction} from './CasePrimaryAction';
 import {sendPresentation} from "@/lib/quibi/send-outcome";
 import {useEffect,useRef,useState,useTransition} from "react";
 import {useRouter} from "next/navigation";
 import {approveAndSendQuibiEstimate,pollQuibiEstimateSend} from "@/lib/quibi/unified-actions";
 type Props={serviceRequestId:string;quoteId:string;documentId:string;reviewStatus:string;sha256:string;
- sendEnabled?:boolean;allowedRecipients?:string[];amount?:string;lines:{description:string;quantity:string;grossPrice:string;unitGrossPrice?:string;pricingVerified?:boolean}[];recipient:string|null;dev:boolean;
+ sendEnabled?:boolean;allowedRecipients?:string[];amount?:string;lines:PriceLine[];taxTotals?:{base:string;vat:string;total:string;vatId:string}[];recipient:string|null;dev:boolean;
  operationId?:string;attemptedAt?:string|null;operationState?:string;sendId?:string|null;sendStatus?:string|null;manualIdentityRequired:boolean;qaIdentityExceptionAvailable?:boolean;alreadyDelivered:boolean};
 export function QuibiEstimateWorkflowPanel(p:Props){
  const router=useRouter(),lock=useRef(false),polling=useRef(false);
@@ -31,8 +33,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
  return <section className="space-y-3 border-t pt-3">
   <h3 className="font-medium">Predračun #{p.documentId}</h3>
   {p.dev&&<p className="text-sm text-amber-800">DEV uporablja samo dovoljen testni naslov. Dostava dejanski stranki se ne evidentira.</p>}
-  {p.amount&&<p className="font-medium">Znesek: {Number(p.amount).toLocaleString("sl-SI",{style:"currency",currency:"EUR"})}</p>}
-  <ul className="space-y-1 text-sm">{p.lines.map((line,i)=><li key={i}>{line.description} · količina {line.quantity} · cena na enoto z DDV {line.pricingVerified?line.unitGrossPrice:"ni preverljiva"}</li>)}</ul>
+  <QuibiPriceSummary lines={p.lines} amount={p.amount} taxTotals={p.taxTotals}/>
   <p className="text-sm">Predračun praviloma pošlji pred popravilom. Dejanska odobritev stranke je ločena in je lahko potrjena po telefonu; račun se pripravi šele po opravljenem popravilu.</p>
   <p className="text-sm">Prejemnik: {recipient??"pošiljanje ni konfigurirano ali naslov ni potrjen"}</p>
   {sendAllowed&&<form id={"send-estimate-"+p.serviceRequestId} className="space-y-3" onSubmit={e=>{
