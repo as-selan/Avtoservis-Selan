@@ -63,7 +63,7 @@ test('DEV admin capability exposes vehicle confirmation without a separate accep
 test('synthetic DEV approval is never described as a real customer answer',()=>{const j=caseJourney({...base,syntheticQa:true,quoteReviewed:true,devNoEmail:true,status:'preparing_offer'});assert.equal(j.action.label,'Stranka je odobrila');assert.match(j.blocker!,/testni primer/);});
 
 test('completed and reviewed repairs lead to review, invoice or handover instead of restarting repair',()=>{
- for(const [repairPhase,href] of [['review_required','#popravilo'],['invoice_review','#poslovni-nalog'],['handover','#popravilo']]){
+ for(const [repairPhase,href] of [['review_required','#popravilo'],['invoice_review','#poslovni-nalog'],['handover','#prevzem']]){
  const result=caseJourney({...base,hasWorkOrder:true,hasAssignedWork:true,customerApproved:true,repairPhase});
  assert.equal(result.action.href,href);assert.doesNotMatch(result.action.label,/Nadaljuj popravilo/);
  }

@@ -25,7 +25,7 @@ export function caseJourney(p: JourneyInput) {
  }
  if(p.hasWorkOrder&&p.repairPhase==='invoice_review'){current=6;action={label:'Preglej račun',href:'#poslovni-nalog'};return result();}
  if(p.hasWorkOrder&&p.repairPhase==='review_required'){current=6;action={label:'Preglej opravljeno delo',href:'#popravilo'};return result();}
- if(p.hasWorkOrder&&p.repairPhase==='handover'){current=6;action={label:'Uredi prevzem vozila',href:'#popravilo'};return result();}
+ if(p.hasWorkOrder&&p.repairPhase==='handover'){current=6;action={label:'Prevzem vozila',href:'#prevzem'};return result();}
  if(p.hasWorkOrder){current=p.hasAssignedWork===false?5:6;action={label:p.hasAssignedWork===false?'Dodeli mehaniku':'Nadaljuj popravilo',href:p.hasAssignedWork===false?'#popravilo':p.workOrderHref??'#popravilo'};return result();}
  if(p.automaticPreparation&&!p.quoteReviewed&&!p.customerApproved&&p.intakeComplete&&p.identityReady){current=2;const prepared=automaticDraftPresentation(p.automaticDraftState);action={label:prepared.action,href:prepared.href};return result();}
  if(!p.intakeComplete||p.status==='needs_data'){

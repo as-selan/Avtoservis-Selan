@@ -103,6 +103,6 @@ test('invoice verification and closure keep an explicit submit but no duplicate 
  for(const action of ['invoice_checked','closed']){const f=fixture('./CaseReviewForm.tsx','CaseReviewForm',{caseId:'case',action,sha:'a'.repeat(64),enabled:true,simulated:false});assert.ok(!nodes(f.render()).some(n=>n.type==='input'&&n.props.type==='checkbox'));assert.equal(f.calls.length,0,'rendering never records approval, review or closure');}
 });
 
-test('pickup offers only an optional note, never dispatches on render',()=>{
- const f=fixture('./CaseReviewForm.tsx','CaseReviewForm',{caseId:'case',action:'closed',sha:'a'.repeat(64),enabled:true,simulated:false});assert.equal(f.calls.length,0);assert.ok(!nodes(f.render()).some(n=>n.props.name==='handoverReference'||n.props.name==='paymentHandling'));const note=nodes(f.render()).find(n=>n.props.name==='reference');assert.ok(note);assert.ok(!note.props.required);
+test('pickup needs no fields or confirmation and never dispatches on render',()=>{
+ const f=fixture('./CaseReviewForm.tsx','CaseReviewForm',{caseId:'case',action:'closed',sha:'a'.repeat(64),enabled:true,simulated:false});assert.equal(f.calls.length,0);assert.ok(!nodes(f.render()).some(n=>n.props.name==='handoverReference'||n.props.name==='paymentHandling'));assert.ok(!nodes(f.render()).some(n=>['input','select','textarea'].includes(String(n.type))));assert.ok(nodes(f.render()).some(n=>n.type==='button'&&text(n)==='Vozilo prevzeto'));
 });

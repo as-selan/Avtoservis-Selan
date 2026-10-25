@@ -12,8 +12,8 @@ export function repairPhase(status:string,state?:ReviewState,invoice?:{id:string
   id='review_required';label='Delo opravljeno – čaka pregled vodje';next='Vodja pregleda opravljeno delo, zapiske in fotografije.';uiStatus='potreben_pregled';attention=true;
   if(state&&reviewDecision(state)?.action==='accepted'){
    id='invoice_review';label='Pregledano – preveri račun';next=invoice?'Preglej obstoječi račun, PDF in plačila v Quibiju.':'Predogled računa se pripravi samodejno iz preverjenega naloga. Preglej račun.';
-   const checked=currentInvoiceCheck(state,invoice);
-   if(checked&&invoice){id='handover';label='Čaka prevzem oziroma naslednje poslovno dejanje';next='Zabeleži prevzem in stanje plačila. Brez dokazila obveščanje ni potrjeno.';uiStatus='pripravljeno_za_prevzem';
+
+   if(invoice){id='handover';label='Račun izdan – čaka prevzem';next='Prevzem vozila';uiStatus='pripravljeno_za_prevzem';
     if(state.events.some(e=>e.action==='closed'&&e.evidence_sha===state.evidenceSha&&e.body.invoiceId===invoice.id&&e.body.invoiceSha===invoice.sha)){id='closed';label='Zaključeno';next=state.simulated?'Zaključek je evidentiran za testni primer.':'Prevzem in zaključek sta evidentirana. Morebitno odprto plačilo ostaja v Quibiju.';const closing=state.events.find(e=>e.action==='closed'&&e.evidence_sha===state.evidenceSha&&e.body.invoiceId===invoice.id&&e.body.invoiceSha===invoice.sha);const payment=closing?.body.payment as {remaining?:unknown}|null|undefined;if(typeof payment?.remaining==='number'&&payment.remaining>0)next+=' Preostanek po Quibijevi evidenci ob zaključku: '+payment.remaining.toLocaleString('sl-SI',{style:'currency',currency:'EUR'})+'.';else if(!payment)next+=' Stanje plačila ni potrjeno; preveri v Quibiju.';uiStatus='zakljuceno';attention=false;}
    }
   }

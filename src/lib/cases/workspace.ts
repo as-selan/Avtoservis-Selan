@@ -1,6 +1,6 @@
 /** Presentation order only; every business form and server permission remains unchanged. */
 export function caseSectionOrder(activeHref: string, ids: string[]): string[] {
- const requested=activeHref.startsWith('/dashboard/nalogi/')?'popravilo':activeHref.replace(/^#/, '');
+ const requested=(activeHref==='#prevzem'||activeHref.startsWith('/dashboard/nalogi/'))?'popravilo':activeHref.replace(/^#/, '');
  const active=ids.includes(requested)?requested:ids[0];
  return active?[active,...ids.filter(id=>id!==active)]:[];
 }
