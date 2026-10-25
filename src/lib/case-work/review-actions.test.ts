@@ -25,3 +25,7 @@ test('internal review still rejects wrong roles, stale evidence, unfinished work
  for(const patch of [{status:'in_progress'},{review:{ready:false,evidenceSha:sha,simulated:true,events:[]}},{review:{ready:true,evidenceSha:'c'.repeat(64),simulated:true,events:[]}}]){const f=fixture();Object.assign(f.work,patch);assert.equal((await f.action(f.form('returned'))).ok,false);assert.equal(f.saved.length,0);}
  const f=fixture();const form=f.form('returned');form.delete('reference');assert.equal((await f.action(form)).ok,false);assert.equal(f.saved.length,0);
 });
+test('returning work needs one actual reason without an arbitrary typing minimum',async()=>{
+ const f=fixture();const form=f.form('returned');form.set('reference','Pokrov');assert.equal((await f.action(form)).ok,true);assert.equal((f.saved[0].p_body as {reference:string}).reference,'Razlog vrnitve: Pokrov');
+ const missing=fixture();const blank=missing.form('returned');blank.set('reference',' ');assert.equal((await missing.action(blank)).ok,false);assert.equal(missing.saved.length,0);
+});

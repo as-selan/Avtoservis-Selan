@@ -1,4 +1,5 @@
 "use client";
+import {CasePrimaryAction} from './CasePrimaryAction';
 import {SlovenianDateInput} from './SlovenianDateInput';
 import {useEffect,useRef,useState,useTransition} from 'react';
 import {useRouter} from 'next/navigation';
@@ -32,11 +33,11 @@ export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEn
  if(references.some(r=>r.document_kind==='invoice'))return <p className="text-sm">Račun je že povezan. <Link className="text-blue-700 underline" href={`/dashboard/stranke/${customerId}/quibi/dokumenti/invoice/${references.find(r=>r.document_kind==='invoice')!.quibi_document_id}`}>Preglej račun in PDF</Link>. Popravke izdanega računa uredite po pravilih Quibija; novega računa ne ustvarjajte.</p>;
  const labels={numberingId:'Številčenje',saleTypeId:'Vrsta prodaje'};
  const options={numberingId:choices.numberings.filter(n=>n.label.trim().toLocaleLowerCase('sl-SI')===(kind==='invoice'?'račun':'delovni nalog')),saleTypeId:choices.saleTypes};
- return <form ref={form} className="space-y-3 rounded border bg-white p-4" onChange={e=>{if(e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-date-display')){setResult(current=>current?{...current,sha:undefined}:null);if(e.target.validity.valid)setRevision(v=>v+1);return;}if(e.target instanceof HTMLInputElement&&e.target.type==='date')updateDate(e.target.name,e.target.value);setResult(null);if(e.target.getAttribute('name')!=='billingChangeReference')setRevision(v=>v+1)}} onSubmit={e=>{
+ return <form id={"business-"+(caseId??orderId)} ref={form} className="space-y-3 rounded border bg-white p-4" onChange={e=>{if(e.target instanceof HTMLInputElement&&e.target.hasAttribute('data-date-display')){setResult(current=>current?{...current,sha:undefined}:null);if(e.target.validity.valid)setRevision(v=>v+1);return;}if(e.target instanceof HTMLInputElement&&e.target.type==='date')updateDate(e.target.name,e.target.value);setResult(null);if(e.target.getAttribute('name')!=='billingChangeReference')setRevision(v=>v+1)}} onSubmit={e=>{
   e.preventDefault();if(lock.current||dispatchStarted)return;lock.current=true;
   const f=new FormData(e.currentTarget);f.set(caseId?'caseId':'orderId',caseId??orderId);f.set('operation',operation);const dispatch=(e.nativeEvent as SubmitEvent).submitter?.getAttribute('data-dispatch')==='yes';
   if(dispatch){let confirmation;try{confirmation=businessDispatchConfirmation(result?.sha)}catch{lock.current=false;setResult({ok:false,message:'Najprej ponovno preglejte pripravo dokumenta.'});return;}for(const [key,value] of Object.entries(confirmation))f.set(key,value);setDispatchStarted(true)}
-  start(async()=>{try{const next=await prepareQuibiBusinessDocument(f);setResult(next);if(next.invoiceHeader)setInvoiceOptions(next.invoiceHeader);if(dispatch&&businessDispatchMayContinue(next))setDispatchStarted(false);if(dispatch)router.refresh()}catch{setResult({ok:false,message:'Izid ni potrjen. Pred nadaljevanjem preverite dnevnik; ne ustvarjajte novega dokumenta.'})}finally{lock.current=false}});
+  start(async()=>{try{const next=await prepareQuibiBusinessDocument(f);setResult(next);if(next.invoiceHeader)setInvoiceOptions(next.invoiceHeader);if(dispatch&&businessDispatchMayContinue(next))setDispatchStarted(false);if(dispatch)router.refresh()}catch{setResult({ok:false,message:'Dokument trenutno zahteva preverjanje. Osvežite pripravo.'})}finally{lock.current=false}});
  }}><fieldset disabled={pending} className="space-y-3"><h3 className="text-xl font-semibold">{kind==='invoice'?'Račun':'Delovni nalog'}{result?.vehicle?' za '+result.vehicle:''}</h3>{result?.sourceId&&<BusinessDocumentPreview result={result} customerId={customerId} kind={kind}/> }
  {operation==='update'&&<p className="text-sm">Posodobitev dokumenta #{references.find(r=>r.document_kind===kind)?.quibi_document_id}. Vse postavke se prenesejo iz veljavnega odobrenega predračuna oziroma Quibi delovnega naloga. ID, stranka, vozilo in številčenje ostanejo isti. Prejšnja potrditev se ohrani v revizijski sledi.</p>}
 
@@ -51,11 +52,11 @@ export function QuibiBusinessDocumentForm({orderId,caseId,status,choices,writeEn
 
 
  {!result?.sha&&!result?.documentId&&<button disabled={pending||dispatchStarted} className="min-h-12 w-full rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{pending?'Pripravljam…':kind==='invoice'?'Preglej račun':'Preglej delovni nalog'}</button>}
- {result?.sha&&writeEnabled&&syntheticQa&&<p className="text-sm text-amber-800">Ustvarjen bo testni dokument v Quibi DEV. To ni dokaz dejanskega popravila, plačila ali prevzema.</p>}{result?.sha&&writeEnabled&&<button data-dispatch="yes" disabled={pending||dispatchStarted} className="min-h-12 w-full rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{operation==='update'?'Shrani spremembe':kind==='invoice'?'Ustvari račun v Quibiju':'Ustvari delovni nalog'}</button>}
+ {result?.sha&&writeEnabled&&syntheticQa&&<p className="text-sm text-amber-800">Ustvarjen bo testni dokument v Quibi DEV. To ni dokaz dejanskega popravila, plačila ali prevzema.</p>}{result?.sha&&writeEnabled&&<CasePrimaryAction><button form={"business-"+(caseId??orderId)} data-dispatch="yes" disabled={pending||dispatchStarted} className="min-h-12 w-full rounded bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{operation==='update'?'Shrani spremembe':kind==='invoice'?'Ustvari račun v Quibiju':'Ustvari delovni nalog'}</button></CasePrimaryAction>}
 
  {!writeEnabled&&<p className="text-sm text-amber-800">Samo predogled – ustvarjanje v Quibiju ni omogočeno.</p>}
  {dispatchStarted&&<p className="text-sm">Zahtevek je bil sprožen enkrat. Preverite prikazani rezultat in povezani dokument. Ob neznanem izidu ponovitev ostaja ustavljena.</p>}
- {result&&<p role={result.ok?'status':'alert'} className="text-sm">{result.message}</p>}
+ {result&&<><p role={result.ok?'status':'alert'} className="text-sm">{result.ok?result.documentId?'Dokument je shranjen.':result.sha?'Predogled je pripravljen.':'Podatki so pripravljeni.':/datum/i.test(result.message)?'Preverite datum storitve, izdaje in zapadlosti.':/odobrit|odobren/i.test(result.message)?'Najprej zabeležite odobritev stranke.':/vodja|opravljen/i.test(result.message)?'Najprej potrdite opravljeno delo.':/znes|cen|postav|DDV/i.test(result.message)?'Preverite postavke in znesek izvirnega dokumenta.':'Dokument še ni pripravljen. Preverite označene podatke ali osvežite pripravo.'}</p><details className="text-xs text-slate-500"><summary>Več podrobnosti</summary><p>{result.message}</p></details></>}
  </fieldset></form>;
 }
 

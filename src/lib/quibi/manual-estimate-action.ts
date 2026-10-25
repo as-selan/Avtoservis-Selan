@@ -287,7 +287,7 @@ export async function recordManualEstimateDecision(
   if(process.env.APP_ENV==='preproduction'&&process.env.QUIBI_MODE==='dev'&&process.env.VERCEL_ENV==='preview'&&!reference.trim().startsWith('QA-SIM-')){
     const scoped=await createClient();
     const {data:fixtureQuote}=await scoped.from('quotes').select('service_request_id').eq('organization_id',access.organizationId).eq('id',quoteId).maybeSingle();
-    if(fixtureQuote?.service_request_id==='a73db6be-7216-4677-bc0a-26e97693ad75')return error('Ta sintetični DEV primer zahteva simulirano QA odločitev z referenco QA-SIM-.');
+    if(['a73db6be-7216-4677-bc0a-26e97693ad75','c066482d-0002-43c4-9090-b23833928f71'].includes(fixtureQuote?.service_request_id??''))return error('Ta sintetični DEV primer zahteva simulirano QA odločitev z referenco QA-SIM-.');
   }
   if(reference.trim().startsWith('QA-SIM-')){
     if(!['owner','admin'].includes(access.role))return error('QA odločitev lahko evidentira samo skrbnik.');

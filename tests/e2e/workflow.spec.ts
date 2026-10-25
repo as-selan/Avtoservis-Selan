@@ -6,6 +6,7 @@ type Seed = { owner: string; reception: string; mechanic: string; foreign: strin
   invitedEmail: string; inviteActionLink: string;
   customer: string; linkedCustomer: string; vehicle: string; caseId: string;
   preparedCaseId: string;
+  mechanicCases:{desktop:string;mobile:string};
   incompleteCases: { desktop: string; mobile: string };
   editable: {desktop:{customer:string;name:string};mobile:{customer:string;name:string}} };
 const path = process.env.E2E_FIXTURES_PATH;
@@ -316,7 +317,6 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed", {exact:false})).toBeAttached();
   await openCaseSection(page, "predracun");
   await expect(page.getByText("Zabeležena različica ponudbe #1: unreviewed", {exact:false})).toBeVisible();
-  await page.getByRole("checkbox", { name: /Odprl sem Quibijev dokument/ }).check();
   await openCaseSection(page, "pregled-predracuna");
   await page.getByRole("button", { name: "Odobri predračun" }).click();
   await openCaseSection(page, "odobritev");
@@ -461,4 +461,30 @@ test("missing data link completes the original case without exposing the token i
   await expect.poll(()=>caseStatus(caseId)).toBe("new");
   await expect(page.getByRole("region", {name:"Povzetek povpraševanja"})).toContainText(mobile ? "TST00000000000003" : "TST00000000000002");
 
+});
+
+test('mechanic starts, uploads a private photo batch and completes work without a note; owner sees the same evidence',async({page},testInfo)=>{
+ const id=seed.mechanicCases[testInfo.project.name==='mobile-chromium'?'mobile':'desktop'];
+ await login(page,seed.mechanic);await page.goto('/dashboard/mehanik/'+id);
+ await expect(page.getByText('Mehanik QA',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Začni delo',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Zaključi delo',exact:true})).toBeVisible();
+ await page.getByText('Dodaj fotografije',{exact:true}).click();
+ const camera=page.getByLabel('Fotografiraj vozilo ali del');await expect(camera).toHaveAttribute('capture','environment');
+ const gallery=page.getByLabel('Ali izberi iz galerije');await expect(gallery).toHaveAttribute('multiple','');
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAADklEQVR4nGP4DwYMEAoAU7oL9ZisIGcAAAAASUVORK5CYII=','base64');
+ await gallery.setInputFiles([{name:'qa-part-one.png',mimeType:'image/png',buffer:png},{name:'qa-part-two.png',mimeType:'image/png',buffer:png}]);
+ await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2,{timeout:20000});
+ await expect(page.getByRole('button',{name:'Shrani fotografijo',exact:true})).toHaveCount(0);
+ await page.screenshot({path:'test-results/p3-mechanic-'+testInfo.project.name+'.png',fullPage:true});
+ await page.getByRole('button',{name:'Zaključi delo',exact:true}).click();
+ await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
+ await page.reload();await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
+ await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2);
+ await noHorizontalOverflow(page);
+ await login(page,seed.owner);await page.goto('/dashboard/primeri/'+id);await openCaseSection(page,'popravilo');
+ await expect(page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true})).toBeVisible();
+ await expect(page.locator('[data-work-form="assign"]')).toHaveCount(0);await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
+ await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2);
+ await noHorizontalOverflow(page);await page.screenshot({path:'test-results/p3-review-'+testInfo.project.name+'.png',fullPage:true});
 });

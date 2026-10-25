@@ -1,4 +1,5 @@
 "use server";
+import {quibiDocumentAmountMatches,quibiDocumentTotalCents} from './line-pricing';
 import {confirmBusinessContent} from './business-document-workflow';
 import {configuredQuibiWorkflowStatusClient} from './write-client';
 import {QuibiValidationError} from './write-http';
@@ -65,7 +66,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     if(!history && source && form.get('expectedSourceSha')!==source.option.sourceSha)return fail('Quibijeva postavka ali cena se je spremenila. Ponovno preglejte ponudbo; dokument ni ustvarjen.');
     if(!rows&&!history&&!source&&!ctx.lineDescription)throw Error('QUIBI_SERVICE_LINE_REQUIRED');
     const op = await createAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write, expectedRequestSha256: expectedSha,
-      verifyContent:rows?(detail,body)=>{const verified=detail as Awaited<ReturnType<typeof ctx.read.estimateDetail>>;confirmBusinessContent(verified,body,rows.unitNetPrices,rows.unitIds);if(Math.round(Number(verified.amount)*100)!==Math.round(estimateReviewTotal(rows.reviewedLines)*100))throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH')}:undefined,
+      verifyContent:rows?(detail,body)=>{const verified=detail as Awaited<ReturnType<typeof ctx.read.estimateDetail>>;confirmBusinessContent(verified,body,rows.unitNetPrices,rows.unitIds);if(!quibiDocumentAmountMatches(verified,estimateReviewTotal(rows.reviewedLines)))throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH')}:undefined,
       input: { serviceRequestId, customerId: ctx.link.external_id,
         vehicleId: ctx.vehicleLink.quibi_vehicle_id, saleTypeId, warehouseId:warehouseId||undefined,
         lines: rows ? rows.lines : history ? history.payloadLines : source ? [source.line] : [{ opis: ctx.lineDescription, enota_id: unitId, ddv_id: vatId,
@@ -76,7 +77,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     createdId = op.quibiId;
     const detail = await ctx.read.estimateDetail(op.quibiId, ctx.link.external_id);
     const document = createdEstimateSummary(detail, {id:op.quibiId,customerId:ctx.link.external_id,
-      vehicleId:ctx.vehicleLink.quibi_vehicle_id,sha:op.quibiContentSha256 ?? '',amount:rows?estimateReviewTotal(rows.reviewedLines):history?.total ?? source?.total ?? price!},ctx.request.customer_id!,false);
+      vehicleId:ctx.vehicleLink.quibi_vehicle_id,sha:op.quibiContentSha256 ?? '',alternativeAmounts:quibiDocumentTotalCents(detail.lines).map(cents=>cents/100),amount:rows?estimateReviewTotal(rows.reviewedLines):history?.total ?? source?.total ?? price!},ctx.request.customer_id!,false);
     // The operator already reviewed this exact SHA and confirmed CREATE. Reuse the
     // existing fresh-document review action instead of asking for the same review twice.
     const linked = await linkManualQuibiEstimate(serviceRequestId, op.quibiId, true);
@@ -345,7 +346,7 @@ export async function prepareQuibiEstimateHistory(form:FormData){
 /** Owner/admin READ reconciliation; no CREATE, UPDATE or SEND transport. */
 export async function reconcileQuibiEstimate(serviceRequestId:string){
  try{const ctx=await quibiEstimatePreparationContext(serviceRequestId);if(serviceRequestId==='9d40c42f-b6a8-473b-983f-f9620df97d10')throw Error('CASE_BLOCKED');const read=historyRead(ctx.read),result=await reconcileEstimate(read,quibiWorkflowJournal(ctx.access.organizationId,ctx.access.userId),serviceRequestId);
- if(result.outcome==='verified'){const linked=await linkManualQuibiEstimate(serviceRequestId,result.documentId!,true);return {ok:linked.ok,message:linked.ok?'Obstoječi Quibi predračun je ponovno preverjen in povezan. Ni bilo novega CREATE ali pošiljanja.':'Dokument je preverjen, povezava zahteva pregled. Novega ne ustvarjajte.'};}
- return {ok:false,message:result.outcome==='not_found'?'Quibi dokumenta s to referenco še ne vrne. Izid ostaja neznan; ponovno ustvarjanje je ustavljeno.':result.outcome==='review'?'Quibi dokument #'+result.documentId+' je najden, prvotna cena ali vsebina pa ni neodvisno potrjena. Preglejte obstoječi dokument; novega ne ustvarjajte.':'Izida ni mogoče zanesljivo potrditi. Ponovno ustvarjanje ostaja ustavljeno.'};
- }catch{return {ok:false,message:'Quibi READ preverjanje ni uspelo. Izid ostaja neznan; novega dokumenta ne ustvarjajte.'};}
+ if(result.outcome==='verified'){const linked=await linkManualQuibiEstimate(serviceRequestId,result.documentId!,true);return {ok:linked.ok,message:linked.ok?'Predračun je povezan. Čaka odobritev stranke.':'Predračun je prebran. Povezave trenutno ni mogoče shraniti.'};}
+ return {ok:false,message:result.outcome==='not_found'?'Predračun trenutno ni dosegljiv. Osvežite podatke.':result.outcome==='review'?'Preverite znesek in postavke predračuna #'+result.documentId+'.':'Dokument trenutno zahteva pregled povezave.'};
+ }catch{return {ok:false,message:'Predračuna trenutno ni mogoče osvežiti. Poskusite znova.'};}
 }

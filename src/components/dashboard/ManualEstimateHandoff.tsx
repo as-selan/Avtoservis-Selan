@@ -1,4 +1,5 @@
 "use client";
+import {CasePrimaryAction} from './CasePrimaryAction';
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -58,8 +59,8 @@ export function ManualEstimateHandoff({ quoteId, delivered, decision, realDevWri
       {delivered && apiDispatch ? " Quibi je sporočilo predal poštnemu strežniku; prejem ni potrjen." : ""}
     </p>
     <div className="flex flex-wrap gap-2">
-      <button type="button" disabled={pending || !decisionReady} onClick={() => submit("approved")}
-        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">{syntheticQa?"Evidentiraj simulirano QA odobritev":"Stranka je odobrila"}</button>
+      <CasePrimaryAction><button type="button" disabled={pending || !decisionReady} onClick={() => submit("approved")}
+        className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">{syntheticQa?"Evidentiraj simulirano QA odobritev":"Stranka je odobrila"}</button></CasePrimaryAction>
       <button type="button" disabled={pending || !decisionReady} onClick={() => submit("rejected")}
         className="rounded border px-3 py-2 text-sm disabled:opacity-50">{syntheticQa?"Evidentiraj simulirano QA zavrnitev":"Stranka je zavrnila predračun"}</button>
     </div>

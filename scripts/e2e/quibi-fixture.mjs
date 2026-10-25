@@ -60,8 +60,14 @@ http.createServer(async(req, res) => {
     const id = url.pathname === "/api2/dn" ? "3001" : "4001";
     return send(res, 200, { error: false, data: { Dokumenti: [
       { Glavadokumenta: { id, stranka_id: "2001", stevilcenje_id: "1" } },
+      ...(url.pathname === "/api2/dn"?[{Glavadokumenta:{id:"3002",stranka_id:"2001",stevilcenje_id:"1"}}]:[]),
     ] } });
   }
+  const workOrder=/^\/api2\/glavadokumenta\/view\/(3001|3002)$/.exec(url.pathname);
+  if(workOrder&&req.method==='GET')return send(res,200,{error:false,data:{Dokumenti:[{
+    Glavadokumenta:{id:workOrder[1],stranka_id:'2001',vozila_id:'5001',stevilcenje_id:'1',ZapSt:'QA-'+workOrder[1],znesek:'122.00'},
+    Postavkedokumenta:[{opis:'Servis QA',kolicina:'1',cenaBrezDDV:'100',cenaZDDV:'100',popust:'0',enota_id:'1',ddv_id:'5',Ddv:{stopnjaDDV:'22',naziv:'22 %'}}]
+  }]}});
   if (url.pathname === "/api2/glavadokumenta/view/4001" && req.method === "GET") {
     return send(res, 200, { error: false, data: { Dokumenti: [{
       Glavadokumenta: { id: "4001", stranka_id: "2001", znesek: "125.50" },

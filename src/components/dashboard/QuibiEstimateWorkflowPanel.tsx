@@ -1,4 +1,5 @@
 "use client";
+import {CasePrimaryAction} from './CasePrimaryAction';
 import {sendPresentation} from "@/lib/quibi/send-outcome";
 import {useEffect,useRef,useState,useTransition} from "react";
 import {useRouter} from "next/navigation";
@@ -34,7 +35,7 @@ export function QuibiEstimateWorkflowPanel(p:Props){
   <ul className="space-y-1 text-sm">{p.lines.map((line,i)=><li key={i}>{line.description} · količina {line.quantity} · cena na enoto z DDV {line.pricingVerified?line.unitGrossPrice:"ni preverljiva"}</li>)}</ul>
   <p className="text-sm">Predračun praviloma pošlji pred popravilom. Dejanska odobritev stranke je ločena in je lahko potrjena po telefonu; račun se pripravi šele po opravljenem popravilu.</p>
   <p className="text-sm">Prejemnik: {recipient??"pošiljanje ni konfigurirano ali naslov ni potrjen"}</p>
-  {sendAllowed&&<form className="space-y-3" onSubmit={e=>{
+  {sendAllowed&&<form id={"send-estimate-"+p.serviceRequestId} className="space-y-3" onSubmit={e=>{
    e.preventDefault();if(lock.current)return;lock.current=true;setAttempted(true);
    const f=new FormData(e.currentTarget);f.set("serviceRequestId",p.serviceRequestId);f.set("quoteId",p.quoteId);
    f.set("recipient",recipient);f.set("displayedSha256",p.sha256);f.set("displayedAmount",p.amount!);
@@ -51,18 +52,18 @@ export function QuibiEstimateWorkflowPanel(p:Props){
    <label className="flex gap-2 text-sm"><input name="reviewConfirmed" type="checkbox" value="yes" checked={reviewed} onChange={e=>setReviewed(e.target.checked)} required />
     Pregledal sem postavke, znesek, stranko, vozilo in storitev. Potrjujem enkratno pošiljanje na prikazani naslov.
    </label>
-   <button disabled={pending} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
+   <CasePrimaryAction>   <button form={"send-estimate-"+p.serviceRequestId} disabled={pending} className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50">
     {pending?"Preverjam in pošiljam…":"Pošlji predračun"}
-   </button>
+   </button></CasePrimaryAction>
   </form>}
   {p.dev&&!p.sendEnabled&&<p className="text-sm">DEV: nova pošiljanja so izključena. Preverite dokument in prejemnika; stanje morebitnega prejšnjega poskusa je prikazano spodaj.</p>}
   {p.dev&&!sendAllowed&&!!p.allowedRecipients?.length&&<label className="block text-sm">Prejemnik za pregled<select value={recipient} onChange={e=>setRecipient(e.target.value)} className="block w-full rounded border p-2">{p.allowedRecipients.map(email=><option key={email} value={email}>{email}</option>)}</select></label>}
-  {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<div className="space-y-2"><button disabled className="rounded border px-3 py-2 text-sm">Pošiljanje čaka na pregled, potrjeno vsebino in konfiguracijo</button><p className="text-sm text-amber-800">Za pošiljanje najprej odobrite predračun v Tadejevem pregledu. Potrebna sta tudi potrjena vsebina in varna konfiguracija. DEV zahteva konfiguriran testni naslov. Ob neznanem izidu preverite dnevnik.</p></div>}
-  {p.operationState&&<div role="status" className="space-y-2 text-sm"><p>{outcome.outcome}: {outcome.message}</p>
+  {!sendAllowed&&!p.operationState&&!p.alreadyDelivered&&<p className="text-sm text-slate-600">Pošiljanje trenutno ni na voljo. Odobritev stranke lahko zabeležite ločeno.</p>}
+  {p.operationState&&<details className="space-y-2 text-sm"><summary>Več podrobnosti pošiljanja</summary><p>{outcome.outcome}: {outcome.message}</p>
    <p>Čas poskusa (UTC): {p.attemptedAt??"ni zabeležen"}</p><p>Referenca dnevnika: {p.operationId}</p>
    {p.sendId&&<p>Quibi send_id: {p.sendId}</p>}
    <button type="button" disabled className="rounded border px-3 py-2">Ponovno pošiljanje ustavljeno</button>
-  </div>}
+  </details>}
   {p.sendId&&<button type="button" disabled={pending} onClick={()=>{void poll()}} className="rounded border px-3 py-2 text-sm">Preveri status</button>}
   {message&&<p role="status" className="text-sm">{message}</p>}
  </section>

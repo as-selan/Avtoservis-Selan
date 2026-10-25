@@ -1,3 +1,4 @@
+import {parseEstimateDetail} from '../../src/lib/quibi/contracts.ts';
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
@@ -116,6 +117,17 @@ await insert("integration_links", { organization_id: org, provider: "quibi", ent
   entity_id: linkedCustomer, external_id: "2001", local_fingerprint: fingerprint("Bor Preizkus", "+38640333444", "bor@example.test"),
   external_fingerprint: fingerprint("Bor Preizkus", "+38640333444", "bor@example.test"), confirmed_by: owner.id });
 
+// Isolated pre-existing Quibi work orders: never CREATE in any external environment.
+const mechanicCases={desktop:randomUUID(),mobile:randomUUID()};
+const named=await db.from('profiles').update({full_name:'Mehanik QA'}).eq('id',mechanic.id);if(named.error)throw Error('Synthetic mechanic profile failed');
+for(const [index,id] of Object.values(mechanicCases).entries()){
+ const documentId=String(3001+index);
+ const raw={error:false,data:{Dokumenti:[{Glavadokumenta:{id:documentId,stranka_id:'2001',vozila_id:'5001',stevilcenje_id:'1',ZapSt:'QA-'+documentId,znesek:'122.00'},Postavkedokumenta:[{opis:'Servis QA',kolicina:'1',cenaBrezDDV:'100',cenaZDDV:'100',popust:'0',enota_id:'1',ddv_id:'5',Ddv:{stopnjaDDV:'22',naziv:'22 %'}}]}]}};
+ const detail=parseEstimateDetail(raw,documentId,'2001');
+ await insert('service_requests',{id,organization_id:org,customer_id:linkedCustomer,vehicle_id:preparedVehicleId,status:'converted',source:'manual',service_wanted:'Servis QA',problem_description:'QA-SIM isolated mechanic workflow'});
+ await insert('service_case_assignments',{case_id:id,organization_id:org,mechanic_id:mechanic.id,assigned_by:owner.id,vehicle_id:preparedVehicleId,quibi_customer_id:'2001',quibi_vehicle_id:'5001',quibi_work_order_id:documentId,quibi_content_sha256:detail.contentSha256});
+}
+
 // The browser must not call the intake RPC directly. Verify the privilege
 // boundary, then seed through the same server credential as the route.
 if (!manual) {
@@ -141,6 +153,6 @@ if (webError || webProbe?.ok !== true) {
 await writeFile(E2E_FIXTURES_PATH, JSON.stringify({
   owner: owner.email, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
   invitedEmail, inviteActionLink: invited.properties.action_link,
-  customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases, editable,
+  customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases, editable, mechanicCases,
 }), { mode: 0o600 });
 console.log(manual ? "Fresh manual QA records seeded on isolated loopback." : "Isolated E2E users and synthetic business records seeded on loopback.");

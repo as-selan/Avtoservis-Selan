@@ -15,10 +15,10 @@ function text(tree:any):string{if(Array.isArray(tree))return tree.map(text).join
 function fixture(file:string,component:string,initialProps:Record<string,unknown>){
  const state:any[]=[],calls:{name:string;args:any[]}[]=[],pending:Promise<unknown>[]=[];let index=0,refreshes=0;
  const jsx=(type:unknown,props:Record<string,unknown>)=>({type,props});
- const actions=Object.fromEntries(['approveCaseEstimate','recordManualEstimateDecision','recordManualEstimateDelivery','reviewManualQuibiEstimate','proposeManualSlots','advanceManualSlotOffer','recordPreliminaryInspection'].map(name=>[name,async(...args:any[])=>{calls.push({name,args});return {ok:true}}]));
+ const actions=Object.fromEntries(['caseReviewAction','reviewServiceRequestIntake','approveCaseEstimate','recordManualEstimateDecision','recordManualEstimateDelivery','reviewManualQuibiEstimate','proposeManualSlots','advanceManualSlotOffer','recordPreliminaryInspection'].map(name=>[name,async(...args:any[])=>{calls.push({name,args});return {ok:true}}]));
  const exports:Record<string,any>={};
  const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage,manualOfferExpired}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,Date,Number,JSON,Set,setTimeout,clearTimeout});
+ runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage,manualOfferExpired}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,crypto,Date,Number,JSON,Set,setTimeout,clearTimeout});
  let props=initialProps;
  const render=(changes:Record<string,unknown>={})=>{props={...props,...changes};index=0;return exports[component](props)};
  return {render,calls,refreshes:()=>refreshes,flush:async()=>{await Promise.all(pending.splice(0))}};
@@ -91,4 +91,14 @@ test('existing uncertain estimate uses one locked approval click, never a create
  const submit=button(f.render(),'Stranka je odobrila');submit.props.onClick();submit.props.onClick();await f.flush();
  assert.deepEqual(f.calls,[{name:'approveCaseEstimate',args:['qa-case']}]);assert.equal(f.refreshes(),1);
  assert.ok(!nodes(f.render()).some(n=>n.type==='input'));
+});
+
+test('intake and price review are explicit single clicks without a duplicate checkbox',async()=>{
+ for(const [file,component,props,label,action] of [
+ ['./ReviewIntakeButton.tsx','ReviewIntakeButton',{serviceRequestId:'case'},'Sprejmi primer za pripravo ponudbe','reviewServiceRequestIntake'],
+ ['./ReviewManualEstimate.tsx','ReviewManualEstimate',{quoteId:'quote'},'Odobri predračun','reviewManualQuibiEstimate']
+ ] as const){const f=fixture(file,component,props);assert.ok(!nodes(f.render()).some(n=>n.type==='input'&&n.props.type==='checkbox'));const submit=button(f.render(),label);assert.equal(submit.props.disabled,false);submit.props.onClick();submit.props.onClick();await f.flush();assert.equal(f.calls.length,1);assert.equal(f.calls[0].name,action);}
+});
+test('invoice verification and closure keep an explicit submit but no duplicate checkbox',()=>{
+ for(const action of ['invoice_checked','closed']){const f=fixture('./CaseReviewForm.tsx','CaseReviewForm',{caseId:'case',action,sha:'a'.repeat(64),enabled:true,simulated:false});assert.ok(!nodes(f.render()).some(n=>n.type==='input'&&n.props.type==='checkbox'));assert.equal(f.calls.length,0,'rendering never records approval, review or closure');}
 });

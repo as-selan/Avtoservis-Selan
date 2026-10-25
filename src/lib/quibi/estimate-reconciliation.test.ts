@@ -12,3 +12,18 @@ test('known uncertain document is recovered with absent status even if unrelated
  const read={...f.read,estimates:async()=>[{id:'9'},{id:'unrelated'}],estimateDetail:async(id:string)=>{assert.equal(id,'9');return f.doc;}};
  assert.equal((await reconcileEstimate(read,f.journal,caseId)).outcome,'verified');assert.equal(f.patches(),1);assert.equal(f.doc.status,'');
 });
+
+test('C066-style one-cent VAT calculation recovers the same ID without changing prices',async()=>{
+ const f=fixture();const body=buildEstimateBody({serviceRequestId:caseId,customerId:'7',vehicleId:'8',numberingId:'2',saleTypeId:'1',lines:[{opis:'Servis',enota_id:'1',ddv_id:'5',kolicina:1,cenaZDDV:40.97540984,popust:0}]});const stored=stableEstimatePayload(body);f.set({requestBody:stored.json,requestSha256:stored.sha256,quibiId:'9'});
+ const doc={...f.doc,amount:'50.00',lines:[{...f.doc.lines[0],quantity:'1',unitNetPrice:'40.97540984',unitGrossPrice:'49.99',historicalVatLabel:'22 %'}]};
+ assert.equal((await reconcileEstimate({...f.read,estimateDetail:async()=>doc},f.journal,caseId)).outcome,'verified');
+ const g=fixture();g.set({requestBody:stored.json,requestSha256:stored.sha256,quibiId:'9'});
+ assert.equal((await reconcileEstimate({...g.read,estimateDetail:async()=>({...doc,amount:'50.01'})},g.journal,caseId)).outcome,'review');
+});
+
+test('a verified document can finish an interrupted local link without replaying its journal transition',async()=>{
+ const f=fixture();assert.equal((await reconcileEstimate(f.read,f.journal,caseId)).outcome,'verified');
+ assert.equal((await reconcileEstimate(f.read,f.journal,caseId)).outcome,'verified');assert.equal(f.patches(),1);
+ const changed={...f.doc,contentSha256:'b'.repeat(64)};
+ assert.equal((await reconcileEstimate({...f.read,estimateDetail:async()=>changed},f.journal,caseId)).outcome,'review');assert.equal(f.patches(),1);
+});

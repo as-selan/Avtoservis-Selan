@@ -19,3 +19,21 @@ export function moneyLineCents(quantity:string|number,unitPrice:string|number,di
  const cents=(numerator+denominator/BigInt(2))/denominator;
  if(cents>BigInt(Number.MAX_SAFE_INTEGER))throw Error('INVALID_MONEY');return Number(cents);
 }
+
+/** Quibi may round gross lines or round net bases before calculating VAT. No arbitrary cent tolerance. */
+export function quibiDocumentTotalCents(lines:{quantity:string;discount?:string;unitGrossPrice?:string;unitNetPrice?:string;historicalVatLabel?:string;vatId?:string;pricingVerified?:boolean;lineType?:string}[]):number[]{
+ const chargeable=lines.filter(line=>line.lineType!=='3');if(!chargeable.length)return [];
+ const totals:number[]=[];const bases=new Map<string,{base:number;factor:number}>();let gross=0,vatKnown=true;
+ try{for(const line of chargeable){if(!line.pricingVerified||line.unitGrossPrice==null||line.discount==null)return [];
+ gross+=moneyLineCents(line.quantity,line.unitGrossPrice,line.discount);
+ try{if(line.unitNetPrice==null||!line.historicalVatLabel||!line.vatId)throw Error('VAT_UNKNOWN');const factor=vatFactor(line.historicalVatLabel),key=line.vatId+':'+factor;const group=bases.get(key)??{base:0,factor};group.base+=moneyLineCents(line.quantity,line.unitNetPrice,line.discount);bases.set(key,group);}catch{vatKnown=false;}}
+ totals.push(gross);if(vatKnown)totals.push([...bases.values()].reduce((sum,g)=>sum+g.base+moneyLineCents(1,g.base/100*(g.factor-1)),0));
+ }catch{return [];}
+ return [...new Set(totals)].filter(Number.isSafeInteger);
+}
+export function quibiDocumentAmountMatches(doc:{amount:string;lines:Parameters<typeof quibiDocumentTotalCents>[0]},expectedAmount?:number){
+ const actual=Number(doc.amount);if(!Number.isFinite(actual)||actual<0)return false;
+ const totals=quibiDocumentTotalCents(doc.lines),cents=moneyLineCents(1,actual);
+ if(expectedAmount!==undefined&&(!Number.isFinite(expectedAmount)||expectedAmount<0))return false;
+ return totals.includes(cents)&&(expectedAmount===undefined||totals.includes(moneyLineCents(1,expectedAmount)));
+}

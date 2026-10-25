@@ -2,7 +2,7 @@ import type {AutomaticDraftState} from '../quibi/automatic-estimate-draft';
 import {automaticDraftPresentation} from '../quibi/automatic-draft-state.ts';
 /** Presentation only. Existing server actions remain the authority for every transition. */
 export type JourneyInput = {
- syntheticQa?:boolean; canCreateVehicle?:boolean; newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
+ operatorApprovalReady?:boolean; syntheticQa?:boolean; canCreateVehicle?:boolean; newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
  identityReady: boolean; hosted: boolean; offerPrepared: boolean; quoteReviewed: boolean;
  customerApproved: boolean; dispatched: boolean; hasWorkOrder: boolean;
  writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; hasInvoice?:boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
@@ -36,6 +36,7 @@ export function caseJourney(p: JourneyInput) {
   action={label:'Preveri stranko in vozilo',href:'#quibi-povezava'};
   blocker='Povezava stranke in vozila s Quibijem še ni potrjena. Primerjajte podatke v razdelku Povezava s Quibijem; ustvarjanje manjkajočega vozila potrdi pooblaščeni uporabnik v prikazanem obrazcu.';return result();
  }
+ if(p.operatorApprovalReady&&!p.customerApproved&&!p.hasWorkOrder){current=4;action={label:p.syntheticQa?'Evidentiraj QA odobritev':'Stranka je odobrila',href:'#odobritev'};return result();}
  if(p.stepKind==='manual_inspection_billing'){
   current=6;action={label:'Uredi račun pregleda',href:'#termini'};return result();
  }
