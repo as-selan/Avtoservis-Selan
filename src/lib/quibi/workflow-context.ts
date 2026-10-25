@@ -20,7 +20,7 @@ export async function quibiEstimatePreparationContext(serviceRequestId: string, 
         .select("customer_id,vehicle_id,status,service_wanted,problem_description").eq("organization_id", access.organizationId)
         .eq("id", serviceRequestId).is("archived_at", null).maybeSingle();
     if (requestError || !request || !(purpose === "send" ? ["preparing_offer", "awaiting_customer_approval", "awaiting_slot_selection", "appointment_confirmed", "converted"].includes(request.status) : request.status === "preparing_offer") || !request.customer_id ||
-        !request.vehicle_id || !estimateLineDescription(request))
+        !request.vehicle_id)
         throw new Error("QUIBI_CASE_NOT_READY");
     const [customerResult, vehicleResult, linkResult, vehicleLinkResult, prepResult, fixedResult] = await Promise.all([
         db.from("customers").select("display_name,phone,email").eq("organization_id", access.organizationId)
@@ -64,7 +64,7 @@ export async function quibiEstimatePreparationContext(serviceRequestId: string, 
             localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
                 make: vehicle.make ?? "", model: vehicle.model ?? "" }, remoteVehicle, vehicleLink }))
         throw new Error("QUIBI_LINK_CHANGED");
-    return { access, db, request, lineDescription: estimateLineDescription(request)!, customer, remoteCustomer, link, vehicleLink, read,
+    return { access, db, request, lineDescription: estimateLineDescription(request) ?? '', customer, remoteCustomer, link, vehicleLink, read,
 };
 }
 

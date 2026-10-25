@@ -63,6 +63,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
     if(rows && form.get('expectedSourceSha')!==rows.sourceSha)return fail('Postavke ali Quibijeve cene so se spremenile. Ponovno preglejte celoten predračun.');
     if(history && form.get('expectedSourceSha')!==history.sourceSha)return fail('Zgodovina ali aktualna cena se je spremenila. Ponovno preglejte predlog; dokument ni ustvarjen.');
     if(!history && source && form.get('expectedSourceSha')!==source.option.sourceSha)return fail('Quibijeva postavka ali cena se je spremenila. Ponovno preglejte ponudbo; dokument ni ustvarjen.');
+    if(!rows&&!history&&!source&&!ctx.lineDescription)throw Error('QUIBI_SERVICE_LINE_REQUIRED');
     const op = await createAndVerifyEstimate({ journal: ctx.journal, read: ctx.read, write: ctx.write, expectedRequestSha256: expectedSha,
       verifyContent:rows?(detail,body)=>{const verified=detail as Awaited<ReturnType<typeof ctx.read.estimateDetail>>;confirmBusinessContent(verified,body,rows.unitNetPrices,rows.unitIds);if(Math.round(Number(verified.amount)*100)!==Math.round(estimateReviewTotal(rows.reviewedLines)*100))throw Error('QUIBI_DOCUMENT_AMOUNT_MISMATCH')}:undefined,
       input: { serviceRequestId, customerId: ctx.link.external_id,
