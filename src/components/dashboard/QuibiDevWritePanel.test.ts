@@ -48,3 +48,10 @@ test('compact estimate rows expose quantity, price and total while optional cont
  assert.equal(p.rows()[1].unitPrice,undefined);
  assert.equal(p.calls.length,0);
 });
+
+test('manual document link marks typed input unsaved so automatic refresh cannot discard it',()=>{
+ const state:unknown[]=[];let slot=0;const imports:Record<string,unknown>={'react':{useState:(initial:unknown)=>{const i=slot++;if(!(i in state))state[i]=initial;return [state[i],(v:unknown)=>{state[i]=v}]},useTransition:()=>[false,()=>{throw Error('No link requested')}]},'react/jsx-runtime':{jsx:(type:unknown,props:unknown)=>({type,props}),jsxs:(type:unknown,props:unknown)=>({type,props})},'next/navigation':{useRouter:()=>({refresh(){}})},'@/lib/quibi/manual-estimate-action':{linkManualQuibiEstimate:()=>{throw Error('No external document operations')}}};
+ const exports:Record<string,(props:unknown)=>Element>={};runInNewContext(ts.transpileModule(readFileSync(new URL('./LinkManualEstimateForm.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:(id:string)=>{assert.ok(id in imports,id);return imports[id]}});
+ const render=()=>{slot=0;return exports.LinkManualEstimateForm({serviceRequestId:'synthetic-case'})};assert.equal(render().props['data-unsaved'],undefined);
+ const input=find(render(),n=>n.type==='input'&&n.props.inputMode==='numeric');assert.ok(input);(input.props.onChange as (e:unknown)=>void)({target:{value:'4001'}});assert.equal(render().props['data-unsaved'],'true');assert.equal(find(render(),n=>n.type==='input'&&n.props.inputMode==='numeric')?.props.value,'4001');
+});

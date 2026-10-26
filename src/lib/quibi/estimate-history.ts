@@ -1,3 +1,4 @@
+import {equivalentDocumentDefaults} from './estimate-defaults.ts';
 import {estimateReviewTotal} from './estimate-preparation.ts';
 import {customerCatalogPricing} from './customer-catalog-pricing.ts';
 import {moneyLineCents,vatFactor} from './line-pricing.ts';
@@ -159,5 +160,5 @@ export async function loadHistoricalPrices(read:Pick<HistoryRead,'historyDocumen
  if(refs.length>scopeLimit||scanned>=24)issues.push('Pregled je omejen na 24 novejših dokumentov; ni celotna zgodovina.');
  }
  if(Date.now()>=deadline)issues.push('Časovno omejen pregled zgodovine; ročna priprava ostaja na voljo.');
- return {suggestions:historicalPriceSuggestions(rows,options,documents,input),issues:[...new Set(issues)],listed,scanned,validity:{knownStatus:documents.filter(d=>!!d.detail.status).length,numbered:documents.filter(d=>!!d.detail.number&&!/osnutek|draft/i.test(d.detail.number)).length,creditClear:documents.filter(d=>d.creditsClear).length,byKind:Object.fromEntries((['invoice','work_order','estimate'] as const).map(kind=>[kind,documents.filter(d=>d.kind===kind).length]))}};
+ return {documentDefaults:equivalentDocumentDefaults(documents,input,rows,options),suggestions:historicalPriceSuggestions(rows,options,documents,input),issues:[...new Set(issues)],listed,scanned,validity:{knownStatus:documents.filter(d=>!!d.detail.status).length,numbered:documents.filter(d=>!!d.detail.number&&!/osnutek|draft/i.test(d.detail.number)).length,creditClear:documents.filter(d=>d.creditsClear).length,byKind:Object.fromEntries((['invoice','work_order','estimate'] as const).map(kind=>[kind,documents.filter(d=>d.kind===kind).length]))}};
 }

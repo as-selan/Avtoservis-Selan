@@ -3,7 +3,7 @@ import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
 import {createClient} from '@/lib/supabase/server';
 import {configuredQuibiReadClient} from './client';
 import {loadEstimateCatalog} from './estimate-catalog';
-import {conditionalInspectionRows,draftTotal,type EstimateDraftRow} from './estimate-editor';
+import {completeServiceReferences,conditionalInspectionRows,draftTotal,type EstimateDraftRow} from './estimate-editor';
 import {buildAutomaticEstimateDraft,needsCatalogFieldRepair,repairCatalogDraftFields,type AutomaticEstimateDraft} from './automatic-estimate-draft';
 import {revalidatePath} from 'next/cache';
 export async function saveAutomaticOfferRows(caseId:string,run:string,expectedUpdatedAt:string,rows:EstimateDraftRow[]){
@@ -17,7 +17,7 @@ export async function saveAutomaticOfferRows(caseId:string,run:string,expectedUp
  for(const option of draft.options)if(!current.has(option.key))current.set(option.key,option);
  const options=[...current.values()];
  const inspection=await db.from('preliminary_inspections').select('status,repair_decision').eq('organization_id',access.organizationId).eq('service_request_id',caseId).maybeSingle();if(inspection.error)return {ok:false as const};
- rows=conditionalInspectionRows(rows,options,inspection.data?.status==='completed'?inspection.data.repair_decision:null);
+ rows=conditionalInspectionRows(completeServiceReferences(rows,options,draft.defaults),options,inspection.data?.status==='completed'?inspection.data.repair_decision:null);
  const state=draftTotal(rows,options,draft.customerPriceListId)!==null?'ready':rows.some(r=>!r.key&&(r.candidateKeys?.length||r.matchSource==='Predlog iz opisa'))?'ambiguous':'missing_price';
  const needed=new Set(rows.flatMap(r=>[r.key,...(r.candidateKeys??[])]));
  const saved=await db.rpc('save_automatic_offer_rows',{p_case:caseId,p_run:run,p_expected_updated_at:expectedUpdatedAt,p_rows:rows,p_options:options.filter(o=>needed.has(o.key)),p_state:state});
@@ -34,7 +34,7 @@ export async function refreshAutomaticOfferCatalogFields(caseId:string){
  const saved=stored.data?.auto_draft as AutomaticEstimateDraft|null;
  if(stored.error||!saved||!stored.data?.auto_run)return null;
  const inspection=await db.from('preliminary_inspections').select('status,repair_decision').eq('organization_id',access.organizationId).eq('service_request_id',caseId).maybeSingle();if(inspection.error)return null;
- const pricedRows=conditionalInspectionRows(saved.rows,saved.options,inspection.data?.status==='completed'?inspection.data.repair_decision:null);
+ const pricedRows=conditionalInspectionRows(completeServiceReferences(saved.rows,saved.options,saved.defaults),saved.options,inspection.data?.status==='completed'?inspection.data.repair_decision:null);
  if(JSON.stringify(pricedRows)!==JSON.stringify(saved.rows)){
   const state=draftTotal(pricedRows,saved.options,saved.customerPriceListId)!==null?'ready':pricedRows.some(r=>!r.key&&r.candidateKeys?.length)?'ambiguous':'missing_price';
   const result=await db.rpc('save_automatic_offer_rows',{p_case:caseId,p_run:stored.data.auto_run,p_expected_updated_at:stored.data.updated_at,p_rows:pricedRows,p_options:saved.options,p_state:state});

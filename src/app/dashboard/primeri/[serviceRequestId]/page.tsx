@@ -10,7 +10,7 @@ import {automaticDraftPresentation} from '@/lib/quibi/automatic-draft-state';
 import {AutomaticPreparationRefresh} from '@/components/dashboard/AutomaticPreparationRefresh';
 import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
 import type {AutomaticEstimateDraft,AutomaticDraftState} from '@/lib/quibi/automatic-estimate-draft';
-import {requestedEstimateRows,suggestedEstimateRows,canonicalEstimateOptions} from '@/lib/quibi/estimate-editor';
+import {conditionalInspectionOption,requestedEstimateRows,suggestedEstimateRows,canonicalEstimateOptions} from '@/lib/quibi/estimate-editor';
 import {EstimatePreparationWorkspace} from '@/components/dashboard/EstimatePreparationWorkspace';
 import {currentCaseIdentity,visibleIdentityNotice} from '@/lib/cases/identity-notice';
 import {CaseOverview} from '@/components/dashboard/CaseOverview';
@@ -200,6 +200,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         writeChoices={saleTypes,units,vatRates,warehouses,defaults:quibiEstimateDefaults({saleTypes,units,vatRates,warehouses})};
       } catch { /* fail closed: catalog errors do not enable dispatch */ }
     }
+    if(writeChoices&&automaticDraft){const saved=automaticDraft.defaults;
+      writeChoices.defaults={unitId:writeChoices.defaults?.unitId,vatId:writeChoices.defaults?.vatId,saleTypeId:writeChoices.defaults?.saleTypeId,warehouseId:writeChoices.defaults?.warehouseId,
+        ...(!writeChoices.defaults?.saleTypeId&&writeChoices.saleTypes.some(c=>c.id===saved.saleTypeId)?{saleTypeId:saved.saleTypeId}:{}),
+        ...(!writeChoices.defaults?.warehouseId&&writeChoices.warehouses?.some(c=>c.id===saved.warehouseId)?{warehouseId:saved.warehouseId}:{})};
+    }
     let customerPriceListId:string|null|undefined;
     let estimateCatalog:{options:EstimateCatalogOption[];issues:string[]}={options:[],issues:[]};
     if(!quote&&!fixedPrice&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status)){
@@ -286,7 +291,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         intakeComplete:missing.length===0&&!!customer&&!!vehicle,identityReady:link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok'&&!resolvedVehicleNeedsReview&&(!isHostedQuibiEnvironment(process.env)||(link.quibi_environment===hostedQuibiEnvironment(process.env)&&vehicleLink.quibi_environment===hostedQuibiEnvironment(process.env))),
         hosted:isHostedQuibiEnvironment(process.env),offerPrepared:prep?.status==='ready_for_provider',quoteReviewed:quote?.internal_review_status==='approved_for_send',
         customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',
-        hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,hasInvoice:!!repairWork?.invoice,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',inspectionSuggested:!inspectionResult.data&&!quote&&!fixedPrice&&!workOrder&&!businessHasWorkOrder&&!repairWork&&['new','preparing_offer'].includes(request.status)&&!!request.problem_description?.trim()&&!suggestedEstimateRows(request.service_wanted,request.problem_description,[]).length,fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,devNoEmail:quibiLinkEnvironment(process.env)==="dev",sendReady:sendReady&&!!testRecipient&&!!proposedPrice&&!!quibiEstimateId&&!!reviewDetail?.lines.length,sendAttempted:!!sendOperation,sendState:sendOperation?.sendStatus,
+        hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,hasInvoice:!!repairWork?.invoice,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',inspectionDecisionPending:inspectionResult.data?.status==='completed'&&inspectionResult.data.repair_decision==='pending',inspectionSuggested:!inspectionResult.data&&!quote&&!fixedPrice&&!workOrder&&!businessHasWorkOrder&&!repairWork&&['new','preparing_offer'].includes(request.status)&&!!request.problem_description?.trim()&&(!suggestedEstimateRows(request.service_wanted,request.problem_description,[]).length||!!automaticDraft?.rows.some(row=>!!conditionalInspectionOption(row,automaticDraft.options))),fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,devNoEmail:quibiLinkEnvironment(process.env)==="dev",sendReady:sendReady&&!!testRecipient&&!!proposedPrice&&!!quibiEstimateId&&!!reviewDetail?.lines.length,sendAttempted:!!sendOperation,sendState:sendOperation?.sendStatus,
       };
     const caseStatus=repairWork?.phase?.label??(intakeCustomerChoices.length?'Izberi pravo stranko':null)??(businessHasWorkOrder&&!businessHasInvoice&&!['closed','declined','cancelled'].includes(request.status)?'Delovni nalog pripravljen – dodeli mehaniku':newVehicleRequired?'Novo vozilo – potrebna potrditev':journeyInput.customerApproved?'Priprava delovnega naloga':operatorApprovalReady||quote?.internal_review_status==='approved_for_send'||!quote&&!!createdOperation?.quibiId?'Čaka odobritev stranke':quote?'Predračun čaka pregled':!fixedPrice&&automaticState?automaticDraftPresentation(automaticState).label:getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status)));
     const casePrepared=repairWork?'Delovni nalog #'+repairWork.quibiId:businessWorkOrderId?'Delovni nalog #'+businessWorkOrderId:quibiEstimateId?'Predračun #'+quibiEstimateId:createdOperation?.quibiId?'Predračun #'+createdOperation.quibiId:newVehicleRequired?'Stranka je povezana. Podatki vozila so shranjeni.':automaticDraft?'Postavke so pripravljene za pregled.':'Podatki povpraševanja so shranjeni.';

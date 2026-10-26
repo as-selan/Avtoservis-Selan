@@ -1,6 +1,6 @@
 import {loadHistoricalPrices,type HistoricalPriceSuggestion} from './estimate-history';
 import {loadEstimateCatalog,type EstimateCatalogOption} from './estimate-catalog.ts';
-import {suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
+import {completeServiceReferences,suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
 import {estimateCatalogSource} from './estimate-catalog-source.ts';
 import type {QuibiChoice} from './write-options';
 import {quibiEstimateDefaults} from './estimate-defaults.ts';
@@ -16,9 +16,12 @@ export async function buildAutomaticEstimateDraft(input:{wanted:string|null;desc
  // Selected prices, units, VAT and customer list are verified freshly, outside catalog cache.
  for(const row of rows.filter(r=>r.quantity&&(r.key||r.unitId&&r.vatId&&r.candidateKeys?.length===1))){const form=new FormData();form.set('catalogSource',row.key||row.candidateKeys![0]);form.set('quantity',row.quantity);const fresh=await estimateCatalogSource(form,read,{units,vatRates},customer);if(fresh){options=options.map(o=>o.key===fresh.option.key?fresh.option:o);row.unitId=fresh.option.unitId;row.vatId=fresh.option.vatId;}}
  const needed=new Set(rows.flatMap(row=>[row.key,...(row.candidateKeys??[])]));
- const draft:AutomaticEstimateDraft={serviceSuggestionVersion:2,rows,options:options.filter(o=>needed.has(o.key)),customerPriceListId:customer.priceListId,defaults,preparedAt:new Date().toISOString()};
- if(input.vehicleId&&read.historyDocuments&&read.documentDetail){try{const history=await loadHistoricalPrices({historyDocuments:read.historyDocuments,documentDetail:read.documentDetail,documents:read.documents},{customerId:input.customerId,vehicleId:input.vehicleId,allowOrganizationHistory:input.allowOrganizationHistory===true,vatRates},rows,options);draft.historySuggestions=history.suggestions;draft.historyIssues=history.issues;}catch{draft.historyIssues=['Zgodovina ni dostopna. Ročna priprava ostaja na voljo.'];}}
- const state:AutomaticDraftState=!rows.length?'needs_data':rows.some(row=>!row.key&&(row.candidateKeys?.length||row.matchSource==='Predlog iz opisa'))?'ambiguous':draftTotal(rows,options,customer.priceListId)===null?'missing_price':'ready';
+ const draft:AutomaticEstimateDraft={serviceSuggestionVersion:2,rows:completeServiceReferences(rows,options,defaults),options:options.filter(o=>needed.has(o.key)),customerPriceListId:customer.priceListId,defaults,preparedAt:new Date().toISOString()};
+ if(input.vehicleId&&read.historyDocuments&&read.documentDetail){try{const history=await loadHistoricalPrices({historyDocuments:read.historyDocuments,documentDetail:read.documentDetail,documents:read.documents},{customerId:input.customerId,vehicleId:input.vehicleId,allowOrganizationHistory:input.allowOrganizationHistory===true,vatRates},rows,options);const documentDefaults=history.documentDefaults;
+ if(!draft.defaults.saleTypeId&&saleTypes.some(v=>v.id===documentDefaults.saleTypeId))draft.defaults.saleTypeId=documentDefaults.saleTypeId;
+ if(!draft.defaults.warehouseId&&warehouses.some(v=>v.id===documentDefaults.warehouseId))draft.defaults.warehouseId=documentDefaults.warehouseId;
+ draft.historySuggestions=history.suggestions;draft.historyIssues=history.issues;}catch{draft.historyIssues=['Zgodovina ni dostopna. Ročna priprava ostaja na voljo.'];}}
+ const state:AutomaticDraftState=!rows.length?'needs_data':rows.some(row=>!row.key&&(row.candidateKeys?.length||row.matchSource==='Predlog iz opisa'))?'ambiguous':draftTotal(draft.rows,options,customer.priceListId)===null?'missing_price':'ready';
  return {draft,state};
 }
 

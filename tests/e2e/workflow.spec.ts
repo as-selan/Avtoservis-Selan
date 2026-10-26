@@ -315,6 +315,7 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("textbox", { name: "Opomba (neobvezno)" }).fill("Izoliran pregled vozila je bil opravljen.");
   await expect(page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
+  await expect(page.getByText("Je stranka naročila popravilo? Ob naročilu je pregled brezplačen.",{exact:true})).toBeVisible();
   await openCaseSection(page, "predracun");
   await page.getByText("Napredno – poveži obstoječ predračun", {exact:true}).click();
   await page.getByRole("textbox", { name: "Quibijev ID predračuna" }).fill("4001");

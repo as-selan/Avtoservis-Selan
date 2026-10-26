@@ -85,3 +85,15 @@ export function conditionalInspectionRows(rows:EstimateDraftRow[],options:Estima
   return {...row,key:option.key,discount:decision==='ordered'?'100':'0',inspectionPricing:decision};
  });
 }
+
+/** Fill missing service references from configured defaults or unanimous verified service rows, never prices. */
+export function completeServiceReferences(rows:EstimateDraftRow[],options:EstimateCatalogOption[],defaults:{unitId?:string;vatId?:string}={}){
+ const sources=rows.flatMap(row=>{const keys=row.key?[row.key]:row.candidateKeys?.length===1?row.candidateKeys:[];return options.filter(o=>keys.includes(o.key)&&o.stockManaged===false)});
+ const unique=(values:string[])=>{const ids=[...new Set(values.filter(Boolean))];return ids.length===1?ids[0]:undefined};
+ const unitId=unique(sources.map(o=>o.unitId)),vatId=unique(sources.map(o=>o.vatId));
+ return rows.map(row=>{
+  if(row.key)return row;
+  const service=/^(pregled|pregeld|servis|popravilo|diagnostik|kontrol)/i.test((row.requestedService??row.description??'').trim());
+  return {...row,unitId:row.unitId||defaults.unitId||(service?unitId:undefined),vatId:row.vatId||defaults.vatId||(service?vatId:undefined)};
+ });
+}

@@ -11,7 +11,7 @@ export function LinkManualEstimateForm({ serviceRequestId }: { serviceRequestId:
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
-  return <form className="space-y-2 border-t pt-3" onSubmit={(event) => {
+  return <form data-unsaved={estimateId.trim()||confirmed?'true':undefined} className="space-y-2 border-t pt-3" onSubmit={(event) => {
     event.preventDefault();
     if (!confirmed || pending) return;
     startTransition(async () => {
