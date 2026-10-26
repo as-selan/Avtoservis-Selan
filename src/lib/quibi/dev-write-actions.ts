@@ -1,4 +1,24 @@
 "use server";
+import {conditionalInspectionRows,type EstimateDraftRow} from './estimate-editor';
+import type {AutomaticEstimateDraft} from './automatic-estimate-draft';
+/** Re-read the business decision for review and CREATE, so a stale browser cannot reuse old automatic pricing. */
+async function inspectionPricedForm(form:FormData,ctx:Awaited<ReturnType<typeof quibiEstimatePreparationContext>>,caseId:string){
+ const raw=form.get('catalogLines');if(typeof raw!=='string'||raw.length>64000)return form;
+ const rows=JSON.parse(raw) as EstimateDraftRow[];
+ if(!Array.isArray(rows))return form;
+ if(!rows.some(r=>r&&((typeof r.key==='string'&&r.key.endsWith(':211414'))||r.candidateKeys?.some(k=>typeof k==='string'&&k.endsWith(':211414')))))return form;
+ const [inspection,prepared]=await Promise.all([
+  ctx.db.from('preliminary_inspections').select('status,repair_decision').eq('organization_id',ctx.access.organizationId).eq('service_request_id',caseId).maybeSingle(),
+  ctx.db.from('offer_preparations').select('auto_draft').eq('organization_id',ctx.access.organizationId).eq('service_request_id',caseId).maybeSingle(),
+ ]);
+ if(inspection.error||prepared.error)throw Error('QUIBI_CASE_NOT_READY');
+ const draft=prepared.data?.auto_draft as AutomaticEstimateDraft|null;
+ if(!draft)return form;
+ const priced=conditionalInspectionRows(rows,draft.options,inspection.data?.status==='completed'?inspection.data.repair_decision:null);
+ const result=new FormData();for(const [key,value] of form.entries())result.append(key,value);
+ result.set('catalogLines',JSON.stringify(priced));return result;
+}
+
 import {quibiDocumentAmountMatches,quibiDocumentTotalCents} from './line-pricing';
 import {confirmBusinessContent} from './business-document-workflow';
 import {configuredQuibiWorkflowStatusClient} from './write-client';
@@ -56,7 +76,7 @@ export async function createQuibiDevEstimate(form: FormData): Promise<Result> {
         !choices.vatRates.some((item) => item.id === vatId)) return fail("Izbrani šifranti v Quibiju niso več veljavni.");
     const warehouseId=String(form.get("warehouseId")??"");
     if(choices.warehouses.length&&!choices.warehouses.some(w=>w.id===warehouseId))return fail("Izberite veljavno Quibi skladišče.");
-    const rows=await estimateCatalogRows(form,ctx.read,choices,ctx.remoteCustomer);
+    const rows=await estimateCatalogRows(await inspectionPricedForm(form,ctx,serviceRequestId),ctx.read,choices,ctx.remoteCustomer);
     const source = rows?null:await estimateCatalogSource(form, ctx.read, choices,ctx.remoteCustomer);
     if(form.get('historySource')&&ctx.remoteCustomer.priceListId===undefined)throw Error('QUIBI_CUSTOMER_PRICING_UNVERIFIED');
     const history=!rows&&form.get('historySource') ? await freshHistorySource(form,historyRead(ctx.read),{customerId:ctx.link.external_id,vehicleId:ctx.vehicleLink.quibi_vehicle_id,wanted:ctx.request.service_wanted??'',code:source?.option.code,priceListId:ctx.remoteCustomer.priceListId}) : null;
@@ -279,7 +299,7 @@ export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
     const warehouseId=String(form.get('warehouseId')??'');
     if(warehouses.length&&!warehouses.some(w=>w.id===warehouseId))return fail('Izberite veljavno Quibi skladišče.');
     stage="pricing";
-    const rows=await estimateCatalogRows(form,ctx.read,{units,vatRates},ctx.remoteCustomer);
+    const rows=await estimateCatalogRows(await inspectionPricedForm(form,ctx,id),ctx.read,{units,vatRates},ctx.remoteCustomer);
     const source=rows?null:await estimateCatalogSource(form,ctx.read,{units,vatRates},ctx.remoteCustomer);
     if(form.get('historySource')&&ctx.remoteCustomer.priceListId===undefined)throw Error('QUIBI_CUSTOMER_PRICING_UNVERIFIED');
     stage="history";

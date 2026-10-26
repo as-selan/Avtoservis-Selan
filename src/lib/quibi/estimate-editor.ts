@@ -1,7 +1,7 @@
 import {moneyLineCents} from './line-pricing';
 import type {IntakeServiceMatch} from '../assistance/intake-analysis';
 import type {EstimateCatalogOption} from './estimate-catalog';
-export type EstimateDraftRow={key:string;quantity:string;discount:string;unitPrice?:string;requestedService?:string;candidateKeys?:string[];matchSource?:string;description?:string;unitId?:string;vatId?:string};
+export type EstimateDraftRow={key:string;quantity:string;discount:string;unitPrice?:string;requestedService?:string;candidateKeys?:string[];matchSource?:string;description?:string;unitId?:string;vatId?:string;inspectionPricing?:'ordered'|'not_ordered'};
 export function initialEstimateRows(ai:Array<{key:string;quantity:number|null}>,exact:string|null|undefined):EstimateDraftRow[]{return ai.length?ai.map(line=>({key:line.key,quantity:line.quantity===null?'':String(line.quantity),discount:''})):exact?[{key:exact,quantity:'1',discount:''}]:[];}
 export function draftRowPrice(row:EstimateDraftRow,option:EstimateCatalogOption,customerPriceListId?:string|null){
  const assigned=customerPriceListId===option.priceListId;
@@ -67,4 +67,21 @@ export function suggestedEstimateRows(wanted:string|null|undefined,description:s
  const labels=clauses.filter(s=>s.length<=500&&!/\b(ne\s+želim|ne\s+zelim|ni\s+potreb|ne\s+potreb|brez\s+menjave)/i.test(s)&&/^(?:(?:želim|zelim|potrebujem|prosim(?:\s+za)?)\s+)?(?:redni\s+servis|servis|pregled|pregeld|kontrola|menjava|zamenjava|popravilo|diagnostika|vulkanizacija|optika|polnjenje)\b/i.test(s));
  const rows=assistedEstimateRows(requestedEstimateRows(labels.join('\n'),null,options,customerPriceListId),canonicalEstimateOptions(options,customerPriceListId));
  return rows.map(row=>({...row,matchSource:row.matchSource??'Predlog storitve'}));
+}
+
+/** Reuse the existing catalog identity and discount; never infer that repair was ordered. */
+export function conditionalInspectionOption(row:EstimateDraftRow,options:EstimateCatalogOption[]){
+ const keys=row.key?[row.key]:row.candidateKeys??[];
+ const matches=options.filter(o=>keys.includes(o.key)&&o.code==='ASBPVPTH'&&o.stockManaged===false);
+ return matches.length===1?matches[0]:undefined;
+}
+export function conditionalInspectionRows(rows:EstimateDraftRow[],options:EstimateCatalogOption[],decision:'pending'|'ordered'|'not_ordered'|null|undefined):EstimateDraftRow[]{
+ return rows.map(row=>{
+  const option=conditionalInspectionOption(row,options);if(!option)return row;
+  const managed=row.inspectionPricing;
+  // A deliberate price/discount edit owns this row. Quantity, description and references are retained.
+  if(row.unitPrice!==undefined||row.discount!==''&&(!managed||row.discount!==(managed==='ordered'?'100':'0')))return managed?{...row,inspectionPricing:undefined}:row;
+  if(decision!=='ordered'&&decision!=='not_ordered')return {...row,key:'',discount:'',candidateKeys:[option.key],inspectionPricing:undefined};
+  return {...row,key:option.key,discount:decision==='ordered'?'100':'0',inspectionPricing:decision};
+ });
 }

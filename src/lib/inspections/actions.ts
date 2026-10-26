@@ -2,7 +2,7 @@
 
 import {revalidatePath} from 'next/cache';
 import {withInspectionRows} from './checklist';
-import {saveAutomaticOfferRows} from '@/lib/quibi/automatic-draft-actions';
+import {saveAutomaticOfferRows,refreshAutomaticOfferCatalogFields} from '@/lib/quibi/automatic-draft-actions';
 import type {AutomaticEstimateDraft} from '@/lib/quibi/automatic-estimate-draft';
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
@@ -51,6 +51,7 @@ export async function recordPreliminaryInspection(
       }
     }
   }
+  if(action==='repair_ordered'||action==='repair_not_ordered'){try{await refreshAutomaticOfferCatalogFields(serviceRequestId);}catch{/* The persisted decision is reapplied when the case reopens. */}}
   revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+serviceRequestId);
   return { ok: true };
 }

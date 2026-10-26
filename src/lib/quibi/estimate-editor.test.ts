@@ -67,3 +67,29 @@ test('prose and negated services never invent billable work; explicit service se
  assert.deepEqual(suggestedEstimateRows('Avtomehanika','Pregled zavor ni potreben',[]),[]);
  const rows=suggestedEstimateRows('Menjava olja','Pregled zavor',[]);assert.deepEqual(rows.map(r=>r.requestedService),['Menjava olja']);
 });
+
+// Conditional inspection uses the existing article price and percentage discount.
+import {conditionalInspectionRows} from './estimate-editor.ts';
+import {estimateCatalogRows} from './estimate-catalog-source.ts';
+const inspectionOption={...option,key:'article:211414',articleId:'211414',code:'ASBPVPTH',name:'BREZPLAČNI PREGLED VOZILA PRED TEHNIČNIM PREGLEDOM',priceListId:'',grossPrice:58.9992,priceListNetPrice:'48.36',priceListDiscount:0,discount:0,priceListDiffers:false,vatId:'5'};
+const inspectionRows=[{key:option.key,quantity:'1',discount:''},{key:'',quantity:'1',discount:'',requestedService:'Pregled pred tehničnim pregledom',description:'Pregled pred tehničnim pregledom',candidateKeys:[inspectionOption.key],unitId:'1',vatId:'5'},{key:'',quantity:'',discount:'',description:'Pregled zavor'}];
+test('inspection pending never bills automatically; ordered repair uses 100 percent and preserves all three services',()=>{
+ const options=[option,inspectionOption],pending=conditionalInspectionRows(inspectionRows,options,'pending');assert.equal(pending[1].key,'');assert.equal(draftTotal(pending,options),null);
+ const ordered=conditionalInspectionRows(pending,options,'ordered');assert.equal(ordered[1].key,inspectionOption.key);assert.equal(ordered[1].discount,'100');assert.equal(ordered[1].unitPrice,undefined);assert.equal(draftTotal([ordered[1]],options),0);assert.deepEqual(ordered[0],inspectionRows[0]);assert.deepEqual(ordered[2],inspectionRows[2]);assert.equal(inspectionOption.grossPrice,58.9992);
+});
+test('inspection decision transitions survive JSON persistence without changing quantity, description or source VAT',()=>{
+ const options=[inspectionOption],ordered=conditionalInspectionRows([inspectionRows[1]],options,'ordered');ordered[0].quantity='2';ordered[0].description='Ohranjen opis';
+ const paid=conditionalInspectionRows(JSON.parse(JSON.stringify(ordered)),options,'not_ordered');assert.equal(paid[0].discount,'0');assert.equal(draftTotal(paid,options),118);assert.equal(paid[0].quantity,'2');assert.equal(paid[0].description,'Ohranjen opis');assert.equal(paid[0].vatId,'5');
+ const reopened=conditionalInspectionRows(JSON.parse(JSON.stringify(paid)),options,'ordered');assert.equal(draftTotal(reopened,options),0);
+ const pending=conditionalInspectionRows(reopened,options,null);assert.equal(pending[0].key,'');assert.equal(pending[0].discount,'');assert.equal(draftTotal(pending,options),null);
+});
+test('manual inspection price, discount, unrelated articles and removed rows remain owned by the user',()=>{
+ const options=[inspectionOption];const manual={...inspectionRows[1],key:inspectionOption.key,unitPrice:'45',quantity:'3',discount:'10'};assert.deepEqual(conditionalInspectionRows([manual],options,'ordered'),[manual]);
+ const auto=conditionalInspectionRows([inspectionRows[1]],options,'ordered')[0];const edited={...auto,discount:'15'};assert.equal(conditionalInspectionRows([edited],options,'not_ordered')[0].discount,'15');assert.equal(conditionalInspectionRows([],options,'ordered').length,0);
+ const other={...inspectionRows[1],candidateKeys:['article:999']};assert.deepEqual(conditionalInspectionRows([other],options,'ordered'),[other]);
+});
+test('fresh Quibi preparation preserves source net price and VAT while discount produces zero or verified 59 EUR',async()=>{
+ const article={id:'211414',code:'ASBPVPTH',name:inspectionOption.name,netPrice:'48.36',unitId:'1',unitLabel:'kos',vatId:'5',vatLabel:'22 %',stockManaged:false};
+ const read={priceLists:async()=>[],article:async()=>article};const catalogs={units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]};
+ for(const decision of ['ordered','not_ordered'] as const){const rows=conditionalInspectionRows([inspectionRows[1]],[inspectionOption],decision);const form=new FormData();form.set('catalogLines',JSON.stringify(rows));const result=await estimateCatalogRows(form,read,catalogs,{priceListId:null});assert.ok(result);assert.equal(result.unitNetPrices[0],48.36);assert.equal(result.unitIds[0],'1');assert.equal(result.reviewedLines[0].vat,'22 %');assert.equal(result.reviewedLines[0].discount,decision==='ordered'?100:0);assert.equal(draftTotal(rows,[inspectionOption]),decision==='ordered'?0:59);}
+});
