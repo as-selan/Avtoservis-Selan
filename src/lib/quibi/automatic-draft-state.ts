@@ -3,6 +3,7 @@ export function automaticDraftPresentation(state:AutomaticDraftState|null|undefi
  if(state==='ready')return {label:'Predračun je pripravljen – Preglej in potrdi.',action:'Preglej in potrdi',href:'#predracun'};
  if(state==='ambiguous')return {label:'Ujemanje ni jasno – Izberi storitev.',action:'Izberi storitev',href:'#predracun'};
  if(state==='missing_price')return {label:'Manjka cena – Vnesi ceno.',action:'Vnesi ceno',href:'#predracun'};
- if(state==='blocked'||state==='needs_data'||state==='failed')return {label:'Manjkajo podatki za pripravo predračuna.',action:'Dopolni manjkajoče podatke',href:'#podatki'};
+ if(state==='needs_data')return {label:'Izberite storitve za predračun.',action:'Izberi storitve',href:'#predracun'};
+ if(state==='blocked'||state==='failed')return {label:'Manjkajo podatki za pripravo predračuna.',action:'Dopolni manjkajoče podatke',href:'#podatki'};
  return {label:'Selan pripravlja predračun.',action:'Poglej pripravo',href:'#predracun'};
 }

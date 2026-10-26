@@ -78,3 +78,5 @@ test('a verified created estimate routes one operator approval to the approval s
 });
 
 test('existing Quibi order without assignment leads to existing mechanic assignment, never invoicing',()=>{const j=caseJourney({...base,status:'awaiting_slot_selection',customerApproved:true,hasWorkOrder:true,hasAssignedWork:false});assert.equal(j.action.label,'Dodeli mehaniku');assert.equal(j.action.href,'#popravilo');});
+
+test('linked intake without billable services goes directly to the existing estimate workspace',()=>{const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:'needs_data'});assert.equal(j.action.label,'Izberi storitve');assert.equal(j.action.href,'#predracun');});
