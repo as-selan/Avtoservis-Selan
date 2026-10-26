@@ -47,7 +47,7 @@ LATER_MIGRATIONS=(
   "20261024094647_automatic_offer_drafts.sql"
   "20261024100001_save_automatic_offer_edits.sql"
   "20261024100417_automatic_offer_identity_and_notifications.sql"
-  "20261026180145_reuse_canonical_intake_customer.sql"
+  "20261026191857_reuse_canonical_intake_customer.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"
