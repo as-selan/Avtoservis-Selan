@@ -27,9 +27,11 @@ begin
  begin perform public.resolve_case_vehicle(c1,actor,'correct',rev,expected,fields,remote);exception when others then if sqlerrm<>'DOCUMENTS_BOUND' then raise;end if;blocked:=true;end;
  if not blocked or (select customer_id from public.vehicles where id=car)<>src or exists(select 1 from public.service_requests where id in(c1,c2) and customer_id<>src) then raise exception 'Partial or bound reassignment';end if;
  delete from public.appointments where service_request_id=c2;
+ update public.service_requests set attention_needed=true,attention_reason='Business information to retain' where id=c2;
  result:=public.resolve_case_vehicle(c1,actor,'correct',rev,expected,fields,remote);
  if result->>'ok'<>'true' or (select customer_id from public.vehicles where id=car)<>dst or (select count(*) from public.service_requests where id in(c1,c2) and customer_id=dst)<>2 then raise exception 'Canonical selection did not move pending identities atomically';end if;
  if (select email from public.customers where id=src)<>'intake@example.test' or (select email from public.customers where id=dst)<>'canonical@example.test' or (select entity_id from public.integration_links where organization_id=org and external_id='99123456')<>dst then raise exception 'Original identity overwritten';end if;
+ if (select attention_reason from public.service_requests where id=c2)<>'Business information to retain' then raise exception 'Unrelated business attention erased';end if;
  result:=public.resolve_case_vehicle(c1,actor,'correct',rev,expected,fields,remote);
  if result->>'ok'<>'true' or (select count(*) from public.case_vehicle_resolution_events where id=rev)<>1 then raise exception 'Replay is not idempotent';end if;
 end $$;
