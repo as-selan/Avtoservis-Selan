@@ -211,6 +211,13 @@ test("real owner login opens dashboard and canonical case", async ({ page }) => 
   await page.getByRole('searchbox',{name:'Poišči primer'}).fill('neobstoječ test');
   await page.getByRole('button',{name:'Počisti iskanje'}).click();
   await expect(page.getByRole('searchbox',{name:'Poišči primer'})).toHaveValue('');
+  await page.getByRole('searchbox',{name:'Poišči primer'}).fill('LJ E2E');
+  const recognizedVehicle=page.getByRole('region',{name:'Najdene stranke in vozila'});
+  await expect(recognizedVehicle.getByText(/VIN: TST00000000000001/)).toBeVisible();
+  await expect(recognizedVehicle.locator('details').first()).toHaveAttribute('open','');
+  await expect(recognizedVehicle.locator(`a[href="/dashboard/primeri/${seed.caseId}"]`)).toBeVisible();
+  await noHorizontalOverflow(page);
+  await page.getByRole('button',{name:'Počisti iskanje'}).click();
   await page.goto(`/dashboard/primeri/${seed.caseId}`);
   await expect(page.getByRole("heading", { name: /Primer #/ })).toBeVisible();
   await page.getByText("Zahtevane storitve in opis", {exact:true}).click();
