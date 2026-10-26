@@ -11,6 +11,6 @@ export async function ClosedCaseSummary({work,customer}:{work:CaseWork;customer:
   <p className="text-sm text-slate-600">{customer}{(work.mechanicName?.trim()||work.mechanicEmail)&&' · '+(work.mechanicName?.trim()||work.mechanicEmail)}</p>
   <p>Račun {invoice?.number||String(closed?.body.invoiceNumber??'')}{invoice&&' · '+Number(invoice.amount).toLocaleString('sl-SI',{style:'currency',currency:'EUR'})}</p>
   {invoice?<QuibiDocumentPayments documentId={invoice.id} amount={invoice.amount} compact/>:<p role="status">Plačilo: ni potrjeno. Podatki računa trenutno niso dosegljivi.</p>}
-  <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">{work.invoice&&<Link className="min-h-11 py-3 text-blue-700 underline" href={'/dashboard/quibi/stranke/'+work.customerQuibiId+'/dokumenti/invoice/'+work.invoice.id}>Odpri račun</Link>}<a className="min-h-11 py-3 text-blue-700 underline" href="#podrobnosti-primera">Podrobnosti primera</a></div>
+  <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">{work.invoice&&<Link className="min-h-11 py-3 text-blue-700 underline" href={'/dashboard/quibi/stranke/'+work.customerQuibiId+'/dokumenti/invoice/'+work.invoice.id}>Odpri račun</Link>}</div>
  </section>;
 }

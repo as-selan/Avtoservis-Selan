@@ -10,3 +10,12 @@ test('mechanic queue keeps active first and sorts each group by assignment date,
 });
 
 test('service completion is taken only from matching completed mechanic status, never later notes/photos or manager activity',()=>{const row={caseId:'case',mechanicId:'one',status:'work_completed'};const assignment={case_id:'case',status:'work_completed',updated_at:'2026-10-25T18:11:19Z'};const work=enrichWork([row],[assignment],[{case_id:'case',created_at:'2026-10-27T12:00:00Z'}],[],[])[0];assert.equal(work.completedAt,'2026-10-25T18:11:19Z');assert.equal(work.lastActivity,'2026-10-27T12:00:00Z');assert.equal(enrichWork([row],[{...assignment,status:'in_progress'}],[],[],[])[0].completedAt,null);assert.equal(enrichWork([{...row,status:'in_progress'}],[assignment],[],[],[])[0].completedAt,null);});
+
+test('mechanic work distinguishes active, completed awaiting review and business closure after refresh',()=>{
+ const input=[{caseId:'closed',mechanicId:'one',status:'work_completed',assignedAt:'2026-10-26T12:00:00Z',phase:{id:'closed'},review:{workLocked:true}},{caseId:'pending-old',mechanicId:'one',status:'work_completed',assignedAt:'2026-10-23T12:00:00Z'},{caseId:'active',mechanicId:'one',status:'assigned',assignedAt:'2026-10-20T12:00:00Z'},{caseId:'pending-new',mechanicId:'one',status:'work_completed',assignedAt:'2026-10-24T12:00:00Z'}];
+ assert.deepEqual(selectMechanicWork(input).map(row=>row.caseId),['active','pending-new','pending-old','closed']);
+ const refreshed=JSON.parse(JSON.stringify(input)) as typeof input;assert.deepEqual(selectMechanicWork(refreshed).map(row=>row.caseId),['active','pending-new','pending-old','closed']);
+ refreshed[2].status='work_completed';assert.deepEqual(selectMechanicWork(refreshed).map(row=>row.caseId),['pending-new','pending-old','active','closed']);
+});
+
+test('saved mechanic name is normalized while missing name preserves the existing email fallback',()=>{for(const [full_name,expected] of [['  Janez Novak  ','Janez Novak'],['   ',null],[null,null]]){const work=enrichWork(rows,[],[],[],[{id:'one',full_name,email:'mechanic@example.invalid'}])[0];assert.equal(work.mechanicName,expected);assert.equal(work.mechanicEmail,'mechanic@example.invalid');}});

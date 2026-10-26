@@ -51,7 +51,7 @@ export function filterIntakeQueue(rows:IntakeQueueItem[],group:IntakeQueueGroup,
 /** Presentation groups derive from existing repair phases; no business transition. */
 export const DASHBOARD_GROUPS = [
  {id:'new',label:'Novo'},
- {id:'decision',label:'Čaka odločitev'},
+ {id:'decision',label:'Čaka moje dejanje'},
  {id:'work',label:'V delu'},
  {id:'review',label:'Pregled vodje'},
  {id:'invoice',label:'Račun'},
