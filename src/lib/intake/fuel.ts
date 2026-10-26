@@ -3,8 +3,9 @@ import type { IntakeFuelDb } from "./types";
 
 /** Map demo UI fuel values to M3 DB fuel enum. */
 export function mapUiFuelToDb(
-  fuel: FuelType | "" | null | undefined,
+  fuel: FuelType | IntakeFuelDb | "" | null | undefined,
 ): IntakeFuelDb | null {
+  if(fuel&&isIntakeFuelDb(fuel))return fuel;
   switch (fuel) {
     case "bencin":
       return "petrol";

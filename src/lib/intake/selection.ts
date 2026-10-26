@@ -1,3 +1,4 @@
+import {isIntakeFuelDb} from './fuel.ts';
 import type {IntakeCustomerCandidate} from './types.ts';
 const key = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
 export function intakeVehicleSelection(customer: IntakeCustomerCandidate, query: string) {
@@ -13,7 +14,7 @@ export function automaticIntakeSelection(candidates:IntakeCustomerCandidate[],qu
  return vehicle?{customer,vehicle}:customer.vehicles.length===0?{customer,vehicle:null}:null;
 }
 export function intakeAutofill(customer:IntakeCustomerCandidate,vehicle:IntakeCustomerCandidate['vehicles'][number]|null){
- const fuel=({petrol:'bencin',diesel:'dizel',hybrid:'hibrid',electric:'elektrika',lpg:'plin'} as Record<string,string>)[vehicle?.fuel??'']??'';
+ const fuel=({petrol:'bencin',diesel:'dizel',hybrid:'hibrid',electric:'elektrika',lpg:'plin'} as Record<string,string>)[vehicle?.fuel??'']??(vehicle?.fuel&&isIntakeFuelDb(vehicle.fuel)?vehicle.fuel:'');
  const number=(v:number|null|undefined)=>v==null?'':String(v);
  return {fullName:customer.displayName,phone:customer.phone??'',email:customer.email??'',make:vehicle?.make??'',model:vehicle?.model??'',registration:vehicle?.registrationCurrent??'',vin:vehicle?.vin??'',year:number(vehicle?.year),mileage:number(vehicle?.mileage),powerKw:number(vehicle?.powerKw),engineDisplacement:vehicle?.engine??'',engineCode:vehicle?.engineType??'',fuel};
 }

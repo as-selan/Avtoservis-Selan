@@ -13,6 +13,7 @@ import {
 } from "@/lib/intake/actions";
 import { mapUiFuelToDb } from "@/lib/intake/fuel";
 import type {
+  IntakeFuelDb,
   IntakeCustomerCandidate,
   ManualIntakeChannel,
 } from "@/lib/intake/types";
@@ -30,7 +31,7 @@ interface FormState {
   powerKw: string;
   engineDisplacement: string;
   engineCode: string;
-  fuel: FuelType | "";
+  fuel: FuelType | IntakeFuelDb | "";
   serviceWanted: string;
   bringsOwnMaterial: "da" | "ne";
   problemDescription: string;
@@ -94,8 +95,8 @@ export function ManualServiceOrderEntry() {
   }
 
   function update<K extends FieldKey>(key: K, value: FormState[K]) {
-    if(key!=="searchQuery")edited.current.add(key);
     const lookup=!selectionRef.current&&['fullName','phone','registration','vin'].includes(key)&&typeof value==='string';
+    if(key!=="searchQuery"&&!lookup)edited.current.add(key);
     if(lookup)searchSeqRef.current+=1;
     setForm((prev) => ({ ...prev, [key]: value, ...(lookup?{searchQuery:value as string}:{}) }));
   }
@@ -525,7 +526,7 @@ export function ManualServiceOrderEntry() {
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
-                    ))}
+                    ))}{([['plug_in_hybrid','Priključni hibrid'],['cng','Zemeljski plin (CNG)'],['hydrogen','Vodik'],['other','Drugo']] as const).map(([value,label])=><option key={value} value={value}>{label}</option>)}
                   </select>
                 </div>
               </div>

@@ -85,8 +85,8 @@ function projectVehicle(value: unknown): QuibiVehicle {
   };
 }
 
-export function parseVehicleCandidates(value: unknown): Pick<QuibiVehicle,"id"|"vin"|"registration">[] {
- return rows(value,"Vozila").map(entry=>{const vehicle=object(object(entry).Vozila),id=field(vehicle.id);if(!/^\d+$/.test(id))throw Error("QUIBI_INVALID_VEHICLE_ID");return {id,vin:field(vehicle.internastevilka),registration:field(vehicle.registrskastevilka)}});
+export function parseVehicleCandidates(value: unknown): (Pick<QuibiVehicle,"id"|"vin"|"registration"> & Partial<Pick<QuibiVehicle,"make"|"model">>)[] {
+ return rows(value,"Vozila").map(entry=>{const vehicle=object(object(entry).Vozila),id=field(vehicle.id);if(!/^\d+$/.test(id))throw Error("QUIBI_INVALID_VEHICLE_ID");return {id,vin:field(vehicle.internastevilka),registration:field(vehicle.registrskastevilka),...(field(vehicle.proizvajalec)?{make:field(vehicle.proizvajalec)}:{}),...(field(vehicle.model)?{model:field(vehicle.model)}:{})}});
 }
 
 export function parseVehicles(value: unknown): QuibiVehicle[] {

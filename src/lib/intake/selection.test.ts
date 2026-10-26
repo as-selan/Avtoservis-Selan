@@ -18,7 +18,7 @@ test('checklist has optional note, stores only selected findings and reuses repa
 test('Quibi intake finds registration and owner through READ only, reuses local identity and additional vehicles',async()=>{
  const remote={id:'7',name:'TEST Žagar',phone:'040123456',email:''};const v={id:'8',customerId:'7',make:'TEST',model:'Vozilo',registration:'LJ-123',vin:'TESTVIN',disabled:false};
  const read={customers:async()=>[remote],allVehicles:async()=>[v],lookupVehicle:async()=>v,customer:async()=>remote,vehicles:async()=>[v]};
- const candidates=await searchQuibiIntake(read,'lj123');assert.equal(candidates[0].customerId,'quibi:7');assert.equal(candidates[0].vehicles[0].vehicleId,'quibi:8');assert.equal((await searchQuibiIntake(read,'zagar')).length,1);assert.equal((await searchQuibiIntake(read,'123456')).length,1);
+ const candidates=await searchQuibiIntake(read,'lj123');assert.equal(candidates[0].customerId,'quibi:7');assert.equal(candidates[0].vehicles[0].vehicleId,'quibi:8');assert.equal((await searchQuibiIntake(read,'zagar')).length,1);assert.equal((await searchQuibiIntake(read,'123456')).length,1);assert.equal((await searchQuibiIntake(read,'TEST Vozilo')).length,1);
  assert.deepEqual(mergeIntakeCandidates([customer],candidates),[customer]);
 });
 test('vehicle history includes listed documents only for exact customer and vehicle; detail mismatch is not exposed',async()=>{
