@@ -28,6 +28,7 @@ declare r public.service_requests;v public.vehicles;target public.vehicles;old_l
   if exists(select 1 from public.quotes q where q.service_request_id=any(affected)) or exists(select 1 from public.quibi_dev_operation_journal j where j.service_request_id=any(affected)) or exists(select 1 from public.appointments a where a.service_request_id=any(affected)) or exists(select 1 from public.service_case_assignments a where a.case_id=any(affected)) then raise exception 'DOCUMENTS_BOUND';end if;
   update public.vehicles set customer_id=canonical.id where id=v.id and organization_id=r.organization_id;
   update public.service_requests set customer_id=canonical.id,attention_needed=false,attention_reason=null where id=any(affected) and organization_id=r.organization_id;
+  update public.offer_preparations set auto_input=null,auto_draft=null,auto_state=null,auto_run=null,auto_started_at=null where organization_id=r.organization_id and service_request_id=any(affected);
   insert into public.case_vehicle_resolution_events values(p_revision,r.organization_id,r.id,p_actor,'correct',jsonb_build_object('cases',before_cases,'vehicle',to_jsonb(v),'customer',to_jsonb(source_customer),'canonicalCustomer',to_jsonb(canonical)),jsonb_build_object('customerId',canonical.id,'caseIds',to_jsonb(affected),'vehicleId',v.id,'fields',p_fields,'remote',p_remote),now());
   return jsonb_build_object('ok',true,'customerId',canonical.id,'vehicleId',v.id);
  end if;
