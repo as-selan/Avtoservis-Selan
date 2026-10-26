@@ -51,6 +51,12 @@ export function createQuibiReadClient(config: Config) {
   };
 
   return {
+    async lookupVehicle(id:string) {
+      const vehicleId=validId(id),value=await read('/api2/vozila/view/'+vehicleId);
+      const data=value as {data?:{Vozilo?:{Vozila?:{stranka_id?:unknown}}}};
+      const customerId=String(data.data?.Vozilo?.Vozila?.stranka_id??'');
+      return parseVehicleDetail(value,vehicleId,validId(customerId));
+    },
     async vehicleInfo(vehicleId:string,customerId:string){return parseVehicleInfo(await read('/api2/vozila/view/'+validId(vehicleId)),vehicleId,validId(customerId))},
     async addresses(customerId:string){return parseAddresses(await read('/api2/address/index/'+validId(customerId)),customerId)},
     async lots(articleId:string){return parseLots(await read('/api2/loti/index/'+validId(articleId)))},

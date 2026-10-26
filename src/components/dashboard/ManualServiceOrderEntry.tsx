@@ -2,6 +2,9 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {searchQuibiIntakeAction} from '@/lib/intake/quibi-search-action';
+import {mergeIntakeCandidates} from '@/lib/intake/quibi-search';
+import {intakeVehicleSelection} from '@/lib/intake/selection';
 import { X } from "lucide-react";
 import { FUEL_OPTIONS } from "@/lib/dashboard/demo-data";
 import type { FuelType } from "@/lib/dashboard/types";
@@ -72,6 +75,7 @@ export function ManualServiceOrderEntry() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
     null,
   );
+  const [quibiUnavailable, setQuibiUnavailable] = useState(false);
   const [searchPending, startSearchTransition] = useTransition();
   const [submitPending, startSubmitTransition] = useTransition();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,7 +134,9 @@ export function ManualServiceOrderEntry() {
 
   function selectCustomer(candidate: IntakeCustomerCandidate) {
     setSelectedCustomer(candidate);
-    setSelectedVehicleId(null);
+    const vehicle = intakeVehicleSelection(candidate, form.searchQuery);
+    setSelectedVehicleId(vehicle?.vehicleId ?? null);
+    setForm(prev => ({...prev, make: vehicle?.make ?? '', model: vehicle?.model ?? '', registration: vehicle?.registrationCurrent ?? '', vin: vehicle?.vin ?? ''}));
     update("fullName", candidate.displayName);
     update("phone", candidate.phone ?? "");
     update("email", candidate.email ?? "");
@@ -180,6 +186,10 @@ export function ManualServiceOrderEntry() {
         }
         setFormError(null);
         setCandidates(result.candidates);
+        const remote = await searchQuibiIntakeAction(q);
+        if (seq !== searchSeqRef.current) return;
+        setQuibiUnavailable(remote.unavailable === true);
+        setCandidates(mergeIntakeCandidates(result.candidates, remote.candidates));
       });
     }, 300);
 
@@ -214,8 +224,8 @@ export function ManualServiceOrderEntry() {
         serviceWanted: form.serviceWanted,
         problemDescription: form.problemDescription,
         bringsOwnMaterial: form.bringsOwnMaterial === "da",
-        selectedCustomerId: selectedCustomer?.customerId ?? null,
-        selectedVehicleId,
+        selectedCustomerId: selectedCustomer?.customerId.startsWith('quibi:') ? null : selectedCustomer?.customerId ?? null,
+        selectedVehicleId: selectedVehicleId?.startsWith('quibi:') ? null : selectedVehicleId,
         clientRequestId: ensureClientRequestId(),
       });
 
@@ -275,7 +285,7 @@ export function ManualServiceOrderEntry() {
               id="manual-entry-title"
               className="text-base font-semibold text-slate-900"
             >
-              Ročni vnos
+              Novo povpraševanje
             </h2>
             <p className="mt-0.5 text-sm text-slate-500">
               Ročni sprejem povpraševanja (telefon / SMS / osebno). Išči obstoječo
@@ -301,19 +311,20 @@ export function ManualServiceOrderEntry() {
           <div className="space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
             <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                Iskanje stranke
+                Poišči stranko ali vozilo
               </legend>
               <p className="mt-1 text-xs text-slate-500">
-                Iskanje po imenu, telefonu, e-pošti, registraciji ali VIN. Ime ni
-                samodejna identifikacija — stranko izberite ročno.
+                Ime ali telefon stranke, registracija ali VIN vozila. Izbira izpolni znane podatke.
               </p>
               <div className="mt-2">
                 <Field
-                  label="Iskanje"
+                  label="Ime, telefon, registracija ali VIN"
                   value={form.searchQuery}
                   onChange={updateSearchQuery}
                 />
               </div>
+              {form.searchQuery && <button type="button" onClick={() => updateSearchQuery('')} className="min-h-11 px-2 text-sm text-blue-700">Počisti iskanje</button>}
+              {quibiUnavailable && <p role="status" className="mt-2 text-sm text-slate-600">Iskanje v Quibiju trenutno ni na voljo. Uporabite shranjene podatke ali vnesite nove.</p>}
               {searchPending ? (
                 <p className="mt-2 text-xs text-slate-500">Iščem…</p>
               ) : null}

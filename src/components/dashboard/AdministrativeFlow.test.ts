@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import ts from 'typescript';
+import * as checklist from '../../lib/inspections/checklist.ts';
 import {canAdvancePreliminaryInspection} from '../../lib/inspections/eligibility.ts';
 import {manualSlotDraft,slotProposalMessage,manualOfferExpired} from '../../lib/appointments/manual-slot-draft.ts';
 import {ljubljanaWallTimeToIso} from '../../lib/appointments/ljubljana-time.ts';
@@ -18,7 +19,7 @@ function fixture(file:string,component:string,initialProps:Record<string,unknown
  const actions=Object.fromEntries(['caseReviewAction','reviewServiceRequestIntake','approveCaseEstimate','recordManualEstimateDecision','recordManualEstimateDelivery','reviewManualQuibiEstimate','proposeManualSlots','advanceManualSlotOffer','recordPreliminaryInspection'].map(name=>[name,async(...args:any[])=>{calls.push({name,args});return {ok:true}}]));
  const exports:Record<string,any>={};
  const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage,manualOfferExpired}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,crypto,Date,Number,JSON,Set,setTimeout,clearTimeout});
+ runInNewContext(code,{exports,require:(name:string)=>name==='react'?{useState:(value:any)=>{const slot=index++;if(!(slot in state))state[slot]=typeof value==='function'?value():value;return [state[slot],(next:any)=>{state[slot]=typeof next==='function'?next(state[slot]):next}]},useRef:(value:any)=>({current:value}),useEffect:()=>{},useTransition:()=>[false,(fn:()=>Promise<unknown>)=>pending.push(fn())]}:name==='react/jsx-runtime'?{jsx,jsxs:jsx,Fragment:'fragment'}:name==='next/navigation'?{useRouter:()=>({refresh:()=>refreshes++})}:name==='@/lib/inspections/checklist'?checklist:name==='./InspectionChecklist'?{InspectionChecklist:'inspection-checklist'}:name.includes('eligibility')?{canAdvancePreliminaryInspection}:name.includes('manual-slot-draft')?{manualSlotDraft,slotProposalMessage,manualOfferExpired}:name.includes('ljubljana-time')?{ljubljanaWallTimeToIso}:name.includes('send-outcome')?{sendPresentation}:actions,process:{env:{}},FormData,crypto,Date,Number,JSON,Set,setTimeout,clearTimeout});
  let props=initialProps;
  const render=(changes:Record<string,unknown>={})=>{props={...props,...changes};index=0;return exports[component](props)};
  return {render,calls,refreshes:()=>refreshes,flush:async()=>{await Promise.all(pending.splice(0))}};
@@ -55,9 +56,9 @@ test('manual appointment UI progresses proposal, actual choice and booking evide
 test('preliminary inspection explicitly distinguishes free ordered repair from payable declined repair',async()=>{
  const f=fixture('./PreliminaryInspection.tsx','PreliminaryInspection',{serviceRequestId:'case',caseStatus:'preparing_offer',status:null,findings:null,repairDecision:null});
  button(f.render(),'Označi potreben predhodni pregled').props.onClick();await f.flush();assert.equal(f.calls.at(-1)?.args[1],'request');
- f.render({status:'requested'});fillLabel(f.render(),'Dejanske ugotovitve po opravljenem pregledu','QA-SIM isolated findings');attest(f.render());button(f.render(),'Zabeleži opravljen pregled').props.onClick();await f.flush();assert.equal(f.calls.at(-1)?.args[1],'complete');
+ f.render({status:'requested'});fillLabel(f.render(),'Opomba (neobvezno)','QA-SIM isolated findings');assert.ok(!nodes(f.render()).some(n=>n.type==='input'&&n.props.type==='checkbox'));button(f.render(),'Zabeleži opravljen pregled').props.onClick();await f.flush();assert.equal(f.calls.at(-1)?.args[1],'complete');
  for(const decision of ['ordered','not_ordered']){
-  f.render({status:'completed',repairDecision:'pending'});attest(f.render());button(f.render(),decision==='ordered'?'Popravilo naročeno':'Popravilo ni naročeno').props.onClick();await f.flush();assert.equal(f.calls.at(-1)?.args[1],decision==='ordered'?'repair_ordered':'repair_not_ordered');
+  f.render({status:'completed',repairDecision:'pending'});button(f.render(),decision==='ordered'?'Popravilo naročeno':'Popravilo ni naročeno').props.onClick();await f.flush();assert.equal(f.calls.at(-1)?.args[1],decision==='ordered'?'repair_ordered':'repair_not_ordered');
   assert.match(text(f.render({repairDecision:decision})),decision==='ordered'?/pregled je brezplačen/:/pregled je plačljiv/);
  }
 });

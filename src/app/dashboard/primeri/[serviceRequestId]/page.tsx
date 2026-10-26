@@ -1,3 +1,4 @@
+import {VehicleHistory} from '@/components/customers/VehicleHistory';
 import {ClosedCaseSummary} from '@/components/dashboard/ClosedCaseSummary';
 import {ApproveCaseEstimate} from '@/components/dashboard/ApproveCaseEstimate';
 import {canStartPreliminaryInspection} from '@/lib/cases/workspace';
@@ -431,6 +432,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {identityConfirmed&&customer&&<Link className="block text-sm text-blue-700" href={`/dashboard/stranke/${customer.id}/quibi`}>Preglej povezavo stranke in vozila</Link>}
       {customer && link && <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">Povezani dokumenti in zgodovina Quibija</summary><QuibiCaseDocuments caseId={serviceRequestId} customerId={customer.id} link={link} /></details>}
       </>}/>
+      <VehicleHistory scope={{caseId:serviceRequestId}}/>
       {!caseClosed&&workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
 </div>;
 }

@@ -1,3 +1,4 @@
+import {inspectionRepairServices} from '../inspections/checklist';
 import {buildAutomaticEstimateDraft} from './automatic-estimate-draft';
 import {isHostedQuibiEnvironment} from './deployment-policy';
 import {requiresResolvedVehicleConfirmation} from './vehicle-identity';
@@ -94,7 +95,9 @@ export async function processIntakeSynchronization(caseId:string,restarts=0){
   }
   await status(result.vehicleId?null:'Stranka je povezana. Za povezavo vozila dopolnite VIN, registracijo, znamko in model.');
   if(!result.vehicleId){await finish('needs_data');return result;}
-  const preparation=await buildAutomaticEstimateDraft({wanted:claim.data.input.wanted,description:claim.data.input.description,customerId:result.customerId,vehicleId:result.vehicleId,allowOrganizationHistory:true},configuredQuibiReadClient());
+  const inspected=await db.from('preliminary_inspections').select('findings').eq('organization_id',org.id).eq('service_request_id',caseId).eq('status','completed').maybeSingle();
+  const wanted=[claim.data.input.wanted,...inspectionRepairServices(inspected.data?.findings).map(item=>item+' – potrebno popravilo')].filter(Boolean).join('\n');
+  const preparation=await buildAutomaticEstimateDraft({wanted,description:claim.data.input.description,customerId:result.customerId,vehicleId:result.vehicleId,allowOrganizationHistory:true},configuredQuibiReadClient());
   const saved=await finish(preparation.state,preparation.draft);if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1);return result;
  }catch(error){
   const code=error instanceof Error?error.message:'';

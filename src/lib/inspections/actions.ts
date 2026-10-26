@@ -1,5 +1,9 @@
 "use server";
 
+import {revalidatePath} from 'next/cache';
+import {withInspectionRows} from './checklist';
+import {saveAutomaticOfferRows} from '@/lib/quibi/automatic-draft-actions';
+import type {AutomaticEstimateDraft} from '@/lib/quibi/automatic-estimate-draft';
 import { requirePhase1OperationalAccess } from "@/lib/auth/requireWorkshopAccess";
 import { createClient } from "@/lib/supabase/server";
 import { canAdvancePreliminaryInspection } from "./eligibility";
@@ -37,5 +41,16 @@ export async function recordPreliminaryInspection(
     };
     return { ok: false, message: known[payload?.error_code ?? ""] ?? "Pregleda ni bilo mogoče shraniti. Preverite stanje primera." };
   }
+  if (action === 'complete') {
+    const prepared=await db.from('offer_preparations').select('auto_draft,auto_run,updated_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).maybeSingle();
+    const draft=prepared.data?.auto_draft as AutomaticEstimateDraft | null;
+    if(draft&&prepared.data?.auto_run){
+      const rows=withInspectionRows(draft.rows,findings);
+      if(rows.length>draft.rows.length){
+        try {await saveAutomaticOfferRows(serviceRequestId,prepared.data.auto_run,prepared.data.updated_at,rows);}catch{/* Findings stay persisted and the editor also merges them on read. */}
+      }
+    }
+  }
+  revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+serviceRequestId);
   return { ok: true };
 }

@@ -110,3 +110,11 @@ test("vehicle adapter reads only the confirmed customer's Quibi vehicles and val
 });
 
 test('global duplicate candidates include orphan vehicles without granting ownership',async()=>{const client=createQuibiReadClient({username:'test',password:'test',fetcher:(async()=>new Response(JSON.stringify({error:false,data:{Vozila:[{Vozila:{id:10,stranka_id:null,internastevilka:'TESTSELANAX202601',registrskastevilka:'QA SELAN AI',disabled:1}}]}}))) as typeof fetch});assert.deepEqual(await client.allVehicles(),[{id:'10',vin:'TESTSELANAX202601',registration:'QA SELAN AI'}]);await assert.rejects(client.vehicles('405957'),/INVALID_VEHICLE_ID/);});
+
+
+test('intake vehicle lookup uses the existing read-only detail endpoint and validates returned owner',async()=>{
+ const calls:{url:string;method:string}[]=[];
+ const client=createQuibiReadClient({username:'isolated-fixture',password:'isolated-fixture',fetcher:async(url,options)=>{calls.push({url:String(url),method:options?.method??'GET'});return new Response(JSON.stringify({error:false,data:{Vozilo:{Vozila:{id:'8',stranka_id:'7',disabled:'0',registrskastevilka:'TEST-1',internastevilka:'TESTVIN',proizvajalec:'TEST',model:'Vozilo'}}}}),{status:200})}});
+ const vehicle=await client.lookupVehicle('8');assert.equal(vehicle.customerId,'7');assert.equal(vehicle.registration,'TEST-1');assert.deepEqual(calls,[{url:'https://dev.quibi.net/api2/vozila/view/8',method:'GET'}]);
+ await assert.rejects(client.lookupVehicle('9'),/MISMATCH/);
+});
