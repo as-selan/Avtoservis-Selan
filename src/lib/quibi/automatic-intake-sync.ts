@@ -19,7 +19,7 @@ const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function scheduleIntakeSynchronization(caseId:string,mode:'read'|'saved'='read'){
  if(isHostedQuibiEnvironment(process.env)&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId,0,mode)});
 }
-export async function processIntakeSynchronization(caseId:string,restarts=0,mode:'read'|'saved'|'resume'='read'){
+export async function processIntakeSynchronization(caseId:string,restarts=0,mode:'read'|'saved'|'resume'|'distinct'='read'){
  if(!uuid.test(caseId)||!isHostedQuibiEnvironment(process.env))return;
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!secret)return;
@@ -44,7 +44,10 @@ export async function processIntakeSynchronization(caseId:string,restarts=0,mode
  for(let attempt=0;attempt<3;attempt++)try{
   const configurationProblem=intakeSyncConfigurationProblem(process.env,'read');if(configurationProblem)throw Error('INTAKE_CONFIG:'+configurationProblem);
   const config=quibiWorkflowConfig(process.env,'read');
-  const allowCreate=(mode==='saved'||mode==='resume'&&savedIntakeCanResumeCreate(request))&&!intakeSyncConfigurationProblem(process.env,'write');const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!;
+  const journal=quibiWorkflowJournal(org.id,actor);
+  const prior=mode==='resume'?await journal.get('customer',request.customer_id):null;
+  const resumedChoice=!!prior&&prior.serviceRequestId===caseId&&['prepared','verified','uncertain'].includes(prior.state);
+
   const {data:membership,error:membershipError}=await db.from('organization_memberships').select('role').eq('organization_id',org.id).eq('profile_id',actor).eq('is_active',true).single();
   if(membershipError||!membership||!['owner','admin'].includes(membership.role))throw Error('INTAKE_CONFIG:'+INTAKE_ACTOR_ACCESS_PROBLEM);
   const [{data:customer,error:ce},{data:vehicle,error:ve},{data:link,error:le},{data:vehicleLink,error:vle}]=await Promise.all([
@@ -53,14 +56,16 @@ export async function processIntakeSynchronization(caseId:string,restarts=0,mode
    db.from('integration_links').select('*').eq('organization_id',org.id).eq('entity_type','customer').eq('provider','quibi').eq('entity_id',request.customer_id).maybeSingle(),
    request.vehicle_id?db.from('quibi_vehicle_links').select('*').eq('organization_id',org.id).eq('vehicle_id',request.vehicle_id).maybeSingle():Promise.resolve({data:null,error:null})]);
   if(ce||ve||le||vle||!customer)throw Error('INTAKE_READ_FAILED');
-  const resolution=await db.from('case_vehicle_resolution_events').select('id').eq('organization_id',org.id).eq('case_id',caseId).limit(1);
+  const resolution=await db.from('case_vehicle_resolution_events').select('id,after_state').eq('organization_id',org.id).eq('case_id',caseId);
   if(resolution.error&&!['42P01','PGRST205'].includes(resolution.error.code))throw Error('INTAKE_READ_FAILED');
-  if(requiresResolvedVehicleConfirmation(!!resolution.data?.length,vehicleLink?.sync_status))throw Error('INTAKE_RESOLUTION_REVIEW_REQUIRED');
+  const canonicalChoice=!!resolution.data?.some(e=>e.after_state?.remote?.kind==='customer'&&e.after_state?.customerId===request.customer_id&&e.after_state?.vehicleId===request.vehicle_id);
+  const allowCreate=(mode==='saved'||mode==='distinct'||mode==='resume'&&(savedIntakeCanResumeCreate(request)||resumedChoice||canonicalChoice))&&!intakeSyncConfigurationProblem(process.env,'write');
+  if(requiresResolvedVehicleConfirmation(!!resolution.data?.some(e=>e.after_state?.remote?.kind!=='customer'),vehicleLink?.sync_status))throw Error('INTAKE_RESOLUTION_REVIEW_REQUIRED');
   if(link&&(link.quibi_environment!==config.mode||link.sync_status!=='ok')||vehicleLink&&(vehicleLink.quibi_environment!==config.mode||vehicleLink.sync_status!=='ok'||vehicleLink.customer_id!==request.customer_id))throw Error('INTAKE_IDENTITY_REVIEW');
   const localCustomer={name:customer.display_name,phone:customer.phone??'',email:customer.email??''};
   const localVehicle=vehicle?{vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??'',...(vehicle.year?{year:vehicle.year}:{})}:null;
   if(link&&(link.local_fingerprint!==customerFingerprint(localCustomer))||vehicleLink&&localVehicle&&(vehicleLink.local_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.quibi_customer_id!==link?.external_id))throw Error('INTAKE_IDENTITY_REVIEW');
-  const result=await synchronizeIntakeParties({allowCustomerCreate:allowCreate,customerExpectedFingerprint:link?.external_fingerprint,allowVehicleCreate:allowCreate&&canConfirmQuibiVehicleCreate(membership.role,process.env),caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:{createCustomer:async body=>{if(!allowCreate)throw Error('INTAKE_CREATE_NOT_REQUESTED');return configuredQuibiWorkflowWriteClient().createCustomer(body)},createVehicle:async body=>{if(!allowCreate)throw Error('INTAKE_CREATE_NOT_REQUESTED');return configuredQuibiWorkflowWriteClient().createVehicle(body)}},journal:quibiWorkflowJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
+  const result=await synchronizeIntakeParties({distinctCustomer:(mode==='distinct'||resumedChoice)&&!link,allowCustomerCreate:allowCreate,customerExpectedFingerprint:link?.external_fingerprint,allowVehicleCreate:allowCreate&&canConfirmQuibiVehicleCreate(membership.role,process.env),caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:{createCustomer:async body=>{if(!allowCreate)throw Error('INTAKE_CREATE_NOT_REQUESTED');return configuredQuibiWorkflowWriteClient().createCustomer(body)},createVehicle:async body=>{if(!allowCreate)throw Error('INTAKE_CREATE_NOT_REQUESTED');return configuredQuibiWorkflowWriteClient().createVehicle(body)}},journal,linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
    enrichCustomer:async remote=>{
     if(link)throw Error('INTAKE_IDENTITY_REVIEW');
     let update=db.from('customers').update({display_name:localCustomer.name||remote.name,phone:remote.phone||localCustomer.phone||null,email:remote.email||localCustomer.email||null}).eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null);

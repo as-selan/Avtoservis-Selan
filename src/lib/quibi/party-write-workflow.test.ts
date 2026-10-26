@@ -142,3 +142,19 @@ test('definitive vehicle rejection remains failed and never dispatches again',as
 });
 
 test('vehicle CREATE transfers a known year and preserves the journal request on replay',async()=>{const f=journalFixture();let writes=0;const remote:Array<{id:string;customerId:string;vin:string;registration:string;make:string;model:string;disabled:boolean;year:number}>=[];const input={serviceRequestId:caseId,vehicleId,quibiCustomerId:'9001',vin:'TESTVIN1234567890',registration:'TEST-01',make:'Test',model:'A',year:2018};const read={vehicles:async()=>remote,vehicle:async()=>remote[0]};const write={createVehicle:async(body:{letnik?:number})=>{assert.equal(body.letnik,2018);writes++;remote.push({id:'7001',customerId:'9001',vin:input.vin,registration:input.registration,make:'Test',model:'A',disabled:false,year:2018});return '7001'}};await createOrReconcileVehicle({journal:f.journal,read,write,input});await createOrReconcileVehicle({journal:f.journal,read,write,input});assert.equal(writes,1);});
+
+
+test('explicit distinct same-name customer permits new contacts and replays without a duplicate POST',async()=>{
+ const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,customerId,name:'TEST Stranka',phone:'+386 000 024',email:'new@example.test',allowDistinctName:true};
+ const old={id:'8',remoteId:'',name:input.name,phone:'',email:'old@example.test'};let rows=[old];
+ const read={async customers(){return rows},async customer(id:string){return rows.find(r=>r.id===id)!}};
+ const write={async createCustomer(){writes++;rows=[old,{id:'9',remoteId:customerRemoteId(customerId),name:input.name,phone:input.phone,email:input.email}]}};
+ assert.equal((await createOrReconcileCustomer({journal:f.journal,read,write,input})).quibiId,'9');assert.equal((await createOrReconcileCustomer({journal:f.journal,read,write,input})).quibiId,'9');assert.equal(writes,1);
+});
+test('distinct name never bypasses an identical phone, email or missing identity contacts',async()=>{
+ for(const contact of [{phone:'386000024',email:'old@example.test'},{phone:'',email:'NEW@example.test'},{phone:'',email:''}]){
+  const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,customerId,name:'TEST Stranka',phone:'+386 000 024',email:'new@example.test',allowDistinctName:true};
+  if(!contact.phone&&!contact.email){input.phone='';input.email=''}
+  await assert.rejects(createOrReconcileCustomer({journal:f.journal,input,read:{async customers(){return [{id:'8',remoteId:'',name:'Other',...contact}]},async customer(){throw Error('UNEXPECTED')}},write:{async createCustomer(){writes++}}}),/MATCH_REVIEW_REQUIRED/);assert.equal(writes,0);
+ }
+});

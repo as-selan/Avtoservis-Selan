@@ -23,14 +23,17 @@ export function automaticVehicleMatch(customerId:string,local:Pick<QuibiVehicle,
  if(candidates.length!==1||candidates[0].disabled||candidates[0].customerId!==customerId||!compatibleIntakeVehicle(local,candidates[0]))throw Error('INTAKE_IDENTITY_REVIEW');
  return candidates[0].id;
 }
-export async function synchronizeIntakeParties(args:{allowCustomerCreate?:boolean;customerExpectedFingerprint?:string;allowVehicleCreate?:boolean;caseId:string;customerId:string;vehicleId:string|null;customer:Pick<QuibiCustomer,'name'|'phone'|'email'>;vehicle:(Pick<QuibiVehicle,'vin'|'registration'|'make'|'model'>&{year?:number})|null;read:CustomerCreateRead&VehicleCreateRead&{lookupVehicle?:(id:string)=>Promise<QuibiVehicle>};write:CustomerCreateWrite&VehicleCreateWrite;journal:OperationJournal;linkedCustomerId:string|null;linkedVehicleId:string|null;saveCustomer:(remote:QuibiCustomer)=>Promise<void>;saveVehicle:(remote:QuibiVehicle)=>Promise<void>;enrichVehicle?:(remote:QuibiVehicle)=>Promise<void>;enrichCustomer?:(remote:QuibiCustomer)=>Promise<void>}){
+export async function synchronizeIntakeParties(args:{distinctCustomer?:boolean;allowCustomerCreate?:boolean;customerExpectedFingerprint?:string;allowVehicleCreate?:boolean;caseId:string;customerId:string;vehicleId:string|null;customer:Pick<QuibiCustomer,'name'|'phone'|'email'>;vehicle:(Pick<QuibiVehicle,'vin'|'registration'|'make'|'model'>&{year?:number})|null;read:CustomerCreateRead&VehicleCreateRead&{lookupVehicle?:(id:string)=>Promise<QuibiVehicle>};write:CustomerCreateWrite&VehicleCreateWrite;journal:OperationJournal;linkedCustomerId:string|null;linkedVehicleId:string|null;saveCustomer:(remote:QuibiCustomer)=>Promise<void>;saveVehicle:(remote:QuibiVehicle)=>Promise<void>;enrichVehicle?:(remote:QuibiVehicle)=>Promise<void>;enrichCustomer?:(remote:QuibiCustomer)=>Promise<void>}){
  const {read,write,journal}=args;
  let customerId=args.linkedCustomerId;
  // An existing operation always goes through its immutable request and reconciliation.
  if(!customerId){
   const prior=await journal.get('customer',args.customerId);
   if(prior?.state==='prepared'&&args.allowCustomerCreate===false)throw Error('INTAKE_CUSTOMER_CREATE_REQUIRED');
-  if(prior)customerId=(await createOrReconcileCustomer({read,write,journal,input:{serviceRequestId:args.caseId,customerId:args.customerId,...args.customer}})).quibiId;
+  if(prior)customerId=(await createOrReconcileCustomer({read,write,journal,input:{serviceRequestId:args.caseId,customerId:args.customerId,...args.customer,allowDistinctName:args.distinctCustomer}})).quibiId;
+  else if(args.distinctCustomer){
+   if(args.vehicle&&read.allVehicles&&(await read.allVehicles()).some(v=>!!args.vehicle!.vin&&norm(v.vin)===norm(args.vehicle!.vin)||!!args.vehicle!.registration&&registrationKey(v.registration)===registrationKey(args.vehicle!.registration)))throw Error('INTAKE_IDENTITY_REVIEW');
+  }
   else {
    let mismatch:unknown;try{customerId=automaticCustomerMatch(args.customer,await read.customers());}catch(error){mismatch=error;}
    if(!customerId&&args.vehicle?.vin&&read.allVehicles&&read.lookupVehicle){
@@ -41,7 +44,7 @@ export async function synchronizeIntakeParties(args:{allowCustomerCreate?:boolea
    if(!customerId&&mismatch)throw mismatch;
   }
   if(!customerId&&args.allowCustomerCreate===false)throw Error('INTAKE_CUSTOMER_CREATE_REQUIRED');
-  if(!customerId)customerId=(await createOrReconcileCustomer({read,write,journal,input:{serviceRequestId:args.caseId,customerId:args.customerId,...args.customer}})).quibiId;
+  if(!customerId)customerId=(await createOrReconcileCustomer({read,write,journal,input:{serviceRequestId:args.caseId,customerId:args.customerId,...args.customer,allowDistinctName:args.distinctCustomer}})).quibiId;
  }
  if(!customerId)throw Error('INTAKE_UNCERTAIN');
  const customer=await read.customer(customerId);

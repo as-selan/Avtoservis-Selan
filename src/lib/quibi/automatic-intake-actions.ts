@@ -25,9 +25,9 @@ export async function chooseIntakeCustomer(caseId:string,remoteId:string,expecte
  const access=await requirePhase1OperationalAccess();
  if(!['owner','admin'].includes(access.role)||!/^\d+$/.test(remoteId)||!/^[a-f0-9]{64}$/.test(expected))return {ok:false,message:'Izbira ni dovoljena.'};
  const db=await createClient(),environment=hostedQuibiEnvironment(process.env);
- const request=await db.from('service_requests').select('customer_id,status').eq('organization_id',access.organizationId).eq('id',caseId).is('archived_at',null).single();
+ const request=await db.from('service_requests').select('customer_id,vehicle_id,status,updated_at').eq('organization_id',access.organizationId).eq('id',caseId).is('archived_at',null).single();
  if(request.error||!request.data||!['new','needs_data','preparing_offer'].includes(request.data.status))return {ok:false,message:'Primer ni na voljo za povezovanje.'};
- const customer=await db.from('customers').select('display_name,phone,email').eq('organization_id',access.organizationId).eq('id',request.data.customer_id).is('archived_at',null).single();
+ const customer=await db.from('customers').select('display_name,phone,email,updated_at').eq('organization_id',access.organizationId).eq('id',request.data.customer_id).is('archived_at',null).single();
  if(customer.error||!customer.data)return {ok:false,message:'Stranka ni dostopna.'};
  const remote=await configuredQuibiReadClient().customer(remoteId);
  const norm=(s:string)=>s.trim().toLocaleLowerCase('sl-SI'),phone=(s:string)=>s.replace(/[^0-9]/g,'');
@@ -37,8 +37,29 @@ export async function chooseIntakeCustomer(caseId:string,remoteId:string,expecte
  const store=privileged(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
  const row={organization_id:access.organizationId,entity_id:request.data.customer_id,entity_type:'customer',provider:'quibi',external_id:remoteId,local_fingerprint:customerFingerprint(local),external_fingerprint:customerFingerprint(remote),sync_status:'ok',quibi_environment:environment,confirmed_by:access.userId,last_checked_at:new Date().toISOString()};
  const saved=await store.from('integration_links').insert(row);
- if(saved.error){const current=await db.from('integration_links').select('external_id,local_fingerprint,external_fingerprint,quibi_environment,sync_status').eq('organization_id',access.organizationId).eq('entity_id',request.data.customer_id).eq('entity_type','customer').eq('provider','quibi').maybeSingle();if(current.error||current.data?.external_id!==remoteId||current.data.local_fingerprint!==row.local_fingerprint||current.data.external_fingerprint!==expected||current.data.quibi_environment!==environment||current.data.sync_status!=='ok')return {ok:false,message:'Stranka ima drugo povezavo. Podatki niso prepisani.'};}
- await processIntakeSynchronization(caseId);
+ if(saved.error){const occupied=await db.from('integration_links').select('entity_id,quibi_environment,sync_status,local_fingerprint,external_fingerprint').eq('organization_id',access.organizationId).eq('external_id',remoteId).eq('entity_type','customer').eq('provider','quibi').maybeSingle();
+ if(occupied.data&&occupied.data.entity_id!==request.data.customer_id){
+  const canonical=await db.from('customers').select('display_name,phone,email,updated_at').eq('organization_id',access.organizationId).eq('id',occupied.data.entity_id).is('archived_at',null).single();
+  const vehicle=await db.from('vehicles').select('vin,registration_current,make,model').eq('organization_id',access.organizationId).eq('customer_id',request.data.customer_id).eq('id',request.data.vehicle_id).is('archived_at',null).single();
+  if(canonical.error||vehicle.error||!canonical.data||!vehicle.data||occupied.data.quibi_environment!==environment||occupied.data.sync_status!=='ok'||occupied.data.external_fingerprint!==expected||occupied.data.local_fingerprint!==customerFingerprint({name:canonical.data.display_name,phone:canonical.data.phone??'',email:canonical.data.email??''}))return {ok:false,message:'Obstoječi zapis se je spremenil. Izberite pravilno stranko ali uporabite novo.'};
+  const resolved=await store.rpc('resolve_case_vehicle',{p_case:caseId,p_actor:access.userId,p_action:'correct',p_revision:crypto.randomUUID(),p_expected:request.data.updated_at,p_fields:{vin:vehicle.data.vin,registration:vehicle.data.registration_current,make:vehicle.data.make,model:vehicle.data.model},p_remote:{kind:'customer',id:remoteId,localCustomerId:occupied.data.entity_id,fingerprint:expected,canonicalFingerprint:occupied.data.local_fingerprint,canonicalUpdatedAt:canonical.data.updated_at,sourceUpdatedAt:customer.data.updated_at}});
+  if(resolved.error||!resolved.data?.ok)return {ok:false,message:'Obstoječe povezave ni varno zamenjati. Podatki in dokumenti so ohranjeni.'};
+ }else {const current=await db.from('integration_links').select('external_id,local_fingerprint,external_fingerprint,quibi_environment,sync_status').eq('organization_id',access.organizationId).eq('entity_id',request.data.customer_id).eq('entity_type','customer').eq('provider','quibi').maybeSingle();if(current.error||current.data?.external_id!==remoteId||current.data.local_fingerprint!==row.local_fingerprint||current.data.external_fingerprint!==expected||current.data.quibi_environment!==environment||current.data.sync_status!=='ok')return {ok:false,message:'Stranka ima drugo povezavo. Podatki niso prepisani.'};}}
+ await processIntakeSynchronization(caseId,0,'saved');
  revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+caseId);
  return {ok:true,message:'Stranka je povezana. Selan nadaljuje pripravo.'};
+}
+
+/** Explicit new-customer choice, using only the saved case data and existing CREATE journal. */
+export async function useNewIntakeCustomer(caseId:string){
+ const access=await requirePhase1OperationalAccess();
+ if(!['owner','admin'].includes(access.role))return {ok:false,message:'Izbira ni dovoljena.'};
+ const db=await createClient();
+ const request=await db.from('service_requests').select('customer_id,vehicle_id,status,updated_at').eq('organization_id',access.organizationId).eq('id',caseId).is('archived_at',null).single();
+ if(request.error||!request.data||!['new','needs_data','preparing_offer'].includes(request.data.status))return {ok:false,message:'Primer ni na voljo za povezovanje.'};
+ const current=await db.from('integration_links').select('external_id').eq('organization_id',access.organizationId).eq('entity_id',request.data.customer_id).eq('entity_type','customer').eq('provider','quibi').maybeSingle();
+ if(current.error)return {ok:false,message:'Povezave trenutno ni mogoče preveriti.'};
+ const result=await processIntakeSynchronization(caseId,0,current.data?'saved':'distinct');
+ revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+caseId);
+ return result?.customerId&&result.vehicleId?{ok:true,message:'Stranka in vozilo sta povezana. Selan nadaljuje pripravo.'}:{ok:false,message:'Povpraševanje je shranjeno. Preverite prikazano stanje povezave.'};
 }

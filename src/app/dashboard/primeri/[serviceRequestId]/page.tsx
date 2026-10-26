@@ -139,8 +139,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const quote = quoteResult.data?.[0] ?? null;
     const fixedPrice = fixedPriceResult.data;
     const vehicleLink = vehicleLinkResult.data;
-    const vehicleResolution=await db.from('case_vehicle_resolution_events').select('id').eq('organization_id',access.organizationId).eq('case_id',serviceRequestId).limit(1);
-    const resolvedVehicleNeedsReview=requiresResolvedVehicleConfirmation(!!vehicleResolution.data?.length,vehicleLink?.sync_status);
+    const vehicleResolution=await db.from('case_vehicle_resolution_events').select('id,after_state').eq('organization_id',access.organizationId).eq('case_id',serviceRequestId);
+    const canonicalCustomerChoice=!!vehicleResolution.data?.some(e=>e.after_state?.remote?.kind==='customer'&&e.after_state?.customerId===request.customer_id&&e.after_state?.vehicleId===request.vehicle_id);
+    const resolvedVehicleNeedsReview=requiresResolvedVehicleConfirmation(!!vehicleResolution.data?.some(e=>e.after_state?.remote?.kind!=='customer'),vehicleLink?.sync_status);
     const quoteEvidence = quote?.evidence_payload as { external_id?: unknown } | null;
     const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
@@ -274,7 +275,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       let automaticMatch:string|null=null;try{automaticMatch=automaticCustomerMatch({name:customer.display_name,phone:customer.phone??'',email:customer.email??''},remoteCustomers);}catch{}
       intakeCustomerChoices=(automaticMatch?[]:remoteCustomers).filter(c=>norm(c.name)===norm(customer.display_name)||!!customer.phone&&phone(c.phone)===phone(customer.phone)||!!customer.email&&norm(c.email)===norm(customer.email)).slice(0,8).map(c=>({id:c.id,name:c.name,phone:c.phone,email:c.email,fingerprint:customerFingerprint(c)}));
     }catch{}
-    const automaticPartyCreation=savedIntakeCanResumeCreate(request)&&!intakeSyncConfigurationProblem(process.env,'write')&&(!automaticState||automaticState==='preparing');
+    const normalizeContact=(s:string)=>s.trim().toLowerCase(),normalizePhone=(s:string)=>s.replace(/[^0-9]/g,'');
+    const allowNewCustomer=!!customer&&!link&&intakeCustomerChoices.length>0&&!!(customer.phone||customer.email)&&intakeCustomerChoices.every(c=>!(customer.phone&&normalizePhone(customer.phone)===normalizePhone(c.phone))&&!(customer.email&&normalizeContact(customer.email)===normalizeContact(c.email)));
+    const automaticPartyCreation=(savedIntakeCanResumeCreate(request)||canonicalCustomerChoice)&&!intakeSyncConfigurationProblem(process.env,'write')&&(!automaticState||automaticState==='preparing');
     const newVehicleRequired=!automaticPartyCreation&&!!customer&&link?.sync_status==='ok'&&!vehicleLink&&!quote&&['new','needs_data'].includes(request.status);
     const operatorApprovalReady=quote?.internal_review_status==='unreviewed'&&createdOperation?.state==='verified'&&createdOperation.quibiId===quibiEstimateId&&createdOperation.quibiContentSha256===quote.content_sha256;
     const journeyInput:JourneyInput={operatorApprovalReady,syntheticQa,canCreateVehicle:canConfirmQuibiVehicleCreate(access.role,process.env),newVehicleRequired,automaticDraftState:!quote&&!fixedPrice?automaticState:undefined,automaticPreparation:!quote&&!fixedPrice&&['new','preparing_offer','needs_data'].includes(request.status),status:request.status,role:access.role,stepKind:step.kind,
@@ -310,7 +313,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       </>)},
       {id:"quibi-povezava",title:"Povezava s Quibijem",content:(<>
       <div id="quibi-povezava" tabIndex={-1} className="scroll-mt-20 space-y-3">
-      {customer && ['owner','admin'].includes(access.role) && isHostedQuibiEnvironment(process.env) && <AutomaticIntakeSync choices={intakeCustomerChoices} identityConfirmed={identityConfirmed} caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={resolvedVehicleNeedsReview||!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
+      {customer && ['owner','admin'].includes(access.role) && isHostedQuibiEnvironment(process.env) && <AutomaticIntakeSync allowNewCustomer={allowNewCustomer} choices={intakeCustomerChoices} identityConfirmed={identityConfirmed} caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={resolvedVehicleNeedsReview||!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
       {!automaticPartyCreation&&<VehicleResolutionPanel identityConfirmed={identityConfirmed} focused={newVehicleRequired} caseId={serviceRequestId}/>}
       </div>
 

@@ -212,3 +212,7 @@ PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_con
 echo "PASS: Public web intake budget regression"
 
 echo "== All isolated M3/M4 + full-chain DB suites passed on disposable local Docker target =="
+
+PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
+  psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${REPO_ROOT}/supabase/tests/canonical_intake_customer_regression.sql"
+echo "PASS: Canonical intake identity regression"

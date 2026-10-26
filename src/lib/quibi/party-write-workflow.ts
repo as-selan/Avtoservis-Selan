@@ -18,7 +18,7 @@ function unchanged(op: Operation, json: string, sha256: string) {
 }
 
 export type CustomerCreateInput = { serviceRequestId: string; customerId: string;
-  name: string; phone: string; email: string };
+  name: string; phone: string; email: string; allowDistinctName?:boolean };
 export type CustomerCreateRead = { customers(): Promise<QuibiCustomer[]>; customer(id: string): Promise<QuibiCustomer> };
 export type CustomerCreateWrite = { createCustomer(body: { remote_id: string; naziv: string;
   emajl?: string; telst?: string }): Promise<unknown> };
@@ -54,11 +54,14 @@ export async function createOrReconcileCustomer(args: { journal: OperationJourna
   if (op?.state === "dispatching" || op?.state === "failed")
     throw new Error("QUIBI_CUSTOMER_CREATE_UNCERTAIN");
 
+  if(input.allowDistinctName&&!input.phone.trim()&&!input.email.trim())throw Error('QUIBI_CUSTOMER_MATCH_REVIEW_REQUIRED');
+  // Persist the explicit new-identity intent before a transient provider READ failure.
+  if(input.allowDistinctName)op??=await journal.insertOnce({kind:'customer',localEntityId:input.customerId,serviceRequestId:input.serviceRequestId,externalId:input.customerId,requestBody:json,requestSha256:sha256});
   const existing = await read.customers();
   if (existing.some((item) => item.remoteId === body.remote_id ||
       (!!input.email.trim() && normalized(item.email) === normalized(input.email)) ||
-      (!!input.phone.trim() && normalized(item.phone) === normalized(input.phone)) ||
-      normalized(item.name) === normalized(input.name)))
+      (!!input.phone.trim() && item.phone.replace(/[^0-9]/g,'') === input.phone.replace(/[^0-9]/g,'')) ||
+      (!input.allowDistinctName && normalized(item.name) === normalized(input.name))))
     throw new Error("QUIBI_CUSTOMER_MATCH_REVIEW_REQUIRED");
   op ??= await journal.insertOnce({ kind: "customer", localEntityId: input.customerId,
     serviceRequestId: input.serviceRequestId, externalId: input.customerId,
