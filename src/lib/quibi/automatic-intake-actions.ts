@@ -51,7 +51,7 @@ export async function chooseIntakeCustomer(caseId:string,remoteId:string,expecte
 }
 
 /** Explicit new-customer choice, using only the saved case data and existing CREATE journal. */
-export async function useNewIntakeCustomer(caseId:string){
+export async function selectNewIntakeCustomer(caseId:string){
  const access=await requirePhase1OperationalAccess();
  if(!['owner','admin'].includes(access.role))return {ok:false,message:'Izbira ni dovoljena.'};
  const db=await createClient();
