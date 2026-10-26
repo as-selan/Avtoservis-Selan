@@ -35,3 +35,16 @@ test('incomplete required quantity hides review; completing it enables review wi
 test('multi-line edits preserve other rows; review is invalidated and add/remove use the live editor',async()=>{const p=panel('prepared',{initialRows:[{key:'189:11',quantity:'2',discount:'5'},{key:'189:11',quantity:'3',discount:'0'}]});await p.submit();(p.get(n=>n.props.children==='Uredi postavke').props.onClick as ()=>void)();assert.equal(find(p.render(),n=>n.props['data-create']==='yes'),undefined);(p.get(n=>n.props['aria-label']==='Količina postavke 1').props.onChange as (e:unknown)=>void)({target:{value:'4'}});assert.equal(p.rows()[0].quantity,'4');assert.equal(p.rows()[1].quantity,'3');(p.get(n=>n.props['aria-label']==='Popust postavke 2').props.onChange as (e:unknown)=>void)({target:{value:'10'}});assert.equal(p.rows()[1].discount,'10');(p.get(n=>n.type==='button'&&Array.isArray(n.props.children)&&n.props.children[0]==='Odstrani postavko ').props.onClick as ()=>void)();assert.equal(p.rows().length,1);assert.equal(p.rows()[0].quantity,'3');(p.get(n=>n.props.children==='Dodaj postavko').props.onClick as ()=>void)();assert.equal(p.rows().length,2);assert.equal(p.rows()[1].key,'');assert.equal(p.calls.length,1)});
 test('AI prepared lines populate the actual composer; review remains READ-only without history scans',async()=>{const p=panel('uncertain',{aiEstimateLines:[{key:'189:11',quantity:2}]});assert.equal(p.rows()[0].quantity,'2');assert.equal(p.calls.length,0);await p.submit();assert.deepEqual(p.calls.map(c=>c.name),['prepareQuibiEstimate']);assert.equal(p.calls[0].form.get('createConfirmed'),null)});
 test('unknown AI quantity remains empty and blocks review, never guessed',()=>{const p=panel('prepared',{aiEstimateLines:[{key:'189:11',quantity:null}]});assert.equal(p.rows()[0].quantity,'');assert.equal(find(p.render(),n=>n.props.children==='Preglej predračun'),undefined);assert.equal(p.calls.length,0)});
+
+test('compact estimate rows expose quantity, price and total while optional controls stay folded',()=>{
+ const p=panel('prepared',{initialRows:[{key:'189:11',quantity:'2',discount:'0'},{key:'',description:'Pregled zavor',quantity:'',discount:''}]});
+ assert.equal(p.get(n=>n.props['aria-label']==='Znesek postavke 1').props.children,(244).toLocaleString('sl-SI',{style:'currency',currency:'EUR'}));
+ assert.equal(p.get(n=>n.props['aria-label']==='Znesek postavke 2').props.children,'\u2014');
+ assert.equal(p.get(n=>n.props['aria-label']==='Cena postavke 2').props.value,'');
+ const details=p.get(n=>n.type==='details'&&!!find(n.props.children,c=>c.props['aria-label']==='Popust postavke 1'));
+ assert.equal(details.props.open,false);
+ (p.get(n=>n.props['aria-label']==='Cena postavke 1').props.onChange as (e:unknown)=>void)({target:{value:'59'}});
+ assert.equal(p.get(n=>n.props['aria-label']==='Znesek postavke 1').props.children,(118).toLocaleString('sl-SI',{style:'currency',currency:'EUR'}));
+ assert.equal(p.rows()[1].unitPrice,undefined);
+ assert.equal(p.calls.length,0);
+});
