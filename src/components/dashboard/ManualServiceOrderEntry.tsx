@@ -273,10 +273,7 @@ export function ManualServiceOrderEntry() {
             >
               Novo povpraševanje
             </h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Ročni sprejem povpraševanja (telefon / SMS / osebno). Išči obstoječo
-              stranko, nato shrani eno zahtevo.
-            </p>
+            {!selectedCustomer&&<p className="mt-0.5 text-sm text-slate-500">Poiščite stranko ali vozilo, nato vnesite novo storitev.</p>}
           </div>
           <button
             type="button"
@@ -299,9 +296,7 @@ export function ManualServiceOrderEntry() {
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Poišči stranko ali vozilo
               </legend>
-              <p className="mt-1 text-xs text-slate-500">
-                En zadetek se izpolni sam. Pri več zadetkih izberite pravega.
-              </p>
+              {!selectedCustomer&&<p className="mt-1 text-xs text-slate-500">En zadetek se izpolni sam. Pri več zadetkih izberite pravega.</p>}
               <div className="mt-2">
                 <Field
                   label="Ime, telefon, registracija ali VIN"
@@ -393,7 +388,7 @@ export function ManualServiceOrderEntry() {
               ) : null}
             </fieldset>
 
-            <fieldset>
+            <details key={'channel:'+!!selectedCustomer} open={!selectedCustomer}><summary className="cursor-pointer text-sm text-slate-600">Prejem: {form.channel==='phone'?'telefon':form.channel==='sms'?'SMS':'osebno'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Kanal
               </legend>
@@ -423,9 +418,9 @@ export function ManualServiceOrderEntry() {
               {errors.channel ? (
                 <p className="mt-1 text-xs text-red-600">{errors.channel}</p>
               ) : null}
-            </fieldset>
+            </fieldset></details>
 
-            <details key={'customer:'+selectedCustomer?.customerId} open={!selectedCustomer||!!errors.fullName||!!errors.phone||!!errors.email} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedCustomer?[form.fullName,form.phone,form.email].filter(Boolean).join(' · '):'Stranka'}</summary>            <fieldset>
+            <details key={'customer:'+selectedCustomer?.customerId} open={!selectedCustomer||!!errors.fullName||!!errors.phone||!!errors.email} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedCustomer?[form.fullName,form.phone].filter(Boolean).join(' · '):'Stranka'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Stranka
               </legend>
@@ -456,7 +451,7 @@ export function ManualServiceOrderEntry() {
               </p>
             </fieldset></details>
 
-            <details key={'vehicle:'+selectedVehicleId} open={!selectedVehicleId||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedVehicleId?[form.make,form.model,form.registration,form.year,form.mileage?form.mileage+' km':''].filter(Boolean).join(' · '):'Vozilo'}</summary>            <fieldset>
+            <details key={'vehicle:'+selectedVehicleId} open={!selectedVehicleId||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedVehicleId?[[form.make,form.model].filter(Boolean).join(' '),form.registration].filter(Boolean).join(' · '):'Vozilo'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Vozilo
               </legend>
