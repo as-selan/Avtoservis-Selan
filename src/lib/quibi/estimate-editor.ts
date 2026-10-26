@@ -36,8 +36,8 @@ export function requestedEstimateRows(wanted:string|null|undefined,description:s
   const candidate=matches.length===1?matches[0]:undefined;
   const match=candidate&&/brezpla[čc]n/i.test(candidate.name)&&candidate.grossPrice>0?undefined:candidate;
   // One requested service is one piece; time, weight and other units need an explicit quantity.
-  const quantity=match&&['kos','kom','storitev','piece','pcs'].includes(normalize(match.unitLabel))?'1':'';
-  return {key:match?.key??'',quantity,discount:'',requestedService,...(candidate&&!match?{candidateKeys:[candidate.key]}:{})};
+  const quantity=candidate&&['kos','kom','storitev','piece','pcs'].includes(normalize(candidate.unitLabel))?'1':'';
+  return {key:match?.key??'',quantity,discount:'',requestedService,...(candidate?{unitId:candidate.unitId,vatId:candidate.vatId}:{}),...(candidate&&!match?{candidateKeys:[candidate.key]}:{})};
  });
 }
 
@@ -55,16 +55,16 @@ export function assistedEstimateRows(rows:EstimateDraftRow[],options:EstimateCat
   const typo=ranked[0]?.score>=0.9&&ranked[0].score-(ranked[1]?.score??0)>=0.12?ranked[0].o:undefined;
   const proposed=highAi??typo;
   const selected=proposed&&/brezpla[čc]n/i.test(proposed.name)&&proposed.grossPrice>0?undefined:proposed;
-  return {...row,key:selected?.key??'',candidateKeys:candidates,matchSource:highAi?'AI predlog za pregled':typo?'Ujemanje opisa storitve':undefined,quantity:selected?(['kos','kom','storitev','piece','pcs'].includes(serviceWords(selected.unitLabel).join(' '))?'1':''):row.quantity};
+  return {...row,key:selected?.key??'',candidateKeys:candidates,matchSource:highAi?'AI predlog za pregled':typo?'Ujemanje opisa storitve':undefined,...(proposed?{unitId:proposed.unitId,vatId:proposed.vatId}:{}),quantity:proposed?(['kos','kom','storitev','piece','pcs'].includes(serviceWords(proposed.unitLabel).join(' '))?'1':''):row.quantity};
  });
 }
 
-/** Saved problem text proposes work for review; it never selects a billable identity or price. */
+/** Reuse verified catalog matching for explicit service requests in the saved description. */
 export function suggestedEstimateRows(wanted:string|null|undefined,description:string|null|undefined,options:EstimateCatalogOption[],customerPriceListId?:string|null,matches:IntakeServiceMatch[]=[]):EstimateDraftRow[]{
  const explicit=requestedEstimateRows(wanted,null,options,customerPriceListId);
  if(explicit.length)return assistedEstimateRows(explicit,canonicalEstimateOptions(options,customerPriceListId),matches);
  const clauses=(description??'').replace(/\\r\\n|\\n|\\r/g,'\n').split(/[\n\r;•]+/).map(s=>s.replace(/^\s*(?:[-*]|\d+[.)])\s*/,'').trim());
  const labels=clauses.filter(s=>s.length<=500&&!/\b(ne\s+želim|ne\s+zelim|ni\s+potreb|ne\s+potreb|brez\s+menjave)/i.test(s)&&/^(?:(?:želim|zelim|potrebujem|prosim(?:\s+za)?)\s+)?(?:redni\s+servis|servis|pregled|pregeld|kontrola|menjava|zamenjava|popravilo|diagnostika|vulkanizacija|optika|polnjenje)\b/i.test(s));
  const rows=assistedEstimateRows(requestedEstimateRows(labels.join('\n'),null,options,customerPriceListId),canonicalEstimateOptions(options,customerPriceListId));
- return rows.map(row=>({...row,key:'',quantity:'',unitPrice:undefined,discount:'',candidateKeys:[...new Set([row.key,...(row.candidateKeys??[])].filter(Boolean))],matchSource:'Predlog iz opisa'}));
+ return rows.map(row=>({...row,matchSource:row.matchSource??'Predlog storitve'}));
 }

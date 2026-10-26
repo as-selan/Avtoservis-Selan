@@ -1,3 +1,4 @@
+import {refreshAutomaticOfferCatalogFields} from '@/lib/quibi/automatic-draft-actions';
 import {VehicleHistory} from '@/components/customers/VehicleHistory';
 import {ClosedCaseSummary} from '@/components/dashboard/ClosedCaseSummary';
 import {ApproveCaseEstimate} from '@/components/dashboard/ApproveCaseEstimate';
@@ -131,7 +132,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     if(!syncConfigurationProblem){const actor=await db.from('organization_memberships').select('role,is_active').eq('organization_id',access.organizationId).eq('profile_id',process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!).maybeSingle();if(actor.error||!actor.data?.is_active||!['owner','admin'].includes(actor.data.role))syncConfigurationProblem=INTAKE_ACTOR_ACCESS_PROBLEM;}
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
-    const prep = prepResult.data;
+    let prep = prepResult.data;
+    if(prep?.auto_draft&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)){try{const refreshed=await refreshAutomaticOfferCatalogFields(serviceRequestId);if(refreshed)prep={...prep,...refreshed};}catch{/* Keep the saved draft available if Quibi READ is temporarily unavailable. */}}
     const automaticDraft=prep?.auto_draft as AutomaticEstimateDraft|null;
     const automaticState=prep?.auto_state as AutomaticDraftState|null;
     if(!quoteResult.data?.length&&['new','needs_data','preparing_offer'].includes(request.status))scheduleIntakeSynchronization(serviceRequestId);
