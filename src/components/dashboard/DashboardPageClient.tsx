@@ -43,7 +43,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   const visibleQueue=queueSearch.trim()?queue.filter(row=>matches(row.order)):filterDashboardQueue(queue,queueGroup,'');
   const visibleTests=testOrders.filter(matches);
   const matchedOrders=initialData.ok?uniqueDashboardOrders(initialData.orders).filter(matches):[];
-  const recognized=queueSearch.trim()?found.candidates.flatMap(candidate=>(intakeVehicleSelection(candidate,queueSearch)?[intakeVehicleSelection(candidate,queueSearch)]:(candidate.vehicles.length?candidate.vehicles:[null])).map(vehicle=>({candidate,vehicle,order:matchedOrders.find(o=>vehicle?o.vehicleId===vehicle.vehicleId||!!vehicle.quibiVehicleId&&o.quibiVehicleId===vehicle.quibiVehicleId:o.customerId===candidate.customerId)}))):[];
+  const recognized=queueSearch.trim()?found.candidates.flatMap(candidate=>(intakeVehicleSelection(candidate,queueSearch)?[intakeVehicleSelection(candidate,queueSearch)]:(candidate.vehicles.length?candidate.vehicles:[null])).map(vehicle=>({candidate,vehicle,order:matchedOrders.find(o=>vehicle?o.vehicleId===vehicle.vehicleId||o.quibiVehicleId===(vehicle.quibiVehicleId??vehicle.vehicleId.replace(/^quibi:/,'')):o.customerId===candidate.customerId||o.quibiCustomerId===candidate.customerId.replace(/^quibi:/,''))}))):[];
   const fallback=queueSearch.trim()?matchedOrders.filter((o,index,all)=>!recognized.some(r=>!!o.vehicleId&&r.order?.vehicleId===o.vehicleId)&&all.findIndex(x=>(x.vehicleId??x.serviceRequestId)===(o.vehicleId??o.serviceRequestId))===index):[];
   const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusId | "all">(
