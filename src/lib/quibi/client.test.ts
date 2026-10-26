@@ -1,3 +1,4 @@
+import {parseDocuments} from './contracts.ts';
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { configuredQuibiReadClient, createQuibiReadClient } from "./client.ts";
@@ -117,4 +118,10 @@ test('intake vehicle lookup uses the existing read-only detail endpoint and vali
  const client=createQuibiReadClient({username:'isolated-fixture',password:'isolated-fixture',fetcher:async(url,options)=>{calls.push({url:String(url),method:options?.method??'GET'});return new Response(JSON.stringify({error:false,data:{Vozilo:{Vozila:{id:'8',stranka_id:'7',disabled:'0',registrskastevilka:'TEST-1',internastevilka:'TESTVIN',proizvajalec:'TEST',model:'Vozilo'}}}}),{status:200})}});
  const vehicle=await client.lookupVehicle('8');assert.equal(vehicle.customerId,'7');assert.equal(vehicle.registration,'TEST-1');assert.deepEqual(calls,[{url:'https://dev.quibi.net/api2/vozila/view/8',method:'GET'}]);
  await assert.rejects(client.lookupVehicle('9'),/MISMATCH/);
+});
+
+
+test('document discovery retains the canonical Quibi ZapSt number and vehicle for scoped dashboard search',()=>{
+ const docs=parseDocuments({error:false,data:{Dokumenti:[{Glavadokumenta:{id:'2176936',stranka_id:'7',vozila_id:'8',stevilcenje_id:'1',ZapSt:'DELAVNICA-A-26000261'}}]}},'7');
+ assert.equal(docs[0].number,'DELAVNICA-A-26000261');assert.equal(docs[0].vehicleId,'8');assert.equal(parseDocuments({error:false,data:{Dokumenti:[{Glavadokumenta:{id:'2176936',stranka_id:'9',stevilcenje_id:'1'}}]}},'7').length,0);
 });

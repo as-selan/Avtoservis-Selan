@@ -134,7 +134,7 @@ export function parseDocuments(value: unknown, customerId?: string): QuibiDocume
     if (!/^\d+$/.test(id) || !/^\d+$/.test(owner)) throw new Error("QUIBI_INVALID_DOCUMENT_ID");
     const status = statusFromDocument(object(entry));
     return { id, customerId: owner, numberingId: field(doc.stevilcenje_id),
-      ...(field(doc.stevilka)?{number:field(doc.stevilka)}:{}),...(/^\d+$/.test(field(doc.vozila_id))?{vehicleId:field(doc.vozila_id)}:{}),
+      ...((field(doc.ZapSt)||field(doc.stevilka))?{number:field(doc.ZapSt)||field(doc.stevilka)}:{}),...(/^\d+$/.test(field(doc.vozila_id))?{vehicleId:field(doc.vozila_id)}:{}),
       status,
       ...(doc.znesek !== undefined && doc.znesek !== null ? { amount: field(doc.znesek) } : {}) };
   }).filter((doc) => !customerId || doc.customerId === customerId);
