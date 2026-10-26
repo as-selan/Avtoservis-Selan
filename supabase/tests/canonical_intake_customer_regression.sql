@@ -9,12 +9,12 @@ begin
  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values('00000000-0000-0000-0000-000000000000',actor,'authenticated','authenticated','canonical-'||actor||'@example.test',crypt('isolated-only',gen_salt('bf')),now(),'{}','{}',now(),now());
  insert into public.organization_memberships(organization_id,profile_id,role) values(org,actor,'admin');
  insert into public.customers(id,organization_id,display_name,email) values(src,org,'TEST same name','intake@example.test'),(dst,org,'TEST same name','canonical@example.test');
- insert into public.vehicles(id,organization_id,customer_id,vin,registration_current,make,model) values(car,org,src,'HOTFIX-'||car,'HOTFIX','TEST','A');
+ insert into public.vehicles(id,organization_id,customer_id,vin,registration_current,make,model) values(car,org,src,'HOTFIX-'||left(car::text,16),'HOTFIX','TEST','A');
  insert into public.service_requests(id,organization_id,customer_id,vehicle_id,status,summary,source) values(c1,org,src,car,'new','Canonical test','manual'),(c2,org,src,car,'new','Shared pending','manual');
  insert into public.integration_links(organization_id,provider,entity_type,entity_id,external_id,local_fingerprint,external_fingerprint,confirmed_by,sync_status,quibi_environment) values(org,'quibi','customer',dst,'99123456',repeat('a',64),repeat('b',64),actor,'ok','dev');
  select updated_at into expected from public.service_requests where id=c1;
  select jsonb_build_object('kind','customer','id','99123456','localCustomerId',dst,'fingerprint',repeat('b',64),'canonicalFingerprint',repeat('a',64),'canonicalUpdatedAt',d.updated_at,'sourceUpdatedAt',s.updated_at) into remote from public.customers d cross join public.customers s where d.id=dst and s.id=src;
- fields:=jsonb_build_object('vin','HOTFIX-'||car,'registration','HOTFIX','make','TEST','model','A');
+ fields:=jsonb_build_object('vin','HOTFIX-'||left(car::text,16),'registration','HOTFIX','make','TEST','model','A');
  blocked:=false;
  begin perform public.resolve_case_vehicle(c1,gen_random_uuid(),'correct',rev,expected,fields,remote);exception when others then if sqlerrm<>'FORBIDDEN' then raise;end if;blocked:=true;end;
  if not blocked then raise exception 'Foreign actor accepted';end if;
