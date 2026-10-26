@@ -134,6 +134,12 @@ export async function searchManualIntakeCandidatesAction(
         })),
     }));
 
+  const vehicleIds=candidates.flatMap(c=>c.vehicles.map(v=>v.vehicleId));
+  if(vehicleIds.length){
+    const details=await supabase.from('vehicles').select('id,year,power_kw,engine,engine_type,fuel,mileage_latest_km').eq('organization_id',gate.access.organizationId).in('id',vehicleIds).is('archived_at',null);
+    if(details.error)return {ok:false,errorCode:'unexpected',message:manualIntakeErrorMessage('unexpected')};
+    for(const candidate of candidates)for(const v of candidate.vehicles){const d=details.data?.find(row=>row.id===v.vehicleId);if(d)Object.assign(v,{year:d.year,powerKw:d.power_kw,engine:d.engine,engineType:d.engine_type,fuel:d.fuel,mileage:d.mileage_latest_km});}
+  }
   return { ok: true, candidates };
 }
 

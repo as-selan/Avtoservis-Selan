@@ -72,6 +72,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
           "status",
           "summary",
           "problem_description",
+          "service_wanted",
           "next_action",
           "attention_needed",
           "attention_reason",
@@ -115,7 +116,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     if (vehicleIds.length > 0) {
       const { data: vehicleRows, error: vehicleError } = await supabase
         .from("vehicles")
-        .select("id, make, model, registration_current")
+        .select("id, make, model, registration_current, vin")
         .eq("organization_id", access.organizationId)
         .in("id", vehicleIds);
 
@@ -143,7 +144,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     const requestedInspections = new Set<string>();
     const syntheticAppointments = new Set<string>();
     const linkByCustomer = new Map<string, { external_id:string;sync_status: string;quibi_environment:string }>();
-    const vehicleLinkById=new Map<string,{customer_id:string;quibi_customer_id:string;sync_status:string;quibi_environment:string}>();
+    const vehicleLinkById=new Map<string,{customer_id:string;quibi_customer_id:string;quibi_vehicle_id:string;sync_status:string;quibi_environment:string}>();
     const quoteByRequest = new Map<string, { id: string; internal_review_status: string; content_sha256:string }>();
     const approvalByRequest = new Map<string, { quote_id: string; delivery_status: string; customer_decision: string | null;content_sha256:string;decided_at:string|null;decision_evidence_reference:string|null;revoked_at:string|null }>();
     const inspectionByRequest = new Map<string, string | null>();
@@ -160,7 +161,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       if (error) return { ok: false, message: LOAD_ERROR_MESSAGE, generatedAt };
       for (const row of data ?? []) linkByCustomer.set(row.entity_id, row);
     }
-    if(vehicleIds.length>0){const {data,error}=await supabase.from('quibi_vehicle_links').select('vehicle_id,customer_id,quibi_customer_id,sync_status,quibi_environment').eq('organization_id',access.organizationId).in('vehicle_id',vehicleIds);if(error)return {ok:false,message:LOAD_ERROR_MESSAGE,generatedAt};for(const row of data??[])vehicleLinkById.set(row.vehicle_id,row);}
+    if(vehicleIds.length>0){const {data,error}=await supabase.from('quibi_vehicle_links').select('vehicle_id,customer_id,quibi_customer_id,quibi_vehicle_id,sync_status,quibi_environment').eq('organization_id',access.organizationId).in('vehicle_id',vehicleIds);if(error)return {ok:false,message:LOAD_ERROR_MESSAGE,generatedAt};for(const row of data??[])vehicleLinkById.set(row.vehicle_id,row);}
     if (requestIds.length > 0) {
       const [quotes, approvals, inspections] = await Promise.all([
         supabase.from("quotes").select("id, service_request_id, internal_review_status, version_no, content_sha256")
@@ -269,6 +270,9 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
       );
 
       const queueOrder=orders[orders.length-1];
+      queueOrder.quibiCustomerId=row.customer_id?linkByCustomer.get(row.customer_id)?.external_id:undefined;
+      queueOrder.quibiVehicleId=row.vehicle_id?vehicleLinkById.get(row.vehicle_id)?.quibi_vehicle_id:undefined;
+      queueOrder.searchTerms=[(row as ServiceRequestRow & {service_wanted?:string}).service_wanted??'',row.problem_description??'',...(businessRowsByRequest.get(row.id)??[]).filter(r=>r.state==='verified').map(r=>r.quibi_id??''),...(repairsByCase.get(row.id)?.review?.events??[]).flatMap(e=>[e.body.invoiceNumber,e.body.invoiceId].filter((v):v is string=>typeof v==='string'))];
       queueOrder.inspectionRequested=requestedInspections.has(row.id);
       queueOrder.slotOfferStatus=queueOrder.inspectionRequested?diagnosisSlotByRequest.get(row.id):slotByRequest.get(row.id);
       queueOrder.slotOfferExpired=(queueOrder.inspectionRequested?expiredDiagnosisSlots:expiredServiceSlots).has(row.id);

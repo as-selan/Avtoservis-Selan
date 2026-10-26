@@ -1,7 +1,9 @@
 "use client";
 
+import {searchDashboardAction} from '@/lib/intake/quibi-search-action';
+import type {IntakeCustomerCandidate} from '@/lib/intake/types';
 import Link from "next/link";
-import {defaultDashboardGroup, matchesDashboardSearch, dashboardStatusLabel, uniqueDashboardOrders, dashboardQueue, isSyntheticOrder, shortNextAction, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
+import {candidateCaseMatch, defaultDashboardGroup, matchesDashboardSearch, dashboardStatusLabel, uniqueDashboardOrders, dashboardQueue, isSyntheticOrder, shortNextAction, filterDashboardQueue, DASHBOARD_GROUPS, type DashboardGroup} from "@/lib/dashboard/intake-queue";
 import {useRouter} from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import type { DashboardPeriodId, DashboardSnapshot, WorkflowStatusId } from "@/lib/dashboard/types";
@@ -22,16 +24,22 @@ interface DashboardPageClientProps {
 }
 
 export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
-  const { setOpen: setManualOpen } = useManualEntry();
+  const { setOpen: setManualOpen, openWithCandidate } = useManualEntry();
   const router=useRouter();const [refreshing,startRefresh]=useTransition();
   useEffect(()=>{let lastRefresh=Date.now();const refresh=()=>{const active=document.activeElement;if(document.visibilityState!=='visible'||active?.matches('input,textarea,select,[contenteditable="true"]')||Date.now()-lastRefresh<15000)return;lastRefresh=Date.now();startRefresh(()=>router.refresh());};const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh)}},[router]);
   const [queueGroup,setQueueGroup]=useState<DashboardGroup>(()=>defaultDashboardGroup(initialData.ok?initialData.orders:[]));
   const [queueSearch,setQueueSearch]=useState('');
+  const [discovery,setDiscovery]=useState<{query:string;candidates:IntakeCustomerCandidate[];caseIds:string[]}>({query:'',candidates:[],caseIds:[]});
+  useEffect(()=>{const query=queueSearch.trim();if(query.length<3)return;let cancelled=false;const timer=setTimeout(()=>{void searchDashboardAction(query).then(result=>{if(!cancelled)setDiscovery({query,candidates:result.candidates,caseIds:result.caseIds});}).catch(()=>{});},300);return()=>{cancelled=true;clearTimeout(timer);};},[queueSearch]);
+  const found:{candidates:IntakeCustomerCandidate[];caseIds:string[]}=discovery.query===queueSearch.trim()?discovery:{candidates:[],caseIds:[]};
+  const matches=(order:import('@/lib/dashboard/types').ServiceOrderDemo)=>matchesDashboardSearch(order,queueSearch)||found.caseIds.includes(order.serviceRequestId??'')||found.candidates.some(c=>candidateCaseMatch(order,c,queueSearch));
+  const newParties=found.candidates.flatMap(candidate=>(candidate.vehicles.length?candidate.vehicles:[null]).filter(vehicle=>!initialData.ok||!initialData.orders.some(order=>vehicle?order.vehicleId===vehicle.vehicleId||order.quibiVehicleId===vehicle.vehicleId.replace(/^quibi:/,''):order.customerId===candidate.customerId||order.quibiCustomerId===candidate.customerId.replace(/^quibi:/,''))).map(vehicle=>({candidate,vehicle})));
+
   const testOrders=useMemo(()=>initialData.ok?uniqueDashboardOrders(initialData.orders).filter(isSyntheticOrder):[],[initialData]);
   const testIds=new Set(testOrders.map(order=>order.serviceRequestId));
   const queue=useMemo(()=>initialData.ok?dashboardQueue(initialData.orders.filter(order=>!isSyntheticOrder(order))):[],[initialData]);
-  const visibleQueue=queueSearch.trim()?queue.filter(row=>matchesDashboardSearch(row.order,queueSearch)):filterDashboardQueue(queue,queueGroup,'');
-  const visibleTests=testOrders.filter(order=>matchesDashboardSearch(order,queueSearch));
+  const visibleQueue=queueSearch.trim()?queue.filter(row=>matches(row.order)):filterDashboardQueue(queue,queueGroup,'');
+  const visibleTests=testOrders.filter(matches);
   const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusId | "all">(
     "all",
@@ -121,6 +129,7 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
           </div>
         </li>})}</ul> : <div className="border-t border-slate-100 px-5 py-12 text-center"><p className="font-medium text-slate-700">{queueSearch.trim()?(visibleTests.length?'Testni zadetki so v ločenem razdelku spodaj.':'Ni zadetkov za to iskanje.'):'V tej skupini trenutno ni primerov.'}</p><p className="mt-1 text-sm text-slate-500">{queueSearch.trim()?'Poskusite drugo ime, registracijo ali opis dela.':'Izberite drugo skupino ali dodajte novo povpraševanje.'}</p></div>}
       </section>
+      {queueSearch.trim()&&newParties.length>0&&<section aria-label="Stranke in vozila brez primera" className="space-y-3 rounded-xl border bg-white p-4"><h2 className="font-semibold">Stranke in vozila brez primera</h2>{newParties.map(({candidate,vehicle})=><div key={candidate.customerId+':'+vehicle?.vehicleId} className="flex flex-wrap items-center justify-between gap-3 border-t py-3"><div><p className="font-medium">{candidate.displayName}</p><p className="text-sm text-slate-600">{[vehicle?.make,vehicle?.model,vehicle?.registrationCurrent,candidate.phone].filter(Boolean).join(' · ')}</p></div><button type="button" className="min-h-11 rounded-lg bg-blue-700 px-4 py-2 font-medium text-white" onClick={()=>openWithCandidate(candidate,vehicle?.vehicleId)}>Novo povpraševanje</button></div>)}</section>}
       {testOrders.length>0&&<details key={queueSearch.trim()?'search:'+queueSearch:'all-tests'} open={!!queueSearch.trim()&&visibleTests.length>0} className="rounded-xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer text-sm font-medium text-slate-600">Testni primeri ({visibleTests.length})</summary><ul className="mt-3 divide-y divide-slate-100">{visibleTests.map(order=><li key={order.serviceRequestId??order.id} className="py-3 text-sm"><Link className="inline-flex min-h-11 items-center text-blue-700 underline" href={'/dashboard/primeri/'+order.serviceRequestId}>#{order.id} · {order.customerName} · {order.vehicleMakeModel}{order.registration?' · '+order.registration:''}</Link><p className="text-xs text-slate-500">{dashboardStatusLabel(order)}</p></li>)}</ul></details>}
       <details className="rounded-xl border border-slate-200 bg-white p-4">
         <summary className="cursor-pointer font-semibold text-slate-800">Vsi primeri in zgodovina</summary>

@@ -107,3 +107,10 @@ test('daily dashboard sorts newest business activity first, without pinning an o
 test('pickup is not payment collection and routes directly to the same case pickup',()=>{const row=dashboardQueue([order('pickup','pripravljeno_za_prevzem',{repairPhase:'handover'})])[0];assert.equal(dashboardStatusLabel(row.order),'Čaka prevzem');assert.equal(shortNextAction(row),'Prevzem vozila');assert.ok(row.href.endsWith('#prevzem'));});
 
 test('mixed manager preparation and decision tasks retain their existing group with an accurate label',()=>{assert.equal(DASHBOARD_GROUPS.find(group=>group.id==='decision')?.label,'Čaka moje dejanje');assert.equal(DASHBOARD_GROUPS.length,7);const rows=dashboardQueue([order('attention','novo',{requiresAttention:true}),order('prepare','priprava_ponudbe')]);assert.ok(rows.every(row=>row.group==='decision'));});
+
+
+test('unified dashboard search covers phone, VIN, make/model, all document references and partial normalized text',()=>{
+ const row=order('C066482D','zakljuceno',{customerName:'TEST Žagar Janez',customerPhone:'+386 40 123 456',vehicleVin:'WVW12345678900000',registration:'TE-REA25',vehicleMakeModel:'Volkswagen Golf',quibiWorkOrderId:'2176935',searchTerms:['2176934','2176936','DELAVNICA-A-26000261','Menjava zavor']});
+ for(const query of ['zagar','Janez','40123456','wvw123','te rea','volkswagen','golf','2176934','2176935','2176936','26000261','zavor'])assert.equal(matchesDashboardSearch(row,query),true,query);
+ assert.equal(matchesDashboardSearch(row,'not-present'),false);
+});

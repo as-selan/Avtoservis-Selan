@@ -1,3 +1,5 @@
+import {intakeSearchKey} from '../intake/quibi-search.ts';
+import type {IntakeCustomerCandidate} from '../intake/types.ts';
 import {getStatusLabel} from './statuses.ts';
 import type {ServiceOrderDemo} from './types';
 
@@ -98,10 +100,17 @@ export function dashboardStatusLabel(order:ServiceOrderDemo){
 /** Operates only on the authenticated, organization-scoped snapshot. */
 export function matchesDashboardSearch(order:ServiceOrderDemo,search:string){
  const query=search.trim().replace(/^quibi\s*#?\s*(?=\d+$)/i,'').replace(/^#/,'').toLocaleLowerCase('sl-SI');
- return !query||[order.id,order.serviceRequestId,order.serviceRequestId?.slice(0,8),order.quibiWorkOrderId,order.customerName,order.registration,order.vehicleMakeModel,order.requestSummary,order.mechanicName].filter(Boolean).join(' ').toLocaleLowerCase('sl-SI').includes(query);
+ return !query||[order.id,order.serviceRequestId,order.serviceRequestId?.slice(0,8),order.quibiWorkOrderId,order.customerName,order.customerPhone,order.registration,order.vehicleVin,order.vehicleMakeModel,order.requestSummary,order.mechanicName,...(order.searchTerms??[])].filter(Boolean).some(value=>intakeSearchKey(value!).includes(intakeSearchKey(query)));
 }
 
 export function defaultDashboardGroup(orders:ServiceOrderDemo[]):DashboardGroup{
  const rows=dashboardQueue(orders.filter(order=>!isSyntheticOrder(order)));
  return DASHBOARD_GROUPS.find(group=>rows.some(row=>row.group===group.id))?.id??'new';
+}
+
+export function candidateCaseMatch(order:ServiceOrderDemo,candidate:IntakeCustomerCandidate,query:string){
+ const customerMatches=order.customerId===candidate.customerId||order.quibiCustomerId===candidate.customerId.replace(/^quibi:/,'');
+ const key=intakeSearchKey(query),vehicles=candidate.vehicles.filter(v=>[v.registrationCurrent,v.vin,[v.make,v.model].filter(Boolean).join(' ')].some(value=>value&&intakeSearchKey(value).includes(key)));
+ if(vehicles.length)return vehicles.some(v=>order.vehicleId===v.vehicleId||order.quibiVehicleId===v.vehicleId.replace(/^quibi:/,''));
+ return customerMatches;
 }

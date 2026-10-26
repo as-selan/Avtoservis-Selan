@@ -401,10 +401,10 @@ test("manual phone intake explicitly reuses the selected customer and vehicle", 
   const dialog = page.getByRole("dialog", { name: "Novo povpraševanje" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("textbox", { name: "Ime, telefon, registracija ali VIN" }).fill("Ana Preizkus");
-  await dialog.getByRole("button", { name: /Ana Preizkus/ }).click();
-  await expect(dialog.getByRole("textbox", { name: "VIN / številka šasije" })).not.toHaveValue('');
-  await expect(dialog.getByRole("textbox", { name: "Znamka", exact:true })).toHaveValue('Test');
-  await expect(dialog.getByRole("textbox", { name: "Model", exact:true })).toHaveValue('Model');
+  await expect(dialog.getByText(/Izbrana stranka: Ana Preizkus.*izbrano vozilo/)).toBeVisible();
+  await expect(dialog.getByLabel("VIN / številka šasije")).not.toHaveValue('');
+  await expect(dialog.getByLabel("Znamka", {exact:true})).toHaveValue('Test');
+  await expect(dialog.getByLabel("Model", {exact:true})).toHaveValue('Model');
   await expect(dialog.getByText(/Izbrana stranka: Ana Preizkus.*izbrano vozilo/)).toBeVisible();
   await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Preizkus telefonskega sprejema");
   await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
@@ -422,7 +422,7 @@ test("manual intake creates a new customer and vehicle for the same case", async
   const dialog = page.getByRole("dialog", { name: "Novo povpraševanje" });
   await dialog.getByRole("button", { name: "Telefon", exact: true }).click();
   await dialog.getByRole("textbox", { name: "Ime in priimek *" }).fill(name);
-  await dialog.getByRole("textbox", { name: "Telefon" }).fill(phone);
+  await dialog.getByRole("textbox", { name: "Telefon", exact: true }).fill(phone);
   await dialog.getByRole("textbox", { name: "VIN / številka šasije" }).fill(vin);
   await dialog.getByRole("textbox", { name: "Znamka" }).fill("Test");
   await dialog.getByRole("textbox", { name: "Model" }).fill("Novo");

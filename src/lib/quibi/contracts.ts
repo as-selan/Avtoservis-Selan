@@ -3,10 +3,11 @@ import { createHash } from "node:crypto";
 
 export type QuibiCustomer = { id: string; name: string; phone: string; email: string; remoteId?: string; priceListId?:string|null;paymentTermDays?:number };
 export type QuibiVehicle = {
+  year?:number;
   id: string; customerId: string; vin: string; registration: string;
   make: string; model: string; disabled: boolean;
 };
-export type QuibiDocument = { id: string; customerId: string; numberingId: string; status: string; amount?: string };
+export type QuibiDocument = { number?:string;vehicleId?:string; id: string; customerId: string; numberingId: string; status: string; amount?: string };
 export type QuibiEstimateDetail = {
   id: string; customerId: string; amount: string; status: string;
   vehicleId?: string; warehouseId?: string; spaceId?: string; paymentMethod?: string; externalId?: string; number?: string; numberingId?: string; date?: string; saleTypeId?: string;
@@ -77,7 +78,7 @@ function projectVehicle(value: unknown): QuibiVehicle {
     throw new Error("QUIBI_INVALID_RESPONSE");
   }
   return {
-    id, customerId, vin: field(vehicle.internastevilka),
+    id, customerId, ...( /^\d{4}$/.test(field(vehicle.letnik)) && Number(vehicle.letnik)>=1886 && Number(vehicle.letnik)<=2100 ? {year:Number(vehicle.letnik)} : {}), vin: field(vehicle.internastevilka),
     registration: field(vehicle.registrskastevilka),
     make: field(vehicle.proizvajalec), model: field(vehicle.model),
     disabled: disabled === 1 || disabled === true || disabled === "1",
@@ -133,6 +134,7 @@ export function parseDocuments(value: unknown, customerId?: string): QuibiDocume
     if (!/^\d+$/.test(id) || !/^\d+$/.test(owner)) throw new Error("QUIBI_INVALID_DOCUMENT_ID");
     const status = statusFromDocument(object(entry));
     return { id, customerId: owner, numberingId: field(doc.stevilcenje_id),
+      ...(field(doc.stevilka)?{number:field(doc.stevilka)}:{}),...(/^\d+$/.test(field(doc.vozila_id))?{vehicleId:field(doc.vozila_id)}:{}),
       status,
       ...(doc.znesek !== undefined && doc.znesek !== null ? { amount: field(doc.znesek) } : {}) };
   }).filter((doc) => !customerId || doc.customerId === customerId);

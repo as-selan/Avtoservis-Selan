@@ -1,17 +1,15 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {searchQuibiIntakeAction} from '@/lib/intake/quibi-search-action';
-import {mergeIntakeCandidates} from '@/lib/intake/quibi-search';
-import {intakeVehicleSelection} from '@/lib/intake/selection';
+import {searchIntakeAction} from '@/lib/intake/quibi-search-action';
+import {automaticIntakeSelection,intakeAutofill,preserveEditedFields,intakeVehicleSelection} from '@/lib/intake/selection';
 import { X } from "lucide-react";
 import { FUEL_OPTIONS } from "@/lib/dashboard/demo-data";
 import type { FuelType } from "@/lib/dashboard/types";
 import { useManualEntry } from "@/components/dashboard/ManualEntryContext";
 import {
   createManualServiceRequestIntakeAction,
-  searchManualIntakeCandidatesAction,
 } from "@/lib/intake/actions";
 import { mapUiFuelToDb } from "@/lib/intake/fuel";
 import type {
@@ -65,7 +63,7 @@ type FieldKey = keyof FormState;
 
 export function ManualServiceOrderEntry() {
   const router = useRouter();
-  const { open, setOpen } = useManualEntry();
+  const { open, setOpen, prefill } = useManualEntry();
   const [form, setForm] = useState<FormState>(INITIAL);
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -80,6 +78,8 @@ export function ManualServiceOrderEntry() {
   const [submitPending, startSubmitTransition] = useTransition();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchSeqRef = useRef(0);
+  const edited=useRef(new Set<FieldKey>());
+  const selectionRef=useRef<string|null>(null);
   const clientRequestIdRef = useRef<string | null>(null);
 
   function ensureClientRequestId(): string {
@@ -94,10 +94,14 @@ export function ManualServiceOrderEntry() {
   }
 
   function update<K extends FieldKey>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    if(key!=="searchQuery")edited.current.add(key);
+    const lookup=!selectionRef.current&&['fullName','phone','registration','vin'].includes(key)&&typeof value==='string';
+    if(lookup)searchSeqRef.current+=1;
+    setForm((prev) => ({ ...prev, [key]: value, ...(lookup?{searchQuery:value as string}:{}) }));
   }
 
   function updateSearchQuery(value: string) {
+    searchSeqRef.current += 1;
     update("searchQuery", value);
     if (value.trim().length < 3) {
       searchSeqRef.current += 1;
@@ -106,6 +110,7 @@ export function ManualServiceOrderEntry() {
   }
 
   function resetLocalState(opts?: { rotateRequestId?: boolean }) {
+    edited.current.clear();selectionRef.current=null;
     setForm(INITIAL);
     setErrors({});
     setFormError(null);
@@ -132,40 +137,17 @@ export function ManualServiceOrderEntry() {
     }
   }, [open]);
 
-  function selectCustomer(candidate: IntakeCustomerCandidate) {
-    setSelectedCustomer(candidate);
-    const vehicle = intakeVehicleSelection(candidate, form.searchQuery);
-    setSelectedVehicleId(vehicle?.vehicleId ?? null);
-    setForm(prev => ({...prev, make: vehicle?.make ?? '', model: vehicle?.model ?? '', registration: vehicle?.registrationCurrent ?? '', vin: vehicle?.vin ?? ''}));
-    update("fullName", candidate.displayName);
-    update("phone", candidate.phone ?? "");
-    update("email", candidate.email ?? "");
-    setFormError(null);
-  }
-
-  function clearCustomerSelection() {
-    setSelectedCustomer(null);
-    setSelectedVehicleId(null);
-  }
-
-  function selectVehicle(
-    customer: IntakeCustomerCandidate,
-    vehicleId: string,
-  ) {
-    if (selectedCustomer?.customerId !== customer.customerId) {
-      selectCustomer(customer);
-    } else {
-      setSelectedCustomer(customer);
-    }
-    const vehicle = customer.vehicles.find((v) => v.vehicleId === vehicleId);
-    setSelectedVehicleId(vehicleId);
-    if (vehicle) {
-      update("make", vehicle.make ?? "");
-      update("model", vehicle.model ?? "");
-      update("registration", vehicle.registrationCurrent ?? "");
-      update("vin", vehicle.vin ?? "");
-    }
-  }
+  const applySelection=useCallback((candidate:IntakeCustomerCandidate,vehicle:IntakeCustomerCandidate['vehicles'][number]|null,automatic=false)=>{
+    const identity=candidate.customerId+':'+(vehicle?.vehicleId??'');
+    if(automatic&&edited.current.size&&selectionRef.current&&selectionRef.current!==identity)return;
+    if(!automatic&&selectionRef.current!==identity)edited.current.clear();
+    selectionRef.current=identity;setSelectedCustomer(candidate);setSelectedVehicleId(vehicle?.vehicleId??null);
+    setForm(prev=>preserveEditedFields(prev,intakeAutofill(candidate,vehicle) as Partial<FormState>,edited.current));setFormError(null);
+  },[]);
+  function selectCustomer(candidate:IntakeCustomerCandidate){applySelection(candidate,intakeVehicleSelection(candidate,form.searchQuery));}
+  function clearCustomerSelection(){setSelectedCustomer(null);setSelectedVehicleId(null);selectionRef.current=null;}
+  function selectVehicle(customer:IntakeCustomerCandidate,vehicleId:string){applySelection(customer,customer.vehicles.find(v=>v.vehicleId===vehicleId)??null);}
+  useEffect(()=>{if(open&&prefill){const vehicle=prefill.vehicleId?prefill.candidate.vehicles.find(v=>v.vehicleId===prefill.vehicleId)??null:intakeVehicleSelection(prefill.candidate,'');applySelection(prefill.candidate,vehicle);}},[open,prefill,applySelection]);
 
   useEffect(() => {
     if (!open) return;
@@ -177,26 +159,25 @@ export function ManualServiceOrderEntry() {
 
     searchTimer.current = setTimeout(() => {
       startSearchTransition(async () => {
-        const result = await searchManualIntakeCandidatesAction(q);
+        const result = await searchIntakeAction(q);
         if (seq !== searchSeqRef.current) return;
         if (!result.ok) {
           setCandidates([]);
-          setFormError(result.message);
+          setFormError("Iskanja trenutno ni mogoče dokončati. Poskusite znova.");
           return;
         }
         setFormError(null);
         setCandidates(result.candidates);
-        const remote = await searchQuibiIntakeAction(q);
-        if (seq !== searchSeqRef.current) return;
-        setQuibiUnavailable(remote.unavailable === true);
-        setCandidates(mergeIntakeCandidates(result.candidates, remote.candidates));
+        setQuibiUnavailable(result.unavailable === true);
+        const match=automaticIntakeSelection(result.candidates,q);
+        if(match)applySelection(match.customer,match.vehicle,true);
       });
     }, 300);
 
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, [form.searchQuery, open]);
+  }, [form.searchQuery, open, applySelection]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -440,7 +421,7 @@ export function ManualServiceOrderEntry() {
               ) : null}
             </fieldset>
 
-            <fieldset>
+            <details key={'customer:'+selectedCustomer?.customerId} open={!selectedCustomer||!!errors.fullName||!!errors.phone||!!errors.email} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer py-2 font-medium">{selectedCustomer?[form.fullName,form.phone,form.email].filter(Boolean).join(' · '):'Stranka'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Stranka
               </legend>
@@ -469,9 +450,9 @@ export function ManualServiceOrderEntry() {
               <p className="mt-1.5 text-xs text-slate-500">
                 Obvezno: telefon ali e-pošta.
               </p>
-            </fieldset>
+            </fieldset></details>
 
-            <fieldset>
+            <details key={'vehicle:'+selectedVehicleId} open={!selectedVehicleId||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer py-2 font-medium">{selectedVehicleId?[form.make,form.model,form.registration,form.year,form.mileage?form.mileage+' km':''].filter(Boolean).join(' · '):'Vozilo'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Vozilo
               </legend>
@@ -548,7 +529,7 @@ export function ManualServiceOrderEntry() {
                   </select>
                 </div>
               </div>
-            </fieldset>
+            </fieldset></details>
 
             <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">

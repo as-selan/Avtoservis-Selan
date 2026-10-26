@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {intakeVehicleSelection} from './selection.ts';
+import {automaticIntakeSelection,intakeAutofill,preserveEditedFields,intakeVehicleSelection} from './selection.ts';
 import {searchQuibiIntake,mergeIntakeCandidates} from './quibi-search.ts';
 import {inspectionFindings,inspectionRepairServices,withInspectionRows} from '../inspections/checklist.ts';
 import {readVehicleHistory} from '../quibi/vehicle-history.ts';
@@ -30,4 +30,27 @@ test('vehicle history includes listed documents only for exact customer and vehi
  const wrong=await readVehicleHistory({...read,documentDetail:async()=>({...detail,customerId:'9'})},'7','8');assert.equal(wrong.documents.length,0);assert.equal(wrong.unavailable,true);
  assert.equal((await readVehicleHistory(read,'7','8',0,['1'])).documents.length,0);
  await assert.rejects(readVehicleHistory(read,'7','9'),/MISMATCH/);
+});
+
+
+test('one unambiguous result auto-selects without a click; multiple customers or vehicles remain choices',()=>{
+ assert.equal(automaticIntakeSelection([customer],'Žagar')?.vehicle?.vehicleId,'local-v');
+ const multiple={...customer,vehicles:[vehicle,{...vehicle,vehicleId:'v2',registrationCurrent:'MB-456',vin:'OTHER'}]};
+ assert.equal(automaticIntakeSelection([multiple],'Žagar'),null);
+ assert.equal(automaticIntakeSelection([multiple],'MB456')?.vehicle?.vehicleId,'v2');
+ assert.equal(automaticIntakeSelection([customer,{...customer,customerId:'second',vehicles:[]}],'Žagar'),null);
+});
+test('all available metadata prefill, unavailable values stay blank, manual edits survive later enrichment',()=>{
+ const values=intakeAutofill(customer,{...vehicle,year:2018,mileage:123456,fuel:'petrol',powerKw:110,engine:'1968',engineType:'TEST'});
+ assert.equal(values.year,'2018');assert.equal(values.mileage,'123456');assert.equal(values.fuel,'bencin');assert.equal(values.powerKw,'110');assert.equal(values.engineDisplacement,'1968');assert.equal(values.engineCode,'TEST');assert.equal(values.email,'');
+ const edited=preserveEditedFields(values,{phone:'999',year:'2020',powerKw:'120'},new Set<keyof typeof values>(['phone','year']));
+ assert.equal(edited.phone,'040123456');assert.equal(edited.year,'2018');assert.equal(edited.powerKw,'120');
+ assert.equal(intakeAutofill(customer,vehicle).powerKw,'');assert.equal(intakeAutofill(customer,vehicle).mileage,'');
+});
+
+
+test('duplicate remote identities and conflicting VINs stay ambiguous instead of being merged for auto-selection',()=>{
+ const r={...customer,customerId:'quibi:7',vehicles:[{...vehicle,vehicleId:'quibi:8'}]};
+ const duplicated=mergeIntakeCandidates([customer],[r,{...r,customerId:'quibi:9'}]);assert.equal(duplicated.length,3);assert.equal(automaticIntakeSelection(duplicated,'Žagar'),null);
+ const conflicting=mergeIntakeCandidates([customer],[{...r,vehicles:[{...r.vehicles[0],vin:'OTHER'}]}]);assert.equal(conflicting[0].vehicles.length,2);assert.equal(automaticIntakeSelection(conflicting,'LJ-123'),null);
 });

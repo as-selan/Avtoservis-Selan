@@ -68,6 +68,7 @@ export type ManualIntakeInput = {
 };
 
 export type IntakeVehicleCandidate = {
+  year?: number|null; mileage?: number|null; powerKw?: number|null; engine?: string|null; engineType?: string|null; fuel?: string|null; quibiVehicleId?:string;
   vehicleId: string;
   make: string | null;
   model: string | null;
@@ -76,6 +77,7 @@ export type IntakeVehicleCandidate = {
 };
 
 export type IntakeCustomerCandidate = {
+  quibiCustomerId?:string;
   customerId: string;
   displayName: string;
   phone: string | null;

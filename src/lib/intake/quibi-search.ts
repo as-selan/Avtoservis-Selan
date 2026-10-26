@@ -11,18 +11,20 @@ export async function searchQuibiIntake(read:Read,query:string):Promise<IntakeCu
  const resolved=await Promise.all(vehicleMatches.map(v=>read.lookupVehicle(v.id)));
  const ids=[...new Set([...matched.map(c=>c.id),...resolved.filter(v=>!v.disabled).map(v=>v.customerId)])].slice(0,15);
  return Promise.all(ids.map(async id=>{
-  const customer=matched.find(c=>c.id===id)??await read.customer(id);
+  const customer=await read.customer(id);
   if(customer.id!==id)throw Error('QUIBI_CUSTOMER_ID_MISMATCH');
   const list=await read.vehicles(id);
-  return {customerId:'quibi:'+id,displayName:customer.name,phone:customer.phone||null,email:customer.email||null,vehicles:list.filter(v=>v.customerId===id&&!v.disabled).map(v=>({vehicleId:'quibi:'+v.id,make:v.make,model:v.model,registrationCurrent:v.registration,vin:v.vin}))};
+  return {customerId:'quibi:'+id,displayName:customer.name,phone:customer.phone||null,email:customer.email||null,vehicles:list.filter(v=>v.customerId===id&&!v.disabled).map(v=>({vehicleId:'quibi:'+v.id,make:v.make,model:v.model,registrationCurrent:v.registration,vin:v.vin,...(v.year!==undefined?{year:v.year}:{})}))};
  }));
 }
 export function mergeIntakeCandidates(local:IntakeCustomerCandidate[],remote:IntakeCustomerCandidate[]) {
  // Prefer persisted local identity, but retain additional vehicles for the same customer.
- const rows=local.map(c=>({...c,vehicles:[...c.vehicles]}));
- for(const candidate of remote){const same=rows.find(c=>intakeSearchKey(c.displayName)===intakeSearchKey(candidate.displayName)&&((c.phone&&candidate.phone&&intakeSearchKey(c.phone)===intakeSearchKey(candidate.phone))||(c.email&&candidate.email&&c.email.toLowerCase()===candidate.email.toLowerCase())));
+ const rows=local.map(c=>({...c,vehicles:c.vehicles.map(v=>({...v}))}));
+ const contactMatch=(c:IntakeCustomerCandidate,r:IntakeCustomerCandidate)=>!c.quibiCustomerId&&intakeSearchKey(c.displayName)===intakeSearchKey(r.displayName)&&!!((c.phone&&r.phone&&intakeSearchKey(c.phone)===intakeSearchKey(r.phone))||(c.email&&r.email&&c.email.toLowerCase()===r.email.toLowerCase()));
+ for(const candidate of remote){const linked=rows.find(c=>c.quibiCustomerId===candidate.customerId.replace(/^quibi:/,''));const possible=local.filter(c=>contactMatch(c,candidate));const unique=possible.length===1&&remote.filter(r=>contactMatch(possible[0],r)).length===1;const same=linked??(unique?rows.find(c=>c.customerId===possible[0].customerId):undefined);
   if(!same){rows.push(candidate);continue;}
-  for(const vehicle of candidate.vehicles)if(!same.vehicles.some(v=>(v.vin&&vehicle.vin&&intakeSearchKey(v.vin)===intakeSearchKey(vehicle.vin))||(v.registrationCurrent&&vehicle.registrationCurrent&&intakeSearchKey(v.registrationCurrent)===intakeSearchKey(vehicle.registrationCurrent))))same.vehicles.push(vehicle);
+  if(!same.phone&&candidate.phone)same.phone=candidate.phone;if(!same.email&&candidate.email)same.email=candidate.email;
+  for(const vehicle of candidate.vehicles){const existing=same.vehicles.find(v=>!(v.vin&&vehicle.vin&&intakeSearchKey(v.vin)!==intakeSearchKey(vehicle.vin))&&(v.quibiVehicleId===vehicle.vehicleId.replace(/^quibi:/,'')||(v.vin&&vehicle.vin&&intakeSearchKey(v.vin)===intakeSearchKey(vehicle.vin))||(v.registrationCurrent&&vehicle.registrationCurrent&&intakeSearchKey(v.registrationCurrent)===intakeSearchKey(vehicle.registrationCurrent))));if(existing){for(const key of ['year','mileage','powerKw','engine','engineType','fuel','vin','make','model','registrationCurrent'] as const)if((existing[key]==null||existing[key]==='')&&vehicle[key]!=null&&vehicle[key]!=='')Object.assign(existing,{[key]:vehicle[key]});}else same.vehicles.push(vehicle);}
  }
  return rows;
 }
