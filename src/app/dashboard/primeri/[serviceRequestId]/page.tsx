@@ -20,11 +20,13 @@ import {loadCaseWork} from '@/lib/case-work/read';
 import {isHostedQuibiEnvironment,hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {requiresResolvedVehicleConfirmation} from '@/lib/quibi/vehicle-identity';
 import {VehicleResolutionPanel} from '@/components/dashboard/VehicleResolutionPanel';
-import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from '@/lib/quibi/intake-sync-configuration';
+import {savedIntakeCanResumeCreate,intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from '@/lib/quibi/intake-sync-configuration';
 import {CaseWorkPanel} from '@/components/dashboard/CaseWorkPanel';
 import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
 import {syntheticCaseEvidenceAllowed} from '@/lib/quibi/synthetic-case-evidence';
 import {loadEstimateCatalog,exactEstimateCatalogMatch,type EstimateCatalogOption} from '@/lib/quibi/estimate-catalog';
+import {automaticCustomerMatch} from '@/lib/quibi/automatic-intake-workflow';
+import {customerFingerprint} from '@/lib/quibi/contracts';
 import {AutomaticIntakeSync} from '@/components/dashboard/AutomaticIntakeSync';
 import {internalWorkOrdersEnabled} from '@/lib/work-orders/availability';
 import {QuibiCaseBusinessOperations,QuibiInspectionInvoicePreparation} from '@/components/dashboard/QuibiCaseBusinessOperations';
@@ -125,7 +127,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     ]);
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
-    let syncConfigurationProblem=intakeSyncConfigurationProblem(process.env);
+    let syncConfigurationProblem=intakeSyncConfigurationProblem(process.env,'read');
     if(!syncConfigurationProblem){const actor=await db.from('organization_memberships').select('role,is_active').eq('organization_id',access.organizationId).eq('profile_id',process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!).maybeSingle();if(actor.error||!actor.data?.is_active||!['owner','admin'].includes(actor.data.role))syncConfigurationProblem=INTAKE_ACTOR_ACCESS_PROBLEM;}
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
@@ -264,7 +266,16 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const currentAttention=visibleIdentityNotice(request.attention_reason,identityConfirmed);
     const currentError=visibleIdentityNotice(request.error_reason,identityConfirmed);
     const syntheticQa=syntheticCaseEvidenceAllowed(process.env,{caseId:serviceRequestId,description:request.problem_description,name:customer?.display_name,email:customer?.email,vin:vehicle?.vin});
-    const newVehicleRequired=!!customer&&link?.sync_status==='ok'&&!vehicleLink&&!quote&&['new','needs_data'].includes(request.status);
+    let intakeCustomerChoices:import('@/components/dashboard/AutomaticIntakeSync').IntakeCustomerChoice[]=[];
+    if(customer&&!link&&['owner','admin'].includes(access.role)&&isHostedQuibiEnvironment(process.env)&&['new','needs_data','preparing_offer'].includes(request.status))try{
+      const norm=(s:string)=>s.trim().toLocaleLowerCase('sl-SI'),phone=(s:string)=>s.replace(/[^0-9]/g,'');
+      const identityRead=configuredQuibiReadClient();
+      const remoteCustomers='customers' in identityRead?await identityRead.customers():[];
+      let automaticMatch:string|null=null;try{automaticMatch=automaticCustomerMatch({name:customer.display_name,phone:customer.phone??'',email:customer.email??''},remoteCustomers);}catch{}
+      intakeCustomerChoices=(automaticMatch?[]:remoteCustomers).filter(c=>norm(c.name)===norm(customer.display_name)||!!customer.phone&&phone(c.phone)===phone(customer.phone)||!!customer.email&&norm(c.email)===norm(customer.email)).slice(0,8).map(c=>({id:c.id,name:c.name,phone:c.phone,email:c.email,fingerprint:customerFingerprint(c)}));
+    }catch{}
+    const automaticPartyCreation=savedIntakeCanResumeCreate(request)&&!intakeSyncConfigurationProblem(process.env,'write')&&(!automaticState||automaticState==='preparing');
+    const newVehicleRequired=!automaticPartyCreation&&!!customer&&link?.sync_status==='ok'&&!vehicleLink&&!quote&&['new','needs_data'].includes(request.status);
     const operatorApprovalReady=quote?.internal_review_status==='unreviewed'&&createdOperation?.state==='verified'&&createdOperation.quibiId===quibiEstimateId&&createdOperation.quibiContentSha256===quote.content_sha256;
     const journeyInput:JourneyInput={operatorApprovalReady,syntheticQa,canCreateVehicle:canConfirmQuibiVehicleCreate(access.role,process.env),newVehicleRequired,automaticDraftState:!quote&&!fixedPrice?automaticState:undefined,automaticPreparation:!quote&&!fixedPrice&&['new','preparing_offer','needs_data'].includes(request.status),status:request.status,role:access.role,stepKind:step.kind,
         intakeComplete:missing.length===0&&!!customer&&!!vehicle,identityReady:link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok'&&!resolvedVehicleNeedsReview&&(!isHostedQuibiEnvironment(process.env)||(link.quibi_environment===hostedQuibiEnvironment(process.env)&&vehicleLink.quibi_environment===hostedQuibiEnvironment(process.env))),
@@ -272,7 +283,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',
         hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,hasInvoice:!!repairWork?.invoice,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,devNoEmail:quibiLinkEnvironment(process.env)==="dev",sendReady:sendReady&&!!testRecipient&&!!proposedPrice&&!!quibiEstimateId&&!!reviewDetail?.lines.length,sendAttempted:!!sendOperation,sendState:sendOperation?.sendStatus,
       };
-    const caseStatus=repairWork?.phase?.label??(businessHasWorkOrder&&!businessHasInvoice&&!['closed','declined','cancelled'].includes(request.status)?'Delovni nalog pripravljen – dodeli mehaniku':newVehicleRequired?'Novo vozilo – potrebna potrditev':journeyInput.customerApproved?'Priprava delovnega naloga':operatorApprovalReady||quote?.internal_review_status==='approved_for_send'||!quote&&!!createdOperation?.quibiId?'Čaka odobritev stranke':quote?'Predračun čaka pregled':!fixedPrice&&automaticState?automaticDraftPresentation(automaticState).label:getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status)));
+    const caseStatus=repairWork?.phase?.label??(intakeCustomerChoices.length?'Izberi pravo stranko':null)??(businessHasWorkOrder&&!businessHasInvoice&&!['closed','declined','cancelled'].includes(request.status)?'Delovni nalog pripravljen – dodeli mehaniku':newVehicleRequired?'Novo vozilo – potrebna potrditev':journeyInput.customerApproved?'Priprava delovnega naloga':operatorApprovalReady||quote?.internal_review_status==='approved_for_send'||!quote&&!!createdOperation?.quibiId?'Čaka odobritev stranke':quote?'Predračun čaka pregled':!fixedPrice&&automaticState?automaticDraftPresentation(automaticState).label:getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status)));
     const casePrepared=repairWork?'Delovni nalog #'+repairWork.quibiId:businessWorkOrderId?'Delovni nalog #'+businessWorkOrderId:quibiEstimateId?'Predračun #'+quibiEstimateId:createdOperation?.quibiId?'Predračun #'+createdOperation.quibiId:newVehicleRequired?'Stranka je povezana. Podatki vozila so shranjeni.':automaticDraft?'Postavke so pripravljene za pregled.':'Podatki povpraševanja so shranjeni.';
     const workspaceSections=[
       {id:"podatki",title:"Povpraševanje, stranka in vozilo",content:(<>
@@ -299,8 +310,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       </>)},
       {id:"quibi-povezava",title:"Povezava s Quibijem",content:(<>
       <div id="quibi-povezava" tabIndex={-1} className="scroll-mt-20 space-y-3">
-      {customer && ['owner','admin'].includes(access.role) && isHostedQuibiEnvironment(process.env) && <details><summary className="cursor-pointer text-sm text-slate-500">Podrobnosti povezave stranke</summary><AutomaticIntakeSync identityConfirmed={identityConfirmed} caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={resolvedVehicleNeedsReview||!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/></details>}
-      <VehicleResolutionPanel identityConfirmed={identityConfirmed} focused={newVehicleRequired} caseId={serviceRequestId}/>
+      {customer && ['owner','admin'].includes(access.role) && isHostedQuibiEnvironment(process.env) && <AutomaticIntakeSync choices={intakeCustomerChoices} identityConfirmed={identityConfirmed} caseId={serviceRequestId} customerId={link?.sync_status==='ok'?link.external_id:null} vehicleId={vehicleLink?.sync_status==='ok'?vehicleLink.quibi_vehicle_id:null} reason={request.attention_reason??null} configurationProblem={syncConfigurationProblem} identityReviewRequired={resolvedVehicleNeedsReview||!!vehicleLink&&vehicleLink.sync_status!=='ok'} reviewHref={'/dashboard/stranke/'+customer.id+'/quibi'}/>}
+      {!automaticPartyCreation&&<VehicleResolutionPanel identityConfirmed={identityConfirmed} focused={newVehicleRequired} caseId={serviceRequestId}/>}
       </div>
 
       </>)},
@@ -413,7 +424,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
 
       {caseClosed&&repairWork&&<ClosedCaseSummary work={repairWork} customer={customer?.display_name||"Stranka"}/>}
       {!caseClosed&&<CaseOverview mechanicName={repairWork?.mechanicName} mechanicEmail={repairWork?.mechanicEmail} status={caseStatus} prepared={casePrepared} customer={customer?.display_name || "Stranka še ni povezana"} vehicle={vehicle ? [vehicle.make,vehicle.model,vehicle.registration_current || vehicle.vin].filter(Boolean).join(" · ") || "Vozilo brez oznake" : "Vozilo še ni povezano"} request={[request.problem_description,request.service_wanted].filter(Boolean).join("\n") || request.summary || "Opis še ni vnesen"} missing={[...(!customer?["povezava stranke"]:[]),...(!vehicle?["povezava vozila"]:[]),...missing.map(field=>intakeFieldLabels[field]??"dodatni podatek")]}/> }
-      {!caseClosed&&<><AutomaticPreparationRefresh active={!createdOperation?.quibiId&&!quote&&!fixedPrice&&(!automaticState||automaticState==='preparing'||identityConfirmed&&!automaticDraft||newVehicleRequired&&automaticState==='failed')}/><CaseJourney inlineAction={!quote&&createdOperation?.state==='uncertain'&&!!createdOperation.quibiId} explanation={step.label} input={journeyInput}/></>}
+      {!caseClosed&&<><AutomaticPreparationRefresh active={!createdOperation?.quibiId&&!quote&&!fixedPrice&&(!identityConfirmed||!automaticState||automaticState==='preparing'||identityConfirmed&&!automaticDraft||newVehicleRequired&&automaticState==='failed')}/><CaseJourney inlineAction={!quote&&createdOperation?.state==='uncertain'&&!!createdOperation.quibiId} explanation={step.label} input={journeyInput}/></>}
       <CaseWorkspace collapsed={caseClosed} activeHref={caseJourney(journeyInput).action.href} progressKey={JSON.stringify([request.id,caseJourney(journeyInput).action,prep?.status,quote?.id,quote?.internal_review_status,approval?.customer_decision,sendOperation?.sendStatus,journeyInput.repairPhase])} sections={workspaceSections.filter(section=>section.id===caseJourney(journeyInput).action.href.slice(1)||!(['termini','poslovni-nalog','popravilo','pregled-predracuna','odobritev','objavljena-cena'].includes(section.id))||section.id==='termini'&&!!(canStartPreliminaryInspection({status:request.status,hasQuote:!!quote,hasFixedPrice:!!fixedPrice,hasWorkOrder:!!(workOrder||businessHasWorkOrder||repairWork)})||inspectionResult.data||diagnosisOffer||serviceOffer||appointments.length||['ambiguous','missing_price'].includes(automaticState??''))||section.id==='poslovni-nalog'&&!!(journeyInput.customerApproved||businessHasWorkOrder||workOrder)||section.id==='popravilo'&&!!(workOrder||businessHasWorkOrder||repairWork)||['pregled-predracuna','odobritev'].includes(section.id)&&!!quote||section.id==='objavljena-cena'&&!!(fixedPrice||fixedPriceEnabled&&!writeRequested&&request.status==='preparing_offer'&&!quote&&!inspectionResult.data))} details={<>{repairWork&&<details className="text-xs text-slate-500"><summary>Ločena izvorna stanja</summary><p>Stanje povpraševanja: {getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status))}. To stanje ne potrjuje trenutne faze popravila, računa, plačila ali prevzema.</p></details>}
       {((request.has_error&&(!request.error_reason||currentError)) || (request.attention_needed&&(!request.attention_reason||currentAttention)) || (link && !["ok", "never_checked"].includes(link.sync_status))) && <section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <h2 className="font-semibold">Potrebna pozornost</h2>

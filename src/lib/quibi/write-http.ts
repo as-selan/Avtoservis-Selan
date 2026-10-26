@@ -106,7 +106,7 @@ function createTransport(config: Config, workflow: boolean) {
       return responseData(await call(`/api2/stranka/form/${validQuibiId(id)}`, "POST", { Stranka: customer }));
     },
     async createVehicle(vehicle: { stranka_id: string; registrskastevilka: string;
-      internastevilka?: string; proizvajalec?: string; model?: string }) {
+      internastevilka?: string; proizvajalec?: string; model?: string; letnik?:number }) {
       if (!vehicle.registrskastevilka.trim()) throw new Error("QUIBI_REGISTRATION_REQUIRED");
       const data = responseData(await call("/api2/vozila/form", "POST", { Vozila: {
         ...vehicle, stranka_id: Number(validQuibiId(vehicle.stranka_id)),

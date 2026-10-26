@@ -34,7 +34,7 @@ export function caseJourney(p: JourneyInput) {
  if(p.newVehicleRequired){action={label:(p.role==='owner'||p.canCreateVehicle)?'Preveri in potrdi vozilo':'Navodilo za lastnika',href:'#quibi-povezava'};blocker=null;return result();}
  if(p.hosted&&!p.identityReady){
   action={label:'Preveri stranko in vozilo',href:'#quibi-povezava'};
-  blocker='Povezava stranke in vozila s Quibijem še ni potrjena. Primerjajte podatke v razdelku Povezava s Quibijem; ustvarjanje manjkajočega vozila potrdi pooblaščeni uporabnik v prikazanem obrazcu.';return result();
+  blocker=null;return result();
  }
  if(p.operatorApprovalReady&&!p.customerApproved&&!p.hasWorkOrder){current=4;action={label:'Stranka je odobrila',href:'#odobritev'};return result();}
  if(p.stepKind==='manual_inspection_billing'){

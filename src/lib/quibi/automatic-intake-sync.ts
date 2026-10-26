@@ -1,8 +1,9 @@
+import {canConfirmQuibiVehicleCreate} from './vehicle-create-permission';
 import {inspectionRepairServices} from '../inspections/checklist';
 import {buildAutomaticEstimateDraft} from './automatic-estimate-draft';
 import {isHostedQuibiEnvironment} from './deployment-policy';
 import {requiresResolvedVehicleConfirmation} from './vehicle-identity';
-import {intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from './intake-sync-configuration';
+import {savedIntakeCanResumeCreate,intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from './intake-sync-configuration';
 import 'server-only';
 import {revalidatePath} from 'next/cache';
 import {currentIntakeCompleteness} from '../intake/completeness';
@@ -15,17 +16,17 @@ import {quibiWorkflowJournal} from './write-journal';
 import {customerFingerprint,vehicleFingerprint} from './contracts';
 import {synchronizeIntakeParties} from './automatic-intake-workflow';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
-export function scheduleIntakeSynchronization(caseId:string){
- if(isHostedQuibiEnvironment(process.env)&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId)});
+export function scheduleIntakeSynchronization(caseId:string,mode:'read'|'saved'='read'){
+ if(isHostedQuibiEnvironment(process.env)&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId,0,mode)});
 }
-export async function processIntakeSynchronization(caseId:string,restarts=0){
+export async function processIntakeSynchronization(caseId:string,restarts=0,mode:'read'|'saved'|'resume'='read'){
  if(!uuid.test(caseId)||!isHostedQuibiEnvironment(process.env))return;
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data:org,error:orgError}=await db.from('organizations').select('id').eq('slug','avtoservis-selan').single();
  if(orgError||!org)return;
- const {data:request,error}=await db.from('service_requests').select('id,customer_id,vehicle_id,attention_reason,status,source,channel,intake_request_id,missing_fields').eq('organization_id',org.id).eq('id',caseId).is('archived_at',null).single();
+ const {data:request,error}=await db.from('service_requests').select('id,customer_id,vehicle_id,attention_reason,status,source,channel,intake_request_id,missing_fields,created_at').eq('organization_id',org.id).eq('id',caseId).is('archived_at',null).single();
  if(error||!request?.customer_id)return;
  if(!['new','needs_data','preparing_offer'].includes(request.status))return;
  const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID; if(!actor||!uuid.test(actor))return;
@@ -41,13 +42,14 @@ export async function processIntakeSynchronization(caseId:string,restarts=0){
   revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+caseId);
  }
  for(let attempt=0;attempt<3;attempt++)try{
-  const configurationProblem=intakeSyncConfigurationProblem(process.env);if(configurationProblem)throw Error('INTAKE_CONFIG:'+configurationProblem);
-  const config=quibiWorkflowConfig(process.env,'write');const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!;
+  const configurationProblem=intakeSyncConfigurationProblem(process.env,'read');if(configurationProblem)throw Error('INTAKE_CONFIG:'+configurationProblem);
+  const config=quibiWorkflowConfig(process.env,'read');
+  const allowCreate=(mode==='saved'||mode==='resume'&&savedIntakeCanResumeCreate(request))&&!intakeSyncConfigurationProblem(process.env,'write');const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!;
   const {data:membership,error:membershipError}=await db.from('organization_memberships').select('role').eq('organization_id',org.id).eq('profile_id',actor).eq('is_active',true).single();
   if(membershipError||!membership||!['owner','admin'].includes(membership.role))throw Error('INTAKE_CONFIG:'+INTAKE_ACTOR_ACCESS_PROBLEM);
   const [{data:customer,error:ce},{data:vehicle,error:ve},{data:link,error:le},{data:vehicleLink,error:vle}]=await Promise.all([
    db.from('customers').select('display_name,phone,email').eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null).single(),
-   request.vehicle_id?db.from('vehicles').select('vin,registration_current,make,model').eq('organization_id',org.id).eq('customer_id',request.customer_id).eq('id',request.vehicle_id).is('archived_at',null).single():Promise.resolve({data:null,error:null}),
+   request.vehicle_id?db.from('vehicles').select('vin,registration_current,make,model,year').eq('organization_id',org.id).eq('customer_id',request.customer_id).eq('id',request.vehicle_id).is('archived_at',null).single():Promise.resolve({data:null,error:null}),
    db.from('integration_links').select('*').eq('organization_id',org.id).eq('entity_type','customer').eq('provider','quibi').eq('entity_id',request.customer_id).maybeSingle(),
    request.vehicle_id?db.from('quibi_vehicle_links').select('*').eq('organization_id',org.id).eq('vehicle_id',request.vehicle_id).maybeSingle():Promise.resolve({data:null,error:null})]);
   if(ce||ve||le||vle||!customer)throw Error('INTAKE_READ_FAILED');
@@ -56,20 +58,20 @@ export async function processIntakeSynchronization(caseId:string,restarts=0){
   if(requiresResolvedVehicleConfirmation(!!resolution.data?.length,vehicleLink?.sync_status))throw Error('INTAKE_RESOLUTION_REVIEW_REQUIRED');
   if(link&&(link.quibi_environment!==config.mode||link.sync_status!=='ok')||vehicleLink&&(vehicleLink.quibi_environment!==config.mode||vehicleLink.sync_status!=='ok'||vehicleLink.customer_id!==request.customer_id))throw Error('INTAKE_IDENTITY_REVIEW');
   const localCustomer={name:customer.display_name,phone:customer.phone??'',email:customer.email??''};
-  const localVehicle=vehicle?{vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??''}:null;
-  if(link&&(link.local_fingerprint!==customerFingerprint(localCustomer)||link.external_fingerprint!==customerFingerprint(localCustomer))||vehicleLink&&localVehicle&&(vehicleLink.local_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.external_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.quibi_customer_id!==link?.external_id))throw Error('INTAKE_IDENTITY_REVIEW');
-  const result=await synchronizeIntakeParties({allowVehicleCreate:false,caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:configuredQuibiWorkflowWriteClient(),journal:quibiWorkflowJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
+  const localVehicle=vehicle?{vin:vehicle.vin??'',registration:vehicle.registration_current??'',make:vehicle.make??'',model:vehicle.model??'',...(vehicle.year?{year:vehicle.year}:{})}:null;
+  if(link&&(link.local_fingerprint!==customerFingerprint(localCustomer))||vehicleLink&&localVehicle&&(vehicleLink.local_fingerprint!==vehicleFingerprint(localVehicle)||vehicleLink.quibi_customer_id!==link?.external_id))throw Error('INTAKE_IDENTITY_REVIEW');
+  const result=await synchronizeIntakeParties({allowCustomerCreate:allowCreate,customerExpectedFingerprint:link?.external_fingerprint,allowVehicleCreate:allowCreate&&canConfirmQuibiVehicleCreate(membership.role,process.env),caseId,customerId:request.customer_id,vehicleId:request.vehicle_id,customer:localCustomer,vehicle:localVehicle,read:createQuibiReadClient(config),write:{createCustomer:async body=>{if(!allowCreate)throw Error('INTAKE_CREATE_NOT_REQUESTED');return configuredQuibiWorkflowWriteClient().createCustomer(body)},createVehicle:async body=>{if(!allowCreate)throw Error('INTAKE_CREATE_NOT_REQUESTED');return configuredQuibiWorkflowWriteClient().createVehicle(body)}},journal:quibiWorkflowJournal(org.id,actor),linkedCustomerId:link?.external_id??null,linkedVehicleId:vehicleLink?.quibi_vehicle_id??null,
    enrichCustomer:async remote=>{
     if(link)throw Error('INTAKE_IDENTITY_REVIEW');
-    let update=db.from('customers').update({display_name:localCustomer.name||remote.name,phone:localCustomer.phone||remote.phone||null,email:localCustomer.email||remote.email||null}).eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null);
+    let update=db.from('customers').update({display_name:localCustomer.name||remote.name,phone:remote.phone||localCustomer.phone||null,email:remote.email||localCustomer.email||null}).eq('organization_id',org.id).eq('id',request.customer_id).is('archived_at',null);
     for(const key of ['display_name','phone','email'] as const)update=customer[key]===null?update.is(key,null):update.eq(key,customer[key]);
     const {data,error}=await update.select('id').single();
     if(error||!data)throw Error('INTAKE_CUSTOMER_CHANGED');
-    Object.assign(localCustomer,{name:localCustomer.name||remote.name,phone:localCustomer.phone||remote.phone,email:localCustomer.email||remote.email});
+    Object.assign(localCustomer,{name:localCustomer.name||remote.name,phone:remote.phone||localCustomer.phone,email:remote.email||localCustomer.email});
    },enrichVehicle:async remote=>{
     if(!vehicle||!localVehicle||vehicleLink)throw Error('INTAKE_IDENTITY_REVIEW');
     // Compare the original row before filling blanks; a concurrent edit requires a new review.
-    let update=db.from('vehicles').update({vin:localVehicle.vin||remote.vin,registration_current:remote.registration,make:localVehicle.make||remote.make,model:localVehicle.model||remote.model}).eq('organization_id',org.id).eq('customer_id',request.customer_id).eq('id',request.vehicle_id).is('archived_at',null);
+    let update=db.from('vehicles').update({vin:localVehicle.vin||remote.vin,registration_current:remote.registration,make:localVehicle.make||remote.make,model:localVehicle.model||remote.model,year:vehicle.year??remote.year??null}).eq('organization_id',org.id).eq('customer_id',request.customer_id).eq('id',request.vehicle_id).is('archived_at',null);
     for(const key of ['vin','registration_current','make','model'] as const)update=vehicle[key]===null?update.is(key,null):update.eq(key,vehicle[key]);
     const {data,error}=await update.select('id').single();
     if(error||!data)throw Error('INTAKE_VEHICLE_CHANGED');
@@ -98,12 +100,12 @@ export async function processIntakeSynchronization(caseId:string,restarts=0){
   const inspected=await db.from('preliminary_inspections').select('findings').eq('organization_id',org.id).eq('service_request_id',caseId).eq('status','completed').maybeSingle();
   const wanted=[claim.data.input.wanted,...inspectionRepairServices(inspected.data?.findings).map(item=>item+' – potrebno popravilo')].filter(Boolean).join('\n');
   const preparation=await buildAutomaticEstimateDraft({wanted,description:claim.data.input.description,customerId:result.customerId,vehicleId:result.vehicleId,allowOrganizationHistory:true},configuredQuibiReadClient());
-  const saved=await finish(preparation.state,preparation.draft);if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1);return result;
+  const saved=await finish(preparation.state,preparation.draft);if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1,mode);return result;
  }catch(error){
   const code=error instanceof Error?error.message:'';
   const review=/REVIEW|MISMATCH|CHANGED|REJECTED/.test(code);
-  await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):code==='INTAKE_VEHICLE_CREATE_APPROVAL_REVIEW_REQUIRED'?'Vozila v Quibiju ni mogoče potrditi. V tem primeru pripravite novo vozilo in pridobite izrecno potrditev lastnika. Samodejni CREATE ni dovoljen.':code==='INTAKE_RESOLUTION_REVIEW_REQUIRED'?'Po popravku povpraševanja izberite in potrdite pravo Quibi vozilo v tem primeru. Če ga ni, novo vozilo izrecno potrdi lastnik; samodejni CREATE je ustavljen.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
-  if(review||code.startsWith('INTAKE_CONFIG:')){const saved=await finish('blocked');if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1);return;}
+  await status(code.startsWith('INTAKE_CONFIG:')?code.slice('INTAKE_CONFIG:'.length):code==='INTAKE_CUSTOMER_CREATE_REQUIRED'?'Stranke še ni mogoče samodejno povezati. Izberite obstoječo stranko ali uporabite ustvarjanje nove stranke.':code==='INTAKE_VEHICLE_CREATE_APPROVAL_REVIEW_REQUIRED'?'Vozila v Quibiju ni mogoče potrditi. V tem primeru pripravite novo vozilo in pridobite izrecno potrditev lastnika. Samodejni CREATE ni dovoljen.':code==='INTAKE_RESOLUTION_REVIEW_REQUIRED'?'Po popravku povpraševanja izberite in potrdite pravo Quibi vozilo v tem primeru. Če ga ni, novo vozilo izrecno potrdi lastnik; samodejni CREATE je ustavljen.':review?'Identiteta ali zahtevek zahteva ročni pregled. Nov zapis ni dovoljen.':'Povezava še ni potrjena. Varna ponovna obdelava preveri obstoječi zahtevek; neznan CREATE se ne ponovi.');
+  if(review||code.startsWith('INTAKE_CONFIG:')){const saved=await finish('blocked');if(!saved&&restarts<1)return processIntakeSynchronization(caseId,restarts+1,mode);return;}
   if(attempt===2)await finish('failed');
  }
 }
@@ -114,7 +116,7 @@ export function scheduleCompletedIntakeSynchronization(tokenHash:string){
  after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data,error}=await db.from('service_request_completion_links').select('service_request_id').eq('token_hash',tokenHash).is('revoked_at',null).not('last_used_at','is',null).single();
- if(!error&&data)await processIntakeSynchronization(data.service_request_id);
+ if(!error&&data)await processIntakeSynchronization(data.service_request_id,0,'resume');
  });
 }
 
@@ -125,7 +127,7 @@ export function schedulePersistedWebIntakeSynchronization(clientRequestId:string
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data:org,error:orgError}=await db.from('organizations').select('id').eq('slug','avtoservis-selan').single();if(orgError||!org)return;
  const {data,error}=await db.from('service_requests').select('id').eq('organization_id',org.id).eq('source','web_form').eq('intake_request_id',clientRequestId).is('archived_at',null).single();
- if(!error&&data)await processIntakeSynchronization(data.id);
+ if(!error&&data)await processIntakeSynchronization(data.id,0,'saved');
  });
 }
 
@@ -135,6 +137,6 @@ export function schedulePendingIntakePreparations(){
   const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
   const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID;if(!actor||!uuid.test(actor))return;
   const pending=await db.rpc('pending_automatic_offers',{p_actor:actor});
-  if(!pending.error&&Array.isArray(pending.data))for(const id of pending.data)if(typeof id==='string')await processIntakeSynchronization(id);
+  if(!pending.error&&Array.isArray(pending.data))for(const id of pending.data)if(typeof id==='string')await processIntakeSynchronization(id,0,'resume');
  });
 }

@@ -74,11 +74,11 @@ export async function createOrReconcileCustomer(args: { journal: OperationJourna
 }
 
 export type VehicleCreateInput = { serviceRequestId: string; vehicleId: string; quibiCustomerId: string;
-  registration: string; vin: string; make: string; model: string };
+  registration: string; vin: string; make: string; model: string; year?:number };
 export type VehicleCreateRead = { allVehicles?(): Promise<Pick<QuibiVehicle,"id"|"vin"|"registration">[]>; vehicles(customerId: string): Promise<QuibiVehicle[]>;
   vehicle(id: string, customerId: string): Promise<QuibiVehicle> };
 export type VehicleCreateWrite = { createVehicle(body: { stranka_id: string; registrskastevilka: string;
-  internastevilka: string; proizvajalec: string; model: string }): Promise<string> };
+  internastevilka: string; proizvajalec: string; model: string;letnik?:number }): Promise<string> };
 
 /** Vehicle lacks a safe idempotency key, so an ambiguous POST is never repeated. */
 export async function createOrReconcileVehicle(args: { journal: OperationJournal;
@@ -86,12 +86,13 @@ export async function createOrReconcileVehicle(args: { journal: OperationJournal
   const { journal, read, write, input } = args;
   if (!uuid.test(input.vehicleId) || !uuid.test(input.serviceRequestId) || !numeric.test(input.quibiCustomerId) ||
       !input.registration.trim() || !input.vin.trim()) throw new Error("QUIBI_INVALID_VEHICLE_INPUT");
+  let op = await journal.get("vehicle", input.vehicleId);
+  if(input.year!==undefined&&(!Number.isInteger(input.year)||input.year<1886||input.year>2100))throw Error('QUIBI_INVALID_VEHICLE_INPUT');
   const body = { stranka_id: input.quibiCustomerId, registrskastevilka: input.registration.trim(),
-    internastevilka: input.vin.trim(), proizvajalec: input.make.trim(), model: input.model.trim() };
+    internastevilka: input.vin.trim(), proizvajalec: input.make.trim(), model: input.model.trim(),...(input.year!==undefined&&(!op||'letnik' in JSON.parse(op.requestBody))?{letnik:input.year}:{}) };
   const { json, sha256 } = exactRequest(body);
   const expected = vehicleFingerprint({ vin: body.internastevilka,
     registration: body.registrskastevilka, make: body.proizvajalec, model: body.model });
-  let op = await journal.get("vehicle", input.vehicleId);
   if (op) unchanged(op, json, sha256);
 
   async function reconcile(current: Operation): Promise<Operation> {

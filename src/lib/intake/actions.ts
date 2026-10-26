@@ -278,7 +278,7 @@ export async function createManualServiceRequestIntakeAction(raw: {
     };
   }
 
-  scheduleIntakeSynchronization(result.serviceRequestId);
+  scheduleIntakeSynchronization(result.serviceRequestId,'saved');
   revalidatePath('/dashboard');
   const statusNote =
     result.status === "needs_data"

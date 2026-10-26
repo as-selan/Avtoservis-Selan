@@ -6,7 +6,7 @@ test('new inquiry offers a real intake form and never claims an estimate exists'
  const j=caseJourney(base); assert.equal(j.action.href,'#podatki'); assert.match(j.action.label,/Preveri podatke/); assert.equal(j.current,1); assert.equal(j.completed[2],false);
 });
 test('unverified vehicle takes precedence over acceptance and points to identity resolution', () => {
- const j=caseJourney({...base,identityReady:false}); assert.equal(j.action.href,'#quibi-povezava'); assert.match(j.blocker!,/stranke in vozila/);
+ const j=caseJourney({...base,identityReady:false}); assert.equal(j.action.href,'#quibi-povezava'); assert.equal(j.blocker,null);
 });
 test('missing data and reception explain how to unblock the case', () => {
  assert.match(caseJourney({...base,intakeComplete:false}).blocker!,/Manjkajo/);
