@@ -11,6 +11,7 @@ export function equivalentDocumentDefaults(documents:Array<{detail:import('./con
  const equivalent=documents.map(d=>d.detail).filter(d=>d.customerId===identity.customerId&&d.vehicleId===identity.vehicleId&&!!d.number&&!!d.status&&!/storn|cancel|razveljav|dobropis|credit|osnutek|draft/i.test(d.status)&&rows.length>0&&rows.every(row=>d.lines.some(line=>{
   const option=options.find(o=>o.key===row.key);
   if(option&&line.articleId)return line.articleId===option.articleId&&(!line.articleCode||line.articleCode===option.code);
+  if(option&&line.articleCode)return line.articleCode===option.code;
   return normalize(line.description)===normalize(row.description??row.requestedService??'');
  })));
  const sole=(values:Array<string|undefined>)=>{const ids=[...new Set(values.filter((v):v is string=>!!v))];return ids.length===1?ids[0]:undefined};
