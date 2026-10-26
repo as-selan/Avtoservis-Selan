@@ -304,9 +304,9 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.goto(`/dashboard/primeri/${seed.preparedCaseId}`);
   await openCaseSection(page, "termini");
   await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
-  await expect(page.getByText(/Pregled je potreben/)).toBeVisible();
-  await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Izoliran pregled vozila je bil opravljen.");
-  await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
+  await expect(page.getByRole("button", { name: "Zavore – V redu", exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "Opomba (neobvezno)" }).fill("Izoliran pregled vozila je bil opravljen.");
+  await expect(page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
   await openCaseSection(page, "predracun");
   await page.getByText("Napredno – poveži obstoječ predračun", {exact:true}).click();
@@ -328,7 +328,7 @@ test("manual estimate ID is linked only after a live Quibi read", async ({ page 
   await page.getByRole("button", { name: "Stranka je odobrila", exact:true }).click();
   await expect.poll(() => caseStatus(seed.preparedCaseId)).toBe("awaiting_slot_selection");
   await openCaseSection(page, "termini");
-  await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();
+  await expect(page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Popravilo naročeno" }).click();
   await expect(page.getByText(/predhodni pregled je brezplačen/)).toBeVisible();
   await recordThreeManualSlots(page, "REPAIR");
@@ -343,10 +343,10 @@ test("completed preliminary inspection remains payable when repair is not ordere
   await page.getByRole("button", { name: "Označi potreben predhodni pregled" }).click();
   await recordThreeManualSlots(page, "INSPECTION");
   await expect(page.getByText("Referenca ročne rezervacije: INSPECTION-BOOKING")).toBeVisible();
-  await page.getByRole("textbox", { name: "Dejanske ugotovitve po opravljenem pregledu" }).fill("Pregled je bil opravljen brez naročila popravila.");
-  await page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ }).check();
+  await page.getByRole("textbox", { name: "Opomba (neobvezno)" }).fill("Pregled je bil opravljen brez naročila popravila.");
+  await expect(page.getByRole("checkbox", { name: /Pregled je bil dejansko opravljen/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Zabeleži opravljen pregled" }).click();
-  await page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ }).check();
+  await expect(page.getByRole("checkbox", { name: /Potrdil sem dejansko odločitev stranke/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Popravilo ni naročeno" }).click();
   await expect(page.getByText(/predhodni pregled je plačljiv/)).toBeVisible();
   await noHorizontalOverflow(page);
@@ -398,11 +398,13 @@ test("public inquiry creates a case that staff can find through the same custome
 test("manual phone intake explicitly reuses the selected customer and vehicle", async ({ page }) => {
   await login(page, seed.owner);
   await page.getByRole("button", { name: "+ Novo povpraševanje", exact:true }).click();
-  const dialog = page.getByRole("dialog", { name: "Ročni vnos" });
+  const dialog = page.getByRole("dialog", { name: "Novo povpraševanje" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("textbox", { name: "Iskanje" }).fill("Ana Preizkus");
+  await dialog.getByRole("textbox", { name: "Ime, telefon, registracija ali VIN" }).fill("Ana Preizkus");
   await dialog.getByRole("button", { name: /Ana Preizkus/ }).click();
-  await dialog.getByRole("button", { name: /Test Model.*VIN/ }).click();
+  await expect(dialog.getByRole("textbox", { name: "VIN / številka šasije" })).not.toHaveValue('');
+  await expect(dialog.getByRole("textbox", { name: "Znamka", exact:true })).toHaveValue('Test');
+  await expect(dialog.getByRole("textbox", { name: "Model", exact:true })).toHaveValue('Model');
   await expect(dialog.getByText(/Izbrana stranka: Ana Preizkus.*izbrano vozilo/)).toBeVisible();
   await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Preizkus telefonskega sprejema");
   await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
@@ -417,7 +419,7 @@ test("manual intake creates a new customer and vehicle for the same case", async
   const vin = mobile ? "TST00000000000005" : "TST00000000000004";
   await login(page, seed.reception);
   await page.getByRole("button", { name: "+ Novo povpraševanje", exact:true }).click();
-  const dialog = page.getByRole("dialog", { name: "Ročni vnos" });
+  const dialog = page.getByRole("dialog", { name: "Novo povpraševanje" });
   await dialog.getByRole("button", { name: "Telefon", exact: true }).click();
   await dialog.getByRole("textbox", { name: "Ime in priimek *" }).fill(name);
   await dialog.getByRole("textbox", { name: "Telefon" }).fill(phone);
