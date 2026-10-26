@@ -103,6 +103,10 @@ export function ManualServiceOrderEntry() {
 
   function updateSearchQuery(value: string) {
     searchSeqRef.current += 1;
+    if(selectionRef.current&&value!==form.searchQuery){
+      setSelectedCustomer(null);setSelectedVehicleId(null);
+      setForm(prev=>preserveEditedFields(prev,intakeAutofill({customerId:'',displayName:'',phone:null,email:null,vehicles:[]},null) as Partial<FormState>,edited.current));
+    }
     update("searchQuery", value);
     if (value.trim().length < 3) {
       searchSeqRef.current += 1;
@@ -244,7 +248,7 @@ export function ManualServiceOrderEntry() {
   if (!open) return null;
 
   const visibleCandidates =
-    form.searchQuery.trim().length >= 3 ? candidates : [];
+    form.searchQuery.trim().length >= 3 && !(candidates.length===1&&selectedCustomer?.customerId===candidates[0].customerId&&(selectedVehicleId||candidates[0].vehicles.length===0)) ? candidates : [];
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
@@ -296,7 +300,7 @@ export function ManualServiceOrderEntry() {
                 Poišči stranko ali vozilo
               </legend>
               <p className="mt-1 text-xs text-slate-500">
-                Ime ali telefon stranke, registracija ali VIN vozila. Izbira izpolni znane podatke.
+                En zadetek se izpolni sam. Pri več zadetkih izberite pravega.
               </p>
               <div className="mt-2">
                 <Field
@@ -376,8 +380,7 @@ export function ManualServiceOrderEntry() {
               {selectedCustomer ? (
                 <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-600">
                   <span>
-                    Izbrana stranka: {selectedCustomer.displayName}
-                    {selectedVehicleId ? " · izbrano vozilo" : ""}
+                    Podatki so izpolnjeni.
                   </span>
                   <button
                     type="button"
@@ -422,7 +425,7 @@ export function ManualServiceOrderEntry() {
               ) : null}
             </fieldset>
 
-            <details key={'customer:'+selectedCustomer?.customerId} open={!selectedCustomer||!!errors.fullName||!!errors.phone||!!errors.email} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer py-2 font-medium">{selectedCustomer?[form.fullName,form.phone,form.email].filter(Boolean).join(' · '):'Stranka'}</summary>            <fieldset>
+            <details key={'customer:'+selectedCustomer?.customerId} open={!selectedCustomer||!!errors.fullName||!!errors.phone||!!errors.email} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedCustomer?[form.fullName,form.phone,form.email].filter(Boolean).join(' · '):'Stranka'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Stranka
               </legend>
@@ -453,7 +456,7 @@ export function ManualServiceOrderEntry() {
               </p>
             </fieldset></details>
 
-            <details key={'vehicle:'+selectedVehicleId} open={!selectedVehicleId||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer py-2 font-medium">{selectedVehicleId?[form.make,form.model,form.registration,form.year,form.mileage?form.mileage+' km':''].filter(Boolean).join(' · '):'Vozilo'}</summary>            <fieldset>
+            <details key={'vehicle:'+selectedVehicleId} open={!selectedVehicleId||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedVehicleId?[form.make,form.model,form.registration,form.year,form.mileage?form.mileage+' km':''].filter(Boolean).join(' · '):'Vozilo'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Vozilo
               </legend>

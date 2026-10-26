@@ -401,11 +401,11 @@ test("manual phone intake explicitly reuses the selected customer and vehicle", 
   const dialog = page.getByRole("dialog", { name: "Novo povpraševanje" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("textbox", { name: "Ime, telefon, registracija ali VIN" }).fill("Ana Preizkus");
-  await expect(dialog.getByText(/Izbrana stranka: Ana Preizkus.*izbrano vozilo/)).toBeVisible();
+  await expect(dialog.getByText("Podatki so izpolnjeni.",{exact:true})).toBeVisible();
   await expect(dialog.getByLabel("VIN / številka šasije")).not.toHaveValue('');
   await expect(dialog.getByLabel("Znamka", {exact:true})).toHaveValue('Test');
   await expect(dialog.getByLabel("Model", {exact:true})).toHaveValue('Model');
-  await expect(dialog.getByText(/Izbrana stranka: Ana Preizkus.*izbrano vozilo/)).toBeVisible();
+  await expect(dialog.getByText("Podatki so izpolnjeni.",{exact:true})).toBeVisible();
   await dialog.getByRole("textbox", { name: "Storitev / kaj stranka želi" }).fill("Preizkus telefonskega sprejema");
   await dialog.getByRole("button", { name: "Ustvari povpraševanje" }).click();
   await expect(page).toHaveURL(/\/dashboard\/primeri\/[0-9a-f-]{36}$/);
