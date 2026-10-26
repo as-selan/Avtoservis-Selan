@@ -4,7 +4,7 @@ type Choice={id:string;label:string};
 export type EstimateReview = {
  customerId:string; vehicleId:string; numbering:string; saleType:string;
  lines:Array<{description:string;quantity:number;unit:string;vat:string;unitPrice:number;discount:number}>;
- total:number;pricingSource?:string;
+ total:number;pricingSource?:string;conditions?:string[];
 };
 export function estimateReviewTotal(lines:EstimateReview['lines']){
  const cents=lines.reduce((sum,line)=>sum+moneyLineCents(line.quantity,line.unitPrice,line.discount),0);

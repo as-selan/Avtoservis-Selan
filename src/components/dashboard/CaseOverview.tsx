@@ -10,7 +10,7 @@ export function CaseOverview({customer,vehicle,request,missing,status,prepared,m
    {status&&<Entry label="Trenutno stanje">{status}</Entry>}
   </dl>
   <dl className="grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
-   <details className="min-w-0"><summary className="cursor-pointer text-slate-500">Zahtevane storitve in opis</summary><p className="mt-2 whitespace-pre-wrap break-words">{request.replace(/\\n/g,'\n')}</p></details>
+   <div className="min-w-0"><dt className="text-xs font-medium text-slate-500">Stranka želi</dt><dd className="mt-1 whitespace-pre-wrap break-words">{request.replace(/\\n/g,'\n').slice(0,240)}{request.length>240?'…':''}</dd>{request.length>240&&<details><summary className="cursor-pointer text-slate-500">Celoten opis</summary><p className="mt-2 whitespace-pre-wrap break-words">{request.replace(/\\n/g,'\n')}</p></details>}</div>
    {prepared&&<div className="min-w-0"><dt className="text-xs font-medium text-slate-500">Selan je pripravil</dt><dd className="mt-1 text-slate-950">{prepared}</dd></div>}
   </dl>
   {missing.length>0&&<p className="text-amber-900">Dopolnite: {missing.join(', ')}.</p>}

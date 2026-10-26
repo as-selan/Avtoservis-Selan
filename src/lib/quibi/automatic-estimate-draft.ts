@@ -1,6 +1,6 @@
 import {loadHistoricalPrices,type HistoricalPriceSuggestion} from './estimate-history';
 import {loadEstimateCatalog,type EstimateCatalogOption} from './estimate-catalog.ts';
-import {completeServiceReferences,suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
+import {estimateBillableRows,completeServiceReferences,suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
 import {estimateCatalogSource} from './estimate-catalog-source.ts';
 import type {QuibiChoice} from './write-options';
 import {quibiEstimateDefaults} from './estimate-defaults.ts';
@@ -21,7 +21,7 @@ export async function buildAutomaticEstimateDraft(input:{wanted:string|null;desc
  if(!draft.defaults.saleTypeId&&saleTypes.some(v=>v.id===documentDefaults.saleTypeId))draft.defaults.saleTypeId=documentDefaults.saleTypeId;
  if(!draft.defaults.warehouseId&&warehouses.some(v=>v.id===documentDefaults.warehouseId))draft.defaults.warehouseId=documentDefaults.warehouseId;
  draft.historySuggestions=history.suggestions;draft.historyIssues=history.issues;}catch{draft.historyIssues=['Zgodovina ni dostopna. Ročna priprava ostaja na voljo.'];}}
- const state:AutomaticDraftState=!rows.length?'needs_data':rows.some(row=>!row.key&&(row.candidateKeys?.length||row.matchSource==='Predlog iz opisa'))?'ambiguous':draftTotal(draft.rows,options,customer.priceListId)===null?'missing_price':'ready';
+ const state=automaticEstimateState(draft);
  return {draft,state};
 }
 
@@ -37,6 +37,12 @@ export function repairCatalogDraftFields(saved:AutomaticEstimateDraft,fresh:Auto
  });
  const needed=new Set(rows.flatMap(row=>[row.key,...(row.candidateKeys??[])]));
  const draft={...saved,rows,options:[...options.values()].filter(option=>needed.has(option.key)),defaults:fresh.defaults};
- const state:AutomaticDraftState=draftTotal(rows,draft.options,draft.customerPriceListId)!==null?'ready':rows.some(row=>!row.key&&row.candidateKeys?.length)?'ambiguous':'missing_price';
+ const state=automaticEstimateState(draft);
  return {draft,state};
+}
+
+export function automaticEstimateState(draft:Pick<AutomaticEstimateDraft,'rows'|'options'|'customerPriceListId'>):AutomaticDraftState{
+ if(!draft.rows.length)return 'needs_data';
+ const rows=estimateBillableRows(draft.rows,draft.options);
+ return draftTotal(rows,draft.options,draft.customerPriceListId)!==null?'ready':rows.some(row=>!row.key&&row.candidateKeys?.length)?'ambiguous':'missing_price';
 }
