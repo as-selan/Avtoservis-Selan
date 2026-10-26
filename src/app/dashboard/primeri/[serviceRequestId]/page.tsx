@@ -9,7 +9,7 @@ import {automaticDraftPresentation} from '@/lib/quibi/automatic-draft-state';
 import {AutomaticPreparationRefresh} from '@/components/dashboard/AutomaticPreparationRefresh';
 import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
 import type {AutomaticEstimateDraft,AutomaticDraftState} from '@/lib/quibi/automatic-estimate-draft';
-import {requestedEstimateRows,canonicalEstimateOptions} from '@/lib/quibi/estimate-editor';
+import {requestedEstimateRows,suggestedEstimateRows,canonicalEstimateOptions} from '@/lib/quibi/estimate-editor';
 import {EstimatePreparationWorkspace} from '@/components/dashboard/EstimatePreparationWorkspace';
 import {currentCaseIdentity,visibleIdentityNotice} from '@/lib/cases/identity-notice';
 import {CaseOverview} from '@/components/dashboard/CaseOverview';
@@ -142,6 +142,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const vehicleResolution=await db.from('case_vehicle_resolution_events').select('id,after_state').eq('organization_id',access.organizationId).eq('case_id',serviceRequestId);
     const canonicalCustomerChoice=!!vehicleResolution.data?.some(e=>e.after_state?.remote?.kind==='customer'&&e.after_state?.customerId===request.customer_id&&e.after_state?.vehicleId===request.vehicle_id);
     const resolvedVehicleNeedsReview=requiresResolvedVehicleConfirmation(!!vehicleResolution.data?.some(e=>e.after_state?.remote?.kind!=='customer'),vehicleLink?.sync_status);
+    const identityConfirmed=currentCaseIdentity({environment:isHostedQuibiEnvironment(process.env)?hostedQuibiEnvironment(process.env):null,customerId:link?.external_id??null,vehicleId:vehicleLink?.quibi_vehicle_id??null,customerSyncStatus:link?.sync_status??null,vehicleSyncStatus:vehicleLink?.sync_status??null,customerEnvironment:link?.quibi_environment??null,vehicleEnvironment:vehicleLink?.quibi_environment??null,resolvedVehicleNeedsReview});
     const quoteEvidence = quote?.evidence_payload as { external_id?: unknown } | null;
     const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
@@ -246,7 +247,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       fixedPriceStatus: fixedPrice?.status,
       inspectionRepairDecision: inspectionResult.data?.repair_decision,
       syntheticAppointment: serviceOffer?.booking_reference?.startsWith("QA-SIM-"), slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady, quibiSendStatus: sendOperation?.sendStatus, quibiSendAttempted: !!sendOperation });
-    const missing = currentIntakeCompleteness({phone:customer?.phone??null,email:customer?.email??null,vin:vehicle?.vin??null,make:vehicle?.make??null,model:vehicle?.model??null,registration:vehicle?.registration_current??null},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id},Array.isArray(request.missing_fields)?request.missing_fields:[]).missing_fields;
+    const missing = currentIntakeCompleteness({phone:customer?.phone??null,email:customer?.email??null,vin:vehicle?.vin??null,make:vehicle?.make??null,model:vehicle?.model??null,registration:vehicle?.registration_current??null},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id,identityConfirmed},Array.isArray(request.missing_fields)?request.missing_fields:[]).missing_fields;
     const aiProvider=configuredIntakeProvider(access.organizationId);
     const aiNotes=aiProvider?await db.from('service_case_notes').select('body').eq('case_id',serviceRequestId).order('created_at',{ascending:false}).limit(20):null;
     // Authenticated RLS supplies only this case's notes. No structured customer IDs,
@@ -263,7 +264,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           ? { title: "Odobreni predračun", body: `Pozdravljeni, ${recipient}. Pripravili smo predračun za vaš servisni primer. Odobrena cena predračuna je ${Number(proposedPrice.amount).toLocaleString("sl-SI", { style: "currency", currency: "EUR" })}. Predračun Quibi #${quibiEstimateId} priložite po ročnem preverjanju dokumenta. Prosimo, sporočite svojo odločitev. Lep pozdrav, Avtoservis Selan` }
           : null;
 
-    const identityConfirmed=currentCaseIdentity({environment:isHostedQuibiEnvironment(process.env)?hostedQuibiEnvironment(process.env):null,customerId:link?.external_id??null,vehicleId:vehicleLink?.quibi_vehicle_id??null,customerSyncStatus:link?.sync_status??null,vehicleSyncStatus:vehicleLink?.sync_status??null,customerEnvironment:link?.quibi_environment??null,vehicleEnvironment:vehicleLink?.quibi_environment??null,resolvedVehicleNeedsReview});
     const currentAttention=visibleIdentityNotice(request.attention_reason,identityConfirmed);
     const currentError=visibleIdentityNotice(request.error_reason,identityConfirmed);
     const syntheticQa=syntheticCaseEvidenceAllowed(process.env,{caseId:serviceRequestId,description:request.problem_description,name:customer?.display_name,email:customer?.email,vin:vehicle?.vin});
@@ -284,7 +284,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         intakeComplete:missing.length===0&&!!customer&&!!vehicle,identityReady:link?.sync_status==='ok'&&vehicleLink?.sync_status==='ok'&&!resolvedVehicleNeedsReview&&(!isHostedQuibiEnvironment(process.env)||(link.quibi_environment===hostedQuibiEnvironment(process.env)&&vehicleLink.quibi_environment===hostedQuibiEnvironment(process.env))),
         hosted:isHostedQuibiEnvironment(process.env),offerPrepared:prep?.status==='ready_for_provider',quoteReviewed:quote?.internal_review_status==='approved_for_send',
         customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',
-        hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,hasInvoice:!!repairWork?.invoice,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,devNoEmail:quibiLinkEnvironment(process.env)==="dev",sendReady:sendReady&&!!testRecipient&&!!proposedPrice&&!!quibiEstimateId&&!!reviewDetail?.lines.length,sendAttempted:!!sendOperation,sendState:sendOperation?.sendStatus,
+        hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,hasInvoice:!!repairWork?.invoice,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',inspectionSuggested:!inspectionResult.data&&!quote&&!fixedPrice&&!workOrder&&!businessHasWorkOrder&&!repairWork&&['new','preparing_offer'].includes(request.status)&&!!request.problem_description?.trim()&&!suggestedEstimateRows(request.service_wanted,request.problem_description,[]).length,fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,devNoEmail:quibiLinkEnvironment(process.env)==="dev",sendReady:sendReady&&!!testRecipient&&!!proposedPrice&&!!quibiEstimateId&&!!reviewDetail?.lines.length,sendAttempted:!!sendOperation,sendState:sendOperation?.sendStatus,
       };
     const caseStatus=repairWork?.phase?.label??(intakeCustomerChoices.length?'Izberi pravo stranko':null)??(businessHasWorkOrder&&!businessHasInvoice&&!['closed','declined','cancelled'].includes(request.status)?'Delovni nalog pripravljen – dodeli mehaniku':newVehicleRequired?'Novo vozilo – potrebna potrditev':journeyInput.customerApproved?'Priprava delovnega naloga':operatorApprovalReady||quote?.internal_review_status==='approved_for_send'||!quote&&!!createdOperation?.quibiId?'Čaka odobritev stranke':quote?'Predračun čaka pregled':!fixedPrice&&automaticState?automaticDraftPresentation(automaticState).label:getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status)));
     const casePrepared=repairWork?'Delovni nalog #'+repairWork.quibiId:businessWorkOrderId?'Delovni nalog #'+businessWorkOrderId:quibiEstimateId?'Predračun #'+quibiEstimateId:createdOperation?.quibiId?'Predračun #'+createdOperation.quibiId:newVehicleRequired?'Stranka je povezana. Podatki vozila so shranjeni.':automaticDraft?'Postavke so pripravljene za pregled.':'Podatki povpraševanja so shranjeni.';

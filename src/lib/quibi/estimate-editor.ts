@@ -58,3 +58,13 @@ export function assistedEstimateRows(rows:EstimateDraftRow[],options:EstimateCat
   return {...row,key:selected?.key??'',candidateKeys:candidates,matchSource:highAi?'AI predlog za pregled':typo?'Ujemanje opisa storitve':undefined,quantity:selected?(['kos','kom','storitev','piece','pcs'].includes(serviceWords(selected.unitLabel).join(' '))?'1':''):row.quantity};
  });
 }
+
+/** Saved problem text proposes work for review; it never selects a billable identity or price. */
+export function suggestedEstimateRows(wanted:string|null|undefined,description:string|null|undefined,options:EstimateCatalogOption[],customerPriceListId?:string|null,matches:IntakeServiceMatch[]=[]):EstimateDraftRow[]{
+ const explicit=requestedEstimateRows(wanted,null,options,customerPriceListId);
+ if(explicit.length)return assistedEstimateRows(explicit,canonicalEstimateOptions(options,customerPriceListId),matches);
+ const clauses=(description??'').replace(/\\r\\n|\\n|\\r/g,'\n').split(/[\n\r;•]+/).map(s=>s.replace(/^\s*(?:[-*]|\d+[.)])\s*/,'').trim());
+ const labels=clauses.filter(s=>s.length<=500&&!/\b(ne\s+želim|ne\s+zelim|ni\s+potreb|ne\s+potreb|brez\s+menjave)/i.test(s)&&/^(?:(?:želim|zelim|potrebujem|prosim(?:\s+za)?)\s+)?(?:redni\s+servis|servis|pregled|pregeld|kontrola|menjava|zamenjava|popravilo|diagnostika|vulkanizacija|optika|polnjenje)\b/i.test(s));
+ const rows=assistedEstimateRows(requestedEstimateRows(labels.join('\n'),null,options,customerPriceListId),canonicalEstimateOptions(options,customerPriceListId));
+ return rows.map(row=>({...row,key:'',quantity:'',unitPrice:undefined,discount:'',candidateKeys:[...new Set([row.key,...(row.candidateKeys??[])].filter(Boolean))],matchSource:'Predlog iz opisa'}));
+}

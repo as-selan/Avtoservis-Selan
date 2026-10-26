@@ -54,7 +54,7 @@ test('DEV email is optional and routes a reviewed estimate to separately recorde
  assert.equal(j.action.href,'#odobritev');assert.match(j.blocker!,/Dokument ni poslan/);assert.equal(j.completed[3],false);assert.equal(j.completed[4],false);
 });
 
-test('automatic preparation skips a separate intake click but preserves uncertainty and missing-data gates',()=>{for(const [state,label] of [['ready','Preglej in potrdi'],['ambiguous','Izberi storitev'],['missing_price','Vnesi ceno']] as const){const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:state});assert.equal(j.action.label,label);assert.equal(j.action.href,'#predracun');}assert.equal(caseJourney({...base,automaticPreparation:true,automaticDraftState:'ready',identityReady:false}).action.href,'#quibi-povezava');});
+test('automatic preparation skips a separate intake click but preserves uncertainty and missing-data gates',()=>{for(const [state,label] of [['ready','Preglej in potrdi'],['ambiguous','Izberi storitve'],['missing_price','Vnesi ceno']] as const){const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:state});assert.equal(j.action.label,label);assert.equal(j.action.href,'#predracun');}assert.equal(caseJourney({...base,automaticPreparation:true,automaticDraftState:'ready',identityReady:false}).action.href,'#quibi-povezava');});
 
 test('new vehicle is the next task for owner and a concrete owner handoff for admin',()=>{for(const role of ['owner','admin']){const result=caseJourney({...base,role,identityReady:false,newVehicleRequired:true});assert.equal(result.action.href,'#quibi-povezava');assert.equal(result.blocker,null);assert.equal(result.action.label,role==='owner'?'Preveri in potrdi vozilo':'Navodilo za lastnika');}});
 
@@ -80,3 +80,7 @@ test('a verified created estimate routes one operator approval to the approval s
 test('existing Quibi order without assignment leads to existing mechanic assignment, never invoicing',()=>{const j=caseJourney({...base,status:'awaiting_slot_selection',customerApproved:true,hasWorkOrder:true,hasAssignedWork:false});assert.equal(j.action.label,'Dodeli mehaniku');assert.equal(j.action.href,'#popravilo');});
 
 test('linked intake without billable services goes directly to the existing estimate workspace',()=>{const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:'needs_data'});assert.equal(j.action.label,'Izberi storitve');assert.equal(j.action.href,'#predracun');});
+
+test('requested preliminary inspection takes priority over automatic estimate preparation',()=>{const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:'ambiguous',inspectionPending:true});assert.equal(j.action.href,'#termini');assert.equal(j.action.label,'Zabeleži ugotovitve pregleda');});
+
+test('problem needing diagnosis can go directly to existing inspection without a forced quote',()=>{const j=caseJourney({...base,automaticPreparation:true,automaticDraftState:'needs_data',inspectionSuggested:true});assert.equal(j.action.href,'#termini');assert.equal(j.action.label,'Predhodni pregled');assert.equal(caseJourney({...base,identityReady:false,inspectionSuggested:true}).action.href,'#quibi-povezava');});

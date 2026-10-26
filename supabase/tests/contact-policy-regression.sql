@@ -39,7 +39,7 @@ begin
     update public.service_requests set source='manual',channel='manual' where id=rid;
     raise exception 'web source/channel bypass succeeded';
   exception when check_violation then null; end;
-  if private.compute_request_intake_completeness(rid,null,'contact-regression-web-valid@example.test','VIN','TEST','QA')->>'status'<>'needs_data' then raise exception 'web completion contact bypass'; end if;
+  if private.compute_request_intake_completeness(rid,null,'contact-regression-web-valid@example.test','VIN','TEST','QA')->>'status'<>'needs_data' then raise exception 'unconfirmed web completion contact bypass'; end if;
   raise notice 'PASS manual email/phone/no contacts, web missing contact, fixed web provenance and completion policy';
   result := public.create_manual_service_request_intake(p_display_name=>'Contact completion regression',p_email=>'contact-regression-completion@example.test',p_service_wanted=>'QA contact validation',p_client_request_id=>reqkey);
   rid := (result->>'service_request_id')::uuid; cid := (result->>'customer_id')::uuid;

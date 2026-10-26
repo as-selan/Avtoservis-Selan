@@ -49,6 +49,8 @@ LATER_MIGRATIONS=(
   "20261024100417_automatic_offer_identity_and_notifications.sql"
   "20261026191857_reuse_canonical_intake_customer.sql"
   "20261026192355_preserve_canonical_intake_attention.sql"
+  "20261026194600_intake_continuation_and_service_suggestions.sql"
+  "20261026195057_confirmed_quibi_contact_continuation.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"

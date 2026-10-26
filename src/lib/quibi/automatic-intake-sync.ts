@@ -93,7 +93,7 @@ export async function processIntakeSynchronization(caseId:string,restarts=0,mode
     if(error){const {data:existing,error:readError}=await db.from('quibi_vehicle_links').select('quibi_vehicle_id,quibi_customer_id,local_fingerprint,external_fingerprint,quibi_environment').eq('organization_id',org.id).eq('vehicle_id',request.vehicle_id).single();if(readError||!existing||existing.quibi_vehicle_id!==row.quibi_vehicle_id||existing.quibi_customer_id!==row.quibi_customer_id||existing.local_fingerprint!==row.local_fingerprint||existing.external_fingerprint!==row.external_fingerprint||existing.quibi_environment!==config.mode)throw Error('INTAKE_LINK_STORAGE_FAILED')}
    }});
   if(request.status==='needs_data'&&result.vehicleId&&localVehicle){
-   const completeness=currentIntakeCompleteness({phone:localCustomer.phone,email:localCustomer.email,...localVehicle},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id},Array.isArray(request.missing_fields)?request.missing_fields:[]);
+   const completeness=currentIntakeCompleteness({phone:localCustomer.phone,email:localCustomer.email,...localVehicle},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id,identityConfirmed:!!result.customerId&&!!result.vehicleId},Array.isArray(request.missing_fields)?request.missing_fields:[]);
    if(completeness.status==='new'){
     // Filling data does not approve the intake: the existing owner/admin review is still required.
     const {error}=await db.from('service_requests').update(completeness).eq('organization_id',org.id).eq('id',caseId).eq('customer_id',request.customer_id).eq('vehicle_id',request.vehicle_id).eq('status','needs_data').is('archived_at',null);

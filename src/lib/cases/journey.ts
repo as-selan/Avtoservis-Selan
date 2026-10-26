@@ -5,7 +5,7 @@ export type JourneyInput = {
  operatorApprovalReady?:boolean; syntheticQa?:boolean; canCreateVehicle?:boolean; newVehicleRequired?:boolean; automaticDraftState?:AutomaticDraftState|null; automaticPreparation?:boolean; status: string; role: string; stepKind: string; intakeComplete: boolean;
  identityReady: boolean; hosted: boolean; offerPrepared: boolean; quoteReviewed: boolean;
  customerApproved: boolean; dispatched: boolean; hasWorkOrder: boolean;
- writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; hasInvoice?:boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; fixedPriceStatus?: string;
+ writeReady: boolean; sendReady: boolean; devNoEmail?: boolean; sendAttempted?: boolean; sendState?: string|null; workOrderHref?: string; hasAssignedWork?: boolean; hasInvoice?:boolean; repairPhase?: string; internalOrdersEnabled?: boolean; inspectionPending?: boolean; inspectionSuggested?:boolean; fixedPriceStatus?: string;
 };
 export const journeyStages = ['Novo povpraševanje', 'Preverjanje stranke in vozila', 'Priprava predračuna', 'Pošiljanje stranki', 'Odobritev popravila', 'Delovni nalog', 'Popravilo, račun in zaključek'];
 export function caseJourney(p: JourneyInput) {
@@ -27,6 +27,8 @@ export function caseJourney(p: JourneyInput) {
  if(p.hasWorkOrder&&p.repairPhase==='review_required'){current=6;action={label:'Preglej opravljeno delo',href:'#popravilo'};return result();}
  if(p.hasWorkOrder&&p.repairPhase==='handover'){current=6;action={label:'Prevzem vozila',href:'#prevzem'};return result();}
  if(p.hasWorkOrder){current=p.hasAssignedWork===false?5:6;action={label:p.hasAssignedWork===false?'Dodeli mehaniku':'Nadaljuj popravilo',href:p.hasAssignedWork===false?'#popravilo':p.workOrderHref??'#popravilo'};return result();}
+ if(p.stepKind==='manual_inspection_billing'){current=6;action={label:'Uredi račun pregleda',href:'#termini'};return result();}
+ if((p.inspectionPending||p.inspectionSuggested)&&p.intakeComplete&&(p.identityReady||!p.hosted)){action={label:p.inspectionPending?'Zabeleži ugotovitve pregleda':'Predhodni pregled',href:'#termini'};return result();}
  if(p.automaticPreparation&&!p.quoteReviewed&&!p.customerApproved&&p.intakeComplete&&p.identityReady){current=2;const prepared=automaticDraftPresentation(p.automaticDraftState);action={label:prepared.action,href:prepared.href};return result();}
  if(!p.intakeComplete||p.status==='needs_data'){
   blocker='Manjkajo podatki za nadaljevanje. V podatkih primera preverite seznam in ustvarite povezavo za dopolnitev istega povpraševanja.';return result();
@@ -37,10 +39,6 @@ export function caseJourney(p: JourneyInput) {
   blocker=null;return result();
  }
  if(p.operatorApprovalReady&&!p.customerApproved&&!p.hasWorkOrder){current=4;action={label:'Stranka je odobrila',href:'#odobritev'};return result();}
- if(p.stepKind==='manual_inspection_billing'){
-  current=6;action={label:'Uredi račun pregleda',href:'#termini'};return result();
- }
- if(p.inspectionPending){action={label:'Zabeleži ugotovitve pregleda',href:'#termini'};return result();}
  if(!accepted)return result();
  if(p.fixedPriceStatus==='accepted'){current=5;action={label:p.status==='appointment_confirmed'&&p.internalOrdersEnabled?'Ustvari interni delovni nalog':'Preveri nadaljevanje naročene storitve',href:p.status==='appointment_confirmed'&&p.internalOrdersEnabled?'#poslovni-nalog':'#termini'};if(!p.internalOrdersEnabled)blocker='Storitev po objavljeni ceni je naročena. Ta obstoječa pot še nima preverjene povezave do ustvarjanja Quibi naloga brez predračuna; preverite nadaljevanje ročno. Nov nalog ni ustvarjen.';return result();}
  if(p.fixedPriceStatus==='rejected'){current=4;action={label:'Preglej zavrnitev storitve',href:'#objavljena-cena'};return result();}

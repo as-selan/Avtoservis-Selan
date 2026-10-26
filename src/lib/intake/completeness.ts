@@ -45,9 +45,10 @@ export function computeIntakeCompleteness(input: Parameters<typeof computeManual
 }
 
 /** Use current linked data, while preserving unknown requirements from the saved snapshot. */
-export function currentIntakeCompleteness(input:Parameters<typeof computeManualIntakeCompleteness>[0]&{registration?:string|null},origin:{source:string;channel:string|null;intakeRequestId?:string|null},recordedMissing:string[]=[]){
+export function currentIntakeCompleteness(input:Parameters<typeof computeManualIntakeCompleteness>[0]&{registration?:string|null},origin:{source:string;channel:string|null;intakeRequestId?:string|null;identityConfirmed?:boolean},recordedMissing:string[]=[]){
  const manual=origin.source==='manual'&&['manual','phone','sms'].includes(origin.channel??'');
- const computed=computeManualIntakeCompleteness(input,manual?'manual':'web');
+ const linkedEmail=origin.identityConfirmed===true&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email?.trim()??'');
+ const computed=computeManualIntakeCompleteness(input,manual||linkedEmail?'manual':'web');
  const known=new Set(['phone','email','vin','make','model']);
  const preserved=recordedMissing.filter(field=>!known.has(field)&&!(field==='registration'&&blankToNull(input.registration??null)));
  const missing_fields=[...new Set([...computed.missing_fields,...preserved])];

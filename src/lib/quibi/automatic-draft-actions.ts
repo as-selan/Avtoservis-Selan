@@ -16,7 +16,7 @@ export async function saveAutomaticOfferRows(caseId:string,run:string,expectedUp
  // Preserve verified persisted choices if the cached catalog is temporarily unavailable.
  for(const option of draft.options)if(!current.has(option.key))current.set(option.key,option);
  const options=[...current.values()];
- const state=draftTotal(rows,options,draft.customerPriceListId)!==null?'ready':rows.some(r=>!r.key&&r.candidateKeys?.length)?'ambiguous':'missing_price';
+ const state=draftTotal(rows,options,draft.customerPriceListId)!==null?'ready':rows.some(r=>!r.key&&(r.candidateKeys?.length||r.matchSource==='Predlog iz opisa'))?'ambiguous':'missing_price';
  const needed=new Set(rows.flatMap(r=>[r.key,...(r.candidateKeys??[])]));
  const saved=await db.rpc('save_automatic_offer_rows',{p_case:caseId,p_run:run,p_expected_updated_at:expectedUpdatedAt,p_rows:rows,p_options:options.filter(o=>needed.has(o.key)),p_state:state});
  if(saved.error||!saved.data?.updatedAt)return {ok:false as const};revalidatePath('/dashboard');revalidatePath('/dashboard/primeri/'+caseId);return {ok:true as const,updatedAt:saved.data.updatedAt as string};

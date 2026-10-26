@@ -31,8 +31,12 @@ test('Quibi-completed fields replace stale missing flags and return to review, n
  const result=currentIntakeCompleteness(input,{source:'manual',channel:'phone',intakeRequestId:'manual-idempotency-key'},['phone','vin','make','model','registration']);
  assert.deepEqual(result.missing_fields,[]);assert.equal(result.status,'new');assert.match(result.next_action,/Preveri/);
 });
-test('immutable web provenance retains strict contacts and unknown requirements',()=>{
+test('continuation accepts an email-only web customer and retains unknown requirements',()=>{
  const input={phone:null,email:'test@example.test',vin:'TESTSELANAX202601',make:'TEST',model:'QA'};
- const result=currentIntakeCompleteness(input,{source:'web',channel:'web',intakeRequestId:'original-web-request'},['extra_requirement']);
- assert.deepEqual(result.missing_fields,['phone','extra_requirement']);assert.equal(result.status,'needs_data');
+ const result=currentIntakeCompleteness(input,{source:'web',channel:'web',intakeRequestId:'original-web-request',identityConfirmed:true},['extra_requirement']);
+ assert.deepEqual(result.missing_fields,['extra_requirement']);assert.equal(result.status,'needs_data');
 });
+
+test('email-only linked web intake does not repeat a stale phone requirement',()=>{const result=currentIntakeCompleteness({phone:null,email:'qa@example.test',vin:'TESTVIN',make:'TEST',model:'A'},{source:'web_form',channel:'web',identityConfirmed:true},['phone']);assert.equal(result.status,'new');assert.deepEqual(result.missing_fields,[]);});
+
+test('unconfirmed web identities and invalid email retain the original contact requirements',()=>{for(const origin of [{source:'web_form',channel:'web',identityConfirmed:false},{source:'web_form',channel:'web'}]){assert.deepEqual(currentIntakeCompleteness({phone:null,email:'qa@example.test',vin:'VIN',make:'TEST',model:'A'},origin).missing_fields,['phone']);}assert.ok(currentIntakeCompleteness({phone:null,email:'invalid',vin:'VIN',make:'TEST',model:'A'},{source:'web_form',channel:'web',identityConfirmed:true}).missing_fields.includes('phone'));});
