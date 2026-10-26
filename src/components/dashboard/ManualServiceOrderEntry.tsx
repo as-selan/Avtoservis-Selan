@@ -150,7 +150,7 @@ export function ManualServiceOrderEntry() {
     setForm(prev=>preserveEditedFields(prev,intakeAutofill(candidate,vehicle) as Partial<FormState>,edited.current));setFormError(null);
   },[]);
   function selectCustomer(candidate:IntakeCustomerCandidate){applySelection(candidate,intakeVehicleSelection(candidate,form.searchQuery));}
-  function clearCustomerSelection(){setSelectedCustomer(null);setSelectedVehicleId(null);selectionRef.current=null;}
+  function clearCustomerSelection(){updateSearchQuery('');setCandidates([]);setSelectedCustomer(null);setSelectedVehicleId(null);selectionRef.current=null;}
   function selectVehicle(customer:IntakeCustomerCandidate,vehicleId:string){applySelection(customer,customer.vehicles.find(v=>v.vehicleId===vehicleId)??null);}
   useEffect(()=>{if(open&&prefill){const vehicle=prefill.vehicleId?prefill.candidate.vehicles.find(v=>v.vehicleId===prefill.vehicleId)??null:intakeVehicleSelection(prefill.candidate,'');applySelection(prefill.candidate,vehicle);}},[open,prefill,applySelection]);
 
@@ -304,7 +304,7 @@ export function ManualServiceOrderEntry() {
                   onChange={updateSearchQuery}
                 />
               </div>
-              {form.searchQuery && <button type="button" onClick={() => updateSearchQuery('')} className="min-h-11 px-2 text-sm text-blue-700">Počisti iskanje</button>}
+              {(form.searchQuery||selectedCustomer) && <button type="button" onClick={clearCustomerSelection} className="min-h-11 px-2 text-sm text-blue-700">Zamenjaj stranko ali vozilo</button>}
               {quibiUnavailable && <p role="status" className="mt-2 text-sm text-slate-600">Iskanje v Quibiju trenutno ni na voljo. Uporabite shranjene podatke ali vnesite nove.</p>}
               {searchPending ? (
                 <p className="mt-2 text-xs text-slate-500">Iščem…</p>
@@ -372,21 +372,7 @@ export function ManualServiceOrderEntry() {
                   })}
                 </ul>
               ) : null}
-              {selectedCustomer ? (
-                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-600">
-                  <span>
-                    Podatki so izpolnjeni.
-                  </span>
-                  <button
-                    type="button"
-                    className="font-medium text-blue-700 hover:underline"
-                    onClick={clearCustomerSelection}
-                  >
-                    Počisti izbiro
-                  </button>
-                </div>
-              ) : null}
-            </fieldset>
+</fieldset>
 
             <details key={'channel:'+!!selectedCustomer} open={!selectedCustomer}><summary className="cursor-pointer text-sm text-slate-600">Prejem: {form.channel==='phone'?'telefon':form.channel==='sms'?'SMS':'osebno'}</summary>            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
@@ -420,7 +406,8 @@ export function ManualServiceOrderEntry() {
               ) : null}
             </fieldset></details>
 
-            <details key={'customer:'+selectedCustomer?.customerId} open={!selectedCustomer||!!errors.fullName||!!errors.phone||!!errors.email} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedCustomer?[form.fullName,form.phone].filter(Boolean).join(' · '):'Stranka'}</summary>            <fieldset>
+            <details key={'identity:'+selectedCustomer?.customerId+':'+selectedVehicleId} open={!selectedCustomer||!selectedVehicleId||!!errors.fullName||!!errors.phone||!!errors.email||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2"><span className="block font-medium">{selectedCustomer?[form.fullName,form.phone,[[form.make,form.model].filter(Boolean).join(' '),form.registration].filter(Boolean).join(' · ')].filter(Boolean).join(' · '):'Stranka in vozilo'}</span><span className="text-sm text-blue-700">Uredi podatke</span></summary>
+            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Stranka
               </legend>
@@ -449,9 +436,9 @@ export function ManualServiceOrderEntry() {
               <p className="mt-1.5 text-xs text-slate-500">
                 Obvezno: telefon ali e-pošta.
               </p>
-            </fieldset></details>
+            </fieldset>
 
-            <details key={'vehicle:'+selectedVehicleId} open={!selectedVehicleId||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2 font-medium">{selectedVehicleId?[[form.make,form.model].filter(Boolean).join(' '),form.registration].filter(Boolean).join(' · '):'Vozilo'}</summary>            <fieldset>
+            <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Vozilo
               </legend>

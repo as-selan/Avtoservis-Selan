@@ -34,7 +34,7 @@ export type VehicleRow = {
   make: string | null;
   model: string | null;
   registration_current: string | null;
-  vin?:string|null;
+  vin?:string|null;year?:number|null;mileage_latest_km?:number|null;fuel?:string|null;power_kw?:number|null;engine?:string|null;
 };
 
 const FALLBACK_CUSTOMER = "Neznana stranka";
@@ -70,7 +70,7 @@ export function adaptServiceRequestToOrder(
   return {
     id: toPresentationRef(row.id),
     serviceRequestId: row.id,
-    customerId:row.customer_id??undefined,vehicleId:row.vehicle_id??undefined,vehicleVin:vehicle?.vin??undefined,
+    customerId:row.customer_id??undefined,vehicleId:row.vehicle_id??undefined,vehicleVin:vehicle?.vin??undefined,vehicleYear:vehicle?.year,vehicleMileage:vehicle?.mileage_latest_km,vehicleFuel:vehicle?.fuel,vehiclePowerKw:vehicle?.power_kw,vehicleEngine:vehicle?.engine,
     customerName: customer?.display_name?.trim() || FALLBACK_CUSTOMER,
     customerPhone: customer?.phone?.trim() || undefined,
     vehicleMakeModel: vehicleMakeModel(vehicle),

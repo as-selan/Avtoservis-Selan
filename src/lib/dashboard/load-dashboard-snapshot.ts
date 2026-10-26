@@ -116,7 +116,7 @@ export async function loadDashboardSnapshot(): Promise<DashboardSnapshot> {
     if (vehicleIds.length > 0) {
       const { data: vehicleRows, error: vehicleError } = await supabase
         .from("vehicles")
-        .select("id, make, model, registration_current, vin")
+        .select("id, make, model, registration_current, vin, year, mileage_latest_km, fuel, power_kw, engine")
         .eq("organization_id", access.organizationId)
         .in("id", vehicleIds);
 

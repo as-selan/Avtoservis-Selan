@@ -30,7 +30,7 @@ export interface ServiceOrderDemo {
   serviceRequestId?: string;
   customerName: string;
   customerPhone?: string;
-  customerId?:string;vehicleId?:string;quibiCustomerId?:string;quibiVehicleId?:string;vehicleVin?:string;searchTerms?:string[];
+  customerId?:string;vehicleId?:string;quibiCustomerId?:string;quibiVehicleId?:string;vehicleVin?:string;vehicleYear?:number|null;vehicleMileage?:number|null;vehicleFuel?:string|null;vehiclePowerKw?:number|null;vehicleEngine?:string|null;searchTerms?:string[];
   vehicleMakeModel: string;
   registration?: string;
   requestSummary: string;
