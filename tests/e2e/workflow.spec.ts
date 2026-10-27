@@ -517,4 +517,10 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2);
  await noHorizontalOverflow(page);await page.screenshot({path:'test-results/p3-review-'+testInfo.project.name+'.png',fullPage:true});
  if(testInfo.project.name==='mobile-chromium'){await page.setViewportSize({width:350,height:844});await noHorizontalOverflow(page);await page.screenshot({path:'test-results/p3-review-350.png',fullPage:true});}
+ await page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true})).toHaveCount(0);
+ await page.reload();
+ await expect(page.getByText(/Pregledano – preveri račun/).first()).toBeVisible();
+ await expect(page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true})).toHaveCount(0);
+ await noHorizontalOverflow(page);
 });
