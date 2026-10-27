@@ -101,3 +101,13 @@ export function completeServiceReferences(rows:EstimateDraftRow[],options:Estima
 /** Conditional work stays in the draft and document terms, never silently in the billed amount. */
 export function pendingInspection(row:EstimateDraftRow,options:EstimateCatalogOption[]){return !row.key&&row.unitPrice===undefined&&row.discount===''?conditionalInspectionOption(row,options):undefined;}
 export function estimateBillableRows(rows:EstimateDraftRow[],options:EstimateCatalogOption[]){return rows.filter(row=>!pendingInspection(row,options));}
+
+/** Repair only untouched machine suggestions; never change an entered price or quantity. */
+export function enrichUntouchedEstimateRows(rows:EstimateDraftRow[],options:EstimateCatalogOption[],customerPriceListId:string|null|undefined,defaults:{unitId?:string;vatId?:string}={}){
+ return rows.map(row=>{
+  if(row.key||row.matchSource!=='Predlog iz opisa'||row.quantity||row.discount||row.unitPrice!==undefined||(row.description??row.requestedService)!==row.requestedService||row.unitId&&row.unitId!==defaults.unitId||row.vatId&&row.vatId!==defaults.vatId||!row.requestedService)return row;
+  const proposed=suggestedEstimateRows(row.requestedService,null,options,customerPriceListId)[0];
+  if(!proposed||!proposed.key&&proposed.candidateKeys?.length!==1)return row;
+  return {...proposed,description:row.description??proposed.requestedService};
+ });
+}
