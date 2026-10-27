@@ -132,8 +132,18 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     ]);
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
+    const savedDraft=prepResult.data?.auto_draft as AutomaticEstimateDraft|null;
+    const earlyEditor=!!savedDraft&&!!prepResult.data?.auto_run&&!quoteResult.data?.length&&!fixedPriceResult.data&&['new','preparing_offer'].includes(request.status)&&['owner','admin'].includes(access.role)&&linkResult.data?.sync_status==='ok'&&vehicleLinkResult.data?.sync_status==='ok';
+    const enrichment=earlyEditor?(async()=>{
+      let writeReady=false;let operationState:string|undefined;let choices:Awaited<ReturnType<typeof quibiDevEstimateChoices>>|undefined;
+      const read=configuredQuibiReadClient();
+      const catalogTask=loadEstimateCatalog(read).catch(()=>({options:[],issues:[]}));
+      try{quibiWorkflowConfig(process.env,'write');configuredQuibiWorkflowWriteClient();const journal=quibiWorkflowJournal(access.organizationId,access.userId);const [operation,loadedChoices]=await Promise.all([journal.get('estimate',serviceRequestId),quibiDevEstimateChoices()]);operationState=operation?.state;choices=loadedChoices;writeReady=true;}catch{/* Preview remains editable without a write connection. */}
+      if(!choices)try{const [saleTypes,units,vatRates,warehouses]=await Promise.all([read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat'),read.catalog('warehouses')]);choices={saleTypes,units,vatRates,warehouses,defaults:quibiEstimateDefaults({saleTypes,units,vatRates,warehouses})};}catch{/* Keep saved values. */}
+      const catalog=await catalogTask;return {choices,catalogOptions:catalog.options,operationState,writeReady};
+    })():undefined;
     async function loadCaseContent() {
-    const estimateDataTask = !quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
+    const estimateDataTask = !earlyEditor&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
       try {const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([loadEstimateCatalog(read),linkResult.data?.sync_status==='ok'?read.customer(linkResult.data.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);return {catalog,customerPrice};}
       catch {return null;}
     })() : null;
@@ -142,7 +152,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
     let prep = prepResult.data;
-    if(prep?.auto_draft&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)){
+    if(!earlyEditor&&prep?.auto_draft&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)){
       const saved=prep.auto_draft as AutomaticEstimateDraft;
       const requiresRefresh=needsAutomaticDraftRefresh(saved,prep.auto_state as AutomaticDraftState|null,inspectionResult.data?.status==='completed'?inspectionResult.data.repair_decision:null);
       if(requiresRefresh)try{const refreshed=await refreshAutomaticOfferCatalogFields(serviceRequestId);if(refreshed)prep={...prep,...refreshed};}catch{/* Keep the saved draft available if Quibi READ is temporarily unavailable. */}
@@ -204,11 +214,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
             if (!freshCase.error && freshCase.data) request.status = freshCase.data.status;
           }
         }
-        if (!quote && prep?.status === "ready_for_provider") writeChoices = await quibiDevEstimateChoices();
+        if (!earlyEditor && !quote && prep?.status === "ready_for_provider") writeChoices = await quibiDevEstimateChoices();
         writeReady = true;
       } catch { writeReady = false; }
     }
-    if (!quote && !createdOperation?.quibiId && !fixedPrice && ["new","preparing_offer"].includes(request.status) && ["owner","admin"].includes(access.role) && !writeChoices) {
+    if (!earlyEditor && !quote && !createdOperation?.quibiId && !fixedPrice && ["new","preparing_offer"].includes(request.status) && ["owner","admin"].includes(access.role) && !writeChoices) {
       try {
         const read=configuredQuibiReadClient();
         const [saleTypes,units,vatRates,warehouses]=await Promise.all([read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat'),read.catalog('warehouses')]);
@@ -352,7 +362,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {!quote&&createdOperation?.state==='uncertain'&&createdOperation.quibiId&&['owner','admin'].includes(access.role)&&<ApproveCaseEstimate documentId={createdOperation.quibiId} caseId={serviceRequestId} syntheticQa={syntheticQa}/>}
           {!createdOperation?.quibiId && writeRequested && !writeReady && <p role="alert" className="text-sm text-amber-800">Quibi zapisovanje še ni pripravljeno: preverite konfiguracijo in dnevnik operacij. Dokumenta ni mogoče ustvariti.</p>}
           {!quote && !fixedPrice && prep?.status === "ready_for_provider" && ["owner", "admin"].includes(access.role) && !(link?.sync_status === "ok" && vehicleLink?.sync_status === "ok") && <p role="status" className="text-sm text-amber-800">Predogled predračuna bo na voljo po potrjeni povezavi stranke in pravega vozila. Najprej preverite podatke v razdelku »Povezava s Quibijem«; podatkov in cen ne vnašajte ponovno.</p>}
-          {!quote && !createdOperation?.quibiId && !fixedPrice && ["new","preparing_offer"].includes(request.status) && (!!automaticDraft||!isHostedQuibiEnvironment(process.env)) && link?.sync_status === "ok" && vehicleLink?.sync_status === "ok" && ["owner", "admin"].includes(access.role) &&
+          {!earlyEditor && !quote && !createdOperation?.quibiId && !fixedPrice && ["new","preparing_offer"].includes(request.status) && (!!automaticDraft||!isHostedQuibiEnvironment(process.env)) && link?.sync_status === "ok" && vehicleLink?.sync_status === "ok" && ["owner", "admin"].includes(access.role) &&
             <EstimatePreparationWorkspace historySuggestions={automaticDraft?.historySuggestions} historyIssues={automaticDraft?.historyIssues} draftPersistence={prep?.auto_run&&automaticDraft?{run:prep.auto_run,updatedAt:prep.updated_at}:undefined} key={(prep?.auto_run??serviceRequestId)+':'+(inspectionResult.data?.repair_decision??'pending')} inspectionRepairDecision={inspectionResult.data?.status==='completed'?inspectionResult.data.repair_decision:null} initialRows={automaticDraft?.rows} intakeReviewRequired={request.status==='new'} aiServiceMatches={assistance.serviceMatches} requestedService={request.service_wanted} requestDescription={request.problem_description} offerPrepared={prep?.status === "ready_for_provider"} customerPriceListId={customerPriceListId} aiEstimateLines={assistance.estimateLines} inspectionFindings={inspectionResult.data?.status === "completed" ? inspectionResult.data.findings : null} serviceRequestId={serviceRequestId} mode={writeReady ? "create" : "prepare"} operationState={createdOperation?.state} choices={writeChoices ?? undefined} catalogOptions={estimateCatalog.options} catalogIssues={estimateCatalog.issues} initialCatalogSource={exactEstimateCatalogMatch(request.service_wanted??'',estimateCatalog.options)??undefined} />}
           {quote ? <p className="text-sm">Zabeležena različica ponudbe #{quote.version_no}: {quote.internal_review_status}. Preverite dejansko dokazilo pred odobritvijo.</p>
             : createdOperation?.quibiId ? <p className="text-sm">Predračun #{createdOperation.quibiId} je že ustvarjen. Uporabite naslednje dejanje zgoraj; novega dokumenta ne ustvarjajte.</p> : fixedPrice ? <p className="text-sm">Izbrana je pot z objavljeno končno ceno brez Quibijevega predračuna.</p>
@@ -476,7 +486,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       {!caseClosed&&workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
 </div>;
     }
-    const savedDraft=prepResult.data?.auto_draft as AutomaticEstimateDraft|null;
-    const waiting=<div className="mx-auto max-w-5xl space-y-5"><Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link><header><h1 className="text-2xl font-semibold">Primer #{toPresentationRef(request.id)}</h1></header><section aria-label="Povzetek povpraševanja" className="space-y-2 rounded-xl border bg-white p-4"><p className="font-semibold">{customerResult.data?.display_name??'Stranka'}</p><p>{vehicleResult.data?[vehicleResult.data.make,vehicleResult.data.model,vehicleResult.data.registration_current||vehicleResult.data.vin].filter(Boolean).join(' · '):'Vozilo'}</p><p className="whitespace-pre-wrap text-sm">{request.problem_description||request.service_wanted||request.summary}</p></section>{savedDraft?.rows.length&&<section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračun</h2><ul className="mt-2 divide-y">{savedDraft.rows.map((row,index)=>{const option=savedDraft.options.find(item=>item.key===row.key);return <li className="py-2 text-sm" key={index}>{row.description||row.requestedService||option?.name||'Postavka'}{row.quantity?' · '+row.quantity:''}{row.unitPrice!==undefined?' · '+row.unitPrice+' €':null}</li>})}</ul></section>}<p role="status" className="text-sm text-slate-600">Pripravljamo naslednje opravilo …</p></div>;
-    return <Suspense fallback={waiting}><LoadedCaseView content={loadCaseContent()} /></Suspense>;
+    const waiting=<div className="mx-auto max-w-5xl space-y-5"><Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link><header><h1 className="text-2xl font-semibold">Primer #{toPresentationRef(request.id)}</h1></header><section aria-label="Povzetek povpraševanja" className="space-y-2 rounded-xl border bg-white p-4"><p className="font-semibold">{customerResult.data?.display_name??'Stranka'}</p><p>{vehicleResult.data?[vehicleResult.data.make,vehicleResult.data.model,vehicleResult.data.registration_current||vehicleResult.data.vin].filter(Boolean).join(' · '):'Vozilo'}</p><p className="whitespace-pre-wrap text-sm">{request.problem_description||request.service_wanted||request.summary}</p></section><p role="status" className="text-sm text-slate-600">Pripravljamo naslednje opravilo …</p></div>;
+    return <><Suspense fallback={waiting}><LoadedCaseView content={loadCaseContent()} /></Suspense>{earlyEditor&&savedDraft&&<section data-case-active="predracun" className="mx-auto max-w-5xl space-y-3 rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračun</h2><EstimatePreparationWorkspace enrichment={enrichment} initialRows={savedDraft.rows} draftPersistence={{run:prepResult.data!.auto_run!,updatedAt:prepResult.data!.updated_at}} inspectionRepairDecision={inspectionResult.data?.status==='completed'?inspectionResult.data.repair_decision:null} inspectionFindings={inspectionResult.data?.status==='completed'?inspectionResult.data.findings:null} intakeReviewRequired={request.status==='new'} requestedService={request.service_wanted} requestDescription={request.problem_description} offerPrepared={prepResult.data?.status==='ready_for_provider'} customerPriceListId={savedDraft.customerPriceListId} catalogOptions={savedDraft.options} historySuggestions={savedDraft.historySuggestions} historyIssues={savedDraft.historyIssues} serviceRequestId={serviceRequestId} mode="prepare" /></section>}</>;
 }

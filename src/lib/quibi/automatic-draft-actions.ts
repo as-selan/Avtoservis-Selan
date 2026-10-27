@@ -12,9 +12,12 @@ export async function saveAutomaticOfferRows(caseId:string,run:string,expectedUp
  const db=await createClient();const stored=await db.from('offer_preparations').select('auto_draft').eq('organization_id',access.organizationId).eq('service_request_id',caseId).single();
  if(stored.error||!stored.data.auto_draft)return {ok:false as const};
  const draft=stored.data.auto_draft as AutomaticEstimateDraft;
- const catalog=await loadEstimateCatalog(configuredQuibiReadClient());const current=new Map(catalog.options.map(o=>[o.key,o]));
- // Preserve verified persisted choices if the cached catalog is temporarily unavailable.
- for(const option of draft.options)if(!current.has(option.key))current.set(option.key,option);
+ const current=new Map(draft.options.map(o=>[o.key,o]));
+ // Existing rows already carry their saved catalog evidence; only a newly chosen
+ // catalog identity needs a lookup. Final document preparation still revalidates it.
+ const keys=rows.flatMap(row=>[row.key,...(row.candidateKeys??[])]).filter(Boolean);
+ if(keys.some(key=>!current.has(key))){const catalog=await loadEstimateCatalog(configuredQuibiReadClient());for(const option of catalog.options)if(!current.has(option.key))current.set(option.key,option);}
+
  const options=[...current.values()];
  const inspection=await db.from('preliminary_inspections').select('status,repair_decision').eq('organization_id',access.organizationId).eq('service_request_id',caseId).maybeSingle();if(inspection.error)return {ok:false as const};
  rows=conditionalInspectionRows(completeServiceReferences(rows,options,draft.defaults),options,inspection.data?.status==='completed'?inspection.data.repair_decision:null);
