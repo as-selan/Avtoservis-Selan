@@ -35,10 +35,11 @@ test('one public inquiry reaches a single invoice and a persisted vehicle pickup
  await page.goto('/dashboard/primeri/'+id,{waitUntil:'commit'});
  await expect(page.getByRole('region',{name:'Povzetek povpraševanja'})).toContainText('Servis vozila',{timeout:2200});
  await expect(page.getByText('Pripravljamo naslednje opravilo …')).toBeVisible();
- const earlyQuantity=page.getByLabel('Količina postavke 1');await expect(earlyQuantity).toBeEditable({timeout:2200});await earlyQuantity.fill('3');await earlyQuantity.blur();
+ const earlyQuantity=page.getByLabel('Količina postavke 1');await expect(earlyQuantity).toBeEditable({timeout:2200});await earlyQuantity.evaluate(node=>{(window as Window & {testEditorNode?:Element}).testEditorNode=node});await earlyQuantity.fill('3');await earlyQuantity.blur();
  expect((await fetch(fixture+'/__control?mode=normal',{method:'POST'})).ok).toBe(true);
  await expect(page.getByRole('button',{name:'Preglej predračun',exact:true})).toBeVisible({timeout:45000});
  await expect(page.getByLabel('Količina postavke 1')).toHaveValue('3');
+ expect(await page.getByLabel('Količina postavke 1').evaluate(node=>(window as Window & {testEditorNode?:Element}).testEditorNode===node)).toBe(true);
  await expect.poll(async()=>{const r=await db.from('offer_preparations').select('auto_draft').eq('service_request_id',id).single();return r.data?.auto_draft?.rows?.[0]?.quantity},{timeout:15000}).toBe('3');
  await page.reload();await expect(page.getByLabel('Količina postavke 1')).toHaveValue('3');
 
