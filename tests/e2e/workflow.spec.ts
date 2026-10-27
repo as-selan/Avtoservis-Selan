@@ -220,8 +220,8 @@ test("real owner login opens dashboard and canonical case", async ({ page }) => 
   await page.getByRole('button',{name:'Počisti iskanje'}).click();
   await page.goto(`/dashboard/primeri/${seed.caseId}`);
   await expect(page.getByRole("heading", { name: /Primer #/ })).toBeVisible();
-  await page.getByText("Zahtevane storitve in opis", {exact:true}).click();
-  await expect(page.getByText("Izolirani E2E primer")).toBeVisible();
+  const overview = page.getByRole("region", { name: "Povzetek povpraševanja" });
+  await expect(overview.getByText("Izolirani E2E primer")).toBeVisible();
   for (const width of [1440, 390, 350]) {
     await page.setViewportSize({ width, height: 900 });
     const journey = page.getByRole('region', { name: 'Naslednje opravilo' });
