@@ -29,6 +29,6 @@ export function verifyReturnedInvoiceDates(doc:QuibiEstimateDetail,header:{datst
  for(const [expected,actual] of [[header.datstod,doc.serviceDate],[header.datIzdRac,doc.date],[header.datValute,doc.dueDate]])if(expected&&actual&&normalize(actual)!==expected)throw Error('QUIBI_DOCUMENT_DATES_MISMATCH');
 }
 
-/** The P4 hosted DEV issuance is approved for this synthetic case only. Production policy is unchanged. */
-export function invoiceDevCreateAllowed(env:Record<string,string|undefined>,caseId:string){return env.APP_ENV!=='preproduction'||env.QUIBI_MODE!=='dev'||env.VERCEL_ENV==='preview'&&env.VERCEL_PROJECT_ID==='prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU'&&caseId==='c066482d-0002-43c4-9090-b23833928f71';}
-export function assertInvoiceDevSource(env:Record<string,string|undefined>,caseId:string,source:QuibiEstimateDetail,approvedId:string){if(env.APP_ENV!=='preproduction'||env.QUIBI_MODE!=='dev')return;if(!invoiceDevCreateAllowed(env,caseId)||source.id!=='2176935'||source.customerId!=='405965'||source.vehicleId!=='2392'||Number(source.amount)!==50||approvedId!=='2176934')throw Error('QUIBI_DEV_INVOICE_SCOPE');}
+/** Hosted DEV permits explicitly identified synthetic cases; production stays unchanged. */
+export function invoiceDevCreateAllowed(env:Record<string,string|undefined>,syntheticCase:boolean){return env.APP_ENV!=='preproduction'||env.QUIBI_MODE!=='dev'||env.VERCEL_ENV==='preview'&&env.VERCEL_PROJECT_ID==='prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU'&&syntheticCase;}
+export function assertInvoiceDevSource(env:Record<string,string|undefined>,syntheticCase:boolean,source:QuibiEstimateDetail,approved:QuibiEstimateDetail){if(env.APP_ENV!=='preproduction'||env.QUIBI_MODE!=='dev')return;if(!invoiceDevCreateAllowed(env,syntheticCase)||!source.id||!approved.id||!source.customerId||source.customerId!==approved.customerId||!source.vehicleId||source.vehicleId!==approved.vehicleId)throw Error('QUIBI_DEV_INVOICE_SCOPE');}
