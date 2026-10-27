@@ -28,6 +28,13 @@ async function caseStatus(id:string){
  const result=await db.from('service_requests').select('status').eq('id',id).single();
  if(result.error)throw Error('Synthetic case READ failed');return result.data.status;
 }
+async function acceptedReviewCount(id:string){
+ const url=process.env.E2E_API_URL??'',key=process.env.SUPABASE_SERVICE_ROLE_KEY;
+ if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(url)||!key)throw Error('Isolated DB READ required');
+ const db=createSupabaseClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+ const result=await db.from('service_case_reviews').select('id',{count:'exact',head:true}).eq('case_id',id).eq('action','accepted');
+ if(result.error)throw Error('Synthetic review READ failed');return result.count;
+}
 async function openCaseSection(page:Page,id:string){
  const target=page.locator('#'+id);
  const secondary=page.locator(`details[data-case-secondary="${id}"]`);
@@ -518,7 +525,7 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await noHorizontalOverflow(page);await page.screenshot({path:'test-results/p3-review-'+testInfo.project.name+'.png',fullPage:true});
  if(testInfo.project.name==='mobile-chromium'){await page.setViewportSize({width:350,height:844});await noHorizontalOverflow(page);await page.screenshot({path:'test-results/p3-review-350.png',fullPage:true});}
  await page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true}).click();
- await expect(page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true})).toHaveCount(0);
+ await expect.poll(()=>acceptedReviewCount(id),{timeout:15000}).toBe(1);
  await page.reload();
  await expect(page.getByText(/Pregledano – preveri račun/).first()).toBeVisible();
  await expect(page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true})).toHaveCount(0);
