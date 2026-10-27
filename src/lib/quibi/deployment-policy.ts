@@ -14,3 +14,10 @@ export function hostedQuibiEnvironment(env:Record<string,string|undefined>):Quib
 }
 export function isHostedQuibiEnvironment(env:Record<string,string|undefined>):boolean{try{hostedQuibiEnvironment(env);return true}catch{return false}}
 export function quibiJournalTable(mode:QuibiEnvironment):'quibi_dev_operation_journal'|'quibi_production_operation_journal'{return mode==='dev'?'quibi_dev_operation_journal':'quibi_production_operation_journal'}
+
+/** Permit synthetic case review only in the existing loopback-only CI fixture. */
+export function caseWorkQuibiEnvironment(env:Record<string,string|undefined>):QuibiEnvironment{
+ const loopback=(value:string|undefined)=>{try{const u=new URL(value??'');return u.protocol==='http:'&&u.hostname==='127.0.0.1'&&!!u.port&&u.origin===value}catch{return false}};
+ if(env.CI==='true'&&env.SELAN_ISOLATED_E2E==='1'&&!env.VERCEL&&!env.VERCEL_ENV&&!env.APP_ENV&&!env.QUIBI_MODE&&loopback(env.QUIBI_E2E_ORIGIN)&&loopback(env.NEXT_PUBLIC_SUPABASE_URL))return 'dev';
+ return hostedQuibiEnvironment(env);
+}

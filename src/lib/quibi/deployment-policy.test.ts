@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {hostedQuibiEnvironment,quibiJournalTable} from './deployment-policy.ts';
+import {hostedQuibiEnvironment,caseWorkQuibiEnvironment,quibiJournalTable} from './deployment-policy.ts';
 import {quibiWorkflowConfig,workflowRecipient} from './workflow-config.ts';
 import {intakeSyncConfigurationProblem} from './intake-sync-configuration.ts';
 import {assertCaseBusinessScope,caseBusinessReference} from './case-business-policy.ts';
@@ -38,4 +38,12 @@ test('automatic intake uses shared actor checks and explicit mode-specific activ
  assert.equal(intakeSyncConfigurationProblem({...dev,...actor,QUIBI_DEV_INTAKE_SYNC_ENABLED:'1'}),null);
  assert.equal(intakeSyncConfigurationProblem({...production,...actor,QUIBI_PRODUCTION_INTAKE_SYNC_ENABLED:'1'}),null);
  assert.match(intakeSyncConfigurationProblem({...production,...actor,QUIBI_DEV_INTAKE_SYNC_ENABLED:'1'})??'',/QUIBI_PRODUCTION_INTAKE_SYNC_ENABLED/);
+});
+
+
+test('case work fixture accepts only explicitly isolated loopback CI, leaving hosted environment rules unchanged',()=>{
+ const fixture={CI:'true',SELAN_ISOLATED_E2E:'1',QUIBI_E2E_ORIGIN:'http://127.0.0.1:47862',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321'};
+ assert.equal(caseWorkQuibiEnvironment(fixture),'dev');assert.throws(()=>hostedQuibiEnvironment(fixture));
+ for(const patch of [{CI:'false'},{SELAN_ISOLATED_E2E:'0'},{VERCEL:'1'},{VERCEL_ENV:'preview'},{APP_ENV:'production'},{QUIBI_MODE:'production'},{QUIBI_E2E_ORIGIN:'https://dev.quibi.net'},{NEXT_PUBLIC_SUPABASE_URL:'https://production.supabase.co'}])assert.throws(()=>caseWorkQuibiEnvironment({...fixture,...patch}));
+ assert.equal(caseWorkQuibiEnvironment(dev),'dev');assert.equal(caseWorkQuibiEnvironment(production),'production');
 });
