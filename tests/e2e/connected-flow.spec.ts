@@ -22,7 +22,15 @@ test('one public inquiry reaches a single invoice and a persisted vehicle pickup
  test.setTimeout(180000);page.setDefaultTimeout(12000);
  await page.goto('/povprasevanje');await page.getByLabel('Ime in priimek / naziv').fill('TEST-SELAN-AI');await page.getByLabel('E-pošta').fill('test-selan-ai@example.test');await page.getByLabel('Telefon').fill('+38640111000');await page.getByLabel('Registrska številka').fill('TEST-AI81');await page.getByLabel(/^VIN \/ številka šasije/).fill('TESTSELANAV202601');await page.getByLabel(/^Znamka/).fill('TEST');await page.getByLabel(/^Model/).fill('QA AI');await page.getByLabel('Opis težave').fill('QA-SIM- povezan preizkus\nServis vozila');await page.getByRole('button',{name:'Pošlji povpraševanje'}).click();await expect(page.getByText('Hvala. Vaše povpraševanje smo prejeli.')).toBeVisible();
  await expect.poll(caseId,{timeout:30000}).not.toBeNull();const id=(await caseId())!;try{await expect.poll(()=>caseReady(id),{timeout:60000}).toBe(true)}catch(error){console.log('ISOLATED_CASE_DIAGNOSTIC',JSON.stringify(await caseDiagnostic(id)));throw error;}
- await login(page,seed.owner);await page.goto('/dashboard/primeri/'+id);await expect(page.getByRole('region',{name:'Povzetek povpraševanja'})).toContainText('Servis vozila');
+ await login(page,seed.owner);
+ const fixture=process.env.SELAN_E2E_FIXTURE_ORIGIN??'http://127.0.0.1:47862';
+ expect((await fetch(fixture+'/__control?mode=slow',{method:'POST'})).ok).toBe(true);
+ await page.goto('/dashboard/primeri/'+id,{waitUntil:'commit'});
+ await expect(page.getByRole('region',{name:'Povzetek povpraševanja'})).toContainText('Servis vozila',{timeout:2200});
+ await expect(page.getByText('Pripravljamo naslednje opravilo …')).toBeVisible();
+ expect((await fetch(fixture+'/__control?mode=normal',{method:'POST'})).ok).toBe(true);
+ await expect(page.getByRole('button',{name:'Preglej predračun',exact:true})).toBeVisible({timeout:45000});
+
  await page.getByRole('button',{name:'Preglej predračun',exact:true}).click();await page.getByRole('button',{name:'Ustvari predračun',exact:true}).click();await expect.poll(()=>rowCount(id,'estimate'),{timeout:30000}).toBe(1);
  await page.reload();await page.getByRole('button',{name:'Stranka je odobrila',exact:true}).click();await page.getByRole('button',{name:'Ustvari delovni nalog',exact:true}).click();await expect.poll(()=>rowCount(id,'work_order'),{timeout:30000}).toBe(1);
  await page.reload();await page.getByLabel(/Mehanik/).selectOption({label:'Mehanik QA'});await page.getByRole('button',{name:'Dodeli mehaniku',exact:true}).click();await page.context().clearCookies();await login(page,seed.mechanic);await page.goto('/dashboard/mehanik/'+id);await page.getByRole('button',{name:'Začni delo',exact:true}).click();await page.getByRole('button',{name:'Zaključi delo',exact:true}).click();await page.context().clearCookies();await login(page,seed.owner);await page.goto('/dashboard/primeri/'+id);await page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true}).click();

@@ -25,12 +25,13 @@ http.createServer(async(req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
   if (url.pathname === "/__control" && req.method === "POST") {
     const next = url.searchParams.get("mode");
-    if (!["normal", "changed", "error"].includes(next)) return send(res, 400, { error: true });
+    if (!["normal", "changed", "error", "slow"].includes(next)) return send(res, 400, { error: true });
     mode = next;
     return send(res, 200, { ok: true });
   }
-  if(business&&await business(req,res,url))return;
+  if (mode === "slow") await new Promise(resolve => setTimeout(resolve, 2500));
   if (mode === "error") return send(res, 503, { error: true });
+  if(business&&await business(req,res,url))return;
   if (url.pathname === "/api2/stranka" && req.method === "GET") {
     return send(res, 200, { error: false, data: { Stranke: customers.map((Stranka) => ({ Stranka })) } });
   }
