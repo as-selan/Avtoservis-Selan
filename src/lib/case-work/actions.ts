@@ -8,7 +8,7 @@ export async function caseWorkAction(form:FormData){try{const access=await requi
   const {data:rows,error}=await db.from(quibiJournalTable(environment)).select('quibi_id,quibi_content_sha256,request_body').eq('organization_id',access.organizationId).eq('service_request_id',caseId).in('kind',['work_order','work_order_update']).eq('state','verified').order('created_at',{ascending:false}).limit(1);
   if(error||!rows?.[0])throw Error('REFERENCE_REQUIRED');const ref=rows[0],payload=JSON.parse(ref.request_body),body=payload.body??payload,customer=String(body.Glavadokumenta.stranka_id),vehicle=String(body.Glavadokumenta.vozila_id),doc=await loadQuibiDocument(configuredQuibiReadClient(),'work_order',ref.quibi_id,customer);
   if(doc.vehicleId!==vehicle||doc.contentSha256!==ref.quibi_content_sha256)throw Error('REFERENCE_CHANGED');
-  const r=await db.rpc('assign_service_case',{p_case:caseId,p_mechanic:String(form.get('mechanicId')),p_document:ref.quibi_id,p_sha:ref.quibi_content_sha256});if(r.error)throw Error('ASSIGNMENT_FAILED');
+  const r=await db.rpc('assign_service_case',{p_case:caseId,p_mechanic:form.get('assignmentTarget')==='self'?access.userId:String(form.get('mechanicId')),p_document:ref.quibi_id,p_sha:ref.quibi_content_sha256,p_environment:environment});if(r.error)throw Error('ASSIGNMENT_FAILED');
  }else if(action==='progress'){
   const v=workInput(caseId,form.get('status'),form.get('note')??'');const r=await db.rpc('update_case_work',{p_case:v.caseId,p_status:v.status,p_note:v.note});if(r.error)throw Error('FORBIDDEN');
  }else if(action==='photo'){
