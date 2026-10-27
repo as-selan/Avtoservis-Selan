@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildAutomaticEstimateDraft,needsCatalogFieldRepair,repairCatalogDraftFields} from './automatic-estimate-draft.ts';
+import {buildAutomaticEstimateDraft,needsCatalogFieldRepair,repairCatalogDraftFields,needsAutomaticDraftRefresh} from './automatic-estimate-draft.ts';
 import {draftTotal} from './estimate-editor.ts';
 import type {QuibiArticle} from './pricing-read.ts';
 const articles:QuibiArticle[]=[{id:'1',code:'SERVIS',name:'REDNI SERVIS VOZILA',netPrice:'27',unitId:'1',unitLabel:'kos',vatId:'5',vatLabel:'22 %',stockManaged:false},{id:'2',code:'TEHNICNI',name:'Pregled pred tehničnim pregledom',netPrice:'10',unitId:'1',unitLabel:'kos',vatId:'5',vatLabel:'22 %',stockManaged:false},{id:'3',code:'ZAVORE',name:'Pregled zavor',netPrice:'20',unitId:'1',unitLabel:'kos',vatId:'5',vatLabel:'22 %',stockManaged:false}];
@@ -23,3 +23,6 @@ test('existing generated rows recover catalog data once without restoring remove
  const repaired=repairCatalogDraftFields({...legacy,rows:[legacy.rows[0],user]},fresh);
  assert.equal(repaired.draft.rows.length,2);assert.equal(repaired.draft.rows[0].key,'article:1');assert.equal(repaired.draft.rows[0].unitId,'1');assert.equal(repaired.draft.rows[0].vatId,'5');assert.deepEqual(repaired.draft.rows[1],user);assert.equal(needsCatalogFieldRepair(repaired.draft),false);
 });
+
+
+test('saved complete draft skips unnecessary refresh; missing fields and changed state still require it',async()=>{const {draft,state}=await buildAutomaticEstimateDraft(input,fixture().read);assert.equal(needsAutomaticDraftRefresh(draft,state,null),false);assert.equal(needsAutomaticDraftRefresh(draft,'needs_data',null),true);const incomplete={...draft,rows:draft.rows.map((row,index)=>index===0?{...row,unitId:undefined}:row)};assert.equal(needsAutomaticDraftRefresh(incomplete,state,null),true)});

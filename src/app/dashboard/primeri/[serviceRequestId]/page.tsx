@@ -1,3 +1,4 @@
+import {Suspense} from 'react';
 import {refreshAutomaticOfferCatalogFields} from '@/lib/quibi/automatic-draft-actions';
 import {VehicleHistory} from '@/components/customers/VehicleHistory';
 import {ClosedCaseSummary} from '@/components/dashboard/ClosedCaseSummary';
@@ -9,7 +10,7 @@ import {canConfirmQuibiVehicleCreate} from '@/lib/quibi/vehicle-create-permissio
 import {automaticDraftPresentation} from '@/lib/quibi/automatic-draft-state';
 import {AutomaticPreparationRefresh} from '@/components/dashboard/AutomaticPreparationRefresh';
 import {scheduleIntakeSynchronization} from '@/lib/quibi/automatic-intake-sync';
-import type {AutomaticEstimateDraft,AutomaticDraftState} from '@/lib/quibi/automatic-estimate-draft';
+import {needsAutomaticDraftRefresh,type AutomaticEstimateDraft,type AutomaticDraftState} from '@/lib/quibi/automatic-estimate-draft';
 import {requestedEstimateRows,suggestedEstimateRows,canonicalEstimateOptions} from '@/lib/quibi/estimate-editor';
 import {EstimatePreparationWorkspace} from '@/components/dashboard/EstimatePreparationWorkspace';
 import {currentCaseIdentity,visibleIdentityNotice} from '@/lib/cases/identity-notice';
@@ -128,12 +129,17 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     ]);
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
+    async function LoadedCase() {
     let syncConfigurationProblem=intakeSyncConfigurationProblem(process.env,'read');
     if(!syncConfigurationProblem){const actor=await db.from('organization_memberships').select('role,is_active').eq('organization_id',access.organizationId).eq('profile_id',process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!).maybeSingle();if(actor.error||!actor.data?.is_active||!['owner','admin'].includes(actor.data.role))syncConfigurationProblem=INTAKE_ACTOR_ACCESS_PROBLEM;}
     const customer = customerResult.data;
     const vehicle = vehicleResult.data;
     let prep = prepResult.data;
-    if(prep?.auto_draft&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)){try{const refreshed=await refreshAutomaticOfferCatalogFields(serviceRequestId);if(refreshed)prep={...prep,...refreshed};}catch{/* Keep the saved draft available if Quibi READ is temporarily unavailable. */}}
+    if(prep?.auto_draft&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)){
+      const saved=prep.auto_draft as AutomaticEstimateDraft;
+      const requiresRefresh=needsAutomaticDraftRefresh(saved,prep.auto_state as AutomaticDraftState|null,inspectionResult.data?.status==='completed'?inspectionResult.data.repair_decision:null);
+      if(requiresRefresh)try{const refreshed=await refreshAutomaticOfferCatalogFields(serviceRequestId);if(refreshed)prep={...prep,...refreshed};}catch{/* Keep the saved draft available if Quibi READ is temporarily unavailable. */}
+    }
     const automaticDraft=prep?.auto_draft as AutomaticEstimateDraft|null;
     const automaticState=prep?.auto_state as AutomaticDraftState|null;
     if(!quoteResult.data?.length&&['new','needs_data','preparing_offer'].includes(request.status))scheduleIntakeSynchronization(serviceRequestId);
@@ -210,7 +216,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     let customerPriceListId:string|null|undefined;
     let estimateCatalog:{options:EstimateCatalogOption[];issues:string[]}={options:[],issues:[]};
     if(!quote&&!fixedPrice&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status)){
-      try{const read=configuredQuibiReadClient();estimateCatalog=await loadEstimateCatalog(read);if(link?.sync_status==='ok'){try{customerPriceListId=(await read.customer(link.external_id)).priceListId;}catch{/* Fresh server review remains authoritative. */}}if(customerPriceListId)estimateCatalog.options.sort((a,b)=>Number(b.priceListId===customerPriceListId)-Number(a.priceListId===customerPriceListId));}
+      try{const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([loadEstimateCatalog(read),link?.sync_status==='ok'?read.customer(link.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);estimateCatalog=catalog;customerPriceListId=customerPrice;if(customerPriceListId)estimateCatalog.options.sort((a,b)=>Number(b.priceListId===customerPriceListId)-Number(a.priceListId===customerPriceListId));}
       catch{estimateCatalog.issues=['Quibijevih cenikov ni mogoče prebrati. Podatki niso nadomeščeni z lokalnim cenikom.'];}
     }
     if(automaticDraft){const saved=new Map(automaticDraft.options.map(option=>[option.key,option]));estimateCatalog.options=[...estimateCatalog.options.filter(option=>!saved.has(option.key)),...saved.values()];if(customerPriceListId===undefined)customerPriceListId=automaticDraft.customerPriceListId;}
@@ -228,14 +234,15 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       try {
         if (link.quibi_environment !== quibiLinkEnvironment(process.env) || vehicleLink.quibi_environment !== quibiLinkEnvironment(process.env)) throw Error("QUIBI_ENVIRONMENT_MISMATCH");
         const quibi = configuredQuibiReadClient();
-        const remoteVehicle = await quibi.vehicle(vehicleLink.quibi_vehicle_id, link.external_id);
-        const listed = await quibi.estimates(link.external_id);
+        const [remoteVehicle, listed, remoteCustomer] = await Promise.all([
+          quibi.vehicle(vehicleLink.quibi_vehicle_id, link.external_id), quibi.estimates(link.external_id),
+          quibi.customer(link.external_id).catch(() => null),
+        ]);
         if (listed.some((document) => document.id === quibiEstimateId)) {
           const detail = await quibi.estimateDetail(quibiEstimateId, link.external_id);
           reviewDetail = detail;
-          try { const remoteCustomer = await quibi.customer(link.external_id);
-            testRecipient = workflowRecipient(process.env, customer?.email ?? null, remoteCustomer.email);
-          } catch { /* sending remains closed */ }
+          if (remoteCustomer) try { testRecipient = workflowRecipient(process.env, customer?.email ?? null, remoteCustomer.email); }
+          catch { /* sending remains closed */ }
           proposedPrice = verifiedCasePrice({ quote, customerId: link.external_id,
             detail,
             localVehicle: { vin: vehicle.vin ?? "", registration: vehicle.registration_current ?? "",
@@ -464,4 +471,8 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       <VehicleHistory scope={{caseId:serviceRequestId}}/>
       {!caseClosed&&workOrder&&<Link className="block rounded-xl border bg-blue-50 p-4 text-blue-800" href={`/dashboard/nalogi/${workOrder.id}`}>Odpri povezani delovni nalog →</Link>}
 </div>;
+    }
+    const savedDraft=prepResult.data?.auto_draft as AutomaticEstimateDraft|null;
+    const waiting=<div className="mx-auto max-w-5xl space-y-5"><Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link><header><h1 className="text-2xl font-semibold">Primer #{toPresentationRef(request.id)}</h1></header><section aria-label="Povzetek povpraševanja" className="space-y-2 rounded-xl border bg-white p-4"><p className="font-semibold">{customerResult.data?.display_name??'Stranka'}</p><p>{vehicleResult.data?[vehicleResult.data.make,vehicleResult.data.model,vehicleResult.data.registration_current||vehicleResult.data.vin].filter(Boolean).join(' · '):'Vozilo'}</p><p className="whitespace-pre-wrap text-sm">{request.problem_description||request.service_wanted||request.summary}</p></section>{savedDraft?.rows.length&&<section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračun</h2><ul className="mt-2 divide-y">{savedDraft.rows.map((row,index)=>{const option=savedDraft.options.find(item=>item.key===row.key);return <li className="py-2 text-sm" key={index}>{row.description||row.requestedService||option?.name||'Postavka'}{row.quantity?' · '+row.quantity:''}{row.unitPrice!==undefined?' · '+row.unitPrice+' €':null}</li>})}</ul></section>}<p role="status" className="text-sm text-slate-600">Pripravljamo naslednje opravilo …</p></div>;
+    return <Suspense fallback={waiting}><LoadedCase /></Suspense>;
 }

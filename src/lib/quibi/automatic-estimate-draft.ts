@@ -1,6 +1,6 @@
 import {loadHistoricalPrices,type HistoricalPriceSuggestion} from './estimate-history';
 import {loadEstimateCatalog,type EstimateCatalogOption} from './estimate-catalog.ts';
-import {estimateBillableRows,completeServiceReferences,suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
+import {estimateBillableRows,completeServiceReferences,conditionalInspectionRows,suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
 import {estimateCatalogSource} from './estimate-catalog-source.ts';
 import type {QuibiChoice} from './write-options';
 import {quibiEstimateDefaults} from './estimate-defaults.ts';
@@ -45,4 +45,10 @@ export function automaticEstimateState(draft:Pick<AutomaticEstimateDraft,'rows'|
  if(!draft.rows.length)return 'needs_data';
  const rows=estimateBillableRows(draft.rows,draft.options);
  return draftTotal(rows,draft.options,draft.customerPriceListId)!==null?'ready':rows.some(row=>!row.key&&row.candidateKeys?.length)?'ambiguous':'missing_price';
+}
+
+/** Avoid revisiting Quibi when the persisted draft and inspection decision already agree. */
+export function needsAutomaticDraftRefresh(saved:AutomaticEstimateDraft,state:AutomaticDraftState|null,decision:'pending'|'ordered'|'not_ordered'|null){
+ const rows=conditionalInspectionRows(completeServiceReferences(saved.rows,saved.options,saved.defaults),saved.options,decision);
+ return needsCatalogFieldRepair(saved)||JSON.stringify(rows)!==JSON.stringify(saved.rows)||automaticEstimateState({...saved,rows})!==state;
 }
