@@ -24,6 +24,10 @@ test('one public inquiry reaches a single invoice and a persisted vehicle pickup
  await expect.poll(caseId,{timeout:30000}).not.toBeNull();const id=(await caseId())!;try{await expect.poll(()=>caseReady(id),{timeout:60000}).toBe(true)}catch(error){console.log('ISOLATED_CASE_DIAGNOSTIC',JSON.stringify(await caseDiagnostic(id)));throw error;}
  await login(page,seed.owner);
  const fixture=process.env.SELAN_E2E_FIXTURE_ORIGIN??'http://127.0.0.1:47862';
+ expect((await fetch(fixture+'/__control?mode=error',{method:'POST'})).ok).toBe(true);
+ await page.goto('/dashboard/primeri/'+id);
+ await expect(page.getByRole('region',{name:'Povzetek povpraševanja'})).toContainText('Servis vozila');
+ await expect(page.getByText('Servis vozila').first()).toBeVisible();
  expect((await fetch(fixture+'/__control?mode=slow',{method:'POST'})).ok).toBe(true);
  await page.goto('/dashboard/primeri/'+id,{waitUntil:'commit'});
  await expect(page.getByRole('region',{name:'Povzetek povpraševanja'})).toContainText('Servis vozila',{timeout:2200});
