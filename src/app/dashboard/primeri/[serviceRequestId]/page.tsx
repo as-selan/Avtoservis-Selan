@@ -1,4 +1,4 @@
-import {Suspense} from 'react';
+import {Suspense,use,type ReactNode} from 'react';
 import {refreshAutomaticOfferCatalogFields} from '@/lib/quibi/automatic-draft-actions';
 import {VehicleHistory} from '@/components/customers/VehicleHistory';
 import {ClosedCaseSummary} from '@/components/dashboard/ClosedCaseSummary';
@@ -75,6 +75,8 @@ const fixedPriceEnabled = process.env.SELAN_FIXED_PRICE_V1 === "1";
 
 const unavailable = <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">Primera trenutno ni mogoče prikazati.</div>;
 
+function LoadedCaseView({content}:{content:Promise<ReactNode>}) { return use(content); }
+
 export default async function CasePage({ params }: { params: Promise<{ serviceRequestId: string }> }) {
   const access = await requirePhase1OperationalAccess();
   const { serviceRequestId } = await params;
@@ -86,11 +88,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
   }
 
     const db = await createClient();
-    const { data: request, error: requestError } = await db.from("service_requests")
+    const { data: requestData, error: requestError } = await db.from("service_requests")
       .select("id, customer_id, vehicle_id, status, source, channel, intake_request_id, summary, problem_description, service_wanted, missing_fields, next_action, attention_needed, attention_reason, has_error, error_reason, created_at, updated_at")
       .eq("organization_id", access.organizationId).eq("id", serviceRequestId)
       .is("archived_at", null).maybeSingle();
-    if (requestError || !request) return unavailable;
+    if (requestError || !requestData) return unavailable;
+    const request=requestData;
 
     const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult] = await Promise.all([
       request.customer_id ? db.from("customers").select("id, display_name, phone, email")
@@ -129,7 +132,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     ]);
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
-    async function LoadedCase() {
+    async function loadCaseContent() {
     const estimateDataTask = !quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
       try {const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([loadEstimateCatalog(read),linkResult.data?.sync_status==='ok'?read.customer(linkResult.data.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);return {catalog,customerPrice};}
       catch {return null;}
@@ -475,5 +478,5 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     }
     const savedDraft=prepResult.data?.auto_draft as AutomaticEstimateDraft|null;
     const waiting=<div className="mx-auto max-w-5xl space-y-5"><Link href="/dashboard" className="text-sm font-medium text-blue-700">← Nazaj na nadzorno ploščo</Link><header><h1 className="text-2xl font-semibold">Primer #{toPresentationRef(request.id)}</h1></header><section aria-label="Povzetek povpraševanja" className="space-y-2 rounded-xl border bg-white p-4"><p className="font-semibold">{customerResult.data?.display_name??'Stranka'}</p><p>{vehicleResult.data?[vehicleResult.data.make,vehicleResult.data.model,vehicleResult.data.registration_current||vehicleResult.data.vin].filter(Boolean).join(' · '):'Vozilo'}</p><p className="whitespace-pre-wrap text-sm">{request.problem_description||request.service_wanted||request.summary}</p></section>{savedDraft?.rows.length&&<section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Predračun</h2><ul className="mt-2 divide-y">{savedDraft.rows.map((row,index)=>{const option=savedDraft.options.find(item=>item.key===row.key);return <li className="py-2 text-sm" key={index}>{row.description||row.requestedService||option?.name||'Postavka'}{row.quantity?' · '+row.quantity:''}{row.unitPrice!==undefined?' · '+row.unitPrice+' €':null}</li>})}</ul></section>}<p role="status" className="text-sm text-slate-600">Pripravljamo naslednje opravilo …</p></div>;
-    return <Suspense fallback={waiting}><LoadedCase /></Suspense>;
+    return <Suspense fallback={waiting}><LoadedCaseView content={loadCaseContent()} /></Suspense>;
 }
