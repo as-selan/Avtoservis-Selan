@@ -130,6 +130,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
     async function LoadedCase() {
+    const estimateDataTask = !quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
+      try {const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([loadEstimateCatalog(read),linkResult.data?.sync_status==='ok'?read.customer(linkResult.data.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);return {catalog,customerPrice};}
+      catch {return null;}
+    })() : null;
     let syncConfigurationProblem=intakeSyncConfigurationProblem(process.env,'read');
     if(!syncConfigurationProblem){const actor=await db.from('organization_memberships').select('role,is_active').eq('organization_id',access.organizationId).eq('profile_id',process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!).maybeSingle();if(actor.error||!actor.data?.is_active||!['owner','admin'].includes(actor.data.role))syncConfigurationProblem=INTAKE_ACTOR_ACCESS_PROBLEM;}
     const customer = customerResult.data;
@@ -215,10 +219,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     }
     let customerPriceListId:string|null|undefined;
     let estimateCatalog:{options:EstimateCatalogOption[];issues:string[]}={options:[],issues:[]};
-    if(!quote&&!fixedPrice&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status)){
-      try{const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([loadEstimateCatalog(read),link?.sync_status==='ok'?read.customer(link.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);estimateCatalog=catalog;customerPriceListId=customerPrice;if(customerPriceListId)estimateCatalog.options.sort((a,b)=>Number(b.priceListId===customerPriceListId)-Number(a.priceListId===customerPriceListId));}
-      catch{estimateCatalog.issues=['Quibijevih cenikov ni mogoče prebrati. Podatki niso nadomeščeni z lokalnim cenikom.'];}
-    }
+    if(estimateDataTask){const estimateData=await estimateDataTask;if(estimateData){estimateCatalog=estimateData.catalog;customerPriceListId=estimateData.customerPrice;if(customerPriceListId)estimateCatalog.options.sort((a,b)=>Number(b.priceListId===customerPriceListId)-Number(a.priceListId===customerPriceListId));}else estimateCatalog.issues=['Quibijevih cenikov ni mogoče prebrati. Podatki niso nadomeščeni z lokalnim cenikom.'];}
     if(automaticDraft){const saved=new Map(automaticDraft.options.map(option=>[option.key,option]));estimateCatalog.options=[...estimateCatalog.options.filter(option=>!saved.has(option.key)),...saved.values()];if(customerPriceListId===undefined)customerPriceListId=automaticDraft.customerPriceListId;}
     // Journal evidence remains visible with all external writes disabled.
     if (quote && !createdOperation){try{createdOperation=await quibiWorkflowJournal(access.organizationId,access.userId).get("estimate",serviceRequestId)}catch{}}
