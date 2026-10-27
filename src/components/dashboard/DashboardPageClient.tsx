@@ -37,26 +37,29 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   const matches=(order:import('@/lib/dashboard/types').ServiceOrderDemo)=>matchesDashboardSearch(order,queueSearch)||found.caseIds.includes(order.serviceRequestId??'')||found.candidates.some(c=>candidateCaseMatch(order,c,queueSearch));
   const newParties=found.candidates.flatMap(candidate=>(candidate.vehicles.length?candidate.vehicles:[null]).filter(vehicle=>!initialData.ok||!initialData.orders.some(order=>vehicle?order.vehicleId===vehicle.vehicleId||order.quibiVehicleId===vehicle.vehicleId.replace(/^quibi:/,''):order.customerId===candidate.customerId||order.quibiCustomerId===candidate.customerId.replace(/^quibi:/,''))).map(vehicle=>({candidate,vehicle})));
 
-  const testOrders=useMemo(()=>initialData.ok?uniqueDashboardOrders(initialData.orders).filter(isSyntheticOrder):[],[initialData]);
-  const testIds=new Set(testOrders.map(order=>order.serviceRequestId));
-  const queue=useMemo(()=>initialData.ok?dashboardQueue(initialData.orders.filter(order=>!isSyntheticOrder(order))):[],[initialData]);
+  const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
+  const [periodFrom, setPeriodFrom] = useState('');
+  const [periodTo, setPeriodTo] = useState('');
+  const now = useDashboardNow(initialData.generatedAt);
+  const periodOrders = useMemo(()=>initialData.ok ? uniqueDashboardOrders(initialData.orders).filter(o=>isDateInPeriod(o.updatedAt,period,now,{from:periodFrom,to:periodTo})) : [],[initialData,period,now,periodFrom,periodTo]);
+  const testOrders=useMemo(()=>periodOrders.filter(isSyntheticOrder),[periodOrders]);
+  const testIds=new Set((initialData.ok?initialData.orders:[]).filter(isSyntheticOrder).map(order=>order.serviceRequestId));
+  const queue=useMemo(()=>dashboardQueue(periodOrders.filter(order=>!isSyntheticOrder(order))),[periodOrders]);
   const visibleQueue=queueSearch.trim()?queue.filter(row=>matches(row.order)):filterDashboardQueue(queue,queueGroup,'');
   const visibleTests=testOrders.filter(matches);
-  const matchedOrders=initialData.ok?uniqueDashboardOrders(initialData.orders).filter(matches):[];
-  const recognized=queueSearch.trim()?found.candidates.flatMap(candidate=>(intakeVehicleSelection(candidate,queueSearch)?[intakeVehicleSelection(candidate,queueSearch)]:(candidate.vehicles.length?candidate.vehicles:[null])).map(vehicle=>({candidate,vehicle,order:matchedOrders.find(o=>vehicle?o.vehicleId===vehicle.vehicleId||o.quibiVehicleId===(vehicle.quibiVehicleId??vehicle.vehicleId.replace(/^quibi:/,'')):o.customerId===candidate.customerId||o.quibiCustomerId===candidate.customerId.replace(/^quibi:/,''))}))):[];
+  const matchedOrders=periodOrders.filter(matches);
+  const recognized=queueSearch.trim()?found.candidates.flatMap(candidate=>(intakeVehicleSelection(candidate,queueSearch)?[intakeVehicleSelection(candidate,queueSearch)]:(candidate.vehicles.length?candidate.vehicles:[null])).map(vehicle=>({candidate,vehicle,order:matchedOrders.find(o=>vehicle?o.vehicleId===vehicle.vehicleId||o.quibiVehicleId===(vehicle.quibiVehicleId??vehicle.vehicleId.replace(/^quibi:/,'')):o.customerId===candidate.customerId||o.quibiCustomerId===candidate.customerId.replace(/^quibi:/,''))}))).filter(({candidate,vehicle,order})=>!!order||!initialData.ok||!initialData.orders.some(o=>vehicle?(o.vehicleId===vehicle.vehicleId||o.quibiVehicleId===(vehicle.quibiVehicleId??vehicle.vehicleId.replace(/^quibi:/,''))):(o.customerId===candidate.customerId||o.quibiCustomerId===candidate.customerId.replace(/^quibi:/,'')))):[];
   const fallback=queueSearch.trim()?matchedOrders.filter((o,index,all)=>!recognized.some(r=>!!o.vehicleId&&r.order?.vehicleId===o.vehicleId)&&all.findIndex(x=>(x.vehicleId??x.serviceRequestId)===(o.vehicleId??o.serviceRequestId))===index):[];
-  const [period, setPeriod] = useState<DashboardPeriodId>("vsi");
   const [statusFilter, setStatusFilter] = useState<WorkflowStatusId | "all">(
     "all",
   );
-  const now = useDashboardNow(initialData.generatedAt);
 
   const orders = useMemo(() => {
     if (!initialData.ok) return [];
     return initialData.orders.filter((o) => !isSyntheticOrder(o)&&
-      isDateInPeriod(o.updatedAt, period, now),
+      isDateInPeriod(o.updatedAt, period, now,{from:periodFrom,to:periodTo}),
     );
-  }, [period, now, initialData]);
+  }, [period, now, initialData,periodFrom,periodTo]);
 
   const workflowCounts = useMemo(() => {
     return WORKFLOW_STATUSES.map((status) => {
@@ -72,9 +75,9 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
   const activity = useMemo(() => {
     if (!initialData.ok) return [];
     return initialData.activity.filter((a) =>
-      isDateInPeriod(a.occurredAt, period, now),
+      isDateInPeriod(a.occurredAt, period, now,{from:periodFrom,to:periodTo}),
     );
-  }, [initialData, period, now]);
+  }, [initialData, period, now,periodFrom,periodTo]);
 
   if (!initialData.ok) {
     return (
@@ -121,15 +124,16 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
             {queueSearch&&<button type="button" onClick={()=>setQueueSearch('')} className="min-h-11 rounded-lg px-4 text-sm text-slate-600" aria-label="Počisti iskanje">Počisti</button>}
 
           </div>
-          {!queueSearch.trim()&&<div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Skupine primerov">
-            {DASHBOARD_GROUPS.map(group=><button key={group.id} type="button" aria-pressed={queueGroup===group.id} onClick={()=>setQueueGroup(group.id)} className={'flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 sm:px-4 '+(queueGroup===group.id?'border-blue-600 bg-blue-50 text-blue-900':'border-slate-200 text-slate-600 hover:bg-slate-50')}><span>{group.label}</span><span className="text-lg tabular-nums">{queue.filter(row=>row.group===group.id).length}</span></button>)}
-          </div>}
+          <div className="mt-3"><DashboardPeriodFilter value={period} onChange={setPeriod} from={periodFrom} to={periodTo} onFromChange={setPeriodFrom} onToChange={setPeriodTo} /></div>
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Skupine primerov">
+            {DASHBOARD_GROUPS.map(group=><button key={group.id} type="button" aria-pressed={queueGroup===group.id} onClick={()=>setQueueGroup(group.id)} className={'flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 sm:px-4 '+(queueGroup===group.id?'border-blue-600 bg-blue-50 text-blue-900':'border-slate-200 text-slate-600 hover:bg-slate-50')}><span>{group.label}</span><span className="text-lg tabular-nums">{queue.filter(row=>row.group===group.id&&matches(row.order)).length}</span></button>)}
+          </div>
         </div>
       {queueSearch.trim()&&(recognized.length>0||fallback.length>0)&&<section aria-label="Najdene stranke in vozila" className="space-y-3">
         {recognized.map(({candidate,vehicle,order})=><article key={candidate.customerId+':'+vehicle?.vehicleId} className="space-y-3 rounded-xl border bg-white p-4"><h2 className="font-semibold">{candidate.displayName}</h2><p className="text-sm">{[candidate.phone,candidate.email].filter(Boolean).join(' · ')}</p><p className="font-medium">{[vehicle?.make,vehicle?.model,vehicle?.registrationCurrent].filter(Boolean).join(' · ')}</p><p className="break-words text-sm text-slate-600">{[vehicle?.vin&&'VIN: '+vehicle.vin,vehicle?.year,vehicle?.mileage!=null&&vehicle.mileage+' km',vehicle?.fuel,vehicle?.powerKw!=null&&vehicle.powerKw+' kW',vehicle?.engine,vehicle?.engineType].filter(Boolean).join(' · ')}</p>{order?.serviceRequestId?<VehicleHistory key={order.serviceRequestId} expanded={recognized.length===1} scope={{caseId:order.serviceRequestId,includeCurrent:true}}/>:vehicle?.vehicleId.startsWith('quibi:')&&candidate.customerId.startsWith('quibi:')?<VehicleHistory expanded={recognized.length===1} scope={{customerId:candidate.customerId.slice(6),vehicleId:vehicle.vehicleId.slice(6)}}/>:null}{newParties.some(p=>p.candidate.customerId===candidate.customerId&&p.vehicle?.vehicleId===vehicle?.vehicleId)&&<button type="button" className="min-h-11 rounded-lg bg-blue-700 px-4 py-2 font-medium text-white" onClick={()=>openWithCandidate(candidate,vehicle?.vehicleId)}>Novo povpraševanje</button>}</article>)}
         {fallback.map(o=><article key={o.vehicleId??o.serviceRequestId} className="space-y-3 rounded-xl border bg-white p-4"><h2 className="font-semibold">{o.customerName}</h2><p className="text-sm">{o.customerPhone}</p><p className="font-medium">{[o.vehicleMakeModel,o.registration].filter(Boolean).join(' · ')}</p><p className="break-words text-sm text-slate-600">{[o.vehicleVin&&'VIN: '+o.vehicleVin,o.vehicleYear,o.vehicleMileage!=null&&o.vehicleMileage+' km',o.vehicleFuel,o.vehiclePowerKw!=null&&o.vehiclePowerKw+' kW',o.vehicleEngine].filter(Boolean).join(' · ')}</p>{o.serviceRequestId&&<VehicleHistory key={o.serviceRequestId} expanded={fallback.length===1&&!recognized.length} scope={{caseId:o.serviceRequestId,includeCurrent:true}}/>}</article>)}
       </section>}
-        <p role="status" className="px-5 py-3 text-xs text-slate-500">Primeri: {visibleQueue.length+(queueSearch.trim()?visibleTests.length:0)}{queueSearch.trim()?' za iskanje »'+queueSearch.trim()+'«':''}</p>
+        <p role="status" className="px-5 py-3 text-xs text-slate-500">Primeri: {queue.filter(row=>matches(row.order)).length+visibleTests.length}{queueSearch.trim()?' za iskanje »'+queueSearch.trim()+'«':''}</p>
         {visibleQueue.length ? <ul className="divide-y divide-slate-100 border-t border-slate-100">{visibleQueue.map(item=>{const {order:o,href}=item;return <li key={o.serviceRequestId} className="px-5 py-3 transition-colors hover:bg-slate-50/70">
           <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-6">
             <div className="min-w-0"><p className="font-semibold text-slate-900">{o.customerName}</p><p className="mt-1 text-sm text-slate-600">{o.vehicleMakeModel}{o.registration&&<span className="ml-2 font-medium text-slate-800">{o.registration}</span>}</p></div>
@@ -141,9 +145,8 @@ export function DashboardPageClient({ initialData }: DashboardPageClientProps) {
       {testOrders.length>0&&<details key={queueSearch.trim()?'search:'+queueSearch:'all-tests'} open={!!queueSearch.trim()&&visibleTests.length>0} className="rounded-xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer text-sm font-medium text-slate-600">Testni primeri ({visibleTests.length})</summary><ul className="mt-3 divide-y divide-slate-100">{visibleTests.map(order=><li key={order.serviceRequestId??order.id} className="py-3 text-sm"><Link className="inline-flex min-h-11 items-center text-blue-700 underline" href={'/dashboard/primeri/'+order.serviceRequestId}>#{order.id} · {order.customerName} · {order.vehicleMakeModel}{order.registration?' · '+order.registration:''}</Link><p className="text-xs text-slate-500">{dashboardStatusLabel(order)}</p></li>)}</ul></details>}
       <details className="rounded-xl border border-slate-200 bg-white p-4">
         <summary className="cursor-pointer font-semibold text-slate-800">Vsi primeri in zgodovina</summary>
-        <p className="my-3 text-sm text-slate-600">Dodatni pregled po obdobju in statusu, vključno z zaključenimi primeri. Skupine zgoraj prikazujejo primere iz vseh obdobij.</p>
+        <p className="my-3 text-sm text-slate-600">Dodatni pregled po statusu, vključno z zaključenimi primeri.</p>
         <button type="button" disabled={refreshing} onClick={()=>startRefresh(()=>router.refresh())} className="min-h-11 rounded-lg px-4 text-sm text-slate-600 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50">{refreshing?'Osvežujem…':'Osveži'}</button>
-        <DashboardPeriodFilter value={period} onChange={setPeriod} />
         <div className="mt-4 space-y-4">
       <WorkflowStatusSummary
         items={workflowCounts}

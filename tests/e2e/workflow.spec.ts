@@ -531,3 +531,21 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await expect(page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true})).toHaveCount(0);
  await noHorizontalOverflow(page);
 });
+
+test('dashboard period filter combines search and inclusive custom dates on desktop and phone', async ({page}) => {
+ await login(page,seed.owner); await page.goto('/dashboard');
+ for (const width of [1440,390,350]) {
+  await page.setViewportSize({width,height:900});
+  const filter=page.getByLabel('Obdobje',{exact:true});
+  await expect(filter).toHaveValue('vsi');
+  await expect(filter.locator('option')).toHaveText(['Vsi datumi','Danes','Ta teden','Zadnji mesec','Po izbiri']);
+  await page.getByPlaceholder('Poišči stranko, registracijo ali delo …').fill('TEST');
+  await filter.selectOption('po_zelji');
+  await page.getByLabel('Od',{exact:true}).fill('1900-01-01');
+  await page.getByLabel('Do',{exact:true}).fill('1900-01-02');
+  await expect(page.getByRole('status').filter({hasText:'Primeri:'})).toContainText('Primeri: 0');
+  await expect(page.getByRole('group',{name:'Skupine primerov'})).toBeVisible();
+  await noHorizontalOverflow(page);
+  await filter.selectOption('vsi'); await page.getByLabel('Počisti iskanje').click();
+ }
+});
