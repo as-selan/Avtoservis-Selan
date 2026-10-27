@@ -1,7 +1,7 @@
-import {hostedQuibiEnvironment,type QuibiEnvironment} from './deployment-policy.ts';
+import {caseWorkQuibiEnvironment,type QuibiEnvironment} from './deployment-policy.ts';
 export type BusinessReference={id:string;quibi_document_id:string;content_sha256:string;quibi_environment:string;quibi_customer_id?:string;quibi_vehicle_id?:string};
 export function assertCaseBusinessScope(env:Record<string,string|undefined>,status:string,kind:string,repairCompleted:boolean,readOnly=false){
- try{hostedQuibiEnvironment(env)}catch{throw Error('CASE_BUSINESS_FORBIDDEN')}
+ try{caseWorkQuibiEnvironment(env)}catch{throw Error('CASE_BUSINESS_FORBIDDEN')}
  if(!['preparing_offer','awaiting_customer_approval','awaiting_slot_selection','appointment_confirmed','converted'].includes(status)||!['work_order','invoice'].includes(kind)||(kind==='invoice'&&!repairCompleted&&!readOnly))throw Error('QUIBI_BUSINESS_STAGE_NOT_READY');
 }
 export type JournalReferenceRow={id:string;kind:string;state:string;quibi_id:string|null;quibi_content_sha256:string|null;request_body:string;created_at:string};

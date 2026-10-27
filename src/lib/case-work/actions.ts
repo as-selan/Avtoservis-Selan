@@ -1,9 +1,9 @@
 "use server";
-import {hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
+import {caseWorkQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {revalidatePath} from 'next/cache';import {requireWorkshopAccess} from '@/lib/auth/requireWorkshopAccess';import {createClient} from '@/lib/supabase/server';import {configuredQuibiReadClient} from '@/lib/quibi/client';import {loadQuibiDocument} from '@/lib/quibi/document-read';import {photoExtension,workInput} from './policy';
 export async function caseWorkAction(form:FormData){try{const access=await requireWorkshopAccess(),db=await createClient(),action=String(form.get('action')),caseId=String(form.get('caseId')??'');
  if(action==='assign'){
-  const environment=hostedQuibiEnvironment(process.env);
+  const environment=caseWorkQuibiEnvironment(process.env);
   if(!['owner','admin'].includes(access.role))throw Error('FORBIDDEN');
   const {data:rows,error}=await db.from(quibiJournalTable(environment)).select('quibi_id,quibi_content_sha256,request_body').eq('organization_id',access.organizationId).eq('service_request_id',caseId).in('kind',['work_order','work_order_update']).eq('state','verified').order('created_at',{ascending:false}).limit(1);
   if(error||!rows?.[0])throw Error('REFERENCE_REQUIRED');const ref=rows[0],payload=JSON.parse(ref.request_body),body=payload.body??payload,customer=String(body.Glavadokumenta.stranka_id),vehicle=String(body.Glavadokumenta.vozila_id),doc=await loadQuibiDocument(configuredQuibiReadClient(),'work_order',ref.quibi_id,customer);

@@ -151,7 +151,7 @@ if (webError || webProbe?.ok !== true) {
 
 }
 await writeFile(E2E_FIXTURES_PATH, JSON.stringify({
-  owner: owner.email, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
+  owner: owner.email, ownerId: owner.id, reception: reception.email, mechanic: mechanic.email, foreign: foreign.email,
   invitedEmail, inviteActionLink: invited.properties.action_link,
   customer, linkedCustomer, vehicle, caseId, preparedCaseId, incompleteCases, editable, mechanicCases,
 }), { mode: 0o600 });

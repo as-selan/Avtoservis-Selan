@@ -21,3 +21,9 @@ test('invoice READ preview never implies completion or allows an unconfirmed dis
 
 test('definitive rejection without a document does not erase verified earlier business references',()=>{assert.equal(caseBusinessReference([{...create,state:'failed',quibi_id:null}],'work_order'),null);assert.equal(caseBusinessReference([create,{...create,kind:'invoice',state:'failed',quibi_id:null}],'work_order')?.quibi_document_id,'123');assert.throws(()=>caseBusinessReference([{...create,state:'uncertain',quibi_id:null}],'work_order'))});
 test('corrected invoice namespace requires preserved failed original and exact retry reference',()=>{const original={kind:'invoice',local_entity_id:'case',id:'rejection',state:'failed',quibi_id:null};const retry={kind:'invoice',local_entity_id:'rejection',request_body:JSON.stringify({Glavadokumenta:{external_id:'selan-work-order:rejection:invoice'}})};assert.doesNotThrow(()=>assertBusinessCreationNamespace([original,retry],'case','invoice'));assert.throws(()=>assertBusinessCreationNamespace([{...original,state:'uncertain'},retry],'case','invoice'))});
+
+
+test('isolated fixture uses existing business stage rules for orders and invoices',()=>{
+ const e={APP_ENV:'local',CI:'true',SELAN_ISOLATED_E2E:'1',QUIBI_E2E_WRITE_ENABLED:'1',QUIBI_E2E_ORIGIN:'http://127.0.0.1:47862',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',PUBLIC_APP_ORIGIN:'http://127.0.0.1:3000',QUIBI_DEV_USERNAME:'selan-isolated-fixture',QUIBI_DEV_PASSWORD:'selan-isolated-fixture'};
+ assert.doesNotThrow(()=>assertCaseBusinessScope(e,'converted','invoice',true));assert.throws(()=>assertCaseBusinessScope(e,'converted','invoice',false));assert.throws(()=>assertCaseBusinessScope({...e,VERCEL_ENV:'preview'},'converted','invoice',true));assert.throws(()=>assertCaseBusinessScope({...e,NEXT_PUBLIC_SUPABASE_URL:'https://production.supabase.co'},'converted','invoice',true));
+});

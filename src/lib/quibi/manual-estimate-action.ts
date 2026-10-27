@@ -1,4 +1,5 @@
 "use server";
+import {caseWorkQuibiEnvironment} from './deployment-policy';
 import {syntheticCaseEvidenceAllowed} from './synthetic-case-evidence';
 
 import { createClient as createPrivilegedClient } from "@supabase/supabase-js";
@@ -276,7 +277,7 @@ export async function recordManualEstimateDecision(
   const access = await requirePhase1OperationalAccess();
   // The authenticated click is the operator's attestation, not evidence received from Quibi.
   if(!reference.trim()) reference = `Selan: uporabnik evidentiral ${decision === 'approved' ? 'odobritev' : 'zavrnitev'} stranke`;
-  if(reference.trim().startsWith('QA-SIM-')&&(process.env.APP_ENV!=='preproduction'||process.env.QUIBI_MODE!=='dev'||process.env.VERCEL_ENV!=='preview'))return error('Odločitev za testni primer ni dovoljena v tem okolju.');
+  if(reference.trim().startsWith('QA-SIM-')){try{if(caseWorkQuibiEnvironment(process.env)!=='dev')return error('Odločitev za testni primer ni dovoljena v tem okolju.')}catch{return error('Odločitev za testni primer ni dovoljena v tem okolju.')}}
   if (!demoEvidenceAllowed(reference)) return error("Podatki testnega primera niso veljavni. Osvežite primer.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId)
       || !["approved", "rejected"].includes(decision)

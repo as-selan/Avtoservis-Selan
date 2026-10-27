@@ -1,7 +1,8 @@
 import {canConfirmQuibiVehicleCreate} from './vehicle-create-permission';
 import {inspectionRepairServices} from '../inspections/checklist';
 import {buildAutomaticEstimateDraft} from './automatic-estimate-draft';
-import {isHostedQuibiEnvironment} from './deployment-policy';
+import {isHostedQuibiEnvironment,caseWorkQuibiEnvironment} from './deployment-policy';
+function isIntakeEnvironment(env:Record<string,string|undefined>){if(isHostedQuibiEnvironment(env))return true;try{return env.QUIBI_E2E_WRITE_ENABLED==='1'&&caseWorkQuibiEnvironment(env)==='dev'}catch{return false}}
 import {requiresResolvedVehicleConfirmation} from './vehicle-identity';
 import {savedIntakeCanResumeCreate,intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from './intake-sync-configuration';
 import 'server-only';
@@ -17,10 +18,10 @@ import {customerFingerprint,vehicleFingerprint} from './contracts';
 import {synchronizeIntakeParties} from './automatic-intake-workflow';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function scheduleIntakeSynchronization(caseId:string,mode:'read'|'saved'='read'){
- if(isHostedQuibiEnvironment(process.env)&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId,0,mode)});
+ if(isIntakeEnvironment(process.env)&&uuid.test(caseId))after(async()=>{await processIntakeSynchronization(caseId,0,mode)});
 }
 export async function processIntakeSynchronization(caseId:string,restarts=0,mode:'read'|'saved'|'resume'|'distinct'='read'){
- if(!uuid.test(caseId)||!isHostedQuibiEnvironment(process.env))return;
+ if(!uuid.test(caseId)||!isIntakeEnvironment(process.env))return;
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -117,7 +118,7 @@ export async function processIntakeSynchronization(caseId:string,restarts=0,mode
 
 /** Called only after successful token-authorized completion, never from raw browser IDs. */
 export function scheduleCompletedIntakeSynchronization(tokenHash:string){
- if(!isHostedQuibiEnvironment(process.env)||!/^[a-f0-9]{64}$/.test(tokenHash))return;
+ if(!isIntakeEnvironment(process.env)||!/^[a-f0-9]{64}$/.test(tokenHash))return;
  after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data,error}=await db.from('service_request_completion_links').select('service_request_id').eq('token_hash',tokenHash).is('revoked_at',null).not('last_used_at','is',null).single();
@@ -127,7 +128,7 @@ export function scheduleCompletedIntakeSynchronization(tokenHash:string){
 
 /** Hosted web RPC intentionally returns no IDs. Resolve only the just-persisted server-authorized request. */
 export function schedulePersistedWebIntakeSynchronization(clientRequestId:string){
- if(!isHostedQuibiEnvironment(process.env)||!uuid.test(clientRequestId))return;
+ if(!isIntakeEnvironment(process.env)||!uuid.test(clientRequestId))return;
  after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data:org,error:orgError}=await db.from('organizations').select('id').eq('slug','avtoservis-selan').single();if(orgError||!org)return;
@@ -137,7 +138,7 @@ export function schedulePersistedWebIntakeSynchronization(clientRequestId:string
 }
 
 export function schedulePendingIntakePreparations(){
- if(!isHostedQuibiEnvironment(process.env))return;
+ if(!isIntakeEnvironment(process.env))return;
  after(async()=>{const url=process.env.NEXT_PUBLIC_SUPABASE_URL,secret=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!secret)return;
   const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
   const actor=process.env.QUIBI_INTAKE_SYNC_ACTOR_ID;if(!actor||!uuid.test(actor))return;

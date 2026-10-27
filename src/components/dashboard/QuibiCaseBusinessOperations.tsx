@@ -4,7 +4,7 @@ import {prepareQuibiBusinessDocument} from '@/lib/quibi/business-document-action
 import {loadEstimateCatalog} from '@/lib/quibi/estimate-catalog';
 import {InspectionBillingBasisForm} from './QuibiBusinessDocumentForm';
 import {QuibiDocumentPayments} from './QuibiDocumentPayments';
-import {isHostedQuibiEnvironment,hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
+import {isHostedQuibiEnvironment,hostedQuibiEnvironment,caseWorkQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {sendPresentation} from '@/lib/quibi/send-outcome';
 import {quibiDevTestRecipients} from '@/lib/quibi/write-contract';
 import {hasRecordedCustomerApproval} from '@/lib/quibi/business-form-state';
@@ -20,8 +20,9 @@ import {businessSendKey} from '@/lib/quibi/business-send-workflow';
 import {QuibiBusinessDocumentForm,QuibiBusinessReadReconcile} from './QuibiBusinessDocumentForm';
 import {QuibiBusinessSend} from './QuibiBusinessSend';
 export async function QuibiCaseBusinessOperations({organizationId,userId,caseId,customerId,status,syntheticQa=false,repairReviewed=false}:{organizationId:string;userId:string;caseId:string;customerId:string;status:string;syntheticQa?:boolean;repairReviewed?:boolean}){
- if(!isHostedQuibiEnvironment(process.env))return null;
- const environment=hostedQuibiEnvironment(process.env);
+ let selected:ReturnType<typeof caseWorkQuibiEnvironment>|null;
+ try{selected=isHostedQuibiEnvironment(process.env)?hostedQuibiEnvironment(process.env):process.env.QUIBI_E2E_WRITE_ENABLED==='1'?caseWorkQuibiEnvironment(process.env):null;}catch{return null;}
+ if(!selected)return null;const environment=selected;
  const db=await createClient();
  const phase=quibiCaseProcessStage(status);if(!phase)return null;
  if(!phase.businessReady){

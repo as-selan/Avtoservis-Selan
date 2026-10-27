@@ -47,3 +47,16 @@ test('case work fixture accepts only explicitly isolated loopback CI, leaving ho
  for(const patch of [{CI:'false'},{SELAN_ISOLATED_E2E:'0'},{VERCEL:'1'},{VERCEL_ENV:'preview'},{APP_ENV:'production'},{QUIBI_MODE:'production'},{QUIBI_E2E_ORIGIN:'https://dev.quibi.net'},{NEXT_PUBLIC_SUPABASE_URL:'https://production.supabase.co'}])assert.throws(()=>caseWorkQuibiEnvironment({...fixture,...patch}));
  assert.equal(caseWorkQuibiEnvironment(dev),'dev');assert.equal(caseWorkQuibiEnvironment(production),'production');
 });
+
+
+test('isolated local write and case review share the fixture while hosted environments remain excluded',()=>{
+ const env={APP_ENV:'local',CI:'true',SELAN_ISOLATED_E2E:'1',QUIBI_E2E_WRITE_ENABLED:'1',QUIBI_E2E_ORIGIN:'http://127.0.0.1:47862',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',PUBLIC_APP_ORIGIN:'http://127.0.0.1:3000',QUIBI_DEV_USERNAME:'selan-isolated-fixture',QUIBI_DEV_PASSWORD:'selan-isolated-fixture'};
+ assert.equal(quibiWorkflowConfig(env,'write').mode,'dev');assert.equal(caseWorkQuibiEnvironment(env),'dev');assert.throws(()=>hostedQuibiEnvironment(env));assert.throws(()=>quibiWorkflowConfig(env,'send'));
+ for(const patch of [{VERCEL:'1'},{VERCEL_ENV:'preview'},{APP_ENV:'production'},{CI:'false'},{QUIBI_E2E_ORIGIN:'https://dev.quibi.net'},{NEXT_PUBLIC_SUPABASE_URL:'https://prod.supabase.co'},{PUBLIC_APP_ORIGIN:'https://example.com'},{QUIBI_DEV_WRITE_ENABLED:'1'},{QUIBI_DEV_LOCAL_SEND_ENABLED:'1'},{QUIBI_DEV_PASSWORD:'wrong'}])assert.throws(()=>caseWorkQuibiEnvironment({...env,...patch}));
+});
+
+
+test('isolated intake uses existing enabled actor and local fixture; it never enables real writes',()=>{
+ const e={APP_ENV:'local',CI:'true',SELAN_ISOLATED_E2E:'1',QUIBI_E2E_WRITE_ENABLED:'1',QUIBI_E2E_ORIGIN:'http://127.0.0.1:47862',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',PUBLIC_APP_ORIGIN:'http://127.0.0.1:3000',QUIBI_DEV_USERNAME:'selan-isolated-fixture',QUIBI_DEV_PASSWORD:'selan-isolated-fixture',QUIBI_DEV_INTAKE_SYNC_ENABLED:'1',QUIBI_INTAKE_SYNC_ACTOR_ID:'00000000-0000-4000-8000-000000000001',SUPABASE_SERVICE_ROLE_KEY:'fixture'};
+ assert.equal(intakeSyncConfigurationProblem(e,'write'),null);assert.ok(intakeSyncConfigurationProblem({...e,QUIBI_INTAKE_SYNC_ACTOR_ID:''},'write'));assert.ok(intakeSyncConfigurationProblem({...e,QUIBI_E2E_ORIGIN:'https://dev.quibi.net'},'write'));assert.ok(intakeSyncConfigurationProblem({...e,VERCEL_ENV:'preview'},'write'));assert.ok(intakeSyncConfigurationProblem({...e,QUIBI_DEV_WRITE_ENABLED:'1'},'write'));
+});

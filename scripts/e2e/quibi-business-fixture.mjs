@@ -8,6 +8,12 @@ export function createBusinessFixture(customers,send,stateFile){
  return async(req,res,url)=>{
   const list=(key,inner,values)=>send(res,200,{error:false,data:{[key]:values.map(item=>({[inner]:item}))}});
   const catalogs={'/api2/stevilcenje':['Stevilcenje','Stevilcenje',[{id:'2061',naziv:'Predračun',glava_id:'2'},{id:'6483',naziv:'Delovni nalog',glava_id:'3'},{id:'2060',naziv:'Račun',glava_id:'1'}]],'/api2/enota':['Enote','Enota',[{id:'1',naziv:'kos'}]],'/api2/ddv':['DDV','Ddv',[{id:'1',naziv:'0 %'},{id:'5',naziv:'22 %'}]],'/api2/statusi':['Statusi','Statusi',[{id:'1',naziv:'QA-SIM Osnutek'}]]};
+  if(req.method==='GET'&&url.pathname==='/api2/cenik'){send(res,200,{error:false,data:{Cenik:[]}});return true}
+  if(req.method==='GET'&&url.pathname==='/api2/sifranti/seznam'){const row={Sifranti:{id:'89158',sifra:'',naziv:'Servis vozila',cenaBrezDDV:'27',enota_id:'1',ddv_id:'5',vodiZalogo:'0'},Enota:{id:'1',naziv:'kos'},Ddv:{id:'5',naziv:'22 %'}};const rows=Number(url.searchParams.get('po')??0)<89158?[row]:[];send(res,200,{error:false,data:{Sifranti:rows},naslednji_po:null});return true}
+  if(req.method==='GET'&&url.pathname==='/api2/skladisca'){list('Skladisca','Skladisca',[{id:'1',naziv:'Testno skladišče'}]);return true}
+  if(req.method==='GET'&&url.pathname==='/api2/spaces'){list('Spaces','Space',[{id:'1',BusinessPremiseID:'TEST'}]);return true}
+  if(req.method==='GET'&&url.pathname==='/api2/glavadokumenta/placila'){list('Placila','Placila',[{naziv:'Bančno nakazilo'}]);return true}
+  if(req.method==='GET'&&url.pathname.startsWith('/api2/delnaplacila/placiladokumenta/')){send(res,200,{error:false,data:{Delnaplacila:[]}});return true}
   if(req.method==='GET'&&catalogs[url.pathname]){list(...catalogs[url.pathname]);return true}
   if(req.method==='GET'&&url.pathname==='/api2/glavadokumenta/vrstaprodaje'){send(res,200,{error:false,data:{'1':'Domača prodaja'}});return true}
   if(req.method==='GET'&&url.pathname==='/api2/vozila/index'){list('Vozila','Vozila',vehicles);return true}
@@ -35,7 +41,7 @@ export function createBusinessFixture(customers,send,stateFile){
    const kind={'/api2/dn':'6483','/api2/predracuni':'2061','/api2/fakture':'2060'}[url.pathname];
    send(res,200,{error:false,data:{Dokumenti:documents.filter(d=>String(d.Glavadokumenta.stranka_id)===String(body.Filtriraj?.stranka)&&String(d.Glavadokumenta.stevilcenje_id)===kind)}});return true;
   }
-  if(body.Stranka){const c=body.Stranka;if(!/^TEST-SELAN-AI/.test(c.naziv)||!c.remote_id||c.emajl!=='test-selan-ai@example.test'||c.telst){send(res,403,{error:true});return true}let item=customers.find(x=>x.remote_id===c.remote_id);if(!item){item={...c,id:String(2100+customers.length)};customers.push(item)}persist();send(res,200,{error:false,data:{Stranke:{Stranka:item}}});return true}
+  if(body.Stranka){const c=body.Stranka;if(!/^TEST-SELAN-AI/.test(c.naziv)||!c.remote_id||c.emajl!=='test-selan-ai@example.test'||c.telst){send(res,403,{error:true});return true}let item=customers.find(x=>x.remote_id===c.remote_id);if(!item){item={...c,id:String(2100+customers.length),cenik_id:null,dniZapadlosti:'5'};customers.push(item)}persist();send(res,200,{error:false,data:{Stranke:{Stranka:item}}});return true}
   if(body.Vozila&&updateId){const v=vehicles.find(v=>v.id===updateId);if(!v||!customers.some(c=>c.id===v.stranka_id&&c.naziv==='TEST-SELAN-AI')||!body.Vozila.internastevilka||body.Vozila.internastevilka.length!==17){send(res,403,{error:true});return true}Object.assign(v,body.Vozila);persist();send(res,200,{error:false,data:{Vozila:{Vozilo:v.id}}});return true}
   if(body.Vozila){const v=body.Vozila;if(!customers.some(c=>c.id===String(v.stranka_id)&&c.naziv==='TEST-SELAN-AI')){send(res,403,{error:true});return true}const item={...v,id:String(++nextVehicle),stranka_id:String(v.stranka_id),disabled:0};vehicles.push(item);persist();send(res,200,{error:false,data:{Vozila:{Vozilo:item.id}}});return true}
   if(body.Glavadokumenta){const h=body.Glavadokumenta;if(!customers.some(c=>c.id===String(h.stranka_id)&&c.naziv==='TEST-SELAN-AI')||!vehicles.some(v=>v.id===String(h.vozila_id)&&v.stranka_id===String(h.stranka_id))||!['2061','2060','6483'].includes(String(h.stevilcenje_id))||!h.external_id||h.id){send(res,403,{error:true});return true}
@@ -43,7 +49,7 @@ export function createBusinessFixture(customers,send,stateFile){
    const lines=Object.values(body.Postavkedokumenta??{});if(!lines.length||lines.some(l=>l.sifra||l.enota_id!=='1'||!['1','5'].includes(l.ddv_id))){send(res,400,{error:true});return true}
    const viewLines=lines.map(line=>{const rate=line.ddv_id==='5'?22:0,unitNet=Number(line.cenaZDDV),lineNet=Number((unitNet*Number(line.kolicina)*(1-Number(line.popust??0)/100)).toFixed(2));return {...line,cenaBrezDDV:unitNet,cenaZDDV:lineNet,Ddv:{stopnjaDDV:rate,naziv:rate+' %'}}});
    const id=String(++nextDocument),ZapSt=`QA-SIM-${id}`,znesek=viewLines.reduce((sum,line)=>sum+line.cenaZDDV*(1+line.Ddv.stopnjaDDV/100),0).toFixed(2);
-   const document={Glavadokumenta:{...h,id,ZapSt,znesek,stranka_id:String(h.stranka_id),vozila_id:String(h.vozila_id)},Statusi:{id:'1',naziv:'QA-SIM Osnutek'},Postavkedokumenta:viewLines};documents.push(document);const response={error:false,id,ZapSt};requests.set(h.external_id,{raw,response});persist();send(res,200,response);return true;
+   const document={Glavadokumenta:{...h,id,ZapSt,znesek,sklic:'TEST-REFERENCE',uNaziv:'TEST DELAVNICA',sNaziv:'TEST-SELAN-AI',stranka_id:String(h.stranka_id),vozila_id:String(h.vozila_id)},Statusi:{id:'1',naziv:'QA-SIM Osnutek'},Postavkedokumenta:viewLines};documents.push(document);const response={error:false,id,ZapSt};requests.set(h.external_id,{raw,response});persist();send(res,200,response);return true;
   }
   send(res,400,{error:true});return true;
  };

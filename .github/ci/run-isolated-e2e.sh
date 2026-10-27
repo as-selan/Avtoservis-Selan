@@ -70,4 +70,15 @@ QUIBI_FIXTURE_PID=$!
 
 cd "${REPO_ROOT}"
 npm run build
-npm run test:e2e
+npm run test:e2e -- tests/e2e/workflow.spec.ts
+
+# One connected synthetic workflow, using only the loopback Quibi fixture.
+kill "${QUIBI_FIXTURE_PID}"
+wait "${QUIBI_FIXTURE_PID}" 2>/dev/null || true
+export APP_ENV=local QUIBI_E2E_WRITE_ENABLED=1 QUIBI_DEV_INTAKE_SYNC_ENABLED=1
+export QUIBI_DEV_USERNAME=selan-isolated-fixture QUIBI_DEV_PASSWORD=selan-isolated-fixture
+export QUIBI_INTAKE_SYNC_ACTOR_ID="$(node --input-type=module -e 'import {readFileSync} from "node:fs"; process.stdout.write(JSON.parse(readFileSync(process.env.E2E_FIXTURES_PATH,"utf8")).ownerId)')"
+export QUIBI_E2E_STATE_FILE="${CI_WORKDIR}/quibi-fixture-state.json"
+node "${REPO_ROOT}/scripts/e2e/quibi-fixture.mjs" &
+QUIBI_FIXTURE_PID=$!
+npx playwright test tests/e2e/connected-flow.spec.ts --project=desktop-chromium

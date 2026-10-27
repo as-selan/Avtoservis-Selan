@@ -18,7 +18,7 @@ import {CaseWorkspace} from '@/components/dashboard/CaseWorkspace';
 import {caseJourney,type JourneyInput} from '@/lib/cases/journey';
 import {CaseJourney} from '@/components/dashboard/CaseJourney';
 import {loadCaseWork} from '@/lib/case-work/read';
-import {isHostedQuibiEnvironment,hostedQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
+import {isHostedQuibiEnvironment,hostedQuibiEnvironment,caseWorkQuibiEnvironment,quibiJournalTable} from '@/lib/quibi/deployment-policy';
 import {requiresResolvedVehicleConfirmation} from '@/lib/quibi/vehicle-identity';
 import {VehicleResolutionPanel} from '@/components/dashboard/VehicleResolutionPanel';
 import {savedIntakeCanResumeCreate,intakeSyncConfigurationProblem,INTAKE_ACTOR_ACCESS_PROBLEM} from '@/lib/quibi/intake-sync-configuration';
@@ -144,7 +144,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const vehicleResolution=await db.from('case_vehicle_resolution_events').select('id,after_state').eq('organization_id',access.organizationId).eq('case_id',serviceRequestId);
     const canonicalCustomerChoice=!!vehicleResolution.data?.some(e=>e.after_state?.remote?.kind==='customer'&&e.after_state?.customerId===request.customer_id&&e.after_state?.vehicleId===request.vehicle_id);
     const resolvedVehicleNeedsReview=requiresResolvedVehicleConfirmation(!!vehicleResolution.data?.some(e=>e.after_state?.remote?.kind!=='customer'),vehicleLink?.sync_status);
-    const identityConfirmed=currentCaseIdentity({environment:isHostedQuibiEnvironment(process.env)?hostedQuibiEnvironment(process.env):null,customerId:link?.external_id??null,vehicleId:vehicleLink?.quibi_vehicle_id??null,customerSyncStatus:link?.sync_status??null,vehicleSyncStatus:vehicleLink?.sync_status??null,customerEnvironment:link?.quibi_environment??null,vehicleEnvironment:vehicleLink?.quibi_environment??null,resolvedVehicleNeedsReview});
+    let identityEnvironment:ReturnType<typeof caseWorkQuibiEnvironment>|null=null;
+    try{if(isHostedQuibiEnvironment(process.env)||process.env.QUIBI_E2E_WRITE_ENABLED==='1')identityEnvironment=caseWorkQuibiEnvironment(process.env);}catch{/* invalid environment */}
+    const identityConfirmed=currentCaseIdentity({environment:identityEnvironment,customerId:link?.external_id??null,vehicleId:vehicleLink?.quibi_vehicle_id??null,customerSyncStatus:link?.sync_status??null,vehicleSyncStatus:vehicleLink?.sync_status??null,customerEnvironment:link?.quibi_environment??null,vehicleEnvironment:vehicleLink?.quibi_environment??null,resolvedVehicleNeedsReview});
     const quoteEvidence = quote?.evidence_payload as { external_id?: unknown } | null;
     const quibiEstimateId = quote?.evidence_kind === "quibi_manual_estimate" &&
       typeof quoteEvidence?.external_id === "string" && /^\d+$/.test(quoteEvidence.external_id)
@@ -246,7 +248,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const {data:workOrder}=internalOrdersEnabled?await db.from("work_orders").select("id,status").eq("organization_id",access.organizationId).eq("service_request_id",serviceRequestId).maybeSingle():{data:null};
     let businessNextAction:CaseStep|undefined;
     let businessHasWorkOrder=false,businessHasInvoice=false,businessWorkOrderId:string|undefined;
-    if(isHostedQuibiEnvironment(process.env)&&!internalOrdersEnabled&&['owner','admin'].includes(access.role)){const {data,error}=await db.from(quibiJournalTable(hostedQuibiEnvironment(process.env))).select('kind,state,quibi_id,quibi_content_sha256,request_body,send_status,created_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).in('kind',['work_order','invoice','work_order_update','invoice_update','send']);if(!error){businessNextAction=quibiBusinessNextAction(data??[]);businessHasInvoice=(data??[]).some(r=>r.kind==='invoice'&&r.state==='verified'&&r.quibi_id);const verifiedOrders=(data??[]).filter(r=>r.kind==='work_order'&&r.state==='verified'&&r.quibi_id);businessHasWorkOrder=verifiedOrders.length===1;businessWorkOrderId=businessHasWorkOrder?verifiedOrders[0].quibi_id??undefined:undefined;}}
+    let caseDocumentEnvironment:ReturnType<typeof caseWorkQuibiEnvironment>|null=null;
+    try{if(isHostedQuibiEnvironment(process.env)||process.env.QUIBI_E2E_WRITE_ENABLED==='1')caseDocumentEnvironment=caseWorkQuibiEnvironment(process.env);}catch{/* invalid fixture or hosted configuration */}
+    if(caseDocumentEnvironment&&!internalOrdersEnabled&&['owner','admin'].includes(access.role)){const {data,error}=await db.from(quibiJournalTable(caseDocumentEnvironment)).select('kind,state,quibi_id,quibi_content_sha256,request_body,send_status,created_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).in('kind',['work_order','invoice','work_order_update','invoice_update','send']);if(!error){businessNextAction=quibiBusinessNextAction(data??[]);businessHasInvoice=(data??[]).some(r=>r.kind==='invoice'&&r.state==='verified'&&r.quibi_id);const verifiedOrders=(data??[]).filter(r=>r.kind==='work_order'&&r.state==='verified'&&r.quibi_id);businessHasWorkOrder=verifiedOrders.length===1;businessWorkOrderId=businessHasWorkOrder?verifiedOrders[0].quibi_id??undefined:undefined;}}
     const repairWork=(await loadCaseWork(serviceRequestId)).rows[0];
     const step = nextCaseStep({repairNextAction:repairWork?.phase?.step,businessNextAction,quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
