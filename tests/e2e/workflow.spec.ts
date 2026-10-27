@@ -536,7 +536,7 @@ test('dashboard period filter combines search and inclusive custom dates on desk
  await login(page,seed.owner); await page.goto('/dashboard');
  for (const width of [1440,390,350]) {
   await page.setViewportSize({width,height:900});
-  const filter=page.getByLabel('Obdobje',{exact:true});
+  const filter=page.getByRole('combobox',{name:'Obdobje'});
   await expect(filter).toHaveValue('vsi');
   await expect(filter.locator('option')).toHaveText(['Vsi datumi','Danes','Ta teden','Zadnji mesec','Po izbiri']);
   await page.getByPlaceholder('Poišči stranko, registracijo ali delo …').fill('TEST');
@@ -549,3 +549,4 @@ test('dashboard period filter combines search and inclusive custom dates on desk
   await filter.selectOption('vsi'); await page.getByLabel('Počisti iskanje').click();
  }
 });
+
