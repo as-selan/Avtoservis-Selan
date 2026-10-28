@@ -21,5 +21,16 @@ begin
 end; $$;
 revoke all on function public.record_case_finding(uuid,text) from public,anon;
 grant execute on function public.record_case_finding(uuid,text) to authenticated;
+create function public.decide_case_finding(p_case uuid,p_finding uuid,p_decision text) returns void language plpgsql security definer set search_path='' as $$
+declare a public.service_case_assignments;
+begin
+ select * into a from public.service_case_assignments where case_id=p_case for update;
+ if not found or not public.can_read_case_work(p_case) or not public.team_has_role(a.organization_id,array['owner','admin']) then raise exception 'FORBIDDEN'; end if;
+ if p_decision not in ('rejected','noted') then raise exception 'INVALID_DECISION'; end if;
+ update public.case_repair_findings set state=p_decision,decided_by=auth.uid(),decided_at=clock_timestamp() where id=p_finding and case_id=p_case and state='recorded';
+ if not found then raise exception 'FINDING_CHANGED'; end if;
+end; $$;
+revoke all on function public.decide_case_finding(uuid,uuid,text) from public,anon;
+grant execute on function public.decide_case_finding(uuid,uuid,text) to authenticated;
 notify pgrst,'reload schema';
 commit;
