@@ -11,6 +11,8 @@ export async function caseWorkAction(form:FormData){try{const access=await requi
   const r=await db.rpc('assign_service_case',{p_case:caseId,p_mechanic:form.get('assignmentTarget')==='self'?access.userId:String(form.get('mechanicId')),p_document:ref.quibi_id,p_sha:ref.quibi_content_sha256,p_environment:environment});if(r.error)throw Error('ASSIGNMENT_FAILED');
  }else if(action==='progress'){
   const v=workInput(caseId,form.get('status'),form.get('note')??'');const r=await db.rpc('update_case_work',{p_case:v.caseId,p_status:v.status,p_note:v.note});if(r.error)throw Error('FORBIDDEN');
+ }else if(action==='finding'){
+  const description=String(form.get('description')??'').trim();if(!description||description.length>3000)throw Error('INVALID_INPUT');const r=await db.rpc('record_case_finding',{p_case:caseId,p_description:description});if(r.error)throw Error('FORBIDDEN');
  }else if(action==='deleteNote'){
   const r=await db.rpc('hide_case_note',{p_case:caseId,p_note:String(form.get('noteId')??'')});if(r.error)throw Error('FORBIDDEN');
  }else if(action==='photo'){
@@ -24,5 +26,5 @@ export async function caseWorkAction(form:FormData){try{const access=await requi
  }else if(action==='photoApproval'){
   if(access.role!=='owner')throw Error('FORBIDDEN');const r=await db.rpc('approve_case_photo',{p_id:String(form.get('photoId')),p_approved:form.get('approved')==='yes'});if(r.error)throw Error('FORBIDDEN');
  }else throw Error('INVALID_ACTION');
- revalidatePath('/dashboard/nalogi');revalidatePath('/dashboard/nalogi/'+caseId);revalidatePath('/dashboard/mehanik');revalidatePath('/dashboard/mehanik/'+caseId);revalidatePath('/dashboard/primeri/'+caseId);return {ok:true,message:action==='deleteNote'?'Opomba je izbrisana.':'Podatki so shranjeni.'};
+ revalidatePath('/dashboard/nalogi');revalidatePath('/dashboard/nalogi/'+caseId);revalidatePath('/dashboard/mehanik');revalidatePath('/dashboard/mehanik/'+caseId);revalidatePath('/dashboard/primeri/'+caseId);return {ok:true,message:action==='deleteNote'?'Opomba je izbrisana.':action==='finding'?'Napaka je zabeležena in predana vodji.':'Podatki so shranjeni.'};
  }catch(e){if(e instanceof Error&&e.message==='PHOTO_RECONCILIATION_REQUIRED')return {ok:false,message:'Fotografija še ni potrjena. V seznamu nedokončanih nalaganj preverite že shranjeno datoteko; ne nalagajte je znova.'};return {ok:false,message:'Shranjevanje ni potrjeno. Preverite dodelitev, dovoljenja in dostop. Pri napaki fotografije preverite seznam pred ponovnim nalaganjem.'}}}
