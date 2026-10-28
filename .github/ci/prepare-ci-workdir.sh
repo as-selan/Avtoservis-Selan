@@ -54,6 +54,7 @@ LATER_MIGRATIONS=(
   "20261027213934_allow_manager_self_assign_case_work.sql"
   "20261028012444_hide_case_notes_with_audit.sql"
   "20261028020000_case_repair_findings.sql"
+  "20261028033000_finding_offer_versions.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"
