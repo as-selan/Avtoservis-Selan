@@ -32,5 +32,15 @@ begin
 end; $$;
 revoke all on function public.decide_case_finding(uuid,uuid,text) from public,anon;
 grant execute on function public.decide_case_finding(uuid,uuid,text) to authenticated;
+alter table public.service_case_photos add column finding_id uuid references public.case_repair_findings(id);
+create function public.link_case_finding_photo(p_case uuid,p_finding uuid,p_photo uuid) returns void language plpgsql security definer set search_path='' as $$
+begin
+ if not public.can_read_case_work(p_case) then raise exception 'FORBIDDEN'; end if;
+ if not exists(select 1 from public.case_repair_findings f where f.id=p_finding and f.case_id=p_case) then raise exception 'FINDING_MISMATCH'; end if;
+ update public.service_case_photos set finding_id=p_finding where id=p_photo and case_id=p_case and author_id=auth.uid() and state='ready' and finding_id is null;
+ if not found then raise exception 'PHOTO_MISMATCH'; end if;
+end; $$;
+revoke all on function public.link_case_finding_photo(uuid,uuid,uuid) from public,anon;
+grant execute on function public.link_case_finding_photo(uuid,uuid,uuid) to authenticated;
 notify pgrst,'reload schema';
 commit;

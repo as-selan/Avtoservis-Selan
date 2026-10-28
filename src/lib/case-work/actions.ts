@@ -21,7 +21,7 @@ export async function caseWorkAction(form:FormData){try{const access=await requi
   const file=form.get('photo'),caption=String(form.get('caption')??'').trim();if(!(file instanceof File)||caption.length<1||caption.length>500||file.size>786432)throw Error('INVALID_PHOTO');const bytes=new Uint8Array(await file.arrayBuffer()),ext=photoExtension(file.type,bytes),id=crypto.randomUUID();
   const prepared=await db.rpc('prepare_case_photo',{p_case:caseId,p_id:id,p_caption:caption,p_ext:ext});if(prepared.error||typeof prepared.data!=='string')throw Error('PHOTO_ACCESS_DENIED');
   const uploaded=await db.storage.from('service-case-evidence').upload(prepared.data,bytes,{contentType:file.type,upsert:false});if(uploaded.error)throw Error('PHOTO_UPLOAD_FAILED');
-  const completed=await db.rpc('complete_case_photo',{p_id:id});if(completed.error)throw Error('PHOTO_RECONCILIATION_REQUIRED');
+  const completed=await db.rpc('complete_case_photo',{p_id:id});if(completed.error)throw Error('PHOTO_RECONCILIATION_REQUIRED');const findingId=String(form.get('findingId')??'');if(findingId){const linked=await db.rpc('link_case_finding_photo',{p_case:caseId,p_finding:findingId,p_photo:id});if(linked.error)throw Error('PHOTO_RECONCILIATION_REQUIRED');}
  }else if(action==='photoComplete'){
   const photoId=String(form.get('photoId')??'');const existing=await db.from('service_case_photos').select('id').eq('id',photoId).eq('case_id',caseId).eq('author_id',access.userId).eq('state','pending').maybeSingle();if(existing.error||!existing.data)throw Error('PHOTO_ACCESS_DENIED');
   const completed=await db.rpc('complete_case_photo',{p_id:photoId});if(completed.error)throw Error('PHOTO_RECONCILIATION_REQUIRED');
