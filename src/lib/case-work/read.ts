@@ -9,7 +9,7 @@ export async function loadCaseWork(caseId?:string,options?:{deferActivity?:boole
  const journal=async()=>{try{const result=await measured('journal',db.from(quibiJournalTable(caseWorkQuibiEnvironment(process.env))).select('service_request_id,kind,state,quibi_id,quibi_content_sha256,created_at').in('service_request_id',ids).in('kind',['invoice','invoice_update','work_order','work_order_update']).order('created_at',{ascending:false}));return {documents:result.data??[],journalUnavailable:!!result.error};}catch{return {documents:[],journalUnavailable:true};}};
  const [assignments,notes,photos,profiles,reviewData,journalData]=await Promise.all([
  measured('assignments',db.from('service_case_assignments').select('case_id,created_at,updated_at,status').in('case_id',ids)),
- options?.deferActivity?Promise.resolve({data:[],error:null}):measured('notes',db.from('service_case_notes').select('case_id,created_at').in('case_id',ids)),
+ options?.deferActivity?Promise.resolve({data:[],error:null}):measured('notes',db.from('service_case_notes').select('case_id,created_at').is('deleted_at',null).in('case_id',ids)),
  options?.deferActivity?Promise.resolve({data:[],error:null}):measured('photos',db.from('service_case_photos').select('case_id,created_at').in('case_id',ids).eq('state','ready')),
  options?.deferActivity?Promise.resolve({data:[],error:null}):measured('profiles',db.from('profiles').select('id,full_name,email').in('id',mechanics)),
  measured('case_work_review_snapshot',loadReviewStates(db,caseId)),journal()]);

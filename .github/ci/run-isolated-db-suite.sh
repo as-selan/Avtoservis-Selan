@@ -216,3 +216,8 @@ echo "== All isolated M3/M4 + full-chain DB suites passed on disposable local Do
 PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
   psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${REPO_ROOT}/supabase/tests/canonical_intake_customer_regression.sql"
 echo "PASS: Canonical intake identity regression"
+
+echo "== Case note permission and review evidence regression =="
+PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
+  psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${REPO_ROOT}/supabase/tests/case_note_deletion_regression.sql"
+echo "PASS: Case note deletion regression"

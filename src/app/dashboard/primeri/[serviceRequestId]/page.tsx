@@ -281,7 +281,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       syntheticAppointment: serviceOffer?.booking_reference?.startsWith("QA-SIM-"), slotOfferStatus: serviceOffer?.status, quibiDevWriteEnabled: writeReady, quibiSendStatus: sendOperation?.sendStatus, quibiSendAttempted: !!sendOperation });
     const missing = currentIntakeCompleteness({phone:customer?.phone??null,email:customer?.email??null,vin:vehicle?.vin??null,make:vehicle?.make??null,model:vehicle?.model??null,registration:vehicle?.registration_current??null},{source:request.source,channel:request.channel,intakeRequestId:request.intake_request_id,identityConfirmed},Array.isArray(request.missing_fields)?request.missing_fields:[]).missing_fields;
     const aiProvider=configuredIntakeProvider(access.organizationId);
-    const aiNotes=aiProvider?await db.from('service_case_notes').select('body').eq('case_id',serviceRequestId).order('created_at',{ascending:false}).limit(20):null;
+    const aiNotes=aiProvider?await db.from('service_case_notes').select('body').eq('case_id',serviceRequestId).is('deleted_at',null).order('created_at',{ascending:false}).limit(20):null;
     // Authenticated RLS supplies only this case's notes. No structured customer IDs,
     // prices, credentials, PDFs or financial documents; free text may contain PII.
     const assistance=await analyzeIntake({summary:[request.summary,request.problem_description].filter(Boolean).join('\n').slice(0,10000),missingFields:missing,serviceWanted:request.service_wanted??undefined,
