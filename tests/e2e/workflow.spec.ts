@@ -495,7 +495,9 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await expect(page.getByText('Mehanik QA',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Začni delo',exact:true}).click();
  await expect(page.getByRole('button',{name:'Zaključi delo',exact:true})).toBeVisible();
- await expect(page.locator('#case-primary-action [data-case-primary]')).toHaveText('Zaključi delo');
+ await expect(page.locator('#case-primary-action [data-case-primary]')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Zaključi delo',exact:true})).toBeVisible();
+ expect(await page.getByRole('button',{name:'Zaključi delo',exact:true}).evaluate((button)=>Boolean(button.compareDocumentPosition(document.querySelector('[data-work-form=photo]')!) & Node.DOCUMENT_POSITION_PRECEDING))).toBe(true);
  await watch.bringToFront();await expect(watch.locator('a[href="/dashboard/mehanik/'+id+'"]')).toContainText('Delo poteka',{timeout:15000});await page.bringToFront();
  await expect(page.getByLabel('Fotografiraj vozilo ali del')).toBeVisible();
  const camera=page.getByLabel('Fotografiraj vozilo ali del');await expect(camera).toHaveAttribute('capture','environment');
