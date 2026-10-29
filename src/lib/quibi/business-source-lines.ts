@@ -1,6 +1,7 @@
 import type {QuibiEstimateDetail} from './contracts.ts';
 import type {QuibiArticle} from './pricing-read.ts';
 import type {DocumentLine} from './write-contract.ts';
+import {catalogDocumentLine} from './estimate-catalog.ts';
 export function quibiSourceNotes(source:QuibiEstimateDetail){return source.lines.filter(l=>l.lineType==='3'&&Number(l.quantity)===0&&Number(l.grossPrice)===0);}
 export function businessSourceLines(source:QuibiEstimateDetail,units:{id:string}[],vat:{id:string}[],articles:QuibiArticle[]=[]):DocumentLine[]{
  const chargeable=source.lines.filter(l=>!quibiSourceNotes(source).includes(l));
@@ -16,4 +17,15 @@ export function businessSourceLines(source:QuibiEstimateDetail,units:{id:string}
   // Documented free-line CREATE price is UNIT NET despite its name.
   return {opis:line.description,enota_id:line.unitId,ddv_id:line.vatId,kolicina:quantity,cenaZDDV:price,popust:discount};
  });
+}
+
+/** Prepare an append from a freshly read work order; never silently drop notes. */
+export function appendWorkOrderCatalogLine(source:QuibiEstimateDetail,units:{id:string}[],vat:{id:string}[],articles:QuibiArticle[],option:import('./estimate-catalog.ts').EstimateCatalogOption,quantity:number,alreadyApplied:boolean):DocumentLine[]{
+ if(alreadyApplied)throw Error('FINDING_ALREADY_APPLIED');
+ if(!/^[a-f0-9]{64}$/.test(source.contentSha256)||quibiSourceNotes(source).length)throw Error('SOURCE_LINE_METADATA_UNSUPPORTED');
+ if(!Number.isFinite(quantity)||quantity<=0||quantity>100000)throw Error('QUIBI_INVALID_ESTIMATE_LINE');
+ if(!units.some(u=>u.id===option.unitId)||!vat.some(v=>v.id===option.vatId))throw Error('SOURCE_LINE_METADATA_UNSUPPORTED');
+ const original=businessSourceLines(source,units,vat,articles);
+ const added=catalogDocumentLine(option,quantity);
+ return [...original,added];
 }
