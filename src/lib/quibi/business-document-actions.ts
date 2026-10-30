@@ -71,7 +71,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
 
 
   let source;
-  if(kind==='work_order'){
+  if(kind==='work_order'&&!updating){
    const {data:quote,error}=await db.from('quotes').select('id,evidence_kind,evidence_payload,content_sha256,internal_review_status').eq('organization_id',access.organizationId).eq('service_request_id',order.service_request_id).eq('quibi_environment',environment).order('version_no',{ascending:false}).limit(1).maybeSingle();
    const evidence=quote?.evidence_payload as {external_id?:string;customer_external_id?:string}|null;
    if(error||!quote||quote.internal_review_status!=='approved_for_send'||quote.evidence_kind!=='quibi_manual_estimate'||!evidence?.external_id||evidence.customer_external_id!==link.external_id||evidence.external_id==='2176888')throw Error('APPROVAL_REQUIRED');
@@ -80,7 +80,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    source=await loadQuibiDocument(read,'estimate',evidence!.external_id!,link.external_id);
    if(source.contentSha256!==quote.content_sha256)throw Error('SOURCE_CHANGED');
   }else{
-   const {data:reference,error}=caseContext?{data:caseContext.workOrderReference,error:null}:await db.from('work_order_quibi_documents').select('quibi_document_id,content_sha256').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind','work_order').eq('quibi_environment',environment).single();
+   const {data:reference,error}=kind==='work_order'&&updating?{data:existing,error:null}:caseContext?{data:caseContext.workOrderReference,error:null}:await db.from('work_order_quibi_documents').select('quibi_document_id,content_sha256').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind','work_order').eq('quibi_environment',environment).single();
    if(error||!reference)throw Error('WORK_ORDER_REQUIRED');
    source=await loadQuibiDocument(read,'work_order',reference.quibi_document_id,link.external_id);
    if(source.contentSha256!==reference.content_sha256)throw Error('SOURCE_CHANGED');
