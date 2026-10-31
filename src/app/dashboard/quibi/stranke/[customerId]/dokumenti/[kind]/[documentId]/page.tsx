@@ -1,0 +1,18 @@
+import {QuibiPriceSummary} from '@/components/dashboard/QuibiPriceSummary';
+import {createClient} from '@/lib/supabase/server';
+import {quibiJournalTable,hostedQuibiEnvironment} from '@/lib/quibi/deployment-policy';
+import {QuibiInvoiceDetails} from '@/components/dashboard/QuibiInvoiceDetails';
+import {QuibiDocumentPayments} from '@/components/dashboard/QuibiDocumentPayments';
+import Link from 'next/link';
+import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
+import {configuredQuibiReadClient} from '@/lib/quibi/client';
+import {assertDirectDevRead,loadDirectDevDocument,type DirectDocumentScope} from '@/lib/quibi/direct-document-read';
+import {documentKindLabels,type QuibiDocumentKind} from '@/lib/quibi/document-read';
+export const dynamic='force-dynamic';
+export default async function DirectDocument({params}:{params:Promise<DirectDocumentScope>}){
+ const access=await requirePhase1OperationalAccess(),scope=await params;
+ let doc;try{assertDirectDevRead({...process.env,APP_ENV:process.env.APP_ENV,QUIBI_MODE:process.env.QUIBI_MODE},access.role,scope);doc=await loadDirectDevDocument(configuredQuibiReadClient(),scope);}catch{return <p role="alert">Dokumenta ni mogoče preverjeno prebrati za to stranko v Quibi. Podatki niso bili spremenjeni.</p>;}
+ let caseId:string|undefined;if(scope.kind==='invoice'){const db=await createClient();const {data,error}=await db.from(quibiJournalTable(hostedQuibiEnvironment(process.env))).select('service_request_id').eq('organization_id',access.organizationId).eq('quibi_id',doc.id).eq('kind','invoice').eq('state','verified').limit(1).maybeSingle();if(!error&&data?.service_request_id)caseId=data.service_request_id;}
+ const back='/dashboard/quibi?customerId='+scope.customerId,pdf='/api/quibi/stranke/'+scope.customerId+'/dokumenti/'+scope.kind+'/'+scope.documentId+'/pdf';
+ return <section className="space-y-5"><Link href={back} className="text-blue-700">← Quibi stranka #{scope.customerId}</Link>{caseId&&<Link href={`/dashboard/primeri/${caseId}`} className="block text-blue-700 underline">Servisni primer · odobritve in pošiljanje računa</Link>}<header><h1 className="text-2xl font-semibold">{documentKindLabels[scope.kind as QuibiDocumentKind]} #{doc.id}</h1></header><dl className="grid gap-3 rounded border bg-white p-4 sm:grid-cols-2"><div><dt>Številka</dt><dd>{doc.number||'Quibi ni vrnil številke'}</dd></div><div><dt>Status v Quibiju</dt><dd>{doc.status||(scope.kind==='invoice'&&doc.number&&doc.number!=='Osnutek'?'Račun izdan':'Stanje ni na voljo')}</dd></div><div><dt>Znesek z DDV</dt><dd>{doc.amount} EUR</dd></div><div><dt>Quibi vozilo</dt><dd>{doc.vehicleId||'ID vozila ni vrnjen; ujemanje z vozilom ni potrjeno.'}</dd></div></dl>{scope.kind==='invoice'&&doc.number==='Osnutek'?<p>PDF osnutka se odpre šele po izrecni potrditvi izdaje v poslovnem postopku.</p>:<a href={pdf} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-blue-700 underline">Odpri Quibi PDF</a>}{scope.kind==='invoice'&&<QuibiInvoiceDetails doc={doc}/>}{['invoice','advance_invoice','credit_note'].includes(scope.kind)&&<QuibiDocumentPayments documentId={doc.id} amount={doc.amount} dueDate={doc.dueDate}/>}<section className="space-y-3"><h2 className="font-semibold">Postavke iz Quibija</h2><QuibiPriceSummary lines={doc.lines} amount={doc.amount} taxTotals={doc.taxTotals}/>{!doc.lines.length&&<p>Quibi ni vrnil postavk.</p>}</section><details className="text-sm text-slate-500"><summary>Podrobnosti dokumenta</summary><p>Dokument ostaja v Quibiju. Ta pregled ne spreminja ponudbe, odobritve ali pošiljanja.</p></details></section>;
+}

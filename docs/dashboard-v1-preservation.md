@@ -56,6 +56,10 @@ Current UI wording/flow must not be changed without approval even if the backend
 
 This must not remove the existing visible dashboard concept.
 
+### E. Termini window
+
+Termini shows **confirmed** appointments for the next **14 calendar days including today** (Europe/Ljubljana). That window is presentation/query configuration only — not a schema limit. The global dashboard period filter does **not** apply to Termini.
+
 ---
 
 ## Related documents

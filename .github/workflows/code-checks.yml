@@ -1,0 +1,86 @@
+# Code checks for M3 / M4 preparation branches.
+# No database, Docker, migrations, deployments, or production secrets.
+# CI NEXT_PUBLIC_SUPABASE_* placeholders are dummy compile-time values only —
+# they cannot validate actual Vercel environment configuration.
+name: Code checks
+
+on:
+  push:
+    branches:
+      - codex/selan-p0-guided-case
+      - cursor/m3-business-data-prep-v1
+      - cursor/m4-manual-intake-prep-v1
+      - codex/quibi-integration-prep
+      - codex/selan-v1-workflow
+      - codex/selan-v1-test-release
+      - codex/selan-manual-estimate-v1
+      - codex/selan-pr18-manual-qa
+  pull_request:
+    branches:
+      - codex/selan-pr18-manual-qa
+      - main
+      - cursor/m3-business-data-prep-v1
+      - cursor/phase14b-customer-vehicle-create-v1
+      - codex/quibi-integration-prep
+      - codex/selan-v1-workflow
+      - codex/selan-v1-test-release
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-typecheck:
+    name: Lint, typecheck, offline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Complete offline regression suite
+        run: npm run test:unit
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # CI-only dummy placeholders (non-secret). Not real Supabase credentials.
+      # These only satisfy Next.js compile-time reads; they do NOT validate
+      # actual Vercel environment configuration or production connectivity.
+      NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.invalid"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder-publishable-key-not-a-secret"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build -- --webpack

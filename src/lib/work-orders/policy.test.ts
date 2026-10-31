@@ -1,0 +1,5 @@
+import assert from "node:assert/strict";
+import {test} from "node:test";
+import {canTransitionWorkOrder,inspectionChargePolicy} from "./policy.ts";
+test("repair progression requires explicit work and a ready state before close",()=>{assert.ok(canTransitionWorkOrder("open","in_progress"));assert.equal(canTransitionWorkOrder("open","closed"),false);assert.ok(canTransitionWorkOrder("in_progress","awaiting_parts"));assert.ok(canTransitionWorkOrder("awaiting_parts","in_progress"));assert.ok(canTransitionWorkOrder("in_progress","ready_for_collection"));assert.ok(canTransitionWorkOrder("ready_for_collection","closed"));assert.equal(canTransitionWorkOrder("closed","in_progress"),false)});
+test("inspection fee follows actual repair decision and never invents a price",()=>{assert.equal(inspectionChargePolicy("ordered"),"waived");assert.equal(inspectionChargePolicy("not_ordered"),"charge_required");assert.equal(inspectionChargePolicy("pending"),"unresolved");assert.equal(inspectionChargePolicy(null),"not_applicable")});

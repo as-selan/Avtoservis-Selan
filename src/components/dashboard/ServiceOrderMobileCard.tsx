@@ -1,11 +1,14 @@
 "use client";
 
 import { MoreVertical } from "lucide-react";
+import Link from "next/link";
 import type { ServiceOrderDemo } from "@/lib/dashboard/types";
 import {
   getStatusBadgeClass,
   getStatusLabel,
 } from "@/lib/dashboard/statuses";
+import { CreateCompletionLinkButton } from "@/components/dashboard/CreateCompletionLinkButton";
+import { PrepareOfferButton } from "@/components/dashboard/PrepareOfferButton";
 
 interface ServiceOrderMobileCardProps {
   order: ServiceOrderDemo;
@@ -26,13 +29,13 @@ export function ServiceOrderMobileCard({ order }: ServiceOrderMobileCardProps) {
         </div>
         <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-slate-500">#{order.id}</span>
-          <button
-            type="button"
+          {order.serviceRequestId ? <Link
+            href={`/dashboard/primeri/${order.serviceRequestId}`}
             className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"
             aria-label={`Dejanja za nalog ${order.id}`}
           >
             <MoreVertical className="h-4 w-4" />
-          </button>
+          </Link> : null}
         </div>
       </div>
 
@@ -49,16 +52,30 @@ export function ServiceOrderMobileCard({ order }: ServiceOrderMobileCardProps) {
         ) : null}
       </div>
 
+      {order.intakeConnectionLabel&&<p className="mt-2 text-xs text-slate-600">{order.intakeConnectionLabel}</p>}
       <p className="mt-2 line-clamp-2 text-sm text-slate-600">
         {order.requestSummary}
       </p>
 
-      <button
-        type="button"
+      {order.serviceRequestId ? <Link
+        href={`/dashboard/primeri/${order.serviceRequestId}`}
         className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-blue-50 px-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
       >
         {order.nextActionLabel} →
-      </button>
+      </Link> : null}
+      {order.status === "manjkajo_podatki" && order.serviceRequestId ? (
+        <CreateCompletionLinkButton
+          serviceRequestId={order.serviceRequestId}
+          compact
+        />
+      ) : null}
+      {order.status === "priprava_ponudbe" && order.serviceRequestId ? (
+        <PrepareOfferButton
+          serviceRequestId={order.serviceRequestId}
+          alreadyPrepared={order.offerPreparationReady === true}
+          compact
+        />
+      ) : null}
 
       <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
         <span>{order.locationLabel ?? "Lokacija ni znana"}</span>

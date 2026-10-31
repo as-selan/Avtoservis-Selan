@@ -1,0 +1,116 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { assertQuibiDevWriteAllowed, buildEstimateBody, stableEstimatePayload, withDocumentId } from "./write-contract.ts";
+import { createQuibiDevWriteClient } from "./write-http.ts";
+
+const env = { APP_ENV: "preproduction", QUIBI_MODE: "dev", QUIBI_DEV_WRITE_ENABLED: "1", QUIBI_DEV_SEND_ENABLED: '1',
+  VERCEL_ENV: "preview", QUIBI_DEV_USERNAME: "synthetic-user", QUIBI_DEV_PASSWORD: "synthetic-password",
+  QUIBI_DEV_TEST_RECIPIENT: "test@example.invalid" };
+const input = { numberingId: "2061", saleTypeId: "1", customerId: "405956", vehicleId: "2387",
+  serviceRequestId: "00000000-0000-4000-8000-000000000001", lines: [
+    { opis: "TEST storitev", enota_id: "1", ddv_id: "5", kolicina: 1, cenaZDDV: 100, popust: 0 },
+  ] };
+
+test("DEV write guard rejects production, demo, and missing explicit enablement", () => {
+  assert.doesNotThrow(() => assertQuibiDevWriteAllowed(env));
+  for (const origin of ["https://si.quibi.net", "https://si.quibi.dev", "http://dev.quibi.net"])
+    assert.throws(() => assertQuibiDevWriteAllowed(env, origin), /QUIBI_DEV_WRITE_DISABLED/);
+  assert.throws(() => assertQuibiDevWriteAllowed({ ...env, QUIBI_MODE: "demo" }), /QUIBI_DEV_WRITE_DISABLED/);
+  assert.throws(() => assertQuibiDevWriteAllowed({ ...env, QUIBI_DEV_WRITE_ENABLED: "0" }), /QUIBI_DEV_WRITE_DISABLED/);
+  assert.throws(() => assertQuibiDevWriteAllowed({ ...env, VERCEL_ENV: "production" }), /QUIBI_DEV_WRITE_DISABLED/);
+  assert.throws(() => assertQuibiDevWriteAllowed(env, "https://www.quibi.net"), /QUIBI_DEV_WRITE_DISABLED/);
+});
+
+test("Quibi external_id conflict fails without choosing a new document ID", async () => {
+  let posts = 0;
+  const client = createQuibiDevWriteClient({ username: env.QUIBI_DEV_USERNAME,
+    password: env.QUIBI_DEV_PASSWORD, environment: env, fetcher: async () => {
+      posts++;
+      return new Response(JSON.stringify({ error: true }), { status: 409 });
+    } });
+  await assert.rejects(client.createEstimate(buildEstimateBody(input)), /QUIBI_HTTP_409/);
+  assert.equal(posts, 1);
+});
+
+test("create body and external_id stay byte identical for retry", () => {
+  const first = buildEstimateBody(input);
+  const retry = buildEstimateBody(input);
+  assert.equal(first.Glavadokumenta.external_id, `selan-service-request:${input.serviceRequestId}`);
+  assert.deepEqual(stableEstimatePayload(first), stableEstimatePayload(retry));
+  assert.notEqual(stableEstimatePayload(first).sha256,
+    stableEstimatePayload(buildEstimateBody({ ...input, lines: [{ ...input.lines[0], cenaZDDV: 101 }] })).sha256);
+  assert.deepEqual(Object.keys(withDocumentId(first, "2176888").Postavkedokumenta), ["1"]);
+  assert.throws(() => buildEstimateBody({ ...input, lines: [] }), /QUIBI_INVALID_ESTIMATE_INPUT/);
+});
+
+test("customer and vehicle create use documented DEV forms and stable identifiers", async () => {
+  const calls: Array<{ path: string; body: Record<string, unknown> }> = [];
+  const fake = async (target: string | URL | Request, options?: RequestInit) => {
+    const url = new URL(String(target));
+    assert.equal(url.origin, "https://dev.quibi.net");
+    calls.push({ path: url.pathname, body: JSON.parse(String(options?.body)) });
+    return new Response(JSON.stringify(url.pathname.endsWith("vozila/form")
+      ? { error: false, data: { Vozila: { Vozilo: "7001" } } }
+      : { error: false, data: { Stranka: { id: "9001" } } }), { status: 200 });
+  };
+  const client = createQuibiDevWriteClient({ username: env.QUIBI_DEV_USERNAME,
+    password: env.QUIBI_DEV_PASSWORD, environment: env, fetcher: fake as typeof fetch });
+  const customerUuid = "00000000-0000-4000-8000-000000000011";
+  await client.createCustomer({ remote_id: customerUuid, naziv: "TEST Stranka" });
+  assert.equal(await client.createVehicle({ stranka_id: "9001", registrskastevilka: "TEST-01",
+    internastevilka: "TESTVIN1234567890", proizvajalec: "Test", model: "A" }), "7001");
+  assert.deepEqual(calls.map((item) => item.path), ["/api2/stranka/form", "/api2/vozila/form"]);
+  assert.equal((calls[0].body.Stranka as { remote_id: string }).remote_id, customerUuid);
+  assert.equal((calls[1].body.Vozila as { internastevilka: string }).internastevilka, "TESTVIN1234567890");
+});
+
+test("write client uses exact DEV endpoints, complete update lines, and test recipient only", async () => {
+  const calls: Array<{ path: string; method: string; body: unknown }> = [];
+  const fake = async (target: string | URL | Request, options?: RequestInit) => {
+    const url = new URL(String(target));
+    assert.equal(url.origin, "https://dev.quibi.net");
+    const body = options?.body ? JSON.parse(String(options.body)) : null;
+    calls.push({ path: url.pathname + url.search, method: String(options?.method), body });
+    const payload = url.pathname.includes("send_status") ? { error: false, data: { status: "sent" } }
+      : url.pathname.includes("/send/") ? { error: false, data: { send_id: "test-send-1", status: "queued" } }
+      : url.pathname.includes("/stevilcenje") ? { error: false, data: { Stevilcenje: [
+        { Stevilcenje: { id: "2061", naziv: "Predračun", glava_id: "2" } },
+      ] } } : { error: false, id: 2176888, ZapSt: "TEST-1", replayed: false };
+    return new Response(JSON.stringify(payload), { status: 200 });
+  };
+  const client = createQuibiDevWriteClient({ username: env.QUIBI_DEV_USERNAME,
+    password: env.QUIBI_DEV_PASSWORD, environment: env, fetcher: fake as typeof fetch });
+  const body = buildEstimateBody(input);
+  assert.equal((await client.getNumberings())[0].Stevilcenje.naziv, "Predračun");
+  assert.equal((await client.createEstimate(body)).id, "2176888");
+  await client.updateEstimate("2176888", withDocumentId(body, "2176888"));
+  assert.deepEqual(Object.keys((calls[2].body as { Postavkedokumenta: object }).Postavkedokumenta), ["1"]);
+  await assert.rejects(client.sendDocument("2176888", "customer@example.test"), /QUIBI_TEST_RECIPIENT_REQUIRED/);
+  assert.equal((await client.sendDocument("2176888", env.QUIBI_DEV_TEST_RECIPIENT)).sendId, "test-send-1");
+  assert.equal((await client.getSendStatus("2176888", "test-send-1")).status, "sent");
+  assert.deepEqual(calls.map((item) => item.path), [
+    "/api2/stevilcenje?glavadokumenta=1", "/api2/glavadokumenta/form",
+    "/api2/glavadokumenta/form/2176888", "/api2/glavadokumenta/send/2176888",
+    "/api2/glavadokumenta/send_status/2176888?send_id=test-send-1",
+  ]);
+});
+
+test("send's HTTP guard rejects the approved-local exception without any network request", async () => {
+  let requests = 0;
+  const client = createQuibiDevWriteClient({ username: env.QUIBI_DEV_USERNAME, password: env.QUIBI_DEV_PASSWORD,
+    environment: { ...env, VERCEL_ENV: undefined, SELAN_APPROVED_LOCAL_DEV: "1" },
+    fetcher: async () => { requests++; throw new Error("UNEXPECTED_NETWORK"); } });
+  await assert.rejects(client.sendDocument("2176888", env.QUIBI_DEV_TEST_RECIPIENT), /QUIBI_DEV_TEST_SEND_DISABLED/);
+  await assert.rejects(client.getSendStatus("2176888", "stored-id"), /QUIBI_DEV_TEST_SEND_DISABLED/);
+  assert.equal(requests, 0);
+});
+
+test('document header uses verified customer ID without an ignored customer block',()=>{const body=buildEstimateBody({numberingId:'2061',saleTypeId:'1',customerId:'405957',vehicleId:'2388',serviceRequestId:'00000000-0000-4000-8000-000000000001',lines:[{sifra:'TEST',kolicina:1}]});assert.equal(body.Stranka,undefined);assert.equal(body.Glavadokumenta.stranka_id,405957);});
+
+test('conflicting compatibility customer ID is rejected before any network write',async()=>{let calls=0;const client=createQuibiDevWriteClient({username:'test-only',password:'test-only',environment:env,fetcher:async()=>{calls++;return Response.json({})}});const body=buildEstimateBody(input);await assert.rejects(client.createEstimate({...body,Stranka:{id:999999}}),/CUSTOMER_MISMATCH/);assert.equal(calls,0);assert.deepEqual(withDocumentId(body,'123').Stranka,body.Stranka);});
+
+
+test('free rows send explicit verified net field and reject conflicting net aliases',()=>{
+ const body=buildEstimateBody(input);const line=body.Postavkedokumenta['1'];assert.ok(!('sifra' in line));assert.equal(line.cenaBrezDDV,line.cenaZDDV);
+ assert.throws(()=>buildEstimateBody({...input,lines:[{...input.lines[0],cenaBrezDDV:999}]}),/INVALID_ESTIMATE_LINE/);
+});

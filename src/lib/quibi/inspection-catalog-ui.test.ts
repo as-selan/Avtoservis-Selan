@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {runInNewContext} from 'node:vm';import ts from 'typescript';import * as jsx from 'react/jsx-runtime';import {inspectionCatalogSuggestions} from './inspection-catalog.ts';
+type Element={type:unknown;props:Record<string,unknown>};
+
+test('estimate entry routes inspected identifiers to the canonical composer without dispatch',()=>{
+ const writes:unknown[]=[];const exports:Record<string,unknown>={};
+ const imports:Record<string,unknown>={'./EstimateComposer':{EstimateComposer:'canonical-composer'},'react/jsx-runtime':jsx,'react':{useRef:(v:unknown)=>({current:v}),useState:(v:unknown)=>[v,(next:unknown)=>writes.push(next)],useEffect:()=>{},useTransition:()=>[false,()=>{throw Error('Unexpected action')} ]},'next/navigation':{useRouter:()=>({refresh:()=>{}})},'@/lib/quibi/inspection-catalog':{inspectionCatalogSuggestions},'@/lib/quibi/dev-write-actions':new Proxy({},{get:()=>()=>{throw Error('No external action allowed')}})};
+ const code=ts.transpileModule(readFileSync(new URL('../../components/dashboard/QuibiDevWritePanel.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+ runInNewContext(code,{exports,require:(n:string)=>{assert.ok(n in imports,n);return imports[n];}});
+ const render=exports.QuibiDevWritePanel as(p:Record<string,unknown>)=>unknown;
+ const tree=render({serviceRequestId:'qa-case',mode:'prepare',inspectionFindings:'ZAV',catalogOptions:[{key:'189:1',code:'ZAV',name:'Pregled zavor'}],choices:{saleTypes:[{id:'1',label:'Prodaja'}],units:[{id:'1',label:'kos'}],vatRates:[{id:'1',label:'22 %'}]}});
+ const element=tree as Element;assert.equal(element.type,'canonical-composer');assert.equal(element.props.inspectionFindings,'ZAV');assert.deepEqual(element.props.catalogOptions,[{key:'189:1',code:'ZAV',name:'Pregled zavor'}]);assert.equal(element.props.mode,'prepare');assert.equal(writes.length,0);
+});

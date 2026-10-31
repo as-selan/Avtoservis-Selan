@@ -1,0 +1,84 @@
+import { createHash } from "node:crypto";
+import type { QuibiCustomer, QuibiDocument, QuibiEstimateDetail, QuibiVehicle } from "./contracts.ts";
+
+// Synthetic, server-side READ fixture. There is deliberately no HTTP transport.
+const customers: QuibiCustomer[] = [
+  { id: "2001", name: "TEST – Nina Demo", phone: "+38640555101", email: "nina.demo@example.test" },
+  { id: "2002", name: "TEST – Luka Demo", phone: "+38640555102", email: "luka.demo@example.test" },
+];
+const vehicles: QuibiVehicle[] = [
+  { id: "5001", customerId: "2001", vin: "TST00000000000006", registration: "LJ DEMO1",
+    make: "Test", model: "Quibi", disabled: false },
+];
+const estimateContent = {
+  id: "4001", customerId: "2001", amount: "285.00", status: "Osnutek",
+  lines: [{ description: "Sintetična servisna storitev", quantity: "1", grossPrice: "285.00" }],
+};
+const estimate: QuibiEstimateDetail = { ...estimateContent,
+  contentSha256: createHash("sha256").update(JSON.stringify(estimateContent)).digest("hex"),
+};
+const id = (value: string) => {
+  if (!/^\d+$/.test(value)) throw new Error("QUIBI_INVALID_ID");
+  return value;
+};
+const copy = <T>(value: T): T => structuredClone(value);
+
+export function createDemoQuibiReadClient() {
+  return {
+    async vehicleInfo():Promise<ReturnType<typeof import('./operational-read.ts').parseVehicleInfo>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async addresses():Promise<ReturnType<typeof import('./operational-read.ts').parseAddresses>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async lots():Promise<ReturnType<typeof import('./operational-read.ts').parseLots>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async stock():Promise<ReturnType<typeof import('./operational-read.ts').parseStock>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async paymentMethods():Promise<string[]>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async documentPayments():Promise<ReturnType<typeof import('./operational-read.ts').parseDocumentPayments>>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async documents():Promise<QuibiDocument[]>{throw Error('QUIBI_DEMO_OPERATION_UNAVAILABLE')},
+    async searchCustomers(query: string): Promise<QuibiCustomer[]> {
+      const needle = query.trim().toLocaleLowerCase("sl-SI");
+      if (needle.length < 2 || needle.length > 100) return [];
+      return copy(customers.filter((customer) => [customer.id, customer.name, customer.phone, customer.email]
+        .some((value) => value.toLocaleLowerCase("sl-SI").includes(needle))).slice(0, 30));
+    },
+    async customer(customerId: string): Promise<QuibiCustomer> {
+      const found = customers.find((item) => item.id === id(customerId));
+      if (!found) throw new Error("QUIBI_CUSTOMER_NOT_FOUND");
+      return copy(found);
+    },
+    async vehicles(customerId: string): Promise<QuibiVehicle[]> {
+      return copy(vehicles.filter((item) => item.customerId === id(customerId)));
+    },
+    async vehicle(vehicleId: string, customerId: string): Promise<QuibiVehicle> {
+      const found = vehicles.find((item) => item.id === id(vehicleId));
+      if (!found || found.customerId !== id(customerId)) throw new Error("QUIBI_VEHICLE_NOT_FOUND");
+      return copy(found);
+    },
+    async workOrders(customerId: string): Promise<QuibiDocument[]> {
+      return id(customerId) === "2001" ? [{ id: "3001", customerId: "2001", numberingId: "1", status: "" }] : [];
+    },
+    async estimates(customerId: string): Promise<QuibiDocument[]> {
+      return id(customerId) === "2001" ? [{ id: "4001", customerId: "2001", numberingId: "1", status: "Osnutek" }] : [];
+    },
+    async invoices(customerId: string): Promise<QuibiDocument[]> {
+      id(customerId);
+      return [];
+    },
+    async documentStatus(documentId: string, customerId: string): Promise<string> {
+      if (id(documentId) === estimate.id && id(customerId) === estimate.customerId) return estimate.status;
+      if (id(documentId) === "3001" && id(customerId) === "2001") return "";
+      throw new Error("QUIBI_DOCUMENT_NOT_FOUND");
+    },
+    async priceLists(): Promise<import("./pricing-read.ts").QuibiPriceList[]> { throw Error("QUIBI_DEMO_PRICING_UNAVAILABLE"); },
+    async article(): Promise<import("./pricing-read.ts").QuibiArticle> { throw Error("QUIBI_DEMO_PRICING_UNAVAILABLE"); },
+    async catalog(): Promise<{id:string;label:string}[]> { throw Error("QUIBI_DEMO_CATALOG_UNAVAILABLE"); },
+    async documentPdf(): Promise<Uint8Array<ArrayBuffer>> { throw Error("QUIBI_DEMO_PDF_UNAVAILABLE"); },
+    async documentDetail(documentId: string, customerId: string): Promise<QuibiEstimateDetail> {
+      if (id(documentId) !== estimate.id || id(customerId) !== estimate.customerId) throw new Error("QUIBI_DEMO_DOCUMENT_DETAIL_UNAVAILABLE");
+      return copy(estimate);
+    },
+    async estimateDetail(estimateId: string, customerId: string): Promise<QuibiEstimateDetail> {
+      if (id(estimateId) !== estimate.id || id(customerId) !== estimate.customerId) {
+        throw new Error("QUIBI_DOCUMENT_NOT_FOUND");
+      }
+      return copy(estimate);
+    },
+  };
+}

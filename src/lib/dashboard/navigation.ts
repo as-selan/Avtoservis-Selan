@@ -1,14 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity,
-  CalendarDays,
-  Car,
   ClipboardList,
-  FileText,
-  Inbox,
   LayoutDashboard,
   Plug,
-  Settings,
   Users,
 } from "lucide-react";
 
@@ -17,7 +11,7 @@ export interface NavItem {
   label: string;
   href?: string;
   icon: LucideIcon;
-  /** Only /dashboard is implemented in this slice */
+  /** Linked items are implemented. Unavailable items stay visible as "Kmalu". */
   available: boolean;
 }
 
@@ -31,63 +25,23 @@ export const APP_NAV_ITEMS: NavItem[] = [
   },
   {
     id: "service-orders",
-    label: "Servisni nalogi",
+    label: "Potek popravil",
+    href: "/dashboard/nalogi",
     icon: ClipboardList,
-    available: false,
-  },
-  {
-    id: "inquiries",
-    label: "Povpraševanja",
-    icon: Inbox,
-    available: false,
-  },
-  {
-    id: "appointments",
-    label: "Termini",
-    icon: CalendarDays,
-    available: false,
-  },
-  {
-    id: "offers",
-    label: "Ponudbe",
-    icon: FileText,
-    available: false,
+    available: true,
   },
   {
     id: "customers",
-    label: "Stranke",
+    label: "Kontakti primerov",
+    href: "/dashboard/stranke",
     icon: Users,
-    available: false,
-  },
-  {
-    id: "vehicles",
-    label: "Vozila",
-    icon: Car,
-    available: false,
-  },
-  {
-    id: "activity",
-    label: "Aktivnost",
-    icon: Activity,
-    available: false,
+    available: true,
   },
   {
     id: "integrations",
-    label: "Integracije",
+    label: "Quibi",
+    href: "/dashboard/quibi",
     icon: Plug,
-    available: false,
-  },
-  {
-    id: "settings",
-    label: "Nastavitve",
-    icon: Settings,
-    available: false,
+    available: true,
   },
 ];
-
-export const CURRENT_USER = {
-  name: "Tadej Selan",
-  shortName: "Tadej",
-  role: "Administrator",
-  initials: "T",
-} as const;

@@ -1,0 +1,106 @@
+[
+  {
+    "kind": "DRAFT",
+    "data": {
+      "caseId": "564fb87d-1915-4bd6-b549-5722e2f30f1b",
+      "state": "ambiguous",
+      "rows": [
+        {
+          "key": "article:89158",
+          "vatId": "5",
+          "unitId": "1",
+          "discount": "",
+          "quantity": "1",
+          "description": "Servis vozila",
+          "matchSource": "Ujemanje opisa storitve",
+          "candidateKeys": [
+            "article:89158",
+            "article:248349",
+            "article:86332"
+          ],
+          "requestedService": "Servis vozila"
+        },
+        {
+          "key": "",
+          "vatId": "5",
+          "unitId": "1",
+          "discount": "",
+          "quantity": "",
+          "description": "Pregled pred tehničnim pregledom",
+          "matchSource": "Ujemanje opisa storitve",
+          "candidateKeys": [
+            "article:211414"
+          ],
+          "requestedService": "Pregled pred tehničnim pregledom"
+        },
+        {
+          "key": "",
+          "vatId": "5",
+          "unitId": "1",
+          "discount": "",
+          "quantity": "",
+          "description": "Pregeld zavor",
+          "candidateKeys": [],
+          "requestedService": "Pregeld zavor"
+        }
+      ],
+      "options": [
+        {
+          "id": "86332",
+          "name": "PREGLED VOZILA\r\nv primeru potrditve popravila vozila je pregled vozila brezplačen",
+          "gross": 61
+        },
+        {
+          "id": "89158",
+          "name": "REDNI SERVIS VOZILA",
+          "gross": 32.94
+        },
+        {
+          "id": "211414",
+          "name": "BREZPLAČNI PREGLED VOZILA PRED TEHNIČNIM PREGLEDOM",
+          "gross": 58.9992
+        },
+        {
+          "id": "248349",
+          "name": "Hitri servis vozila",
+          "gross": 39.0034
+        }
+      ],
+      "persistentReread": true,
+      "concurrentReplaySafe": true,
+      "noQuibiWrites": true,
+      "noDocuments": true
+    }
+  },
+  {
+    "kind": "AB",
+    "data": {
+      "caseId": "c302f243-4d04-40e1-97e0-08db8b9a27da",
+      "source": "manual",
+      "state": "blocked",
+      "condition": "Synthetic contact mismatch with existing Quibi test name; identity review required, no guessed link or new party",
+      "sameLocalParties": true,
+      "noQuibiWrites": true
+    }
+  },
+  {
+    "kind": "AB",
+    "data": {
+      "caseId": "ef314cdf-5e88-4d7e-83ec-2befec9bbbe4",
+      "source": "web_form",
+      "state": "blocked",
+      "condition": "Synthetic contact mismatch with existing Quibi test name; identity review required, no guessed link or new party",
+      "sameLocalParties": true,
+      "noQuibiWrites": true
+    }
+  },
+  {
+    "kind": "FIXTURE_DISCOVERY",
+    "data": {
+      "completeSyntheticCandidates": [],
+      "quibiGets": 3,
+      "write": false,
+      "send": false
+    }
+  }
+]

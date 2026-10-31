@@ -1,0 +1,146 @@
+[
+  {
+    "key": "SELAN_AI_MODEL",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_TEST_RECIPIENTS",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_INTAKE_SYNC_ACTOR_ID",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_INTAKE_SYNC_ENABLED",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_TEST_RECIPIENT",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "COMPLETION_PUBLIC_ORIGIN",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "PUBLIC_APP_ORIGIN",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_LOCAL_SEND_ENABLED",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_LOCAL_WRITE_ENABLED",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_WRITE_ENABLED",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "SELAN_FIXED_PRICE_V1",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_MODE",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "APP_ENV",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_PASSWORD",
+    "target": [
+      "preview"
+    ],
+    "type": "sensitive",
+    "gitBranch": null
+  },
+  {
+    "key": "QUIBI_DEV_USERNAME",
+    "target": [
+      "preview"
+    ],
+    "type": "sensitive",
+    "gitBranch": null
+  },
+  {
+    "key": "SUPABASE_SERVICE_ROLE_KEY",
+    "target": [
+      "preview"
+    ],
+    "type": "sensitive",
+    "gitBranch": null
+  },
+  {
+    "key": "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  },
+  {
+    "key": "NEXT_PUBLIC_SUPABASE_URL",
+    "target": [
+      "preview"
+    ],
+    "type": "encrypted",
+    "gitBranch": null
+  }
+]

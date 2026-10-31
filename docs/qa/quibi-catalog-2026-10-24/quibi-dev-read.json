@@ -1,0 +1,183 @@
+[
+  {
+    "data": {
+      "at": "2026-10-24T09:23:22.469Z",
+      "endpoint": "/api2/sifranti/seznam",
+      "params": {
+        "po": "cursor to null",
+        "limit": 500,
+        "arhivirano": 0
+      },
+      "total": 54495,
+      "nonStock": 203,
+      "pages": 109,
+      "indexed": 200,
+      "unsupported": 3,
+      "selectableArticles": 200,
+      "uncodedNonStock": 19,
+      "first": {
+        "wrapperKeys": [
+          "Sifranti",
+          "Ddv",
+          "Enota",
+          "Kategorije",
+          "Variableproduct"
+        ],
+        "articleFields": [
+          "id",
+          "kategorije_id",
+          "variableproduct_id",
+          "sifra",
+          "naziv",
+          "enota_id",
+          "cenaBrezDDV",
+          "nabavnaCena",
+          "ddv_id",
+          "vodiZalogo",
+          "odo",
+          "teza",
+          "tarifnastevilka",
+          "ean",
+          "belezilot",
+          "tracking_type",
+          "tracking_issue_mode",
+          "created",
+          "modified",
+          "sifranaziv"
+        ],
+        "unitFields": [
+          "id",
+          "naziv"
+        ],
+        "vatFields": [
+          "id",
+          "naziv",
+          "stopnjaDDV",
+          "predpona",
+          "vrsta"
+        ],
+        "categoryFields": [
+          "id",
+          "naziv"
+        ]
+      },
+      "priceLists": [
+        {
+          "id": "189",
+          "name": "VULAKNIZERSTVO",
+          "count": 1
+        }
+      ],
+      "requests": 116,
+      "calls": {
+        "/api2/cenik": 2,
+        "/api2/sifranti/seznam": 110,
+        "/api2/stranka/view/405956": 1,
+        "/api2/enota": 1,
+        "/api2/ddv": 1,
+        "/api2/sifranti/view/89158": 1
+      },
+      "customerPriceListId": null,
+      "write": false,
+      "send": false
+    },
+    "kind": "READ_RESULT"
+  },
+  {
+    "data": {
+      "requested": "SERVIS VOZILA",
+      "selected": {
+        "id": "89158",
+        "code": "ASRSV",
+        "name": "REDNI SERVIS VOZILA",
+        "unit": "kos",
+        "vat": "22 %",
+        "unitNet": 27,
+        "unitGross": 32.94,
+        "stockManaged": false
+      },
+      "quantity": "1",
+      "candidates": [
+        {
+          "id": "89158",
+          "code": "ASRSV",
+          "name": "REDNI SERVIS VOZILA",
+          "unit": "kos",
+          "vat": "22 %",
+          "unitNet": 27,
+          "unitGross": 32.94,
+          "stockManaged": false
+        },
+        {
+          "id": "248349",
+          "code": "",
+          "name": "Hitri servis vozila",
+          "unit": "kos",
+          "vat": "22 %",
+          "unitNet": 31.97,
+          "unitGross": 39.0034,
+          "stockManaged": false
+        },
+        {
+          "id": "86332",
+          "code": "ASPVPN",
+          "name": "PREGLED VOZILA\r\nv primeru potrditve popravila vozila je pregled vozila brezplačen",
+          "unit": "kos",
+          "vat": "22 %",
+          "unitNet": 50,
+          "unitGross": 61,
+          "stockManaged": false
+        }
+      ]
+    },
+    "kind": "ROW"
+  },
+  {
+    "data": {
+      "requested": "PREGLED PRED TEHNIČNIM",
+      "selected": null,
+      "quantity": null,
+      "candidates": [
+        {
+          "id": "211414",
+          "code": "ASBPVPTH",
+          "name": "BREZPLAČNI PREGLED VOZILA PRED TEHNIČNIM PREGLEDOM",
+          "unit": "kos",
+          "vat": "22 %",
+          "unitNet": 48.36,
+          "unitGross": 58.9992,
+          "stockManaged": false
+        }
+      ]
+    },
+    "kind": "ROW"
+  },
+  {
+    "data": {
+      "requested": "PREGELD ZAVOR",
+      "selected": null,
+      "quantity": null,
+      "candidates": []
+    },
+    "kind": "ROW"
+  },
+  {
+    "data": {
+      "scope": "Real Quibi DEV READ + real preparation functions; no saved draft/document",
+      "freshVerifiedRows": [
+        {
+          "description": "REDNI SERVIS VOZILA",
+          "quantity": 1,
+          "unit": "kos",
+          "vat": "22 %",
+          "unitPrice": 32.94,
+          "discount": 0
+        }
+      ],
+      "knownSubtotal": 32.94,
+      "completeTotal": null,
+      "unknownsPreserved": true
+    },
+    "kind": "PREPARATION"
+  }
+]
