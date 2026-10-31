@@ -55,6 +55,7 @@ LATER_MIGRATIONS=(
   "20261028012444_hide_case_notes_with_audit.sql"
   "20261028020000_case_repair_findings.sql"
   "20261028033000_finding_offer_versions.sql"
+  "20261031070740_finding_additional_work.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"

@@ -1,5 +1,6 @@
 "use server";
 import {invoiceDateDefaults} from './invoice-date-defaults';
+import {findingInvoiceEvidenceCovers} from './finding-invoice-evidence';
 import {isPretechnicalInspection} from './inspection-catalog';
 import {inspectionBillingReview} from "./inspection-billing-review";
 import {caseBusinessReference} from "./case-business-policy";
@@ -125,6 +126,26 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    if(approved.contentSha256!==quote.content_sha256)throw Error('SOURCE_CHANGED');
    if(form.get('dispatch')==='yes')assertInvoiceDevSource(process.env,syntheticQa,source,approved);
    changes=invoiceSourceChanges(approved,source);review.billingChanges=changes;
+   if(directCase){
+    const {data:offers,error:offerError}=await db.from('case_finding_offers').select('id,lines,content_sha256,quibi_operation_id,quibi_document_id,quibi_content_sha256,completed_at,case_finding_offer_decisions(decision)').eq('case_id',orderId);
+    if(offerError)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
+    const additions=(offers??[]).filter(o=>Array.isArray(o.case_finding_offer_decisions)&&o.case_finding_offer_decisions.some((d:{decision:string})=>d.decision==='approved'));
+    if(additions.length){
+     const {data:operations,error:operationError}=await db.from(quibiJournalTable(environment)).select('id,kind,state,quibi_id,quibi_content_sha256,request_body,request_sha256').eq('organization_id',access.organizationId).eq('service_request_id',orderId).eq('kind','work_order_update');
+     if(operationError)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
+     const checked=additions.map(o=>{
+      const snapshot=o.lines?.[0],op=operations?.find(row=>row.id===o.quibi_operation_id);
+      if(!snapshot||!op||!o.completed_at||op.state!=='verified'||op.quibi_id!==source.id||op.quibi_id!==o.quibi_document_id||op.quibi_content_sha256!==o.quibi_content_sha256||op.request_sha256!==snapshot.requestSha||businessUpdatePayload(snapshot.body,snapshot.baselineSha).sha256!==snapshot.requestSha||!snapshot.line)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
+      return {decision:'approved',completed:true,operationState:'verified',documentId:source.id,documentSha:source.contentSha256,line:snapshot.line,operationSha:op.quibi_content_sha256,baselineSha:snapshot.baselineSha};
+     });
+     // Every addition must be part of the uninterrupted verified revision chain.
+     let cursor=source.contentSha256;const seen=new Set<string>();
+     while(cursor&&!seen.has(cursor)){seen.add(cursor);const op=operations?.find(row=>row.state==='verified'&&row.quibi_id===source.id&&row.quibi_content_sha256===cursor);if(!op)break;let prior='';try{prior=JSON.parse(op.request_body).baselineSha}catch{throw Error('FINDING_EVIDENCE_UNAVAILABLE')}if(!/^[a-f0-9]{64}$/.test(prior))throw Error('FINDING_EVIDENCE_UNAVAILABLE');cursor=prior;}
+     if(checked.some(item=>!seen.has(item.operationSha)))throw Error('FINDING_EVIDENCE_UNAVAILABLE');
+     if(!findingInvoiceEvidenceCovers(approved,source,checked))throw Error('FINDING_EVIDENCE_UNAVAILABLE');
+     changes=[];review.billingChanges=[];
+    }
+   }
    if(changes.length&&(String(form.get('billingChangeReference')??'').trim().length<12||String(form.get('billingChangeReference')??'').length>500)){
     if(form.get('dispatch')==='yes')throw Error('QUIBI_BILLING_CHANGE_APPROVAL_REQUIRED');
     return {...review,message:'Nalog se razlikuje od odobrenega predračuna. Navedite sledljivo podlago odobritve dodatnih del ali spremenjene cene; nato ponovno preglejte račun.'};

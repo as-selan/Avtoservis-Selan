@@ -221,3 +221,7 @@ echo "== Case note permission and review evidence regression =="
 PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
   psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${REPO_ROOT}/supabase/tests/case_note_deletion_regression.sql"
 echo "PASS: Case note deletion regression"
+
+PGOPTIONS="-c m4.isolated_project_ref=${EXPECTED_PROJECT_REF} -c m4.isolated_container_id=${EXPECTED_CONTAINER_NAME}" \
+  psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${REPO_ROOT}/supabase/tests/finding_additional_work_regression.sql"
+echo "PASS: Additional finding approval regression"

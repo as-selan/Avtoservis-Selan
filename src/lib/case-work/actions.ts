@@ -15,6 +15,8 @@ export async function caseWorkAction(form:FormData){try{const access=await requi
   const description=String(form.get('description')??'').trim();if(!description||description.length>3000)throw Error('INVALID_INPUT');const r=await db.rpc('record_case_finding',{p_case:caseId,p_description:description});if(r.error)throw Error('FORBIDDEN');
  }else if(action==='decideFinding'){
   if(!['owner','admin'].includes(access.role))throw Error('FORBIDDEN');const decision=String(form.get('decision')??'');if(!['rejected','noted'].includes(decision))throw Error('INVALID_INPUT');const r=await db.rpc('decide_case_finding',{p_case:caseId,p_finding:String(form.get('findingId')??''),p_decision:decision});if(r.error)throw Error('FORBIDDEN');
+ }else if(action==='completeFindingWork'){
+  const r=await db.rpc('complete_finding_catalog_work',{p_case:caseId,p_offer:String(form.get('offerId')??'')});if(r.error)throw Error('FORBIDDEN');
  }else if(action==='deleteNote'){
   const r=await db.rpc('hide_case_note',{p_case:caseId,p_note:String(form.get('noteId')??'')});if(r.error)throw Error('FORBIDDEN');
  }else if(action==='photo'){
