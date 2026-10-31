@@ -45,7 +45,7 @@ begin
  select * into o from public.case_finding_offers where id=p_offer and case_id=p_case for update;
  select * into j from public.quibi_dev_operation_journal where id=p_operation and organization_id=a.organization_id and service_request_id=p_case and kind='work_order_update' and state='verified';
  if o.id is null or j.id is null or not exists(select 1 from public.case_finding_offer_decisions where offer_id=o.id and decision='approved')
- or j.quibi_id<>a.quibi_work_order_id or j.request_sha256<>o.lines->0->>'requestSha'
+ or j.quibi_id<>a.quibi_work_order_id or j.request_sha256<>o.lines->0->>'requestSha' or j.request_body is distinct from o.lines->0->>'requestJson'
  or j.quibi_content_sha256 is null or coalesce(j.request_body::jsonb->>'baselineSha','')<>o.lines->0->>'baselineSha' then raise exception 'OPERATION_UNVERIFIED'; end if;
  if o.quibi_operation_id is not null then
   if o.quibi_operation_id=p_operation then return; end if;

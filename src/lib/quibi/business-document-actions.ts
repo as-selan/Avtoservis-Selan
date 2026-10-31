@@ -1,4 +1,5 @@
 "use server";
+import {createHash} from 'node:crypto';
 import {invoiceDateDefaults} from './invoice-date-defaults';
 import {findingInvoiceEvidenceCovers} from './finding-invoice-evidence';
 import {isPretechnicalInspection} from './inspection-catalog';
@@ -136,7 +137,7 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
      if(operationError)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
      const checked=additions.map(o=>{
       const snapshot=o.lines?.[0],op=operations?.find(row=>row.id===o.quibi_operation_id);
-      if(!snapshot||!op||!o.completed_at||op.state!=='verified'||op.quibi_id!==source.id||op.quibi_id!==o.quibi_document_id||op.quibi_content_sha256!==o.quibi_content_sha256||op.request_sha256!==snapshot.requestSha||businessUpdatePayload(snapshot.body,snapshot.baselineSha).sha256!==snapshot.requestSha||!snapshot.line)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
+      if(!snapshot||!op||!o.completed_at||op.state!=='verified'||op.quibi_id!==source.id||op.quibi_id!==o.quibi_document_id||op.quibi_content_sha256!==o.quibi_content_sha256||op.request_sha256!==snapshot.requestSha||op.request_body!==snapshot.requestJson||createHash('sha256').update(op.request_body).digest('hex')!==snapshot.requestSha||!snapshot.line)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
       return {decision:'approved',completed:true,operationState:'verified',documentId:source.id,documentSha:source.contentSha256,line:snapshot.line,operationSha:op.quibi_content_sha256,baselineSha:snapshot.baselineSha};
      });
      // Every addition must be part of the uninterrupted verified revision chain.
