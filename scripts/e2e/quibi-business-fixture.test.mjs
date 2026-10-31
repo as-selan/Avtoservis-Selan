@@ -6,7 +6,7 @@ import {createBusinessFixture} from './quibi-business-fixture.mjs';
 import {createQuibiReadClient} from '../../src/lib/quibi/client.ts';
 import {createQuibiWorkflowWriteClient,QuibiValidationError} from '../../src/lib/quibi/write-http.ts';
 import {customerRemoteId} from '../../src/lib/quibi/customer-remote-id.ts';
-import {buildEstimateBody} from '../../src/lib/quibi/write-contract.ts';
+import {buildEstimateBody,withDocumentId} from '../../src/lib/quibi/write-contract.ts';
 import {businessDocumentBody,confirmBusinessContent} from '../../src/lib/quibi/business-document-workflow.ts';
 test('existing HTTP clients simulate customer, vehicle, estimate, work order and invoice without a live write',async()=>{
  const customers=[];const send=(res,status,value)=>{res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify(value))};const directory=mkdtempSync(join(tmpdir(),'selan-fixture-'));const stateFile=join(directory,'state.json');let business=createBusinessFixture(customers,send,stateFile);
@@ -26,6 +26,8 @@ test('existing HTTP clients simulate customer, vehicle, estimate, work order and
   const bodies=[buildEstimateBody(input),businessDocumentBody('work_order','11111111-1111-4111-8111-111111111113',{...input,numberingId:'6483'}),businessDocumentBody('invoice','11111111-1111-4111-8111-111111111113',{...input,numberingId:'2060'},'2026-10-11')];
   for(const body of bodies){const result=await write.createEstimate(body),again=await write.createEstimate(body);assert.equal(again.id,result.id);const doc=await read.documentDetail(result.id,c.id);confirmBusinessContent(doc,body);assert.equal(doc.amount,'122.00');assert.ok(doc.number.startsWith('QA-SIM-'));const pdf=await read.documentPdf(result.id);assert.equal(new TextDecoder().decode(pdf.slice(0,5)),'%PDF-');assert.match(new TextDecoder().decode(pdf),/QA-SIM/);await assert.rejects(write.createEstimate({...body,Postavkedokumenta:{0:{...body.Postavkedokumenta[0],cenaZDDV:123}}}),/HTTP_409/)}
   assert.equal((await read.estimates(c.id)).length,1);assert.equal((await read.workOrders(c.id)).length,1);assert.equal((await read.invoices(c.id)).length,1);
+  const workOrder=(await read.workOrders(c.id))[0],before=await read.documentDetail(workOrder.id,c.id);const update=withDocumentId({...bodies[1],Postavkedokumenta:{...bodies[1].Postavkedokumenta,'2':{opis:'QA dodatno delo',enota_id:'1',ddv_id:'5',kolicina:1,cenaZDDV:10,popust:0}}},workOrder.id);
+  assert.equal((await write.updateEstimate(workOrder.id,update)).id,workOrder.id);const after=await read.documentDetail(workOrder.id,c.id);assert.equal(after.number,before.number);assert.equal(after.amount,'134.20');assert.equal(after.lines.length,2);assert.equal(after.lines[0].description,'QA storitev');assert.equal(after.lines[1].description,'QA dodatno delo');
   business=createBusinessFixture(customers,send,stateFile);assert.equal((await read.vehicle(v,c.id)).vin,'TESTSELANAI202601');assert.equal((await read.invoices(c.id)).length,1);assert.equal((await write.createEstimate(bodies[0])).id,(await read.estimates(c.id))[0].id);
   await assert.rejects(write.sendDocument('4101','test-selan-ai@example.test'),/DISABLED/);
  }finally{await new Promise(resolve=>server.close(resolve));rmSync(directory,{recursive:true,force:true})}
