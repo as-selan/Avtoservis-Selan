@@ -129,7 +129,8 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
    if(directCase){
     const {data:offers,error:offerError}=await db.from('case_finding_offers').select('id,lines,content_sha256,quibi_operation_id,quibi_document_id,quibi_content_sha256,completed_at,case_finding_offer_decisions(decision)').eq('case_id',orderId);
     if(offerError)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
-    const additions=(offers??[]).filter(o=>Array.isArray(o.case_finding_offer_decisions)&&o.case_finding_offer_decisions.some((d:{decision:string})=>d.decision==='approved'));
+    if((offers??[]).some(o=>!o.case_finding_offer_decisions||Array.isArray(o.case_finding_offer_decisions)&&o.case_finding_offer_decisions.length!==1))throw Error('FINDING_EVIDENCE_UNAVAILABLE');
+    const additions=(offers??[]).filter(o=>{const decision=o.case_finding_offer_decisions;return Array.isArray(decision)?decision.some((d:{decision:string})=>d.decision==='approved'):decision?.decision==='approved';});
     if(additions.length){
      const {data:operations,error:operationError}=await db.from(quibiJournalTable(environment)).select('id,kind,state,quibi_id,quibi_content_sha256,request_body,request_sha256').eq('organization_id',access.organizationId).eq('service_request_id',orderId).eq('kind','work_order_update');
      if(operationError)throw Error('FINDING_EVIDENCE_UNAVAILABLE');
