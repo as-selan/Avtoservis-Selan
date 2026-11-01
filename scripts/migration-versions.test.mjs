@@ -8,6 +8,9 @@ const installed={
  '20261024094647':'1453287798007f9537e21d325f8005859d38ac5cd019322f48038a173477c2f9',
  '20261024100001':'0a60879e93eba3bd9b756442a9c95cb2253c1be5ce3f2ca88fbab831499666d0',
  '20261024100417':'ca38539d6ff5fe9d1693c4742fd34d957de402b2e6e5c78ba5d42a1200aad960',
+ '20261101115228':'aa8c5244b1d24041f5711477fcd2d9cb8f843f05aabb342f586562e42c7bb815',
+ '20261101115240':'962b98856146a2373c1829e54883b77c39f01c2072545fefd89a1fe1a9cc7bd8',
+ '20261101115248':'4f46420c230790982feffdeac4cc0c03ae0ffa7a72059894e5c590afcc926be0',
 };
 for(const [version,sha] of Object.entries(installed))test(`canonical migration ${version} preserves SQL bytes and installed DEV content`,()=>{
  const row=mapping.migrations.find(m=>m.canonicalVersion===version);assert.ok(row);

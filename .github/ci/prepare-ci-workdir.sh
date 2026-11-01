@@ -53,9 +53,9 @@ LATER_MIGRATIONS=(
   "20261026195057_confirmed_quibi_contact_continuation.sql"
   "20261027213934_allow_manager_self_assign_case_work.sql"
   "20261028012444_hide_case_notes_with_audit.sql"
-  "20261028020000_case_repair_findings.sql"
-  "20261028033000_finding_offer_versions.sql"
-  "20261031070740_finding_additional_work.sql"
+  "20261101115228_case_repair_findings.sql"
+  "20261101115240_finding_offer_versions.sql"
+  "20261101115248_finding_additional_work.sql"
 )
 
 mkdir -p "${CI_WORKDIR}/supabase/migrations"
