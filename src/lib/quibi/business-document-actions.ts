@@ -1,4 +1,5 @@
 "use server";
+import {syncVerifiedCaseUrl} from './case-url-server';
 import {createHash} from 'node:crypto';
 import {invoiceDateDefaults} from './invoice-date-defaults';
 import {findingInvoiceEvidenceCovers} from './finding-invoice-evidence';
@@ -185,9 +186,10 @@ export async function prepareQuibiBusinessDocument(form:FormData):Promise<Busine
   dispatchStarted=true;
   const op=updating?await updateBusinessDocument({kind,orderId,caseId:order.service_request_id,documentId:existing!.quibi_document_id,baselineSha:baselineSha!,expectedSha:payload.sha256,expectedAmount:source.amount,body,read,write,journal,expectedUnitNetPrices,expectedUnitIds}):await createBusinessDocument({kind,orderId,retryOperationId,caseId:order.service_request_id,expectedAmount:source.amount,body,read,write,journal,expectedUnitNetPrices,expectedUnitIds});
   if(!op.quibiId||!op.quibiContentSha256)throw Error('DOCUMENT_UNVERIFIED');
-  if(directCase){revalidatePath('/dashboard/primeri/'+order.service_request_id);revalidatePath('/dashboard');return {ok:true,message:'Quibi dokument je ponovno prebran. ID in SHA sta shranjena v journalu servisnega primera.',documentId:op.quibiId,documentNumber:op.documentNumber??undefined,documentSha:op.quibiContentSha256};}
+  if(directCase){await syncVerifiedCaseUrl(op.quibiId,order.service_request_id);revalidatePath('/dashboard/primeri/'+order.service_request_id);revalidatePath('/dashboard');return {ok:true,message:'Quibi dokument je ponovno prebran. ID in SHA sta shranjena v journalu servisnega primera.',documentId:op.quibiId,documentNumber:op.documentNumber??undefined,documentSha:op.quibiContentSha256};}
   if(updating){
    const {error}=await db.rpc('confirm_work_order_quibi_document_revision',{p_reference_id:existing!.id,p_operation_id:op.id});
+   if(!error)await syncVerifiedCaseUrl(op.quibiId,order.service_request_id);
    revalidatePath('/dashboard/nalogi/'+orderId);
    return {ok:!error,message:error?'Quibi sprememba je preverjena, shranjevanje nove reference pa zahteva pregled. Ne ponavljajte zapisa.':'Quibi dokument je posodobljen in ponovno prebran. Prejšnji SHA je ohranjen v revizijski sledi.',documentId:op.quibiId};
   }
@@ -237,6 +239,7 @@ export async function prepareInspectionBillingBasis(form:FormData):Promise<Busin
   quibiWorkflowConfig(process.env,'write');
   const write=configuredQuibiWorkflowWriteClient(),journal=quibiWorkflowJournal(access.organizationId,access.userId);dispatchStarted=true;
   const operation=await createBusinessDocument({kind:'invoice',orderId:caseId,caseId,expectedAmount:source.total.toFixed(2),body,journal,read,write,expectedUnitNetPrices:[source.option.unitNetPrice!],expectedUnitIds:[source.option.unitId]});
+  if(operation.quibiId)await syncVerifiedCaseUrl(operation.quibiId,caseId);
   revalidatePath('/dashboard/primeri/'+caseId);return {...basis,documentId:operation.quibiId??undefined,message:'Račun je ustvarjen v Quibiju in ponovno preverjen. Pošiljanje ni bilo izvedeno.'};
  }catch(error){return {...billingBasis,ok:false,dispatchStarted,message:dispatchStarted?'Izid računa zahteva pregled shranjene operacije. CREATE ne ponavljajte; najprej preverite obstoječi dokument in dnevnik.':error instanceof Error&&error.message==='INSPECTION_HEADER_REQUIRED'?'Manjkajo potrjeni podatki računa iz Quibija. Ponovno odprite predogled.':error instanceof Error&&error.message==='QUIBI_INVOICE_DATES_REQUIRED'?'Vnesite veljavne datume storitve, izdaje in zapadlosti. Storitev ne sme biti po izdaji, zapadlost pa ne pred izdajo.':error instanceof Error&&error.message==='QUIBI_WORKFLOW_DISABLED'?'Quibi WRITE je izključen. Predogled in ročno nadaljevanje ostajata na voljo.':error instanceof Error&&error.message==='INSPECTION_REVIEW_CHANGED'?'Storitev, cena ali podatki so se spremenili oziroma izbira ni potrjena. Ponovno odprite predogled in potrdite aktualne podatke.':error instanceof Error&&['INSPECTION_HISTORY_UNAVAILABLE','INSPECTION_INVOICE_UNRESOLVED'].includes(error.message)?'Račun oziroma njegov prejšnji poskus zahteva preverjanje. Novega obračuna ne pripravljamo; preverite obstoječe dokumente primera v Quibiju.':error instanceof Error&&error.message==='INSPECTION_NOT_BILLABLE'?'Pregled je brezplačen ob naročenem popravilu ali še ni zaključen. Računa pregleda ne pripravljamo.':error instanceof Error&&error.message==='INSPECTION_SERVICE_REQUIRED'?'Izberite potrjeno Quibijevo storitev predhodnega pregleda. Artikla, ki vodi zalogo, ne obravnavamo kot storitev pregleda.':'Podlage pregleda ni mogoče preveriti. Preverite povezavo stranke in vozila ter pravo Quibijevo postavko in cenik.'};}
 }

@@ -1,4 +1,5 @@
 "use server";
+import {syncVerifiedCaseUrl} from './case-url-server';
 import {revalidatePath} from 'next/cache';
 import {createClient as privileged} from '@supabase/supabase-js';
 import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
@@ -14,7 +15,7 @@ export async function linkWorkOrderQuibiDocument(form:FormData):Promise<{ok:bool
  if(!/^[a-f0-9-]{36}$/i.test(orderId)||!/^\d+$/.test(documentId)||!['work_order','invoice'].includes(kind)||form.get('confirmed')!=='yes')return {ok:false,message:'Izrecno potrdite povezavo tega dokumenta s servisnim primerom.'};
  try{
  const db=await createClient(),environment=quibiLinkEnvironment(process.env);
- const {data:order}=await db.from('work_orders').select('id,customer_id,vehicle_id,status').eq('organization_id',access.organizationId).eq('id',orderId).single();
+ const {data:order}=await db.from('work_orders').select('id,customer_id,vehicle_id,status,service_request_id').eq('organization_id',access.organizationId).eq('id',orderId).single();
  if(!order||order.status==='closed')throw Error('ORDER_UNAVAILABLE');
  const [{data:link},{data:vehicleLink},{data:customer},{data:vehicle}]=await Promise.all([
  db.from('integration_links').select('external_id,quibi_environment,sync_status,local_fingerprint,external_fingerprint').eq('organization_id',access.organizationId).eq('entity_id',order.customer_id).eq('entity_type','customer').eq('provider','quibi').single(),
@@ -31,6 +32,7 @@ export async function linkWorkOrderQuibiDocument(form:FormData):Promise<{ok:bool
  const entry={organization_id:access.organizationId,work_order_id:orderId,document_kind:kind,quibi_environment:environment,quibi_document_id:documentId,quibi_customer_id:link.external_id,quibi_vehicle_id:vehicleLink.quibi_vehicle_id,content_sha256:document.contentSha256,confirmed_by_profile_id:access.userId};
  const {error}=await store.from('work_order_quibi_documents').insert(entry);
  if(error){const {data:existing}=await db.from('work_order_quibi_documents').select('quibi_document_id,content_sha256,quibi_environment').eq('organization_id',access.organizationId).eq('work_order_id',orderId).eq('document_kind',kind).single();if(!existing||existing.quibi_document_id!==documentId||existing.content_sha256!==sha||existing.quibi_environment!==environment)throw Error('LINK_CONFLICT');}
- revalidatePath(`/dashboard/nalogi/${orderId}`);return {ok:true,message:'Povezava je shranjena. Poslovni dokument ostaja v Quibiju.'};
+ if(order.service_request_id)await syncVerifiedCaseUrl(documentId,order.service_request_id);
+ revalidatePath('/dashboard/nalogi/'+orderId);return {ok:true,message:'Povezava je shranjena. Poslovni dokument ostaja v Quibiju.'};
  }catch(error){const code=error instanceof Error?error.message:'';return {ok:false,message:code==='QUIBI_DOCUMENT_VEHICLE_UNVERIFIED'?'Quibi ne potrjuje vozila dokumenta. Povezava ni shranjena; QA izjema za predračun se tukaj ne uporablja.':code==='QUIBI_DOCUMENT_CONTENT_CHANGED'?'Vsebina dokumenta se je spremenila. Ponovno jo preglejte.':'Povezava ni potrjena. Preverite identiteto stranke in vozila, dokument ter namestitev migracije.'};}
 }

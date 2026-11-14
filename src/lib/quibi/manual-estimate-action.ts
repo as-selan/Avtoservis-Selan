@@ -1,4 +1,5 @@
 "use server";
+import {syncVerifiedCaseUrl} from './case-url-server';
 import {caseWorkQuibiEnvironment} from './deployment-policy';
 import {syntheticCaseEvidenceAllowed} from './synthetic-case-evidence';
 
@@ -114,6 +115,7 @@ export async function linkManualQuibiEstimate(serviceRequestId: string, estimate
   if (writeError || payload.ok !== true || !payload.quote_id || !payload.version_no) {
     return error("Preverjenega predračuna ni bilo mogoče povezati. Poskusite znova.");
   }
+  await syncVerifiedCaseUrl(estimateId, serviceRequestId);
   return { ok: true, quoteId: payload.quote_id, versionNo: payload.version_no };
 }
 
