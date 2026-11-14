@@ -501,7 +501,7 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await watch.bringToFront();await expect(watch.locator('a[href="/dashboard/mehanik/'+id+'"]')).toContainText('Delo poteka',{timeout:15000});await page.bringToFront();
  await expect(page.getByLabel('Fotografiraj vozilo ali del')).toBeVisible();
  const camera=page.getByLabel('Fotografiraj vozilo ali del');await expect(camera).toHaveAttribute('capture','environment');
- const gallery=page.getByLabel('Ali izberi iz galerije');await expect(gallery).toHaveAttribute('multiple','');
+ const gallery=page.getByLabel('Ali izberi iz galerije');await expect(gallery).toBeVisible();await expect(gallery).toHaveAttribute('multiple','');
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAADklEQVR4nGP4DwYMEAoAU7oL9ZisIGcAAAAASUVORK5CYII=','base64');
  await gallery.setInputFiles([{name:'qa-part-one.png',mimeType:'image/png',buffer:png},{name:'qa-part-two.png',mimeType:'image/png',buffer:png}]);
  await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2,{timeout:20000});
