@@ -27,7 +27,32 @@ try {
   try{owner=(await read.lookupVehicle('2395')).customerId}catch{}
   try{oldCustomerReadable=(await read.customer('405963')).id==='405963'}catch{}
   if(oldCustomerReadable){try{const [estimates,orders,invoices]=await Promise.all([read.estimates('405963'),read.workOrders('405963'),read.invoices('405963')]);oldDocumentCounts={estimates:estimates.length,orders:orders.length,invoices:invoices.length}}catch{}}
-  console.log('SELAN_DEV_URL_INSPECT '+JSON.stringify({matches:found.map(x=>x.id),customerId:'408828',vehicleOwner:owner,oldCustomerReadable,oldDocumentCounts}));process.exit(0);
+  const alternatives=[];
+  try{
+   const synthetic=(await read.customers()).filter(x=>/^(?:TEST|QA[-_ ])/i.test(x.name)&&/@example\.(?:test|invalid)$/i.test(x.email)).slice(0,25);
+   for(const remote of synthetic){
+    const linked=await db.from('integration_links').select('organization_id,entity_id,local_fingerprint,external_fingerprint').eq('provider','quibi').eq('entity_type','customer').eq('external_id',remote.id).eq('quibi_environment','dev').eq('sync_status','ok');
+    if(linked.error)continue;
+    for(const l of linked.data??[]){
+     if(customerFingerprint(remote)!==l.external_fingerprint)continue;
+     const customer=await db.from('customers').select('display_name,phone,email').eq('organization_id',l.organization_id).eq('id',l.entity_id).is('archived_at',null).maybeSingle();
+     if(customer.error||!customer.data||!/^(?:TEST|QA[-_ ])/i.test(customer.data.display_name??'')||!/@example\.(?:test|invalid)$/i.test(customer.data.email??'')||customerFingerprint({name:customer.data.display_name,phone:customer.data.phone??'',email:customer.data.email??''})!==l.local_fingerprint)continue;
+     const cases=await db.from('service_requests').select('id,vehicle_id,summary,problem_description').eq('organization_id',l.organization_id).eq('customer_id',l.entity_id).is('archived_at',null).limit(20);
+     if(cases.error)continue;
+     for(const c of cases.data??[]){
+      if(!c.vehicle_id||!/^QA-SIM/i.test(c.summary??'')||!/^QA-SIM/i.test(c.problem_description??''))continue;
+      const local=await db.from('vehicles').select('vin,registration_current,make,model').eq('organization_id',l.organization_id).eq('id',c.vehicle_id).eq('customer_id',l.entity_id).is('archived_at',null).maybeSingle();
+      const vl=await db.from('quibi_vehicle_links').select('quibi_vehicle_id,quibi_customer_id,local_fingerprint,external_fingerprint').eq('organization_id',l.organization_id).eq('vehicle_id',c.vehicle_id).eq('customer_id',l.entity_id).eq('quibi_environment','dev').eq('sync_status','ok').maybeSingle();
+      if(local.error||vl.error||!local.data||!vl.data||vl.data.quibi_customer_id!==remote.id||!/^TEST/i.test(local.data.vin??''))continue;
+      const current=await read.vehicle(vl.data.quibi_vehicle_id,remote.id).catch(()=>null);if(!current||current.disabled||vehicleFingerprint(current)!==vl.data.external_fingerprint||vehicleFingerprint({vin:local.data.vin??'',registration:local.data.registration_current??'',make:local.data.make??'',model:local.data.model??''})!==vl.data.local_fingerprint)continue;
+      const journal=await db.from('quibi_dev_operation_journal').select('quibi_id,quibi_content_sha256,request_body').eq('organization_id',l.organization_id).eq('service_request_id',c.id).eq('kind','estimate').eq('state','verified').not('quibi_id','is',null);
+      if(journal.error)continue;
+      for(const j of journal.data??[]){const doc=await read.estimateDetail(j.quibi_id,remote.id).catch(()=>null);if(!doc||doc.vehicleId!==current.id||doc.contentSha256!==j.quibi_content_sha256||doc.externalId!=='selan-service-request:'+c.id)continue;alternatives.push({caseId:c.id,customerId:remote.id,vehicleId:current.id,documentId:doc.id});}
+     }
+    }
+   }
+  }catch{}
+  console.log('SELAN_DEV_URL_INSPECT '+JSON.stringify({matches:found.map(x=>x.id),customerId:'408828',vehicleOwner:owner,oldCustomerReadable,oldDocumentCounts,alternatives}));process.exit(0);
  }
  const one=async(q)=>{const {data,error}=await q;assert.ok(!error&&data,'DB_READ_FAILED');return data};
  const seed=await one(db.from('service_requests').select('organization_id,source,channel').eq('id','9d40c42f-b6a8-473b-983f-f9620df97d10').is('archived_at',null).single());
