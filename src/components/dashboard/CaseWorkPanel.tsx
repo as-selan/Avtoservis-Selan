@@ -14,7 +14,7 @@ async function QuibiRepairLines({work}:{work:CaseWork}) {
  if(!lines)return <p role="status">Postavke trenutno niso na voljo. Delo in fotografije lahko še naprej shranjujete.</p>;
  return <ul className="list-disc pl-5">{lines.map((line,index)=><li key={index}>{line.description} · količina {line.quantity}</li>)}</ul>;
 }
-async function CaseWorkEvidence({caseId,role,work,db}:{caseId:string;role:string;work:CaseWork;db:Awaited<ReturnType<typeof loadCaseWork>>['db']}){
+export async function CaseWorkEvidence({caseId,role,work,db}:{caseId:string;role:string;work:CaseWork;db:Awaited<ReturnType<typeof loadCaseWork>>['db']}){
  const [notes,photos]=await Promise.all([db.from('service_case_notes').select('id,body,created_at,author_id').eq('case_id',caseId).is('deleted_at',null).order('created_at'),db.from('service_case_photos').select('id,caption,object_path,approved_for_customer,finding_id').eq('case_id',caseId).eq('state','ready').order('created_at')]);
  const [findings,additionalWork]=await Promise.all([db.from('case_repair_findings').select('id,description,state,created_at').eq('case_id',caseId).order('created_at'),db.from('case_finding_offers').select('id,finding_id,lines,quibi_operation_id,completed_at').eq('case_id',caseId).not('quibi_operation_id','is',null)]);
  const authors=await db.from('profiles').select('id,full_name,email').in('id',[...new Set((notes.data??[]).map(n=>n.author_id))]);const authorName=new Map((authors.data??[]).map(p=>[p.id,p.full_name?.trim()||p.email||'Član ekipe']));
