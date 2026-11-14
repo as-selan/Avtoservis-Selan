@@ -11,7 +11,7 @@ function date(value:string){return /^\d{4}-\d{2}-\d{2}/.test(value)?value.slice(
 export function VehicleHistory({scope,expanded=false}:{scope:VehicleHistoryScope;expanded?:boolean}){
  const [result,setResult]=useState<VehicleHistoryResult|null>(null),[pending,start]=useTransition(),[failed,setFailed]=useState(false),lock=useRef(false);
  const load=useCallback((offset=0)=>{if(lock.current)return;lock.current=true;start(async()=>{try{const next=await loadVehicleHistory(scope,offset);setResult(old=>offset&&old?{...next,cases:old.cases,documents:[...new Map([...old.documents,...next.documents].map(d=>[d.kind+':'+d.id,d])).values()]}:next);setFailed(false);}catch{setFailed(true);}finally{lock.current=false;}});},[scope]);
- useEffect(()=>{if(expanded&&!result)load();},[expanded,result,load]);
+ useEffect(()=>{if(expanded&&!result&&!failed)load();},[expanded,result,load,failed]);
  const openIssues=result?.cases.flatMap(c=>c.issues.filter(f=>f.status!=='completed').map(f=>({...f,visitDate:c.date})))??[];
  const timeline=result?[...result.cases.map(c=>({type:'case' as const,date:c.date,item:c})),...result.documents.map(d=>({type:'document' as const,date:d.date,item:d}))].sort((a,b)=>b.date.localeCompare(a.date)):[];
  return <details open={expanded||undefined} className="rounded-xl border bg-white p-4" onToggle={event=>{if(event.currentTarget.open&&!result&&!pending)load();}}><summary className="min-h-11 cursor-pointer py-2 font-semibold">Zgodovina vozila in odprte napake</summary><div className="space-y-3 pt-3">{pending&&<p role="status">Nalagam zgodovino…</p>}{failed&&<p role="alert">Zgodovine trenutno ni mogoče prebrati. <button type="button" onClick={()=>load()} className="min-h-11 text-blue-700">Poskusi znova</button></p>}
