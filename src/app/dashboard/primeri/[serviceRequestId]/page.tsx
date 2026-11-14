@@ -145,6 +145,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       const catalog=await catalogTask;return {choices,catalogOptions:catalog.options,operationState,writeReady};
     })():undefined;
     async function loadCaseContent() {
+    const repairWorkTask=loadCaseWork(serviceRequestId).then(value=>({value}),error=>({error}));
     const estimateDataTask = !earlyEditor&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
       try {const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([loadEstimateCatalog(read),linkResult.data?.sync_status==='ok'?read.customer(linkResult.data.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);return {catalog,customerPrice};}
       catch {return null;}
@@ -276,7 +277,9 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     let caseDocumentEnvironment:ReturnType<typeof caseWorkQuibiEnvironment>|null=null;
     try{if(isHostedQuibiEnvironment(process.env)||process.env.QUIBI_E2E_WRITE_ENABLED==='1')caseDocumentEnvironment=caseWorkQuibiEnvironment(process.env);}catch{/* invalid fixture or hosted configuration */}
     if(caseDocumentEnvironment&&!internalOrdersEnabled&&['owner','admin'].includes(access.role)){const {data,error}=await db.from(quibiJournalTable(caseDocumentEnvironment)).select('kind,state,quibi_id,quibi_content_sha256,request_body,send_status,created_at').eq('organization_id',access.organizationId).eq('service_request_id',serviceRequestId).in('kind',['work_order','invoice','work_order_update','invoice_update','send']);if(!error){businessNextAction=quibiBusinessNextAction(data??[]);businessHasInvoice=(data??[]).some(r=>r.kind==='invoice'&&r.state==='verified'&&r.quibi_id);const verifiedOrders=(data??[]).filter(r=>r.kind==='work_order'&&r.state==='verified'&&r.quibi_id);businessHasWorkOrder=verifiedOrders.length===1;businessWorkOrderId=businessHasWorkOrder?verifiedOrders[0].quibi_id??undefined:undefined;}}
-    const repairWork=(await loadCaseWork(serviceRequestId)).rows[0];
+    const repairWorkResult=await repairWorkTask;
+    if ("error" in repairWorkResult) throw repairWorkResult.error;
+    const repairWork=repairWorkResult.value.rows[0];
     const step = nextCaseStep({repairNextAction:repairWork?.phase?.step,businessNextAction,quibiCreateRejected:createdOperation?.state==='failed', customerApprovalVerified:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256), quibiCreateUncertain:createdOperation?.state==="uncertain"||createdOperation?.state==="dispatching",directQuibiBusiness:!internalOrdersEnabled,status: request.status, workOrderStatus: workOrder?.status, offerPrepared: prep?.status === "ready_for_provider",
       quibiLinked: !!link, quibiSyncStatus: link?.sync_status, quoteReviewStatus: quote?.internal_review_status,
       deliveryStatus: approval?.delivery_status, customerDecision: approval?.customer_decision,
