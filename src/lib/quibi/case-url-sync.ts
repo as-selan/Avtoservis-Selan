@@ -9,3 +9,11 @@ export async function syncQuibiCaseUrl(input:{documentId:string;caseId:string;or
   return true;
  } catch { return false; }
 }
+/** Bounded retries use the identical validated document, case and idempotency key. */
+export async function retryQuibiCaseUrl(input:Parameters<typeof syncQuibiCaseUrl>[0],client:CaseUrlClient,wait:(ms:number)=>Promise<void>=(ms)=>new Promise(resolve=>setTimeout(resolve,ms))):Promise<boolean>{
+ for(let attempt=0;attempt<3;attempt++){
+  if(attempt)await wait(attempt*1000);
+  if(await syncQuibiCaseUrl(input,client))return true;
+ }
+ return false;
+}
