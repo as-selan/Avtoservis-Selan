@@ -510,11 +510,16 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await page.locator('[data-work-form="progress"] summary').filter({hasText:'Pregled vozila'}).click();
  await page.getByRole('button',{name:'Zavore – Potrebno popravilo',exact:true}).click();
  await page.getByRole('button',{name:'Luči – V redu',exact:true}).click();
+ await page.getByRole('button',{name:'Pnevmatike – Ni pregledano',exact:true}).click();
+ await page.getByRole('button',{name:'Shrani pregled',exact:true}).click();
+ await expect(page.getByText('Opomba je uspešno shranjena.')).toBeVisible();
+ await page.reload();await page.locator('[data-work-form="progress"] summary').filter({hasText:'Pregled vozila'}).click();
+ await expect(page.getByRole('button',{name:'Pnevmatike – Ni pregledano',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(page.getByRole('button',{name:'Zavore – Potrebno popravilo',exact:true})).toHaveAttribute('aria-pressed','true');
  await noHorizontalOverflow(page);
  await page.getByRole('button',{name:'Zaključi delo',exact:true}).click();
  await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
- await page.reload();await expect(page.getByText('Zavore: Potrebno popravilo\nLuči: V redu',{exact:true})).toBeVisible();
+ await page.reload();await expect(page.getByText('Zavore: Potrebno popravilo\nPnevmatike: Ni pregledano\nLuči: V redu',{exact:true})).toBeVisible();
  await watch.bringToFront();await expect(watch.locator('a[href="/dashboard/mehanik/'+id+'"]')).toContainText('Delo opravljeno',{timeout:15000});await expect(watch.locator('main ul li a').first()).toHaveAttribute('href','/dashboard/mehanik/'+seed.mechanicCases.mobile);await watch.close();
  await page.reload();await expect(page.locator('[data-work-form="progress"]')).toHaveCount(0);
  await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2);
