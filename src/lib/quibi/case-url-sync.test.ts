@@ -49,3 +49,10 @@ test('synthetic estimate, work order and invoice each retain one case link throu
  assert.equal(records.size,3);
  for(const record of records.values())assert.equal(record.url,`https://selan.example/dashboard/primeri/${caseId}`);
 });
+
+test('permanent Quibi validation rejection is not retried',async()=>{
+ const {retryQuibiCaseUrl}=await import('./case-url-sync.ts');
+ const {QuibiValidationError}=await import('./write-http.ts');
+ let calls=0;const result=await retryQuibiCaseUrl({documentId:'42',caseId,origin:'https://selan.example',verified:true},{addCaseUrl:async()=>{calls++;throw new QuibiValidationError({error:true,message:'Rejected'});}},async()=>{});
+ assert.equal(result,false);assert.equal(calls,1);
+});
