@@ -413,7 +413,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
           {quote?.internal_review_status === "approved_for_send" && quibiEstimateId && ["owner", "admin"].includes(access.role) &&
             <ManualEstimateHandoff quoteId={quote.id} delivered={approval?.delivery_status === "delivered"} decision={approval?.customer_decision ?? null} syntheticQa={syntheticQa} realDevWrite={realDevMode} apiDispatch={approval?.delivery_proof_kind === "quibi_mail_server_acceptance"} />}
           {approval?.delivery_status === "delivered" && <p className="text-xs text-slate-600">{!realDevMode && (process.env.SELAN_REMOTE_DEMO === "1" || process.env.SELAN_LOCAL_REVIEW === "1") ? "Ni poslano" : approval.delivery_proof_kind === "quibi_mail_server_acceptance" ? "Predano poštnemu strežniku; prejem ni potrjen" : `Ročno poslano prek ${approval.delivery_channel}`}; referenca: {approval.delivery_evidence_reference}. To ni samodejna dostava.</p>}
-          </div>{quote?.internal_review_status!=="approved_for_send"&&<p className="text-sm text-slate-600">Najprej interno preglejte in odobrite predračun. Šele nato zabeležite dejanski odgovor stranke za isto različico.</p>}</section>
+          </div>{quote?.internal_review_status!=="approved_for_send"&&!(operatorApprovalReady&&createdOperation?.quibiId&&["owner","admin"].includes(access.role))&&<p className="text-sm text-slate-600">Najprej interno preglejte in odobrite predračun. Šele nato zabeležite dejanski odgovor stranke za isto različico.</p>}</section>
       </>)},
       {id:"poslovni-nalog",title:"Delovni nalog",content:(<>
       <div id="poslovni-nalog" tabIndex={-1} className="scroll-mt-20">
