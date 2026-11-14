@@ -11,7 +11,7 @@ import {customerFingerprint,vehicleFingerprint} from '../src/lib/quibi/contracts
 import {quibiDevEstimateChoices} from '../src/lib/quibi/write-options.ts';
 import {confirmBusinessContent} from '../src/lib/quibi/business-document-workflow.ts';
 const customerId='a75b760e-cdd2-4ffb-bc48-7d1e77972df8',vehicleId='a29dc770-1ba7-4632-9b44-dc6a099ae71b',caseId='9cc0a81e-15fb-4b7c-a789-6f60bcf644d8';
-const marker='TEST-AUTOSERVIS-SELAN-URL-B917',email='qa-url-b917@example.test',phone='000000000',vin='TESTSELANURLB9171',registration='TEST-URL-B917';
+const marker='TEST-AUTOSERVIS-SELAN-URL-B917',email='qa-url-b917@example.test',phone='',vin='TESTSELANURLB9171',registration='TEST-URL-B917';
 let stage='scope';
 try {
  assert.equal(process.env.VERCEL_PROJECT_ID,'prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU');assert.equal(process.env.VERCEL_ENV,'preview');assert.equal(process.env.QUIBI_MODE,'dev');assert.equal(process.env.SELAN_URL_DEV_SMOKE,'one-synthetic-no-send');
