@@ -97,6 +97,22 @@ function createTransport(config: Config, workflow: boolean) {
   }
 
   return {
+    async addCaseUrl(id: string, link: {url: string; naziv: string; zunanji_id: string}, appOrigin: string) {
+      const documentId = validQuibiId(id);
+      let origin: URL, url: URL;
+      try { origin = new URL(appOrigin); url = new URL(link.url); } catch { throw Error('QUIBI_INVALID_CASE_URL'); }
+      if (origin.protocol !== 'https:' || origin.origin !== appOrigin || origin.username || origin.password ||
+          url.origin !== origin.origin || url.username || url.password || url.search || url.hash ||
+          !/^\/dashboard\/primeri\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(url.pathname) ||
+          link.zunanji_id !== `selan-case:${url.pathname.split('/').pop()}` || link.naziv !== 'Fotografije in priloge vozila')
+        throw Error('QUIBI_INVALID_CASE_URL');
+      const data = responseData(await call(`/api2/urlpovezave/add/${documentId}`, 'POST', link));
+      if (typeof data.obstaja !== 'boolean' || !data.Povezava || typeof data.Povezava !== 'object') throw Error('QUIBI_INVALID_RESPONSE');
+      const entry = data.Povezava as Record<string, unknown>;
+      const linkId = validQuibiId(String(entry.id ?? ''));
+      if (entry.url !== link.url || entry.naziv !== link.naziv || entry.zunanji_id !== link.zunanji_id) throw Error('QUIBI_INVALID_RESPONSE');
+      return {id: linkId, obstaja: data.obstaja};
+    },
     async createCustomer(customer: { remote_id: string; naziv: string; emajl?: string; telst?: string }) {
       if (!validCustomerRemoteId(customer.remote_id) || !customer.naziv.trim())
         throw new Error("QUIBI_INVALID_CUSTOMER_INPUT");
