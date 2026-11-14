@@ -506,6 +506,7 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await gallery.setInputFiles([{name:'qa-part-one.png',mimeType:'image/png',buffer:png},{name:'qa-part-two.png',mimeType:'image/png',buffer:png}]);
  await expect(page.getByRole('img',{name:'Fotografija popravila',exact:true})).toHaveCount(2,{timeout:20000});
  await expect(page.getByRole('button',{name:'Shrani fotografijo',exact:true})).toHaveCount(0);
+ await page.getByText('Dodaj napako',{exact:true}).click();await page.getByLabel('Kaj si ugotovil?').fill('QA-ODPRTA napaka zavore');await page.getByRole('button',{name:'Shrani napako'}).click();await expect(page.getByText('QA-ODPRTA napaka zavore').first()).toBeVisible();
  await page.screenshot({path:'test-results/p3-mechanic-'+testInfo.project.name+'.png',fullPage:true});
  await page.locator('[data-work-form="progress"] summary').filter({hasText:'Pregled vozila'}).click();
  await page.getByRole('button',{name:'Zavore – Potrebno popravilo',exact:true}).click();
@@ -537,6 +538,7 @@ test('mechanic starts, uploads a private photo batch and completes work without 
  await expect(page.getByText(/Pregledano – preveri račun/).first()).toBeVisible();
  await expect(page.getByRole('button',{name:'Potrdi opravljeno delo',exact:true})).toHaveCount(0);
  await noHorizontalOverflow(page);
+ await page.goto('/dashboard/primeri/'+seed.preparedCaseId);const priorIssues=page.getByRole('region',{name:'Odprte napake vozila'});await expect(priorIssues.getByText('QA-ODPRTA napaka zavore').first()).toBeVisible({timeout:30000});await expect(priorIssues.getByText(/Potrebno popravilo/).first()).toBeVisible();
 });
 
 test('dashboard period filter combines search and inclusive custom dates on desktop and phone', async ({page}) => {
