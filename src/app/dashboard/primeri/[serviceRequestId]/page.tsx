@@ -94,8 +94,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       .is("archived_at", null).maybeSingle();
     if (requestError || !requestData) return unavailable;
     const request=requestData;
-
-    const initialReadsStarted=Date.now();
     const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult] = await Promise.all([
       request.customer_id ? db.from("customers").select("id, display_name, phone, email")
         .eq("organization_id", access.organizationId).eq("id", request.customer_id)
@@ -131,7 +129,6 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         .eq("organization_id", access.organizationId).eq("vehicle_id", request.vehicle_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
-    if(process.env.VERCEL_ENV === "preview") console.info(JSON.stringify({event:"case_read_timing",service:"supabase",endpoint:"initial_batch",ms:Date.now()-initialReadsStarted}));
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
     const savedDraft=prepResult.data?.auto_draft as AutomaticEstimateDraft|null;

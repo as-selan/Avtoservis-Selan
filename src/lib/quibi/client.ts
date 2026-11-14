@@ -35,7 +35,6 @@ export function createQuibiReadClient(config: Config) {
           throw new Error(`QUIBI_HTTP_${response.status}`);
         }
         const data=await response.json();
-        if(process.env.VERCEL_ENV === "preview") console.info(JSON.stringify({event:"case_read_timing",service:"quibi",endpoint:quibiReadEndpoint(path),ms:Date.now()-started}));
         if(Date.now()-started>=8000)console.info(JSON.stringify({event:'quibi_read_slow',endpoint:quibiReadEndpoint(path),method,status:response.status,durationMs:Date.now()-started}));
         return data;
       } catch (error) {
