@@ -17,3 +17,14 @@ try {
  result.dbHttp=response.status;
 } catch { /* report availability only */ }
 console.log('SELAN_DEV_READ_PROBE '+JSON.stringify(result));
+try {
+ const response=await fetch('https://dev.quibi.net/api2/stranka',{headers,redirect:'error',signal:AbortSignal.timeout(12000)});
+ const body=await response.json();
+ const rows=Array.isArray(body.data?.Stranke)?body.data.Stranke:[];
+ const ids=rows.map(row=>row.Stranka).filter(row=>row&&/^TEST-AUTOSERVIS-SELAN-/i.test(String(row.naziv??''))&&/^\d+$/.test(String(row.id??''))).map(row=>String(row.id)).slice(0,20);
+ const dbHeaders={apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY};
+ const query=await fetch(db.origin+'/rest/v1/service_requests?select=id,summary,problem_description,customer_id&summary=like.QA-SIM*&limit=50',{headers:dbHeaders,redirect:'error',signal:AbortSignal.timeout(12000)});
+ const cases=query.ok?await query.json():[];
+ const matched=cases.filter(row=>ids.includes(String(row.customer_id??''))&&/^QA-SIM/i.test(String(row.summary??''))&&/^QA-SIM/i.test(String(row.problem_description??''))).map(row=>({caseId:row.id,customerId:row.customer_id}));
+ console.log('SELAN_DEV_SYNTHETIC_PROBE '+JSON.stringify({quibiError:body.error,syntheticCustomerIds:ids,dbHttp:query.status,matchedCases:matched}));
+} catch { console.log('SELAN_DEV_SYNTHETIC_PROBE {"failed":true}'); }
