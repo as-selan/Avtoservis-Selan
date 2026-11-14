@@ -18,12 +18,16 @@ try {
  assert.equal(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,'verxxsjbewmkgoxwqvxo.supabase.co');assert.notEqual(process.env.QUIBI_PRODUCTION_WRITE_ENABLED,'1');assert.notEqual(process.env.QUIBI_PRODUCTION_SEND_ENABLED,'1');
  const config=quibiWorkflowConfig(process.env,'write');assert.equal(config.origin,'https://dev.quibi.net');
  const origin=process.env.PUBLIC_APP_ORIGIN;const appUrl=new URL(origin);assert.equal(appUrl.protocol,'https:');assert.equal(appUrl.origin,origin);assert.ok(appUrl.hostname.endsWith('.vercel.app'));
- const nativeFetch=globalThis.fetch;globalThis.fetch=async(input,init)=>{const url=new URL(typeof input==='string'?input:input.url??input);const method=(init?.method??'GET').toUpperCase();if(url.hostname==='dev.quibi.net'&&method==='POST'&&!/^\/api2\/(?:stranka\/form|vozila\/form|predracuni|glavadokumenta\/form|urlpovezave\/add\/\d+)$/.test(url.pathname))throw Error('UNEXPECTED_QUIBI_WRITE');if(!['dev.quibi.net','verxxsjbewmkgoxwqvxo.supabase.co'].includes(url.hostname))throw Error('UNEXPECTED_NETWORK_TARGET');return nativeFetch(input,init)};
+ const nativeFetch=globalThis.fetch;globalThis.fetch=async(input,init)=>{const url=new URL(typeof input==='string'?input:input.url??input);const method=(init?.method??'GET').toUpperCase();if(url.hostname==='dev.quibi.net'&&method==='POST'&&!/^\/api2\/(?:stranka\/form|vozila\/form|predracuni|dn|fakture|glavadokumenta\/form|urlpovezave\/add\/\d+)$/.test(url.pathname))throw Error('UNEXPECTED_QUIBI_WRITE');if(!['dev.quibi.net','verxxsjbewmkgoxwqvxo.supabase.co'].includes(url.hostname))throw Error('UNEXPECTED_NETWORK_TARGET');return nativeFetch(input,init)};
  const db=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
  const read=createQuibiReadClient(config),write=createQuibiWorkflowWriteClient({...config,environment:process.env});
  if(process.env.SELAN_URL_DEV_INSPECT==='1'){
   const found=(await read.vehicles('408828')).filter(x=>x.vin===vin&&x.registration===registration&&x.make==='TEST'&&x.model==='URL QA'&&!x.disabled);
-  console.log('SELAN_DEV_URL_INSPECT '+JSON.stringify({matches:found.map(x=>x.id),customerId:'408828'}));process.exit(0);
+  let owner=null,oldCustomerReadable=false,oldDocumentCounts=null;
+  try{owner=(await read.lookupVehicle('2395')).customerId}catch{}
+  try{oldCustomerReadable=(await read.customer('405963')).id==='405963'}catch{}
+  if(oldCustomerReadable){try{const [estimates,orders,invoices]=await Promise.all([read.estimates('405963'),read.workOrders('405963'),read.invoices('405963')]);oldDocumentCounts={estimates:estimates.length,orders:orders.length,invoices:invoices.length}}catch{}}
+  console.log('SELAN_DEV_URL_INSPECT '+JSON.stringify({matches:found.map(x=>x.id),customerId:'408828',vehicleOwner:owner,oldCustomerReadable,oldDocumentCounts}));process.exit(0);
  }
  const one=async(q)=>{const {data,error}=await q;assert.ok(!error&&data,'DB_READ_FAILED');return data};
  const seed=await one(db.from('service_requests').select('organization_id,source,channel').eq('id','9d40c42f-b6a8-473b-983f-f9620df97d10').is('archived_at',null).single());
