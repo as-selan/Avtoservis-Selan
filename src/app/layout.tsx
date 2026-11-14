@@ -33,7 +33,7 @@ export default function RootLayout({
           <details><summary>Podrobnosti povezave</summary>Quibi demo – podatki so simulirani. Sporočila niso poslana in termini niso rezervirani v MyPlanlyju.</details>
         </div>}
         {process.env.APP_ENV === "preproduction" && process.env.QUIBI_MODE === "dev" && <div role="note" className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-950">
-          <details><summary>Podrobnosti povezave</summary>Quibi DEV – podatki iz testnega okolja. Zapisovanje in pošiljanje v Quibi nista avtomatska. MyPlanly je trenutno ročen.</details>
+          <details><summary>Podrobnosti povezave</summary>Quibi DEV – podatki iz testnega okolja. Po potrditvi dokumenta se povezava do primera pošlje samodejno. Pošiljanje dokumentov in MyPlanly ostajata ročna.</details>
         </div>}
         {children}
       </body>
