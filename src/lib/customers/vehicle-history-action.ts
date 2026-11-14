@@ -8,7 +8,7 @@ import {readVehicleHistory,type VehicleHistoryDocument} from '@/lib/quibi/vehicl
 import {vehicleFindings,type VehicleFinding} from './vehicle-findings';
 export type VehicleHistoryScope={caseId:string;includeCurrent?:boolean}|{customerId:string;vehicleId:string};
 export type VehicleHistoryResult={cases:{id:string;date:string;work:string;status:string;findings:string|null;notes:string[];issues:VehicleFinding[];photos:{id:string;url:string;caption:string}[]}[];documents:VehicleHistoryDocument[];next:number|null;unavailable:boolean};
-export async function loadVehicleHistory(scope:VehicleHistoryScope,offset=0):Promise<VehicleHistoryResult>{
+export async function loadVehicleHistory(scope:VehicleHistoryScope,offset=0,part:'all'|'local'|'remote'='all'):Promise<VehicleHistoryResult>{
  const access=await requirePhase1OperationalAccess(),db=await createClient();
  const result:VehicleHistoryResult={cases:[],documents:[],next:null,unavailable:false};
  if(!Number.isSafeInteger(offset)||offset<0||offset>100000)throw Error('INVALID_HISTORY_SCOPE');
@@ -18,7 +18,7 @@ export async function loadVehicleHistory(scope:VehicleHistoryScope,offset=0):Pro
   const request=await db.from('service_requests').select('vehicle_id,customer_id').eq('organization_id',access.organizationId).eq('id',scope.caseId).is('archived_at',null).single();
   if(request.error||!request.data)throw Error('HISTORY_ACCESS_DENIED');
   if(!request.data.vehicle_id)return result;
-  if(offset===0){
+  if(offset===0 && part!=='remote'){
    let previousQuery=db.from('service_requests').select('id,created_at,service_wanted,problem_description,status').eq('organization_id',access.organizationId).eq('vehicle_id',request.data.vehicle_id).is('archived_at',null);
    if(!scope.includeCurrent)previousQuery=previousQuery.neq('id',scope.caseId);
    const previous=await previousQuery.order('created_at',{ascending:false}).limit(100);
@@ -31,13 +31,14 @@ export async function loadVehicleHistory(scope:VehicleHistoryScope,offset=0):Pro
     result.cases=rows.map(r=>({id:r.id,date:r.created_at,work:r.service_wanted||r.problem_description||'Servis vozila',status:r.status,notes:(notes.data??[]).filter(n=>n.case_id===r.id).map(n=>n.body),issues:classified.filter(f=>f.case_id===r.id),findings:inspections.data?.find(p=>p.service_request_id===r.id)?.findings??null,photos:signed.filter(p=>p.case_id===r.id&&p.url).map(p=>({id:p.id,url:p.url!,caption:p.caption}))}));
    }
   }
+  if(part==='local')return result;
   try{const environment=hostedQuibiEnvironment(process.env);
    const link=await db.from('quibi_vehicle_links').select('quibi_customer_id,quibi_vehicle_id').eq('organization_id',access.organizationId).eq('customer_id',request.data.customer_id).eq('vehicle_id',request.data.vehicle_id).eq('quibi_environment',environment).eq('sync_status','ok').maybeSingle();
    if(link.error)result.unavailable=true;
    if(link.data){remoteCustomer=link.data.quibi_customer_id;remoteVehicle=link.data.quibi_vehicle_id;}
    const current=await db.from(quibiJournalTable(environment)).select('quibi_id').eq('organization_id',access.organizationId).eq('service_request_id',scope.caseId).eq('state','verified');exclude=(scope.includeCurrent?[]:current.data??[]).map(r=>r.quibi_id).filter((id):id is string=>!!id);
   }catch{result.unavailable=true;}
- }else{assertDirectDevVehicleRead(process.env,access.role,scope.customerId,scope.vehicleId);remoteCustomer=scope.customerId;remoteVehicle=scope.vehicleId;}
+ }else{assertDirectDevVehicleRead(process.env,access.role,scope.customerId,scope.vehicleId);if(part==='local')return result;remoteCustomer=scope.customerId;remoteVehicle=scope.vehicleId;}
  if(remoteCustomer&&remoteVehicle){try{const remote=await readVehicleHistory(configuredQuibiReadClient(),remoteCustomer,remoteVehicle,offset,exclude);result.documents=remote.documents;result.next=remote.next;result.unavailable ||= remote.unavailable;}catch{result.unavailable=true;}}
  return result;
 }
