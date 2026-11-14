@@ -8,7 +8,7 @@ const headers={username:env.QUIBI_DEV_USERNAME,password:env.QUIBI_DEV_PASSWORD,'
 const result={quibiHttp:null,quibiError:null,syntheticCustomerVerified:false,dbHttp:null};
 try {
  const response=await fetch('https://dev.quibi.net/api2/stranka/view/405956',{headers,redirect:'error',signal:AbortSignal.timeout(12000)});
- const body=await response.json();const customer=body.data?.Stranka;
+ const body=await response.json();const customer=body.data?.Stranke?.Stranka;
  result.quibiHttp=response.status;result.quibiError=body.error;
  result.syntheticCustomerVerified=body.error===false&&String(customer?.id)==='405956'&&/^TEST-AUTOSERVIS-SELAN-/i.test(customer?.naziv??'');
 } catch { /* no credentials or upstream bodies in logs */ }
