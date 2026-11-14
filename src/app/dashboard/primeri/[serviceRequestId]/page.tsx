@@ -195,9 +195,11 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       try {
         configuredQuibiWorkflowWriteClient();
         const journal = quibiWorkflowJournal(access.organizationId, access.userId);
-        createdOperation = await journal.get("estimate", serviceRequestId);
+        [createdOperation, sendOperation] = await Promise.all([
+          journal.get("estimate", serviceRequestId),
+          quote ? journal.get("send", quote.id) : Promise.resolve(null),
+        ]);
         if (quote) {
-          sendOperation = await journal.get("send", quote.id);
           // Reopening a case reconciles status/evidence without any send operation.
           if (["owner", "admin"].includes(access.role) && sendOperation?.sendId &&
               (sendOperation.sendStatus === "queued" || (process.env.QUIBI_MODE === "production" &&
