@@ -1,3 +1,4 @@
+import {matchSyntheticCases} from './quibi-dev-identity-match.mjs';
 // Read-only diagnostic for the isolated Vercel DEV Preview; never creates documents or sends mail.
 const env=process.env;
 if(env.VERCEL_ENV!=='preview'||env.VERCEL_PROJECT_ID!=='prj_OSpIMwU9zkrcImKhGxpaq8PnrgUU'||env.QUIBI_MODE!=='dev')throw Error('DEV_SCOPE_REQUIRED');
@@ -23,8 +24,10 @@ try {
  const rows=Array.isArray(body.data?.Stranke)?body.data.Stranke:[];
  const ids=rows.map(row=>row.Stranka).filter(row=>row&&/^TEST-AUTOSERVIS-SELAN-/i.test(String(row.naziv??''))&&/^\d+$/.test(String(row.id??''))).map(row=>String(row.id)).slice(0,20);
  const dbHeaders={apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY};
- const query=await fetch(db.origin+'/rest/v1/service_requests?select=id,summary,problem_description,customer_id&summary=like.QA-SIM*&limit=50',{headers:dbHeaders,redirect:'error',signal:AbortSignal.timeout(12000)});
+ const query=await fetch(db.origin+'/rest/v1/service_requests?select=id,organization_id,summary,problem_description,customer_id&summary=like.QA-SIM*&limit=50',{headers:dbHeaders,redirect:'error',signal:AbortSignal.timeout(12000)});
  const cases=query.ok?await query.json():[];
- const matched=cases.filter(row=>ids.includes(String(row.customer_id??''))&&/^QA-SIM/i.test(String(row.summary??''))&&/^QA-SIM/i.test(String(row.problem_description??''))).map(row=>({caseId:row.id,customerId:row.customer_id}));
+ const linksResponse=await fetch(db.origin+'/rest/v1/integration_links?select=organization_id,entity_id,external_id,provider,entity_type,sync_status,quibi_environment&provider=eq.quibi&entity_type=eq.customer&quibi_environment=eq.dev&sync_status=eq.ok',{headers:dbHeaders,redirect:'error',signal:AbortSignal.timeout(12000)});
+ if(!linksResponse.ok)throw Error('IDENTITY_LINK_READ_FAILED');
+ const matched=matchSyntheticCases(cases,await linksResponse.json(),ids);
  console.log('SELAN_DEV_SYNTHETIC_PROBE '+JSON.stringify({quibiError:body.error,syntheticCustomerIds:ids,dbHttp:query.status,matchedCases:matched}));
 } catch { console.log('SELAN_DEV_SYNTHETIC_PROBE {"failed":true}'); }
