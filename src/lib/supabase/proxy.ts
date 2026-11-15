@@ -1,5 +1,7 @@
+import { assertLocalQuibiRequest } from "@/lib/quibi/local-send-policy";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { assertPreproductionQuibiConfiguration, assertRemoteDemoConfiguration } from "@/lib/demo/config";
 
 /**
  * Refresh the Auth session and gate on identity only.
@@ -9,13 +11,24 @@ import { NextResponse, type NextRequest } from "next/server";
  * Invite-only note: the app has no signup UI, but hosted Supabase Auth must also
  * have public signup disabled before launch (Dashboard setting). This code does
  * not change that remote setting.
+ *
+ * Unauthenticated routes are explicit — do not wildcard /api.
+ * /dashboard and other workshop routes stay identity-gated below.
  */
-function isPublicAuthRoute(pathname: string): boolean {
+export function isPublicUnauthenticatedPath(pathname: string): boolean {
   return (
     pathname === "/login" ||
     pathname === "/auth" ||
-    pathname.startsWith("/auth/")
+    pathname.startsWith("/auth/") ||
+    pathname === "/povprasevanje" ||
+    pathname === "/api/povprasevanje" ||
+    pathname === "/dopolnitev" ||
+    pathname === "/api/dopolnitev"
   );
+}
+
+function isPublicAuthRoute(pathname: string): boolean {
+  return isPublicUnauthenticatedPath(pathname);
 }
 
 /**
@@ -47,6 +60,13 @@ export function redirectToLoginPreservingAuthState(
 }
 
 export async function updateSession(request: NextRequest) {
+  try {
+    assertPreproductionQuibiConfiguration();
+    assertLocalQuibiRequest(process.env, request.headers, request.method === "POST");
+    if (process.env.APP_ENV !== "preproduction") assertRemoteDemoConfiguration();
+  } catch {
+    return new NextResponse("Predprodukcijsko okolje ni varno konfigurirano.", { status: 503 });
+  }
   let supabaseResponse = NextResponse.next({
     request,
   });

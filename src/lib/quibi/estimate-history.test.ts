@@ -1,0 +1,56 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {historyProposal,loadEstimateHistory,freshHistorySource,verifyHistoryCatalogReferences,type HistoryRead} from './estimate-history.ts';
+import {estimateCatalogOption} from './estimate-catalog.ts';
+import {parseEstimateDetail} from './contracts.ts';
+import type {QuibiEstimateDetail} from './contracts.ts';
+const article={id:'11',code:'SERVICE',name:'Menjava olja',netPrice:'100',vatId:'5',vatLabel:'22 %',unitId:'1',unitLabel:'kos'};
+const list={id:'189',name:'Servis',lines:[{articleId:'11',netPrice:'100',discount:'0'}]};
+const option=estimateCatalogOption(article,list);
+const input={customerId:'2',vehicleId:'3',wanted:'Menjava olja'};
+const detail:QuibiEstimateDetail={id:'7',customerId:'2',vehicleId:'3',amount:'100',status:'',date:'12.01.2026',contentSha256:'original',lines:[{description:'Menjava olja',articleId:'11',articleCode:'SERVICE',quantity:'2',grossPrice:'100',unitGrossPrice:'122',unitNetPrice:'100',historicalVatLabel:'22 %',pricingVerified:true,unitId:'1',vatId:'5',discount:'10'}]};
+const read:HistoryRead={historyDocuments:async()=>[{id:'7',customerId:'2',numberingId:'1',status:''}],documentDetail:async()=>detail,priceLists:async()=>[list],article:async()=>article};
+test('exact service basket preserves quantities and compares historical prices with live prices',()=>{const p=historyProposal(detail,'invoice',input,[option])!;assert.equal(p.ready,true);assert.equal(p.scope,'vehicle');assert.equal(p.total,244);assert.equal(p.lines[0].previousPrice,'122');assert.equal(p.lines[0].currentPrice,122);assert.equal(p.lines[0].discount,0);assert.equal(p.date,'12.01.2026');});
+test('similar service is never selected; code may match renamed description',()=>{assert.equal(historyProposal(detail,'invoice',{...input,wanted:'Menjava'},[option]),null);assert.equal(historyProposal({...detail,lines:[{...detail.lines[0],description:'Nov opis'}]},'invoice',{...input,code:'SERVICE'},[option])?.ready,true);});
+test('same description cannot override different article identity; incomplete basket stays blocked',()=>{const p=historyProposal({...detail,lines:[detail.lines[0],{...detail.lines[0],articleId:'12'}]},'invoice',input,[option])!;assert.equal(p.ready,false);assert.equal(p.issues.length,1);});
+test('missing vehicle and foreign owner are never vehicle repair evidence',()=>{for(const changed of [{vehicleId:undefined},{vehicleId:'4'},{customerId:'4'}])assert.equal(historyProposal({...detail,...changed},'invoice',input,[option])!.scope,'other');});
+test('multiple prices are ambiguous and invalid quantities cannot be approved',()=>{assert.equal(historyProposal(detail,'invoice',input,[option,{...option,sourceSha:'different'}])!.ready,false);assert.equal(historyProposal({...detail,lines:[{...detail.lines[0],quantity:''}]},'invoice',input,[option])!.ready,false);});
+test('history SHA or live price change invalidates approval, even with unchanged article code',()=>{const p=historyProposal(detail,'invoice',input,[option])!;assert.notEqual(historyProposal({...detail,contentSha256:'changed'},'invoice',input,[option])!.sourceSha,p.sourceSha);assert.notEqual(historyProposal(detail,'invoice',input,[{...option,grossPrice:123,sourceSha:'changed'}])!.sourceSha,p.sourceSha);});
+test('fresh source rechecks document membership and full basket; browser prices are ignored',async()=>{const form=new FormData();form.set('historySource','invoice:2:7');assert.equal((await freshHistorySource(form,read,input))!.total,244);await assert.rejects(freshHistorySource(form,{...read,historyDocuments:async()=>[]},input));});
+test('failed list is explicit, missing vehicle falls back to other documented lists',async()=>{let global=0;const result=await loadEstimateHistory({...read,historyDocuments:async(kind,id)=>{if(kind==='estimate')throw Error('HTTP_500');if(!id)global++;return [{id:'7',customerId:'2',numberingId:'1',status:''}]},documentDetail:async()=>({...detail,vehicleId:undefined})},input);assert.equal(global,2);assert.ok(result.issues.some(s=>s.includes('ni dostopna')));assert.ok(result.proposals.every(p=>p.scope==='other'));});
+test('all basket lines use fresh individual article READ when not in price list',async()=>{const extra={...article,id:'12',code:'PART',name:'Oljni filter',netPrice:'10'};const d={...detail,lines:[...detail.lines,{...detail.lines[0],description:extra.name,articleId:'12',articleCode:'PART',quantity:'1'}]};const form=new FormData();form.set('historySource','invoice:2:7');const p=await freshHistorySource(form,{...read,documentDetail:async()=>d,article:async(id)=>id==='12'?extra:article},input);assert.equal(p!.ready,true);assert.equal(p!.payloadLines.length,2);assert.equal(p!.total,256.2);});
+
+test('real detail fields project date and article identity without inventing missing metadata',()=>{const raw={error:false,data:{Dokumenti:[{Glavadokumenta:{id:'7',stranka_id:'2',znesek:'100',datIzdRac:'12.01.2026',vozila_id:'3'},Postavkedokumenta:[{opis:'Menjava olja',sifranti_id:'11',Sifranti:{id:'11',sifra:'SERVICE'},kolicina:'2',cenaZDDV:'100'}]}]}};const d=parseEstimateDetail(raw,'7','2');assert.equal(d.date,'12.01.2026');assert.equal(d.lines[0].articleCode,'SERVICE');raw.data.Dokumenti[0].Postavkedokumenta[0].Sifranti.id='12';assert.throws(()=>parseEstimateDetail(raw,'7','2'));});
+
+test('a changed or missing historical unit never silently reinterprets quantities',()=>{for(const unitId of ['2',undefined])assert.equal(historyProposal({...detail,lines:[{...detail.lines[0],unitId}]},'invoice',input,[option])!.ready,false);});
+
+test('history scan continues beyond ten documents in bounded application pages',async()=>{const docs=Array.from({length:32},(_,i)=>({id:String(100+i),customerId:'2',numberingId:'1',status:''}));let count=0;const paged={...read,historyDocuments:async(kind:string)=>kind==='invoice'?docs:[],documentDetail:async(id:string)=>{count++;return {...detail,id,lines:id==='100'?detail.lines:[{...detail.lines[0],description:'Drugo',articleCode:'OTHER'}]}}};const first=await loadEstimateHistory(paged,input,{scope:'vehicle',offset:0});assert.equal(count,24);assert.deepEqual(first.nextPage,{scope:'vehicle',offset:24});const second=await loadEstimateHistory(paged,input,first.nextPage);assert.equal(count,32);assert.equal(second.proposals[0].documentId,'100');assert.equal(second.proposals[0].ready,true)});
+
+test('assigned customer price and discount fill the whole history basket and are rechecked',async()=>{
+ const custom={...list,id:'190',lines:[{articleId:'11',netPrice:'80',discount:'5'}]};
+ const ownRead={...read,priceLists:async()=>[list,custom],article:async()=>({...article,stockManaged:false})};
+ const form=new FormData();form.set('historySource','invoice:2:7');
+ const proposal=await freshHistorySource(form,ownRead,{...input,priceListId:'190'});
+ assert.equal(proposal!.total,185.44);assert.equal('cena' in proposal!.payloadLines[0]&&proposal!.payloadLines[0].cena,80);assert.equal(proposal!.payloadLines[0].popust,5);
+ const changed=await freshHistorySource(form,{...ownRead,priceLists:async()=>[list,{...custom,lines:[{articleId:'11',netPrice:'90',discount:'5'}]}]},{...input,priceListId:'190'});
+ assert.notEqual(changed!.sourceSha,proposal!.sourceSha);
+});
+test('missing assigned list or unsupported stock price never falls back to base pricing',async()=>{
+ const form=new FormData();form.set('historySource','invoice:2:7');
+ await assert.rejects(freshHistorySource(form,read,{...input,priceListId:'missing'}),/REVIEW/);
+ const custom={...list,id:'190',lines:[{articleId:'11',netPrice:'80',discount:'0'}]};
+ await assert.rejects(freshHistorySource(form,{...read,priceLists:async()=>[custom]},{...input,priceListId:'190'}),/REVIEW/);
+});
+test('explicit base-price customer ignores unrelated lists and discounts',async()=>{
+ const form=new FormData();form.set('historySource','invoice:2:7');
+ const p=await freshHistorySource(form,{...read,priceLists:async()=>[list,{...list,id:'190',lines:[{articleId:'11',netPrice:'100',discount:'20'}]}]},{...input,priceListId:null});
+ assert.equal(p!.total,244);assert.equal(p!.lines[0].discount,0);
+});
+
+test('history transfers the actual sale type; changed live unit or VAT metadata requires a new review',()=>{
+ const proposal=historyProposal({...detail,saleTypeId:'1'},'invoice',input,[option])!;
+ assert.equal(proposal.saleTypeId,'1');
+ const catalogs={units:[{id:'1',label:'kos'}],vatRates:[{id:'5',label:'22 %'}]};
+ assert.doesNotThrow(()=>verifyHistoryCatalogReferences(proposal,catalogs));
+ assert.throws(()=>verifyHistoryCatalogReferences(proposal,{...catalogs,vatRates:[{id:'5',label:'9.5 %'}]}),/CHANGED/);
+ assert.throws(()=>verifyHistoryCatalogReferences(proposal,{...catalogs,units:[{id:'1',label:'ura'}]}),/CHANGED/);
+});

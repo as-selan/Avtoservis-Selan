@@ -1,0 +1,14 @@
+.playwright-cli/
+.env
+.env.*
+!.env.example
+.next/
+.next-local-qa/
+.next-local-review/
+node_modules/
+*.tsbuildinfo
+test-results/
+playwright-report/
+scripts/manual-qa/*.png
+supabase/.temp/
+supabase/.branches/

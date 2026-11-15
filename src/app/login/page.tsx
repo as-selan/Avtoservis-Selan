@@ -1,23 +1,20 @@
 import { Car } from "lucide-react";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ napaka?: string }>;
+  searchParams: Promise<{ napaka?: string; reason?: string }>;
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
 
-  if (data?.claims) {
-    redirect("/dashboard");
-  }
-
   const params = await searchParams;
   const linkError =
-    params.napaka === "povezava"
+    params.reason === "session"
+      ? "Seje ni mogoče potrditi pri bazi. Ponovno se prijavite; pravice niso bile spremenjene."
+      : params.napaka === "povezava"
       ? "Povezava ni veljavna ali je potekla. Zahtevajte novo povabilo."
       : null;
 
@@ -52,7 +49,7 @@ export default async function LoginPage({
             </p>
           ) : null}
 
-          <LoginForm />
+          <LoginForm signedIn={Boolean(data?.claims) && params.reason !== "session"} />
         </div>
       </div>
     </main>

@@ -62,7 +62,7 @@ This document is the design contract for the domain. **Do not implement migratio
 | Nadzorna plošča | `/dashboard` | Only live route |
 | Servisni nalog | `ServiceOrderDemo` | Denormalized work row spanning inquiry → appointment → quote wait |
 | Povpraševanja | nav `inquiries` | Planned list; not implemented |
-| Termini | `AppointmentDemo` | Day list: sprejem / servis / diagnoza |
+| Termini | `AppointmentDemo` | Confirmed upcoming appointments (14 calendar days including today): sprejem / servis / diagnoza |
 | Ponudbe | nav `offers` | Planned |
 | Stranke / Vozila | nav | Planned |
 | Next action | `nextActionLabel` | Human “what to do next” |
@@ -111,6 +111,14 @@ All of the following create the **same** canonical `service_request` (case):
 | Manual entry (dashboard) | `manual` (UI wording unchanged; backend may create `service_request`) |
 
 Manual entry should **search/reuse** existing customer and vehicle where possible (phone, email, registration, VIN) instead of always inserting duplicates.
+
+Phase 6 PREP (unapplied): public website intake writes the same `service_requests` row with `source = web_form` via `public.create_web_service_request_intake`. Callers cannot supply `organization_id` / `source` / status. See [`docs/website-intake-prep-v1.md`](./website-intake-prep-v1.md).
+
+Phase 7 PREP (unapplied): missing-data completion updates that **same** `service_request` through hashed completion links (`public.service_request_completion_links`). Raw tokens are never stored. Fragment URL `/dopolnitev#token=…`. Complete → `preparing_offer` (STOP; Quibi is **not** implemented). See [`docs/missing-data-completion-prep-v1.md`](./missing-data-completion-prep-v1.md).
+
+Phase 8 PREP (unapplied): internal `offer_preparations` for `preparing_offer` requests. Provider-neutral boundary only; **no live Quibi API / credentials**. `service_request` remains `preparing_offer`. See [`docs/offer-preparation-prep-v1.md`](./offer-preparation-prep-v1.md).
+
+Phase 9 PREP (unapplied): immutable `quotes` + `customer_approvals` foundations for Tadej review and customer decision. Quotes belong to `service_request` + `offer_preparation` (**not** `service_order`) for Phase 1 pre-appointment flow. No fabricated evidence; delivery fail-closed; no post-customer-approval request-status transition yet. See [`docs/offer-review-customer-approval-prep-v1.md`](./offer-review-customer-approval-prep-v1.md).
 
 ### Unified administrative flow
 
@@ -214,6 +222,8 @@ erDiagram
   vehicles ||--o{ service_orders : subject
 
   service_requests ||--o| service_orders : "converts to (0..1)"
+  service_requests ||--o| offer_preparations : "phase 8 prep"
+  service_requests ||--o{ quotes : "phase 9 prep (pre-order)"
   service_requests ||--o{ appointments : schedules
   service_orders ||--o{ appointments : "may link"
 
@@ -225,11 +235,14 @@ erDiagram
   organizations ||--o{ vehicle_intakes : "later"
   service_orders ||--o| vehicle_intakes : "later"
   service_orders ||--o{ service_order_findings : "later"
-  service_orders ||--o{ quotes : "later"
+  %% Phase 1 pre-appointment: quotes hang off service_requests (Phase 9 PREP).
+  %% service_orders → quotes is a later workshop-era sketch only — not authoritative for Phase 9.
   quotes ||--o{ quote_items : "later"
-  quotes ||--o{ customer_approvals : "later"
+  quotes ||--o{ customer_approvals : "phase 9 prep"
   organizations ||--o{ attachments : "later"
   organizations ||--o{ communications : "later"
+  organizations ||--o{ offer_preparations : "phase 8 prep"
+  organizations ||--o{ quotes : "phase 9 prep"
   organizations ||--o{ integration_links : "later"
 
   organizations {
@@ -390,9 +403,9 @@ Conventions for all tables unless noted:
 | Purpose | Persistent vehicle record under a customer |
 | Permanent fields | `vin` (opt but unique per org when present), `make` (req once known), `model` (req once known), `year` (opt), `power_kw` (opt), `engine_displacement_cc` or text `engine_displacement` (opt), `engine_code` (opt), `fuel` (opt enum), `registration_current` (opt — **current** plate), `notes` (opt), `mileage_latest_km` (opt **cache only**), `mileage_latest_recorded_at` (opt) |
 | Per-visit fields (NOT only on vehicle) | Mileage at request/intake/order; registration at time of visit if needed later |
-| Relationships | `customer_id` current owner (req in Slice B+); history of ownership changes = later if needed |
-| Indexes | unique partial (`organization_id`, `vin`) where vin not null; (`organization_id`, `registration_current`); (`customer_id`) |
-| VIN care | Treat as sensitive identifier; never public; allow null while `manjkajo_podatki` |
+| Relationships | `customer_id` is the **current** owner (req in Slice B+); mutable on sale/transfer. `service_requests.customer_id` is historical (who brought the vehicle then) and is **not** retargeted when current ownership changes. Attaching both IDs on a request is validated against **current** vehicle owner; incomplete (null) IDs stay allowed. |
+| Indexes | unique partial (`organization_id`, `upper(btrim(vin))`) where VIN present/non-empty; (`organization_id`, `registration_current`); (`customer_id`) |
+| VIN care | Treat as sensitive identifier; never public; allow null while `manjkajo_podatki`. Uniqueness is case/whitespace-normalized; no 17-character DB constraint. |
 | Registration | Can change; store current on vehicle; do not assume lifetime identity |
 | Archive | Soft-archive; keep linked order history |
 
@@ -404,7 +417,7 @@ Conventions for all tables unless noted:
 | Important columns | `customer_id` (opt early, req before offer/convert), `vehicle_id` (opt early), `status` (req), `priority` (opt), `summary` (req — short “what they want”), `problem_description` (opt/text), `service_wanted` (opt), `brings_own_material` (bool opt), `mileage_reported_km` (opt — customer-reported), `source` (recommended req: `web_form` \| `phone` \| `sms` \| `manual` \| `other`), `channel` (opt detail), `missing_fields` (text[] or jsonb opt), `next_action` (text opt), `attention_needed` (bool default false), `attention_reason` (opt), `has_error` (bool opt — Napaka), `error_reason` (opt), timestamps, `archived_at` |
 | Deferred FK | `converted_service_order_id` — add only when `service_orders` workshop slice exists |
 | Status (request) | See §7 |
-| Relationships | Later 0..1 `service_orders`; later 0..n `appointments` |
+| Relationships | Later 0..1 `service_orders`; later 0..n `appointments`. Same-org FKs to customer and vehicle. `customer_id` on the request is **historical** (owner at request time), not a live pointer to `vehicles.customer_id`. |
 | Indexes | (`organization_id`, `status`, `updated_at desc`), (`customer_id`), (`vehicle_id`), (`attention_needed`) where true |
 | Archive | Soft-archive declined/spam; keep for audit |
 
@@ -421,17 +434,19 @@ Conventions for all tables unless noted:
 | Archive | Soft-archive; almost never hard-delete completed work |
 | Phase 1 note | Dashboard may still show a unified list driven by `service_requests`; UI labels stay locked |
 
-### 5.8 `appointments` (Phase 1 admin capability — dedicated later slice)
+### 5.8 `appointments` (Phase 1 admin capability)
 
 | Aspect | Design |
 |---|---|
 | Purpose | Scheduled time slots **and temporary holds** on offered slots |
-| Migration timing | **Not** in Slice A or B. Dedicated roadmap phase for availability + holds ([implementation plan](./implementation-plan.md) Phase 10) after earlier admin slices |
-| Important columns | `service_request_id` (req for Phase 1 booking; preferred always), `service_order_id` (opt — only after workshop orders exist), `customer_id` (req), `vehicle_id` (opt), `appointment_type` (`intake`/`sprejem` \| `service`/`servis` \| `diagnosis`/`diagnoza`), `status` (req), `starts_at` (req), `ends_at` (opt), `hold_expires_at` (opt — required when status is held), `held_for_service_request_id` (opt; usually same as `service_request_id`), `proposed_slots` (jsonb opt — alternative representation of multiple offered candidates), `notes` (opt internal), `cancelled_at` |
-| Ownership | **Primary:** request during booking phase. **Also** link to order when order exists. Phase 1: require `service_request_id`. |
-| Holds (Phase 1 requirement) | After customer approves the offer, the system offers available slots and **temporarily holds** them so they cannot be offered to another customer. On selection: confirm chosen slot; **release unused holds**. Holds may expire (`hold_expires_at`) and must free capacity. Prefer explicit rows over only jsonb so exclusivity can be enforced. |
-| Indexes | (`organization_id`, `starts_at`); (`service_request_id`); (`service_order_id`); (`status`); partial unique/exclusion later for non-overlapping held/confirmed slots per bay/resource if/when resources exist |
+| Migration timing | **Foundation PREP** migration `20260914003000_appointments_foundation.sql` prepares the canonical table + RLS early. Full availability/hold/selection workflow remains roadmap Phase 10 and is **not** implemented in this foundation. |
+| Important columns | `service_request_id` (req for Phase 1 booking; preferred always), `service_order_id` (**not yet** — only after workshop orders exist), `customer_id` (req), `vehicle_id` (opt), `appointment_type` (`intake` \| `service` \| `diagnosis`), `status` (req), `starts_at` (req), `ends_at` (opt), `hold_expires_at` (opt — required when status is held), `notes` (opt internal), `cancelled_at` |
+| Ownership | **Primary:** request during booking phase. Appointment identity is **derived from** `service_request` (historical customer/vehicle). Authenticated clients may set identity on **INSERT** only; they cannot relink via **UPDATE**. Corrections update the request; a SECURITY DEFINER sync rewrites linked appointment identity atomically. `vehicles.customer_id` transfers do not. Future reassignment (if ever needed) requires a controlled workflow/RPC. |
+| Holds (Phase 1 requirement) | Status set includes proposed/offered/held/selected/confirmed/released. **Concurrency, capacity, bay exclusivity, expiry jobs, and customer selection are deferred** to Phase 10. |
+| Dashboard Termini | Confirmed appointments only; presentation window = **14 calendar days including today** (Europe/Ljubljana); max 5 nearest. Window is configuration, not a schema constraint. |
+| Indexes | (`organization_id`, `starts_at`); (`organization_id`, `status`, `starts_at`); (`service_request_id`); (`customer_id`); partial (`vehicle_id`) |
 | Archive | Cancel / release via status; retain history |
+| Integrations | Google Calendar / MyPlanly remain deferred adapters — internal appointment is system of record |
 
 ### 5.9 `activity_events` (as needed — not first foundation slice)
 
@@ -459,10 +474,17 @@ Purpose: diagnosis / additional faults discovered.
 Visibility: `visibility` = `internal` \| `customer_safe`.
 Do not conflate with customer email body.
 
-#### `quotes`, `quote_items`, `customer_approvals` (LATER)
+#### `offer_preparations` (Phase 8 PREP — unapplied)
 
-Purpose: replace “Priprava ponudbe / Čaka potrditev”.
-Quote status separate from order status. Approval records who/when/channel.
+Purpose: **canonical** internal row that a `service_request` in `preparing_offer` is ready for a later external offer workflow. Unique `(organization_id, service_request_id)`. Status V1: `ready_for_provider` only. Dashboard readiness is this row/status — **not** `next_action` text (`next_action` is human guidance only). Eligibility also requires canonical V1 completeness (phone, email, VIN, make, model) via `private.compute_intake_completeness`; `preparing_offer` alone is not sufficient. Incomplete state fails closed with no insert. Does **not** store Quibi IDs. Creating it **must not** move `service_requests.status` off `preparing_offer`. Phase 8 does **not** execute the provider adapter. See [`docs/offer-preparation-prep-v1.md`](./offer-preparation-prep-v1.md).
+
+#### `quotes` + `customer_approvals` (Phase 9 PREP — unapplied)
+
+Purpose: immutable offer-version evidence + Tadej internal review + customer delivery/decision foundations for Phase 1 **pre-appointment** flow. Canonical FKs: `organization_id`, `service_request_id`, `offer_preparation_id` via composite `quotes_prep_same_request_fk` (exact prep must belong to the same request). Customer approvals bind via composite `customer_approvals_quote_version_fk` on `(organization_id, service_request_id, quote_id, content_sha256)`. **Do not require `service_order_id`** — the older ER sketch `service_orders → quotes` is not authoritative for this phase. Internal review: `unreviewed` → `approved_for_send` / `rejected_for_revision` (only with real evidence + `content_sha256`; stale-version checked before idempotent success). Customer: `not_delivered` → `delivered` → `approved` / `rejected` / `expired`. `viewed_at` nullable and immutable/unsupported here. DB guards reject `awaiting_customer_approval` without delivered approved evidence and block premature `awaiting_slot_selection` (Phase 10 may replace). No quote INSERT RPC in PREP (no fabricate-to-continue). Delivery RPC fails closed (`delivery_unavailable`). Does not flip `service_requests.status` after customer approval yet. See [`docs/offer-review-customer-approval-prep-v1.md`](./offer-review-customer-approval-prep-v1.md).
+
+#### `quote_items` (LATER)
+
+Purpose: line items once a real provider draft supplies them. Not created in Phase 9 PREP (do not invent commercial rows).
 
 #### `attachments` (LATER)
 
@@ -489,15 +511,15 @@ V1 can start with `attention_needed` boolean + reason on request/order; promote 
 ## 6. Relationship rules
 
 1. **Org isolation:** every query is scoped by `organization_id`.
-2. **Customer → vehicles:** 1:N. A vehicle has one **current** `customer_id` in V1.
-3. **Vehicle history:** service_requests and service_orders reference `vehicle_id`; deleting/archiving a customer must not destroy order history (restrict or reassign; prefer archive customer + keep FKs).
+2. **Customer → vehicles:** 1:N. A vehicle has one **current** `customer_id` in V1. That column may change (sale/transfer).
+3. **Vehicle history:** `service_requests` (and later `service_orders`) keep `customer_id` + `vehicle_id` as of that case. Changing `vehicles.customer_id` must not rewrite or invalidate old requests. Same-org FKs only; current-owner match is enforced only when attaching/changing both IDs on a request. Deleting/archiving a customer must not destroy history (restrict; prefer archive).
 4. **Request → order:** at most **one** active conversion (`service_orders.service_request_id` unique when not null, or `service_requests.converted_service_order_id` unique).
 5. **Not every request becomes an order:** declined / cancelled / spam / customer no-show without acceptance stay as requests.
 6. **Walk-in / phone-to-bay:** Phase 1 admin creates/updates a `service_request`. Creating a workshop `service_order` is deferred to workshop scope (see open questions).
 7. **Appointment:** may exist before any order; Phase 1 booking must not require `service_order_id`.
 8. **No duplicated masters:** UI joins customer/vehicle; list demos today are denormalized projections only.
 9. **External IDs:** never as PK; never as required columns on core tables.
-10. **Migration slices:** do not create `appointments`, `service_orders`, quotes, or integration tables in Slice A/B.
+10. **Migration slices:** do not create `service_orders`, quotes, or integration tables in Slice A/B. Canonical `appointments` table + base RLS may be prepared early (foundation PREP); availability/holds/selection remain Phase 10.
 
 ---
 
@@ -527,8 +549,8 @@ Dashboard V1 visible workflow concepts (including Tadej’s Phase 1 list) are a 
 | Status | Visible mapping |
 |---|---|
 | `new` | Novo |
-| `needs_data` | Manjkajo podatki (auto email may request completion; replies attach to **same** request) |
-| `preparing_offer` | Priprava ponudbe (incl. Quibi draft + internal price approval) |
+| `needs_data` | Manjkajo podatki (Phase 7 PREP: hashed completion link; replies attach to **same** request; email send still later) |
+| `preparing_offer` | Priprava ponudbe (Phase 8 PREP: internal `offer_preparations`; Quibi draft + Tadej price gate remain later) |
 | `awaiting_customer_approval` | Čaka potrditev ponudbe |
 | `awaiting_slot_selection` | Čaka izbiro termina (slots offered + held) |
 | `appointment_confirmed` | Termin potrjen |
@@ -563,7 +585,7 @@ Dashboard V1 visible workflow concepts (including Tadej’s Phase 1 list) are a 
 | `completed` | Repair/job **Zaključeno** (workshop sense — do not conflate with request `admin_completed`) |
 | `cancelled` | Cancelled after acceptance |
 
-Until `quotes` tables exist, Phase 1 offer states live on `service_requests` (and activity/integration payloads). Add quote tables when ready; **do not** force one shared enum across request/order/quote/appointment.
+Phase 8 keeps preparation on `offer_preparations`. Phase 9 PREP adds `quotes` / `customer_approvals` foundations on `service_request` (pre-order). Executable review/send still requires real evidence/delivery. **Do not** force one shared enum across request/order/quote/appointment.
 
 ### 7.3 `next_action`, attention, and Napaka
 
@@ -583,7 +605,7 @@ Until `quotes` tables exist, Phase 1 offer states live on `service_requests` (an
 - Duplicate customer suspicion → attention warning
 - Integration sync failure after confirm → Napaka without rolling back confirmed appointment unless staff decides
 
-Dashboard question: **“Kaj mora Tadej / mehanik narediti naslednje?”** → `next_action` + attention/Napaka queue + today’s appointments — not one mega-status.
+Dashboard question: **“Kaj mora Tadej / mehanik narediti naslednje?”** → `next_action` + attention/Napaka queue + confirmed upcoming appointments in the Termini 14-calendar-day window — not one mega-status.
 
 ### 7.4 Mapping to the locked Dashboard V1 strip
 
@@ -623,55 +645,51 @@ V1 migration can seed **one** org + memberships for Aleš/Tadej manually after a
 
 ## 9. Roles and permissions
 
-### 9.1 Roles — mechanic access NOT YET CONFIRMED
+### 9.1 Roles — mechanic access CONFIRMED as two future modes
 
 | Role | Need in V1? | Rationale |
 |---|---|---|
-| `owner` / `admin` | **Yes** | Full access |
-| `advisor` (reception / service advisor) | **Yes** | Administrative workflow (Phase 1 journey) |
-| `mechanic` | Schema placeholder | **Awaiting Tadej confirmation** — see open question below |
+| `owner` / `admin` | **Yes** | Full administrative / operational access |
+| `advisor` (reception / service advisor) | **Yes** | Administrative workflow (Phase 1 journey). Schema role value: `reception`. |
+| `mechanic` | **Yes (placeholder membership role)** | **No automatic access in M3.** Access will later be one of two configurable modes (Tadej confirmed). |
 
-**Current recommendation (NOT YET CONFIRMED by Tadej):**
+**Tadej confirmed — two future configurable mechanic modes (not implemented in M3):**
 
-- `admin` / `owner` = full access
-- reception / service advisor = administrative workflow access
-- mechanic = limited operational access (assigned/needed data only) **or** full access — **undecided**
+1. **Restricted:** only assigned / necessary jobs, vehicles, and related customer data
+2. **Full workshop access:** broader appropriate workshop data
 
-Do **not** treat the matrix below as final policy. Avoid shipping irreversible RLS that assumes mechanic scope until Tadej confirms:
+**Current M3 slice (customers, vehicles, service_requests):**
 
-1. full access, or
-2. restricted access to assigned/needed operational data only.
+- `owner` = SELECT / INSERT / UPDATE
+- `admin` = SELECT / INSERT / UPDATE
+- `reception` = SELECT / INSERT / UPDATE
+- `mechanic` = **no automatic access**
 
-### 9.2 Capability matrix (conceptual draft only)
+Mechanic permission/assignment logic is a **dedicated later slice**. `assigned_profile_id` on `service_requests` is tenant-safe storage only and does **not** grant visibility.
 
-| Capability | owner/admin | advisor | mechanic (UNCONFIRMED) |
+### 9.2 Capability matrix (M3 + later)
+
+| Capability | owner/admin | reception / advisor | mechanic |
 |---|---|---|---|
 | Manage memberships | yes | no | no |
-| Customers / vehicles CRUD | yes | yes | TBD (read vs limited) |
-| Service requests | yes | yes | TBD |
-| Appointments | yes | yes | TBD |
-| Service orders | yes | yes | TBD (likely progress updates if restricted) |
-| Archive core records | yes | yes (limited) | no |
-| Activity read | yes | yes | TBD |
+| Customers / vehicles CRUD | **yes (M3)** | **yes (M3)** | **no automatic access (M3)**; later mode A or B |
+| Service requests | **yes (M3)** | **yes (M3)** | **no automatic access (M3)**; later mode A or B |
+| Appointments | yes | yes | later (same two modes; not M3) |
+| Service orders | yes | yes | later (same two modes; not M3) |
+| Archive core records | yes | yes (limited) | no (M3) |
+| Activity read | yes | yes | later |
 
-Prefer coarse active-member RLS first; tighten mechanic rules only after confirmation.
+Do **not** implement either mechanic mode in M3. Do **not** use `private.is_active_org_member` for customers / vehicles / service_requests (that would include mechanic).
 
 ---
 
 ## 10. RLS strategy
 
-**Core rule:** authenticated user may access a row iff:
+**Tenant floor:** a user may only ever see rows for organizations where they have an **active** membership.
 
-```text
-exists (
-  select 1 from organization_memberships m
-  where m.organization_id = <row>.organization_id
-    and m.profile_id = auth.uid()
-    and m.is_active = true
-)
-```
+**M3 business tables (`customers`, `vehicles`, `service_requests`) are stricter than that floor:** access is **owner / admin / reception only**. Mechanic is an active member but has **no automatic read or write** until the later configurable-mode slice.
 
-Helper: SQL function `app_is_active_member(org_id uuid)` security definer / stable — details at migration time.
+Helper used by M3 policies: `private.has_org_role(organization_id, '{owner,admin,reception}')`. Do **not** use `private.is_active_org_member` for these three tables.
 
 ### 10.1 Policy concepts by table
 
@@ -680,11 +698,11 @@ Helper: SQL function `app_is_active_member(org_id uuid)` security definer / stab
 | `organizations` | active members of that org | service-role / bootstrap only | owner/admin | owner only (rare); prefer archive |
 | `profiles` | self + members sharing an org | trigger / service-role | self (name/phone); admin limited | no hard delete |
 | `organization_memberships` | members of same org | owner/admin (later trusted flow) | owner/admin (later trusted flow) | soft-disable later; **Slice A:** authenticated **SELECT only** — no browser INSERT/UPDATE/DELETE (blocks self-promotion); bootstrap/invite via service-role / reviewed membership-management slice |
-| `customers` | active members | advisor+ | advisor+ | archive by advisor+; no hard delete in client |
-| `vehicles` | active members | advisor+ | advisor+ | archive by advisor+ |
-| `service_requests` | active members | advisor+ | advisor+ | archive by advisor+ |
-| `service_orders` | active members | advisor+ | advisor+ ; mechanic **TBD** | archive by advisor+ |
-| `appointments` | active members | advisor+ | advisor+ | cancel/archive by advisor+ |
+| `customers` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception; no hard delete in client |
+| `vehicles` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception |
+| `service_requests` | **owner / admin / reception (M3)** — not mechanic | owner / admin / reception | owner / admin / reception | archive by owner / admin / reception |
+| `service_orders` | later; mechanic via mode A or B (not M3) | advisor+ | advisor+ ; mechanic later | archive by advisor+ |
+| `appointments` | foundation PREP table/RLS; mechanic via mode A or B later | advisor+ | advisor+ (identity columns INSERT-only; request sync updates identity) | cancel/archive by advisor+ |
 | `activity_events` | active members | members (or trigger-only) | **none** (immutable) | **none** via client |
 
 ### 10.2 Service-role boundaries (never in browser)
@@ -731,7 +749,7 @@ Phase 1 integration touchpoints (outbound/inbound as designed later):
 
 | Step | System | Our app remains source of truth for |
 |---|---|---|
-| Quote-estimate draft | Quibi | Case identity, internal price approval gate, offer status |
+| Quote-estimate draft | Quibi (later) | Case identity, internal `offer_preparations`, internal price approval gate, offer status |
 | Confirmed appointment write | Google Calendar | Appointment row + hold/confirm lifecycle |
 | Appointment/data sync + reminders | MyPlanly | Canonical appointment; MyPlanly continues SMS/email reminders |
 | Missing-data email | Email | Same `service_request`; completion attaches to same case |
@@ -788,8 +806,10 @@ Aligned with [`docs/implementation-plan.md`](./implementation-plan.md). **Do not
 | Tenant + Auth + RLS | `organizations`, `profiles`, `organization_memberships` | **Slice A** (roadmap Phase 2) |
 | Customers / vehicles / cases | `customers`, `vehicles`, `service_requests` | **Slice B** (roadmap Phase 3) |
 | Activity feed | `activity_events` | As needed (from Manual Entry onward; not Slice A) |
-| Appointments + temporary holds | `appointments` | Dedicated later slice (roadmap Phase 10) |
-| Quotes / Quibi mapping | quotes + `integration_links` | Dedicated later slices (roadmap Phases 8–9) |
+| Appointments table + base RLS | `appointments` | **Foundation PREP** (`20260914003000_appointments_foundation.sql`) — table + identity sync + advisor RLS prepared early |
+| Appointment availability / holds / selection | hold concurrency, multi-slot offer, expiry, capacity | Dedicated later slice (roadmap **Phase 10**) — not complete when the table exists |
+| Internal offer preparation | `offer_preparations` | **Phase 8 PREP** (`20260917100000_create_offer_preparations.sql`) — unapplied; no live Quibi |
+| Quotes / Quibi mapping | `quotes` + `customer_approvals` + later `integration_links` | Phase 9 PREP foundations (unapplied; no live Quibi); real evidence/delivery later |
 | Calendar / MyPlanly | `integration_links` | Dedicated later slices (roadmap Phases 11–12) |
 
 Phase 1 administrative workflow **operates primarily on `service_requests`**. Dashboard unified list maps from requests until workshop orders exist.
@@ -841,9 +861,11 @@ Phase 1 administrative workflow **operates primarily on `service_requests`**. Da
 | Later slice | Entities / work | Roadmap phase |
 |---|---|---|
 | Activity as needed | `activity_events` | Phases 4–5 / 13 |
-| Appointments + temporary holds | `appointments` (+ hold/concurrency) | Phase 10 |
-| Quotes / approvals | quote tables when ready | Phases 8–9 |
-| Integrations | `integration_links`, Quibi / Calendar / MyPlanly | Phases 8, 11–12 |
+| Appointments foundation (table + RLS) | `appointments` canonical storage + identity sync | Prepared early (`20260914003000_appointments_foundation.sql`) |
+| Appointment availability + holds | multi-slot offers, holds, expiry, capacity/exclusivity, selection, concurrency-safe booking | Phase 10 |
+| Internal offer preparation | `offer_preparations` + unconfigured provider | Phase 8 PREP (unapplied; no live Quibi) |
+| Quotes / approvals | `quotes` + `customer_approvals` on `service_request` (Phase 9 PREP); `quote_items` later | Phase 9 PREP (unapplied) |
+| Integrations | `integration_links`, Quibi / Calendar / MyPlanly | After confirmed APIs (Quibi adapter after docs; Calendar/MyPlanly Phases 11–12) |
 | Workshop operations | `service_orders`, intakes, findings, photos… | Phase 16 |
 
 Storage buckets and quote tables only when their phases start — **never** bundled into Slice A.
@@ -858,9 +880,9 @@ Storage buckets and quote tables only when their phases start — **never** bund
 | AD-2 | Appointments owned primarily by request | Orphans if request archived poorly | Restrict archive while future appointments exist; link to order when converted |
 | AD-3 | Split statuses vs one enum | Dashboard strip harder | Explicit presentation mapping; UI preserved |
 | AD-4 | Attention / Napaka as flags | Staff might want strip-only filters | Keep Potrebna pozornost; derive Napaka counts |
-| AD-5 | VIN optional | Duplicate vehicles | Partial unique index + registration search + attention |
+| AD-5 | VIN optional | Duplicate vehicles | Partial unique on `(organization_id, upper(btrim(vin)))` + registration search + attention |
 | AD-6 | Mileage cache on vehicle | Stale odometer | Always record per request/intake/order |
-| AD-7 | Mechanic permissions | Over/under permission | **NOT CONFIRMED** — coarse RLS until Tadej decides |
+| AD-7 | Mechanic permissions | Over/under permission | **CONFIRMED requirement:** two future modes (restricted assigned/necessary vs full workshop). **M3:** no automatic mechanic access. Implement modes in a dedicated later slice. |
 | AD-8 | No integration columns on core tables | Slightly more join work later | `integration_links` keeps core clean |
 | AD-9 | Demo “Ustvari servisni nalog” vs request entity | Language drift | **Do not change UI copy** without approval; backend may create `service_request` |
 | AD-10 | Temporary appointment holds | Double-booking if only jsonb | Prefer explicit `held` appointment rows + expiry/release |
@@ -872,7 +894,7 @@ Storage buckets and quote tables only when their phases start — **never** bund
 
 ## 17. Open questions requiring Aleš / Tadej confirmation
 
-1. **Mechanic permissions (NOT YET CONFIRMED):** full access **or** restricted access to assigned/needed operational data only? (Current draft recommendation: admin full; advisor administrative; mechanic limited — **unconfirmed**.)
+1. **Mechanic permissions (CONFIRMED requirement, implementation deferred):** two configurable modes — (A) restricted to assigned/necessary jobs, vehicles, and related customer data, or (B) full workshop access. **M3:** owner/admin/reception only; mechanic has no automatic access. Assignment/visibility logic is a later dedicated slice.
 2. **Conversion trigger:** When does a povpraševanje become a workshop `service_order` — at appointment confirm, at physical intake, or manually by Tadej? (Phase 1 can complete administratively before an order exists.)
 3. **Walk-ins:** Always create both request+order, or request-first until intake?
 4. **VIN required when?** Phone/SMS often lack VIN — allow request without VIN (recommended), require before offer or at intake?

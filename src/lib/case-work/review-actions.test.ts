@@ -1,0 +1,61 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {runInNewContext} from 'node:vm';import ts from 'typescript';import * as policy from './review-policy.ts';import * as docRead from '../quibi/document-read.ts';import * as payments from '../quibi/invoice-payments.ts';
+const id='40000000-0000-4000-8000-000000000001',sha='a'.repeat(64),invoiceSha='b'.repeat(64);
+function fixture(role='admin',environment='dev'){
+ let failCheck=false;const calls:string[]=[],saved:Record<string,unknown>[]=[];const work={caseId:id,status:'work_completed',quibiId:'2176898',sha,customerQuibiId:'405957',vehicleQuibiId:'2388',vehicle:{vin:'QA-VIN'},invoice:{id:'2176902',sha:invoiceSha},businessUncertain:false,review:{ready:true,evidenceSha:sha,simulated:true,events:[] as policy.ReviewEvent[]}};
+ const doc={id:'2176902',customerId:'405957',vehicleId:'2388',contentSha256:invoiceSha,number:'DEV-TEST-1',amount:'45.99',paymentMethod:'Bank transfer',paymentReference:'QA-REF',issuerName:'QA issuer',buyerName:'QA buyer',status:''};
+ const read={vehicle:async()=>({vin:'QA-VIN'}),invoices:async()=>[{id:'2176902'}],workOrders:async()=>[{id:'2176898'}],documentDetail:async(id:string)=>{calls.push('READ:'+id);return id==='2176902'?doc:{...doc,id:'2176898',contentSha256:sha};},documentPayments:async()=>{calls.push('payments');return [];},documentPdf:async()=>{calls.push('PDF');return new TextEncoder().encode('%PDF-');}};
+ const modules:Record<string,unknown>={'node:crypto':{randomUUID:()=> '60000000-0000-4000-8000-000000000001'},'@supabase/supabase-js':{createClient:()=>({rpc:async(name:string,body:Record<string,unknown>)=>{calls.push(name);saved.push(body);return {data:'event',error:failCheck&&body.p_action==='invoice_checked'?{message:'unavailable'}:null};}})},'next/cache':{revalidatePath:()=>{}},'@/lib/auth/requireWorkshopAccess':{requireWorkshopAccess:async()=>({role,userId:'actor',organizationId:'org'})},'./read':{loadCaseWork:async()=>({rows:[work]})},'@/lib/quibi/client':{configuredQuibiReadClient:()=>read},'@/lib/quibi/document-read':docRead,'@/lib/quibi/deployment-policy':{caseWorkQuibiEnvironment:()=> environment},'@/lib/quibi/invoice-payments':payments,'./review-policy':policy};
+ const exports:Record<string,unknown>={};runInNewContext(ts.transpileModule(readFileSync(new URL('./review-actions.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:(name:string)=>{assert.ok(name in modules,name);return modules[name];},process:{env:{NEXT_PUBLIC_SUPABASE_URL:'https://isolated.invalid',SUPABASE_SERVICE_ROLE_KEY:'isolated-test-only'}},Error,Date});
+ const action=exports.caseReviewAction as(f:FormData)=>Promise<{ok:boolean;message:string}>;const form=(kind:string)=>{const f=new FormData();for(const [k,v] of Object.entries({caseId:id,action:kind,evidenceSha:sha,operation:'50000000-0000-4000-8000-000000000001',confirmed:'yes',reference:'QA review evidence reference',handoverReference:'QA-SIM handover reference',paymentHandling:'Outstanding amount remains due in Quibi.'}))f.set(k,v);return f;};
+ const accepted:policy.ReviewEvent={id:'accepted',action:'accepted',evidence_sha:sha,created_at:'2026-10-17T10:00:00Z',simulated:true,body:{}};return {work,read,doc,calls,saved,action,form,failCheck:()=>{failCheck=true;},offline:()=>{(modules['@/lib/quibi/client'] as {configuredQuibiReadClient:()=>unknown}).configuredQuibiReadClient=()=>{throw Error('QUIBI_HTTP_403');};},accept:()=>work.review.events.push(accepted)};
+}
+test('internal admin review uses current local evidence and stores a simulated audit without Quibi',async()=>{const f=fixture();assert.equal((await f.action(f.form('accepted'))).ok,true);assert.equal(f.saved[0].p_simulated,true);assert.deepEqual(f.calls,['record_case_work_review']);});
+test('actual invoice review and closure re-read linked invoice and payments, preserve unpaid state and do not issue/send',async()=>{const f=fixture();f.accept();assert.equal((await f.action(f.form('invoice_checked'))).ok,true);assert.ok(f.calls.includes('PDF'));const body=f.saved[0].p_body as Record<string,unknown>;assert.equal((body.payment as {remaining:number}).remaining,45.99);f.work.review.events.push({id:'checked',action:'invoice_checked',evidence_sha:sha,created_at:'2026-10-17T11:00:00Z',simulated:true,body});assert.equal((await f.action(f.form('closed'))).ok,true);const closed=f.saved[1].p_body as Record<string,unknown>;assert.equal(closed.notificationReference,null);assert.equal((closed.payment as {paid:number}).paid,0);assert.equal(f.calls.filter(c=>c==='PDF').length,1);});
+test('stale evidence, mechanic, uncertain document, missing invoice and changed SHA never save audit',async()=>{const mech=fixture('mechanic');assert.equal((await mech.action(mech.form('accepted'))).ok,false);for(const patch of [{businessUncertain:true},{invoice:undefined}]){const f=fixture();f.accept();Object.assign(f.work,patch);assert.equal((await f.action(f.form('invoice_checked'))).ok,false);assert.equal(f.saved.length,0);}const f=fixture();f.accept();f.doc.contentSha256='c'.repeat(64);assert.equal((await f.action(f.form('invoice_checked'))).ok,false);assert.equal(f.saved.length,0);const stale=fixture();stale.work.review.evidenceSha='c'.repeat(64);assert.equal((await stale.action(stale.form('accepted'))).ok,false);assert.equal(stale.saved.length,0);});
+
+test('internal accept and return remain usable during Quibi outage without a second confirmation',async()=>{
+ for(const kind of ['accepted','returned']){const f=fixture();f.offline();const form=f.form(kind);form.delete('confirmed');const result=await f.action(form);assert.equal(result.ok,true,result.message);assert.equal(f.saved[0].p_action,kind);assert.deepEqual(f.calls,['record_case_work_review']);}
+});
+test('invoice verification still requires explicit confirmation and a fresh external read',async()=>{
+ const f=fixture();f.accept();f.offline();assert.equal((await f.action(f.form('invoice_checked'))).ok,false);assert.equal(f.saved.length,0);
+ const missing=fixture();missing.accept();const form=missing.form('invoice_checked');form.delete('confirmed');assert.equal((await missing.action(form)).ok,false);assert.equal(missing.saved.length,0);
+});
+test('internal review still rejects wrong roles, stale evidence, unfinished work and missing return note',async()=>{
+ for(const role of ['mechanic','reception']){const f=fixture(role);assert.equal((await f.action(f.form('returned'))).ok,false);assert.equal(f.saved.length,0);}
+ for(const patch of [{status:'in_progress'},{review:{ready:false,evidenceSha:sha,simulated:true,events:[]}},{review:{ready:true,evidenceSha:'c'.repeat(64),simulated:true,events:[]}}]){const f=fixture();Object.assign(f.work,patch);assert.equal((await f.action(f.form('returned'))).ok,false);assert.equal(f.saved.length,0);}
+ const f=fixture();const form=f.form('returned');form.delete('reference');assert.equal((await f.action(form)).ok,false);assert.equal(f.saved.length,0);
+});
+test('returning work needs one actual reason without an arbitrary typing minimum',async()=>{
+ const f=fixture();const form=f.form('returned');form.set('reference','Pokrov');assert.equal((await f.action(form)).ok,true);assert.equal((f.saved[0].p_body as {reference:string}).reference,'Razlog vrnitve: Pokrov');
+ const missing=fixture();const blank=missing.form('returned');blank.set('reference',' ');assert.equal((await missing.action(blank)).ok,false);assert.equal(missing.saved.length,0);
+});
+
+for(const unknown of [false,true])test(`explicit pickup needs no repeated fields and preserves ${unknown?'unknown':'unpaid'} Quibi payment`,async()=>{
+ const f=fixture();f.accept();assert.equal((await f.action(f.form('invoice_checked'))).ok,true);const checked=f.saved[0].p_body as Record<string,unknown>;f.work.review.events.push({id:'checked',action:'invoice_checked',evidence_sha:sha,created_at:'2026-10-17T11:00:00Z',simulated:true,body:checked});
+ if(unknown)f.read.documentPayments=async()=>{throw Error('READ_TIMEOUT');};
+ const form=f.form('closed');form.delete('handoverReference');form.delete('paymentHandling');form.delete('reference');assert.equal((await f.action(form)).ok,true);const body=f.saved[1].p_body as Record<string,unknown>;assert.match(String(body.handoverReference),/uporabnikov klik/);assert.equal(body.handoverRecordedBy,'actor');assert.equal(body.operatorNote,null);
+ if(unknown){assert.equal(body.payment,null);assert.match(String(body.paymentHandling),/neznano/);}else{assert.equal((body.payment as {remaining:number}).remaining,45.99);assert.match(String(body.paymentHandling),/preostanek 45.99/);}
+ const noClick=fixture();const invalid=noClick.form('closed');invalid.delete('confirmed');assert.equal((await noClick.action(invalid)).ok,false);assert.equal(noClick.saved.length,0);
+});
+
+test('DEV invoice without payment method can be reviewed; reported handover method never manufactures receipt',async()=>{const f=fixture();f.doc.paymentMethod='';f.accept();assert.equal((await f.action(f.form('invoice_checked'))).ok,true);f.work.review.events.push({id:'checked',action:'invoice_checked',evidence_sha:sha,created_at:'2026-10-17T11:00:00Z',simulated:true,body:f.saved[0].p_body as Record<string,unknown>});const form=f.form('closed');form.set('handoverPaymentMethod','Kartica');assert.equal((await f.action(form)).ok,true);const body=f.saved[1].p_body as Record<string,unknown>;assert.equal(body.paymentMethodReportedByOperator,'Kartica');assert.equal(body.paymentMethod,null);assert.equal((body.payment as {paid:number}).paid,0);assert.equal((body.payment as {remaining:number}).remaining,45.99);});
+
+for(const unknown of [false,true])test(`one pickup click automatically verifies issued invoice and preserves ${unknown?'unknown':'unpaid'} payment`,async()=>{
+ const f=fixture();f.accept();if(unknown)f.read.documentPayments=async()=>{throw Error('READ_TIMEOUT');};
+ const form=f.form('closed');form.delete('reference');const result=await f.action(form);assert.equal(result.ok,true,result.message);
+ assert.deepEqual(f.saved.map(r=>r.p_action),['invoice_checked','closed']);assert.notEqual(f.saved[0].p_operation,f.saved[1].p_operation);
+ assert.equal(f.saved[0].p_simulated,true);assert.equal(f.saved[1].p_simulated,true);assert.ok(f.calls.includes('PDF'));
+ const closed=f.saved[1].p_body as Record<string,unknown>;assert.equal(closed.invoiceId,'2176902');assert.equal(closed.pdfVerified,true);
+ if(unknown)assert.equal(closed.payment,null);else assert.equal((closed.payment as {remaining:number}).remaining,45.99);
+});
+test('pickup never closes a draft or changed invoice, and never closes when automatic verification cannot be saved',async()=>{
+ for(const patch of [{number:'Osnutek'},{contentSha256:'c'.repeat(64)}]){const f=fixture();f.accept();Object.assign(f.doc,patch);assert.equal((await f.action(f.form('closed'))).ok,false);assert.equal(f.saved.length,0);}
+ const f=fixture();f.accept();f.read.documentPdf=async()=>{throw Error('PDF_UNAVAILABLE');};assert.equal((await f.action(f.form('closed'))).ok,false);assert.equal(f.saved.length,0);
+});
+
+test('failed automatic invoice audit does not save closure; retry of already closed evidence is idempotent',async()=>{
+ const failed=fixture();failed.accept();failed.failCheck();assert.equal((await failed.action(failed.form('closed'))).ok,false);assert.deepEqual(failed.saved.map(r=>r.p_action),['invoice_checked']);
+ const f=fixture();f.accept();f.work.review.events.push({id:'closed',action:'closed',evidence_sha:sha,created_at:'2026-10-17T12:00:00Z',simulated:true,body:{invoiceId:'2176902',invoiceSha}});assert.equal((await f.action(f.form('closed'))).ok,true);assert.equal(f.saved.length,0);assert.equal(f.calls.length,0);
+});
+
+test('synthetic pickup cannot become a production event',async()=>{const f=fixture('admin','production');f.accept();assert.equal((await f.action(f.form('closed'))).ok,false);assert.equal(f.saved.length,0);assert.equal(f.calls.length,0);});

@@ -1,26 +1,33 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
-import { DASHBOARD_INITIAL_CLOCK } from "@/lib/dashboard/demo-data";
 
 const emptySubscribe = () => () => undefined;
 
 /**
- * SSR + hydration both see `isClient === false` → shared INITIAL clock.
- * After hydration React re-reads the client snapshot (`true`) once and we
- * switch to the real local clock without an initial HTML mismatch.
+ * SSR + first hydration use the same server `initialNowIso`.
+ * After hydration, switch to the live local clock.
+ * Do not call `new Date()` independently on SSR vs first client paint.
  */
-export function useDashboardNow(): Date {
+export function useDashboardNow(initialNowIso: string): Date {
   const isClient = useSyncExternalStore(
     emptySubscribe,
     () => true,
     () => false,
   );
 
+  const initialNow = useMemo(() => {
+    const parsed = new Date(initialNowIso);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("Invalid dashboard generatedAt");
+    }
+    return parsed;
+  }, [initialNowIso]);
+
   return useMemo(() => {
     if (!isClient) {
-      return DASHBOARD_INITIAL_CLOCK;
+      return initialNow;
     }
     return new Date();
-  }, [isClient]);
+  }, [isClient, initialNow]);
 }

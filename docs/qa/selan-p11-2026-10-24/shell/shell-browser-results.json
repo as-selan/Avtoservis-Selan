@@ -1,0 +1,173 @@
+{
+  "scope": "Real client components rendered with React createRoot and synthetic props/action fixture. No authenticated app, database or Quibi calls.",
+  "results": [
+    {
+      "scenario": "dashboard",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "mechanic",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-owner",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin-production",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted-invoice",
+      "width": 1440,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "dashboard",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "mechanic",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-owner",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin-production",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted-invoice",
+      "width": 390,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "dashboard",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "mechanic",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-owner",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "vehicle-admin-production",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    },
+    {
+      "scenario": "review-accepted-invoice",
+      "width": 350,
+      "noOverflow": true,
+      "pageErrors": 0,
+      "hydratedInteraction": true
+    }
+  ]
+}

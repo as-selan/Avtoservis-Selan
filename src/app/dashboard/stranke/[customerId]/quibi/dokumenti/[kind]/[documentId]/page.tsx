@@ -1,0 +1,57 @@
+import {QuibiPriceSummary} from '@/components/dashboard/QuibiPriceSummary';
+import {QuibiInvoiceDetails} from '@/components/dashboard/QuibiInvoiceDetails';
+import {QuibiDocumentPayments} from '@/components/dashboard/QuibiDocumentPayments';
+import {QuibiBusinessSend} from '@/components/dashboard/QuibiBusinessSend';
+import {businessSendKey} from '@/lib/quibi/business-send-workflow';
+import {quibiWorkflowConfig,actualCustomerEmail} from '@/lib/quibi/workflow-config';
+import {quibiDevTestRecipient,quibiDevTestRecipients} from '@/lib/quibi/write-contract';
+import {documentReferenceState} from '@/lib/quibi/document-reference-state';
+import {DocumentCommunicationDraft} from "@/components/dashboard/DocumentCommunicationDraft";
+import Link from 'next/link';
+import {requirePhase1OperationalAccess} from '@/lib/auth/requireWorkshopAccess';
+import {canQueryCustomerId} from '@/lib/customers/present';
+import {createClient} from '@/lib/supabase/server';
+import {configuredQuibiReadClient} from '@/lib/quibi/client';
+import {quibiLinkEnvironment} from '@/lib/quibi/workflow-config';
+import {documentKindLabels,loadQuibiDocument,type QuibiDocumentKind} from '@/lib/quibi/document-read';
+import {quibiDocumentStatusLabel} from '@/lib/quibi/contracts';
+import {QuibiWorkOrderLink} from '@/components/dashboard/QuibiWorkOrderLink';
+export const dynamic='force-dynamic';
+export default async function QuibiDocument({params,searchParams}:{params:Promise<{customerId:string;kind:string;documentId:string}>;searchParams:Promise<{orderId?:string;caseId?:string}>}){
+ const simulated=process.env.QUIBI_E2E_WRITE_ENABLED==='1'&&process.env.SELAN_ISOLATED_E2E==='1';
+ const access=await requirePhase1OperationalAccess(),{customerId,kind,documentId}=await params,{orderId,caseId}=await searchParams;
+ if(!canQueryCustomerId(customerId)||!Object.hasOwn(documentKindLabels,kind)||!/^\d+$/.test(documentId))return <p role="alert">Dokument ni na voljo.</p>;
+ const db=await createClient(),environment=quibiLinkEnvironment(process.env);
+ const {data:link,error}=await db.from('integration_links').select('external_id,sync_status,quibi_environment').eq('organization_id',access.organizationId).eq('entity_id',customerId).eq('entity_type','customer').eq('provider','quibi').single();
+ if(error||!link||link.quibi_environment!==environment)return <p role="alert">Potrjena povezava stranke s tem okoljem Quibi manjka.</p>;
+ let doc;try{doc=await loadQuibiDocument(configuredQuibiReadClient(),kind as QuibiDocumentKind,documentId,link.external_id)}catch{return <p role="alert">Dokumenta ni mogoče preverjeno prebrati za to stranko in vrsto dokumenta. Podatki niso bili spremenjeni.</p>}
+ const {data:order}=orderId&&/^[a-f0-9-]{36}$/i.test(orderId)?await db.from('work_orders').select('id,status,vehicle_id,service_request_id').eq('organization_id',access.organizationId).eq('customer_id',customerId).eq('id',orderId).maybeSingle():{data:null};
+ const {data:reference,error:referenceError}=order?await db.from('work_order_quibi_documents').select('content_sha256,confirmed_at').eq('organization_id',access.organizationId).eq('work_order_id',order.id).eq('document_kind',kind).eq('quibi_document_id',documentId).eq('quibi_environment',environment).maybeSingle():{data:null,error:null};
+ const {data:originCase}=caseId&&canQueryCustomerId(caseId)?await db.from('service_requests').select('id').eq('organization_id',access.organizationId).eq('customer_id',customerId).eq('id',caseId).is('archived_at',null).maybeSingle():{data:null};
+ const referenceState=reference?documentReferenceState(reference.content_sha256,doc.contentSha256):null;
+ let recipient='',sendEnabled=false,storedSend=null,sendAmount=doc.amount;
+ if(order&&reference&&kind!=='estimate'&&['owner','admin'].includes(access.role)){
+  try{const [{data:customer},remote]=await Promise.all([db.from('customers').select('email').eq('organization_id',access.organizationId).eq('id',customerId).single(),configuredQuibiReadClient().customer(link.external_id)]);recipient=environment==='dev'?quibiDevTestRecipient(process.env,customer?.email):actualCustomerEmail(customer?.email??null,remote.email)}catch{}
+  const {data:attempt,error:attemptError}=await db.from(environment==='dev'?'quibi_dev_operation_journal':'quibi_production_operation_journal').select('state,send_id,send_status,attempted_at,request_body').eq('organization_id',access.organizationId).eq('kind','send').eq('local_entity_id',businessSendKey(order.service_request_id,documentId,reference.content_sha256)).maybeSingle();
+  storedSend=attempt;
+  if(attempt){try{const body=JSON.parse(attempt.request_body) as {recipient?:string;amount?:string};if(typeof body.recipient==='string')recipient=body.recipient;if(typeof body.amount==='string')sendAmount=body.amount}catch{}}
+  try{quibiWorkflowConfig(process.env,'send');sendEnabled=!attemptError&&!!recipient&&referenceState==='unchanged'&&process.env.QUIBI_DEV_LOCAL_SEND_ENABLED!=='1'}catch{}
+ }
+ return <div className="space-y-5"><Link className="text-blue-700" href={order?`/dashboard/nalogi/${order.id}`:originCase?`/dashboard/primeri/${originCase.id}`:`/dashboard/stranke/${customerId}/quibi`}>← Nazaj</Link>
+ <header><h1 className="text-2xl font-semibold">Quibi · {documentKindLabels[kind as QuibiDocumentKind]} #{doc.id}</h1>{simulated&&<span data-test-case-badge className="text-xs text-slate-600">Testni primer</span>}<details className="text-xs text-slate-500"><summary>Podrobnosti povezave</summary><p className="text-sm">{simulated ? 'QA-SIM: lokalni simuliran API; ni dejanski Quibi poslovni dokument.' : `Svež bralni prikaz iz okolja ${environment==='dev'?'DEV':'produkcija'}. Dokument ostaja v Quibiju.`}</p></details></header>
+ {link.sync_status!=='ok'&&<p role="alert">Povezava stranke zahteva ponoven pregled; povezovanje in druge spremembe niso potrjene.</p>}
+ {referenceError&&<p role="alert">Potrjene povezave v tej bazi ni mogoče preveriti.</p>}
+ {referenceState==='changed'&&<p role="alert" className="rounded border border-amber-300 bg-amber-50 p-4">Vsebina Quibi dokumenta se je po potrditvi povezave spremenila. Prejšnja potrditev ne velja kot pregled trenutne vsebine. Ponovno preglejte dokument; zgodovinska povezava ostaja ohranjena.</p>}
+ {referenceState==='unchanged'&&<p className="text-sm text-green-800">Vsebina dokumenta se po povezavi ni spremenila.</p>}
+ {kind==='invoice'&&doc.number==='Osnutek'?<p>Osnutek še ni izdan. PDF zahteva ločeno potrditev izdaje.</p>:<a className="inline-block rounded border bg-white px-4 py-2 text-blue-700" target="_blank" rel="noreferrer" href={`/api/quibi/dokumenti/${customerId}/${kind}/${documentId}/pdf`}>Odpri PDF</a>}
+ <section className="space-y-2 rounded-xl border bg-white p-4"><p>Številka: {doc.number??'Podatek ni na voljo'}</p><p>Status: {quibiDocumentStatusLabel(doc.status)}</p><p>Znesek po Quibiju: {doc.amount}</p><p>Quibi stranka: {doc.customerId}</p><p>Quibi vozilo: {doc.vehicleId??'Vozilo ni potrjeno; pred nadaljevanjem preverite povezavo.'}</p><details className="text-xs text-slate-500"><summary>Podrobnosti dokumenta</summary><p className="break-all">SHA-256 vsebine: {doc.contentSha256}</p></details>
+ <h2 className="font-semibold">Postavke dokumenta</h2><QuibiPriceSummary lines={doc.lines} amount={doc.amount} taxTotals={doc.taxTotals}/>{!doc.lines.length&&<p>Postavke niso na voljo.</p>}</section>
+ <p className="text-sm text-amber-800">Ista stranka in vozilo še ne dokazujeta istega naročila. Povezavo s servisnim primerom mora potrditi skrbnik po pregledu postavk. Lokalno stanje dela ne spreminja poslovnega statusa dokumenta v Quibiju.</p>
+ {order&&order.status!=='closed'&&kind!=='estimate'&&['owner','admin'].includes(access.role)&&(doc.vehicleId?<QuibiWorkOrderLink orderId={order.id} documentId={doc.id} kind={kind} sha={doc.contentSha256}/>:<p role="alert">Povezovanje je ustavljeno, ker Quibi ne vrača vozila dokumenta. Povezava brez potrjene identitete tukaj ni dovoljena.</p>)}
+ {order&&reference&&kind!=='estimate'&&['owner','admin'].includes(access.role)&&<QuibiBusinessSend dev={environment==='dev'} orderId={order.id} documentId={doc.id} kind={kind} sha={reference.content_sha256} amount={sendAmount} recipient={recipient} allowedRecipients={environment==='dev'&&recipient?quibiDevTestRecipients(process.env):[]} enabled={sendEnabled} initialState={storedSend?{state:storedSend.state,sendId:storedSend.send_id,sendStatus:storedSend.send_status,attemptedAt:storedSend.attempted_at}:null}/>}
+ {kind==='invoice'&&<QuibiInvoiceDetails doc={doc}/>}
+ {['invoice','advance_invoice','credit_note'].includes(kind)&&<QuibiDocumentPayments documentId={doc.id} amount={doc.amount} dueDate={doc.dueDate}/>}
+ <DocumentCommunicationDraft kind={documentKindLabels[kind as QuibiDocumentKind]} id={doc.id} amount={doc.amount}/>
+ </div>;
+
+}

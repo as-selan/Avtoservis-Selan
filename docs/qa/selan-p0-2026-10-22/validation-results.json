@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-22",
+  "base": "a9bc369411d389292e4d702f43bc5d419dac7d9e",
+  "sourceAndLocalHttpTests": {
+    "passed": 525,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "passed": 42,
+    "failed": 0,
+    "widths": [
+      1440,
+      390,
+      350
+    ],
+    "scope": "isolated SSR real form components and native navigation; business actions disabled"
+  },
+  "typecheck": "passed",
+  "projectLint": "passed; own qa-visual scratch excluded",
+  "webpackCompileBuild": "passed; compile only, full prerender/generate not verified",
+  "historicalAssertions": [
+    {
+      "file": "scripts\\web-intake-public.assert.ts",
+      "exit": 0
+    },
+    {
+      "file": "scripts\\proxy-redirect.assert.ts",
+      "exit": 0
+    },
+    {
+      "file": "scripts\\phase14b-customers-slice-a.assert.ts",
+      "exit": 1
+    },
+    {
+      "file": "scripts\\phase14b-customer-vehicle-edit.assert.ts",
+      "exit": 0
+    },
+    {
+      "file": "scripts\\phase14b-customer-vehicle-create.assert.ts",
+      "exit": 0
+    },
+    {
+      "file": "scripts\\phase14a-auth-access.assert.ts",
+      "exit": 1
+    },
+    {
+      "file": "scripts\\offer-review-customer-approval.assert.ts",
+      "exit": 1
+    },
+    {
+      "file": "scripts\\offer-preparation.assert.ts",
+      "exit": 1
+    },
+    {
+      "file": "scripts\\missing-data-completion.assert.ts",
+      "exit": 0
+    }
+  ],
+  "baselineHistoricalFailures": [
+    {
+      "exit": 1,
+      "message": "Error: Stranke label",
+      "file": "scripts/phase14b-customers-slice-a.assert.ts"
+    },
+    {
+      "exit": 1,
+      "message": "Error: missing/invalid membership -> redirect(/dostop-zavrnjen)",
+      "file": "scripts/phase14a-auth-access.assert.ts"
+    },
+    {
+      "exit": 1,
+      "message": "Error: Phase 8 unconfigured copy remains",
+      "file": "scripts/offer-review-customer-approval.assert.ts"
+    },
+    {
+      "exit": 1,
+      "message": "Error: loader: no Quibi env",
+      "file": "scripts/offer-preparation.assert.ts"
+    }
+  ],
+  "fullDatabaseE2E": "UNVERIFIED; no Docker/Supabase and no authenticated isolated DEV session",
+  "actualQuibiWrites": "not performed",
+  "send": "not enabled or performed",
+  "video": "four independent synthetic UI states, not a completed business process"
+}

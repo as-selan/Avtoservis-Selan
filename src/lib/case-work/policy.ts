@@ -1,0 +1,10 @@
+export const CASE_WORK_STATUSES=['assigned','in_progress','awaiting_parts','work_completed'] as const;
+export const CASE_WORK_LABELS:Record<string,string>={assigned:'Dodeljeno',in_progress:'Delo poteka',awaiting_parts:'Čaka dele',work_completed:'Delo opravljeno'};
+export function photoExtension(type:string,bytes:Uint8Array){if(bytes.length<12||bytes.length>786432)throw Error('INVALID_PHOTO');if(type==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)return 'jpg';if(type==='image/png'&&[137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))return 'png';if(type==='image/webp'&&String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP')return 'webp';throw Error('INVALID_PHOTO');}
+export function workInput(caseId:unknown,status:unknown,note:unknown){if(typeof caseId!=='string'||! /^[a-f0-9-]{36}$/i.test(caseId)||typeof status!=='string'||!CASE_WORK_STATUSES.includes(status as typeof CASE_WORK_STATUSES[number])||typeof note!=='string'||note.length>3000)throw Error('INVALID_INPUT');return {caseId,status,note:note.trim()};}
+
+export function replacePhotoWithPreparedJpeg(form:FormData,photo:File){if(photo.type!=='image/jpeg'||photo.size>786432||photo.size===0)throw Error('INVALID_PHOTO');form.set('photo',photo);form.delete('photoGallery');}
+
+export async function decodeRepairPhoto(file: File, decode: (file: Blob) => Promise<ImageBitmap> = createImageBitmap) {
+  try { return await decode(file); } catch { throw new Error("Fotografije ni mogoče prebrati. Izberite drugo fotografijo v obliki JPEG, PNG ali WebP."); }
+}

@@ -1,0 +1,6 @@
+"use client";
+import {useState} from 'react';
+export function DocumentCommunicationDraft({kind,id,amount}:{kind:string;id:string;amount:string}){
+ const [text,setText]=useState(`Pozdravljeni,\n\nv Quibiju je pripravljen dokument ${kind.toLowerCase()} #${id}. Znesek na dokumentu je ${amount} EUR.\n\n[Pred uporabo preverite vsebino, ceno in prejemnika ter dopolnite naslednji korak.]\n\nLep pozdrav,\nAvtoservis Selan`),[message,setMessage]=useState('');
+ return <section className="space-y-3 rounded-xl border bg-white p-4"><h2 className="font-semibold">Osnutek komunikacije za Tadejev pregled</h2><p className="text-sm">Predloga uporablja prebrane podatke dokumenta. To ni AI odgovor ali izvedeno pošiljanje; ceno, prejemnika in besedilo preverite sami. Dodatni ponudnik ni povezan.</p><label className="block text-sm">Besedilo sporočila<textarea className="mt-1 w-full rounded border p-2" rows={9} value={text} onChange={e=>setText(e.target.value)}/></label><button className="rounded border px-4 py-2" onClick={async()=>{try{await navigator.clipboard.writeText(text);setMessage('Osnutek je kopiran; nič ni bilo poslano.')}catch{setMessage('Besedilo izberite in kopirajte ročno.')}}}>Kopiraj osnutek</button>{message&&<p role="status">{message}</p>}</section>;
+}

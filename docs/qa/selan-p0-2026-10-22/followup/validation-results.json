@@ -1,0 +1,19 @@
+{
+  "productionChanges": false,
+  "browserReport": "browser-results.json",
+  "writeSendEnabledByThisChange": false,
+  "widths": [
+    1440,
+    390,
+    350
+  ],
+  "eslint": "scoped passed",
+  "fullBusinessE2E": "UNVERIFIED",
+  "previewAccess": "Vercel login protection",
+  "targetedTests": {
+    "skipped": 0,
+    "failed": 0,
+    "passed": 26
+  },
+  "typescript": "passed"
+}

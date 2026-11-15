@@ -1,6 +1,6 @@
 "use client";
 
-import { Columns3, Plus, SlidersHorizontal } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { ServiceOrderDemo, WorkflowStatusId } from "@/lib/dashboard/types";
 import { WORKFLOW_STATUSES } from "@/lib/dashboard/statuses";
 import { ServiceOrderTable } from "@/components/dashboard/ServiceOrderTable";
@@ -26,10 +26,10 @@ export function ActiveServiceOrders({
       <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-slate-900">
-            Aktivni servisni nalogi
+            Servisni primeri
           </h2>
           <p className="mt-0.5 text-sm text-slate-500">
-            Servisni nalogi, ki potrebujejo vaš naslednji korak.
+            Povpraševanja in potek popravila z naslednjim potrebnim dejanjem.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -53,20 +53,6 @@ export function ActiveServiceOrders({
           </select>
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-sm text-slate-600 hover:bg-slate-50"
-          >
-            <Columns3 className="h-4 w-4" aria-hidden />
-            <span className="hidden sm:inline">Prilagodi stolpce</span>
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
-            aria-label="Dodatni filtri"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
             onClick={onOpenManualEntry}
             className="inline-flex h-9 items-center gap-1 rounded-lg bg-blue-600 px-2.5 text-sm font-medium text-white hover:bg-blue-700 sm:hidden"
           >
@@ -87,7 +73,10 @@ export function ActiveServiceOrders({
           </p>
         ) : (
           orders.map((order) => (
-            <ServiceOrderMobileCard key={order.id} order={order} />
+            <ServiceOrderMobileCard
+              key={order.serviceRequestId ?? order.id}
+              order={order}
+            />
           ))
         )}
       </div>
@@ -95,12 +84,13 @@ export function ActiveServiceOrders({
       <div className="flex flex-col gap-2 border-t border-slate-100 px-4 py-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
+          onClick={() => onStatusFilterChange("all")}
           className="text-left font-medium text-blue-600 hover:text-blue-700"
         >
-          Prikaži vse naloge
+          Prikaži vse statuse
         </button>
         <p>
-          1–{orders.length} od {Math.max(totalCount, orders.length)}
+          {orders.length ? "1–" + orders.length : "0"} od {Math.max(totalCount, orders.length)}
         </p>
       </div>
     </section>

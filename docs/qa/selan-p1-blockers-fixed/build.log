@@ -1,0 +1,65 @@
+
+> avtoservis-selan@0.1.0 build
+> next build --webpack
+
+▲ Next.js 16.3.5 (webpack)
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles:
+   * C:\Users\Admin\.codex\worktrees\selan-p0-guided-case\m3-m4-ci-db-tests-v1\qa-visual\blocker-fix-build\package-lock.json
+
+✓ Running next.config.ts took 84ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.1min
+  Running TypeScript ...
+  Finished TypeScript in 62s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/15) ...
+  Generating static pages using 3 workers (3/15)
+  Generating static pages using 3 workers (7/15)
+  Generating static pages using 3 workers (11/15)
+✓ Generating static pages using 3 workers (15/15) in 15.0s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/dopolnitev
+├ ƒ /api/povprasevanje
+├ ƒ /api/quibi/dokumenti/[customerId]/[kind]/[documentId]/pdf
+├ ƒ /api/quibi/stranke/[customerId]/dokumenti/[kind]/[documentId]/pdf
+├ ○ /auth/accept-invite
+├ ƒ /auth/confirm
+├ ○ /auth/recovery
+├ ƒ /auth/signout
+├ ƒ /dashboard
+├ ƒ /dashboard/mehanik
+├ ƒ /dashboard/mehanik/[orderId]
+├ ƒ /dashboard/nalogi
+├ ƒ /dashboard/nalogi/[orderId]
+├ ƒ /dashboard/nastavitve/ekipa
+├ ƒ /dashboard/primeri/[serviceRequestId]
+├ ƒ /dashboard/quibi
+├ ƒ /dashboard/quibi/stranke/[customerId]/dokumenti/[kind]/[documentId]
+├ ƒ /dashboard/quibi/stranke/[customerId]/vozila/[vehicleId]
+├ ƒ /dashboard/stranke
+├ ƒ /dashboard/stranke/[customerId]
+├ ƒ /dashboard/stranke/[customerId]/quibi
+├ ƒ /dashboard/stranke/[customerId]/quibi/dokumenti/[kind]/[documentId]
+├ ƒ /dashboard/stranke/[customerId]/quibi/predracuni/[estimateId]
+├ ○ /dopolnitev
+├ ƒ /dostop-zavrnjen
+├ ○ /icon.svg
+├ ƒ /login
+├ ƒ /nastavi-geslo
+└ ○ /povprasevanje
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

@@ -1,0 +1,23 @@
+{
+  "caseId": "a73db6be-7216-4677-bc0a-26e97693ad75",
+  "customerId": "405964",
+  "customerIdentityVerified": true,
+  "vehicle": {
+    "vin": "TESTSELANBX202602",
+    "registration_current": "TEST-2026",
+    "make": "BMW",
+    "model": "318d"
+  },
+  "vehicleLink": null,
+  "customerVehicleCount": 0,
+  "globalVehicleMatches": [],
+  "vehicleJournal": [],
+  "requestedServices": [
+    "Servis vozila",
+    "Pregled pred tehničnim pregledom",
+    "Pregled zavor"
+  ],
+  "gets": 9,
+  "write": false,
+  "send": false
+}

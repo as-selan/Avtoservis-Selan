@@ -1,0 +1,3 @@
+import 'server-only';
+import type {ReviewState,ReviewEvent} from './review-policy';
+export async function loadReviewStates(db:Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,caseId?:string){const result=await db.rpc('case_work_review_snapshot',{p_case:caseId??null});const states=new Map<string,ReviewState>();if(!result.error&&Array.isArray(result.data))for(const row of result.data)states.set(row.case_id,{ready:true,lastActivity:row.review_activity,workLocked:row.work_locked===true,evidenceSha:row.evidence_sha,simulated:row.simulated,events:(row.events??[]) as ReviewEvent[]});return {states,ready:!result.error};}

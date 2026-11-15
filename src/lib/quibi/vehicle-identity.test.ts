@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {assertSamePhysicalVehicle,requiresResolvedVehicleConfirmation} from './vehicle-identity.ts';
+test('wrong or absent VIN blocks vehicle UPDATE before dispatch',()=>{for(const vin of [null,'','DIFFERENT'])assert.throws(()=>assertSamePhysicalVehicle({vin},{vin:'TESTSELANAX202601',disabled:false}),/VEHICLE_IDENTITY_MISMATCH/)});
+test('same physical VIN can proceed; disabled vehicle cannot',()=>{assert.doesNotThrow(()=>assertSamePhysicalVehicle({vin:' testselanax202601 '},{vin:'TESTSELANAX202601',disabled:false}));assert.throws(()=>assertSamePhysicalVehicle({vin:'TESTSELANAX202601'},{vin:'TESTSELANAX202601',disabled:true}))});
+
+test('corrected intake never silently authorizes a new vehicle; confirmed/fresh normal intake paths stay unchanged',()=>{assert.equal(requiresResolvedVehicleConfirmation(true,undefined),true);assert.equal(requiresResolvedVehicleConfirmation(true,'never_checked'),true);assert.equal(requiresResolvedVehicleConfirmation(true,'ok'),false);assert.equal(requiresResolvedVehicleConfirmation(false,undefined),false)});

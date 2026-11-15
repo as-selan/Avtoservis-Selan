@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {vehicleFindings} from './vehicle-findings.ts';
+test('two visits keep previous unresolved work visible and exclude unrelated cases',()=>{const f=[{id:'f1',case_id:'visit1',description:'Zavore',state:'recorded',created_at:'2026-01-01'},{id:'x',case_id:'other',description:'Tuja napaka',state:'recorded',created_at:'2026-01-01'}];assert.deepEqual(vehicleFindings(['visit1','visit2'],f,[]).map(x=>[x.id,x.status]),[['f1','needed']])});
+test('completion requires explicit applied and completed offer, not case closure',()=>{const f=[{id:'f',case_id:'visit1',description:'Napaka',state:'approved',created_at:'2026-01-01'}];assert.equal(vehicleFindings(['visit1'],f,[])[0].status,'planned');assert.equal(vehicleFindings(['visit1'],f,[{finding_id:'f',case_id:'visit1',quibi_operation_id:'op',completed_at:'2026-02-01'}])[0].status,'completed');assert.equal(vehicleFindings(['visit1'],f,[{finding_id:'f',case_id:'other',quibi_operation_id:'op',completed_at:'2026-02-01'}])[0].status,'planned')});
+test('rejected and noted findings remain distinct from completed work',()=>{const f=['rejected','noted'].map((state,i)=>({id:String(i),case_id:'visit1',description:'Napaka',state,created_at:'2026-01-01'}));assert.deepEqual(vehicleFindings(['visit1'],f,[]).map(x=>x.status),['rejected','deferred'])});

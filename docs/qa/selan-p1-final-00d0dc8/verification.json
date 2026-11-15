@@ -1,0 +1,23 @@
+{
+  "head": "00d0dc8026eb25ec2c20862e13b2eb14d21740f4",
+  "main": "ff84c65892f3213f5b3c9a9233784152e0312da4",
+  "mergeTree": "4d6ccdb8aef9f65d7ac6632ff8c2077694c2a44f",
+  "mergeConflicts": 0,
+  "simulationAborted": true,
+  "buildExit": 0,
+  "rootTypeScriptExit": 0,
+  "npmLintExit": 0,
+  "sourceTests": {
+    "tests": 594,
+    "pass": 576,
+    "fail": 18
+  },
+  "additionalTests": {
+    "tests": 15,
+    "pass": 15,
+    "fail": 0
+  },
+  "decision": "NO-GO",
+  "noHostedWrites": true,
+  "noCommitPushOrDeploy": true
+}

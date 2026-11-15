@@ -1,0 +1,29 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {assertCaseBusinessScope,caseBusinessReference,assertBusinessCreationNamespace,type JournalReferenceRow} from './case-business-policy.ts';
+const env={APP_ENV:'preproduction',QUIBI_MODE:'dev',VERCEL_ENV:'preview'};
+const create:JournalReferenceRow={id:'audit1',kind:'work_order',state:'verified',quibi_id:'123',quibi_content_sha256:'a'.repeat(64),request_body:JSON.stringify({Glavadokumenta:{stranka_id:405957,vozila_id:2388}}),created_at:'2026-10-01'};
+test('normal DEV case supports business order without internal order',()=>assert.doesNotThrow(()=>assertCaseBusinessScope(env,'appointment_confirmed','work_order',false)));
+test('case invoice requires explicit completed repair confirmation',()=>{assert.throws(()=>assertCaseBusinessScope(env,'converted','invoice',false));assert.doesNotThrow(()=>assertCaseBusinessScope(env,'converted','invoice',true))});
+test('case path cannot bypass production, demo or workflow stage',()=>{for(const e of [{...env,QUIBI_MODE:'production'},{...env,VERCEL_ENV:'production'},{...env,SELAN_REMOTE_DEMO:'1'},{...env,QUIBI_E2E_WRITE_ENABLED:'1'}])assert.throws(()=>assertCaseBusinessScope(e,'converted','work_order',false));for(const status of ['new','closed','cancelled'])assert.throws(()=>assertCaseBusinessScope(env,status,'work_order',false))});
+test('only verified journal is a document reference',()=>{assert.equal(caseBusinessReference([create],'work_order')?.quibi_document_id,'123');assert.equal(caseBusinessReference([],'invoice'),null);for(const state of ['uncertain','dispatching','prepared','failed'])assert.throws(()=>caseBusinessReference([{...create,state}],'work_order'))});
+test('latest verified update SHA replaces reference without copying document',()=>{const update={...create,id:'audit2',kind:'work_order_update',created_at:'2026-10-02',quibi_content_sha256:'b'.repeat(64),request_body:JSON.stringify({body:{Glavadokumenta:{stranka_id:405957,vozila_id:2388}}})};assert.equal(caseBusinessReference([create,update],'work_order')?.content_sha256,'b'.repeat(64));assert.throws(()=>caseBusinessReference([create,{...update,quibi_id:'456'}],'work_order'))});
+test('duplicate create or revision without original create is blocked',()=>{assert.throws(()=>caseBusinessReference([create,{...create,id:'other'}],'work_order'));assert.throws(()=>caseBusinessReference([{...create,kind:'work_order_update'}],'work_order'))});
+test('switching between internal task and direct case never creates a second business document',()=>{assert.throws(()=>assertBusinessCreationNamespace([{kind:'work_order',local_entity_id:'internal-order'}],'case','work_order'));assert.doesNotThrow(()=>assertBusinessCreationNamespace([{kind:'work_order',local_entity_id:'case'}],'case','work_order'))});
+
+test('approved repair can prepare Quibi order before manual appointment, but invoice still needs completion',()=>{assert.doesNotThrow(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','work_order',false));assert.throws(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',false));assert.doesNotThrow(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',true));assert.doesNotThrow(()=>assertCaseBusinessScope(env,'awaiting_customer_approval','work_order',false))});
+
+test('invoice READ preview never implies completion or allows an unconfirmed dispatch',()=>{
+ assert.doesNotThrow(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',false,true));
+ assert.throws(()=>assertCaseBusinessScope(env,'awaiting_slot_selection','invoice',false,false));
+ assert.throws(()=>assertCaseBusinessScope({...env,QUIBI_MODE:'production'},'awaiting_slot_selection','invoice',false,true));
+});
+
+test('definitive rejection without a document does not erase verified earlier business references',()=>{assert.equal(caseBusinessReference([{...create,state:'failed',quibi_id:null}],'work_order'),null);assert.equal(caseBusinessReference([create,{...create,kind:'invoice',state:'failed',quibi_id:null}],'work_order')?.quibi_document_id,'123');assert.throws(()=>caseBusinessReference([{...create,state:'uncertain',quibi_id:null}],'work_order'))});
+test('corrected invoice namespace requires preserved failed original and exact retry reference',()=>{const original={kind:'invoice',local_entity_id:'case',id:'rejection',state:'failed',quibi_id:null};const retry={kind:'invoice',local_entity_id:'rejection',request_body:JSON.stringify({Glavadokumenta:{external_id:'selan-work-order:rejection:invoice'}})};assert.doesNotThrow(()=>assertBusinessCreationNamespace([original,retry],'case','invoice'));assert.throws(()=>assertBusinessCreationNamespace([{...original,state:'uncertain'},retry],'case','invoice'))});
+
+
+test('isolated fixture uses existing business stage rules for orders and invoices',()=>{
+ const e={APP_ENV:'local',CI:'true',SELAN_ISOLATED_E2E:'1',QUIBI_E2E_WRITE_ENABLED:'1',QUIBI_E2E_ORIGIN:'http://127.0.0.1:47862',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',PUBLIC_APP_ORIGIN:'http://127.0.0.1:3000',QUIBI_DEV_USERNAME:'selan-isolated-fixture',QUIBI_DEV_PASSWORD:'selan-isolated-fixture'};
+ assert.doesNotThrow(()=>assertCaseBusinessScope(e,'converted','invoice',true));assert.throws(()=>assertCaseBusinessScope(e,'converted','invoice',false));assert.throws(()=>assertCaseBusinessScope({...e,VERCEL_ENV:'preview'},'converted','invoice',true));assert.throws(()=>assertCaseBusinessScope({...e,NEXT_PUBLIC_SUPABASE_URL:'https://production.supabase.co'},'converted','invoice',true));
+});

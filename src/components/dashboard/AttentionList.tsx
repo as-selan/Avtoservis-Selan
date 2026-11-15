@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import type { AttentionItemDemo } from "@/lib/dashboard/types";
 
@@ -20,12 +21,7 @@ export function AttentionList({ items }: AttentionListProps) {
             {items.length}
           </span>
         </div>
-        <button
-          type="button"
-          className="text-xs font-medium text-blue-600 hover:text-blue-700"
-        >
-          Prikaži vse
-        </button>
+        <a href="#incoming-heading" className="text-xs font-medium text-blue-600 hover:text-blue-700">Čakalna vrsta</a>
       </div>
 
       <ul className="divide-y divide-slate-100">
@@ -43,12 +39,7 @@ export function AttentionList({ items }: AttentionListProps) {
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">{item.detail}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                  >
-                    {item.primaryAction}
-                  </button>
+                  <Link href={'/dashboard/primeri/'+item.id+'#naslednji-korak'} className="rounded-md bg-slate-100 px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-200">{item.primaryAction} →</Link>
                   {item.secondaryAction ? (
                     <button
                       type="button"

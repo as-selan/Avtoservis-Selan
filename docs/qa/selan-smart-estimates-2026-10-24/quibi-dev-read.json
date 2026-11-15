@@ -1,0 +1,100 @@
+{
+  "caseId": "a73db6be-7216-4677-bc0a-26e97693ad75",
+  "quibiVehicleId": "2391",
+  "existingEstimate": {
+    "id": "2176932",
+    "number": "282/2026",
+    "amount": "111.87",
+    "sha": "fb0e146befb8f331fa06eab404531f49c83cc31038f3afadb37f805ce578c400",
+    "internalReview": "approved_for_send",
+    "pdf": {
+      "available": true,
+      "bytes": 1187153,
+      "sha": "4992954dc697de652723e99cec5c8f8c1f21d1116558019ac9827b32a83cf696"
+    },
+    "lines": [
+      {
+        "description": "REDNI SERVIS VOZILA",
+        "quantity": "1",
+        "unitGross": "32.94",
+        "unitNet": "27",
+        "discount": "0",
+        "vat": "22 %"
+      },
+      {
+        "description": "Pregled pred tehničnim pregledom",
+        "quantity": "1",
+        "unitGross": "58.97",
+        "unitNet": "48.33606557",
+        "discount": "0",
+        "vat": "22 %"
+      },
+      {
+        "description": "Pregled zavor",
+        "quantity": "1",
+        "unitGross": "19.96",
+        "unitNet": "16.36065574",
+        "discount": "0",
+        "vat": "22 %"
+      }
+    ]
+  },
+  "syntheticQaAllowed": true,
+  "storedManualPrices": [
+    null,
+    "58.97",
+    "19.96"
+  ],
+  "historyLists": {
+    "estimate": {
+      "listed": 282,
+      "withKnownStatus": 0
+    },
+    "work_order": {
+      "listed": 271,
+      "withKnownStatus": 0
+    },
+    "invoice": {
+      "listed": 258,
+      "withKnownStatus": 0
+    }
+  },
+  "historyScanned": 24,
+  "historyValidity": {
+    "knownStatus": 0,
+    "numbered": 24,
+    "creditClear": 9,
+    "byKind": {
+      "invoice": 23,
+      "work_order": 0,
+      "estimate": 1
+    }
+  },
+  "historyIssues": [
+    "Pregled je omejen na 24 novejših dokumentov; ni celotna zgodovina."
+  ],
+  "suggestions": [
+    {
+      "service": "Servis vozila",
+      "count": 0,
+      "price": null,
+      "reason": "Ni dovolj primerljivih podatkov"
+    },
+    {
+      "service": "Pregled pred tehničnim pregledom",
+      "count": 0,
+      "price": null,
+      "reason": "Ni dovolj primerljivih podatkov"
+    },
+    {
+      "service": "Pregled zavor",
+      "count": 0,
+      "price": null,
+      "reason": "Ni dovolj primerljivih podatkov"
+    }
+  ],
+  "gets": 31,
+  "readPosts": 18,
+  "write": false,
+  "send": false
+}

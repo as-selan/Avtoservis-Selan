@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createQuibiReadClient} from './client.ts';
+test('fresh article validation uses a bounded active list read, never a bulk catalog or write',async()=>{
+ const paths:string[]=[];let active=true;const read=createQuibiReadClient({username:'fixture',password:'fixture',fetcher:async(url,init)=>{assert.equal(init?.method,'GET');paths.push(String(url));return new Response(JSON.stringify({error:false,data:{Sifranti:active?[{Sifranti:{id:'11',sifra:'QA',naziv:'Servis',cenaBrezDDV:'27',enota_id:'1',ddv_id:'5',vodiZalogo:'0'},Enota:{id:'1',naziv:'kos'},Ddv:{id:'5',naziv:'22 %'}}]:[]},naslednji_po:null}))}});
+ assert.equal((await read.activeArticle('11')).netPrice,'27');assert.equal(new URL(paths[0]).pathname,'/api2/sifranti/seznam');assert.equal(new URL(paths[0]).searchParams.get('po'),'10');assert.equal(new URL(paths[0]).searchParams.get('limit'),'1');active=false;await assert.rejects(read.activeArticle('11'),/INACTIVE/);assert.equal(paths.length,2);
+});

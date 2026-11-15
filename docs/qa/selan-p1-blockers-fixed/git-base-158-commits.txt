@@ -1,0 +1,158 @@
+c9a1a9f Add guarded Quibi price suggestions and published-price workflow
+ee61c00 Guard inspection stages and clarify manual billing handoff
+56cf33f Open the created service case after manual intake
+6fd9676 Allow isolated local completion flow and fix fixed-price case validation
+52dcbd3 Add explicit intake review and correct local fixed-price URL validation
+7b25bd5 Verify Quibi vehicle before estimate actions and clarify duplicate links
+fd07398 Require complete web intake and streamline reviewed case handoff
+4457a11 Block published prices for a different case service
+f566b08 Guard fixed-price service match in local QA workflow
+9bb0069 Clarify unconfirmed appointment in local case view
+49a7d42 Prepare isolated remote Phase 1 demo mode
+fd4727c Tie demo quote digest to synthetic document contents
+62d09ed Guard preproduction Quibi reads with synthetic demo mode
+67dc351 Fix documented Quibi vehicle read endpoint
+97e5458 Enable guarded preproduction Quibi DEV reads
+9691db2 Keep preproduction workflow available without Quibi credentials
+a5366ec Allow labeled Quibi fallback in hosted preview
+ce7e2f2 Configure guarded preview fallback on QA branch
+e3050f9 Label synthetic Quibi customers as test data
+b12dc0a Enable explicit Quibi DEV reads and honest document status
+5c163d1 Keep preproduction communication and booking synthetic
+153d7e1 Enable isolated local Quibi DEV review with honest QA states
+e7e1f84 Clarify Quibi estimate line price label
+16fbdec Fix completion state when customer data already exists
+bbe6225 Read Quibi document status from verified document view
+5f028d3 Fix Supabase recovery landing on login
+18f9046 Use distinct synthetic password for recovery E2E
+1f8c69d Add invite-only forgot password request to login
+55c65cf Enable isolated mail capture for recovery E2E
+9cdf579 Handle hosted password recovery through dedicated callback
+1198713 Request password recovery with isolated implicit client
+a45ac44 Enable real DEV preview workflow and align dashboard actions
+05ca214 Prepare guarded Quibi DEV document write workflow
+9657396 Wire guarded Quibi DEV estimate write flow into case UI
+1706652 Add guarded Quibi DEV customer and vehicle creation
+13441c5 Fix Quibi party action UUID validation
+2138727 fix: align intake contact policy and preserve review gate
+b6f4d39 Add guarded test send for manually linked Quibi DEV estimates
+f44bf38 Unify Quibi approval and dispatch workflow with guarded production support
+97c6f22 Allow matched synthetic DEV customer emails with test-only delivery
+330f191 Guard explicitly approved local Quibi DEV send for existing estimate
+5604f65 Add scoped local synthetic DEV identity limitation acknowledgment
+4996f85 Track Quibi send outcomes and add guarded work order lifecycle
+34baa6c Connect Quibi document reads, PDFs and verified work order references
+078b432 Keep Quibi document references visible and flag changed confirmed content
+f36a6a9 Connect guarded Quibi business document and party write workflows
+43957c4 Distinguish Quibi party update outcomes and lock unresolved actions
+8bd5a38 Complete safe Quibi customer creation and isolated service QA workflow
+f6bba9f Remove trailing blank line from Quibi QA fixture
+c5e59d0 Complete isolated synthetic service QA through appointment and handover
+82ba03c Scope approved DEV vehicle creation and verify linked QA workflow
+c977899 Add assigned mechanic workspace with server and storage access guards
+12fd798 Show fresh Quibi customer vehicle and document reads in dashboard
+25a1ea0 Use Quibi as document source and simplify workshop dashboard
+ccdcd27 Read Quibi price lists and service article details in dashboard
+e593058 Distinguish hosted database errors and add read-only migration preflight
+2b9a2f4 Exclude local QA caches and secrets from Vercel uploads
+a5a1665 Preserve Quibi source line units VAT and discounts in business workflow
+0ae3a8b Show live Quibi documents directly in service cases without work order migration
+3d04f45 Allow verified Quibi estimate preparation while external writes remain disabled
+d0ae7d9 Clarify read-only estimate preparation feedback
+939c47f Bind Quibi estimate CREATE to explicitly reviewed payload SHA
+ea66cfe Block estimate redispatch after unknown CREATE outcome without document ID
+43d8210 feat(quibi): connect business document updates with verified revision audit
+0fdeb36 Connect Quibi operational reads and preserve Quibi ownership of photos
+346a6fe Run Quibi business operations directly from service cases
+34ab0b3 Complete offer preparation flow and isolate DEV journal activation
+46247eb Reject stale Quibi estimate metadata before revision
+e5daea6 Connect Quibi work order to invoice and recover safe preparation failures
+87859c2 Synchronize intake customers and vehicles automatically with Quibi DEV
+15c72c4 Resolve persisted public intake before background Quibi synchronization
+3fc4d12 Schedule public intake synchronization from validated request key
+10846ae Complete case estimate review and verified Quibi result display
+4706a8f Require renewed confirmation after estimate preparation changes
+b02f259 Prepare case estimates directly from live Quibi catalog items
+c99ef0b Use Quibi base article price when a custom price list differs
+42d319b feat(quibi): prepare estimate baskets from verified history and live prices
+8fb2cd7 Fix Quibi unit pricing and connected document preparation
+9c33934 Preserve customer price policy in Quibi detail reads
+1033ec4 Use one explicit estimate approval and invalidate changed history previews
+80d9288 Stop background history reads when estimate preparation begins
+8c36c3b Recover uncertain Quibi estimates with READ and simplify approved repair workflow
+5d017ea Show reconciliation as the next action for uncertain estimates
+0283ead Automate verified intake enrichment and Quibi work order preparation
+147e4d8 Connect recorded approval to Quibi orders and automatic invoice review
+1722a75 Allow customer estimate decisions independently of delivery evidence
+d2b50a9 Align customer decision UI with installed approval migration
+7c4bc54 Automate Quibi history pricing and connected document preparation
+f53fd57 Refresh automatic estimate review when Quibi source changes
+e3eda59 Remove duplicate catalogue choices and align dashboard with Quibi operations
+4431369 Wire approved server AI analysis and streamline verified Quibi workflow
+17dbf61 Continue Quibi business flow from verified approval and auto-read source lines
+3d5f12a Preserve definitive Quibi rejections and explicit synthetic QA evidence
+727aaae Scope simulated QA approval to verified synthetic case data
+377fa99 fix: preserve Quibi validation errors and include documented warehouse
+f5cfb00 fix: finalize Quibi PDF before approval digest and refresh changed review
+41b8b96 fix: retain synthetic QA label in initial invoice workflow
+6d675b3 fix: derive Quibi invoice header and safely correct rejected configuration
+f2576c5 fix: distinguish blocked invoice retry and prepare minimal DEV index correction
+49b4295 fix: conform corrected invoice to immutable journal namespace
+1dccdc8 fix: reconcile issued Quibi invoice after draft PDF finalization
+55f35f2 fix: parse actual Quibi send envelope and recover single DEV send by read
+6c780e1 fix: derive case next action from verified Quibi document progress
+9bf3935 fix: allow approved estimate dispatch after telephone approval
+c59cbdb feat: approved DEV recipient selection and guided service workflow
+de3fe06 fix: retain last known delivery status during Quibi outage
+609646c feat: owner team invitations and scoped repair evidence on Quibi cases
+9da305b fix: bind repair evidence to immutable verified vehicle identity
+e320d6b fix: upload only prepared repair image and reset saved photo form
+acb2385 feat: show assigned Quibi case work in repair overview
+34b7fa1 fix: accept mechanic invitation after password setup and verify scoped access
+dd4711a fix: align team migration version with hosted history
+cc5adfb fix: recover private case photos without duplicate uploads
+29ddd7a fix: surface incoming requests and verified Quibi party linkage
+618db45 fix: diagnose intake sync blockers before estimate preparation
+f43f8cf fix: direct unverified vehicle links to identity review
+04ef2f6 feat: resolve intake vehicle identity without overwriting Quibi vehicles
+1bb6b42 fix: activate reviewed vehicle resolution and retain explicit owner create
+dafc89b fix: require owner approval before creating intake vehicles
+5059753 fix: enforce owner approval on legacy vehicle create entry point
+5704dc0 fix(intake): limit public VIN input and offer website service choices
+8449078 fix(offers): explain identity prerequisite before showing preview form
+b1be78e fix(offers): keep verified read preview available after locked creates
+af01b89 fix(offers): keep read previews local and safely retryable
+062be96 fix(offers): distinguish retryable read failures from identity review
+3d04bc1 fix(offers): explain Quibi read access denials without identity blame
+249573b fix(quibi): capture bounded read-denial evidence without retrying access errors
+e6a4aa6 fix(quibi): tolerate slow verified reads and identify transport failures
+08458bd fix(offers): prioritize selected catalog preview over redundant history scans
+9879071 Unify Quibi environment policy and service workflow for production parity
+d47bef9 Wait for complete estimate fields before automatic Quibi preview
+973a6bc Prepare multi-line Quibi estimates and separate DEV delivery readiness
+0c56634 Clarify administrative handoff and prevent obsolete booking confirmations
+a8db58d Complete invoice review, payment visibility and inspection billing basis
+5394e09 Add owner-managed mechanic names and repair activity overview
+e6ca854 Polish verified repair counts and avoid duplicate team labels
+4b50fe4 Connect repair review, invoice checks and auditable case closure
+56add2c Show only the current manager review step
+5ff278d Use repair activity time without rewriting intake history
+dbd7585 Align local migrations with hosted DEV history
+761d03f Show Slovenian guidance for unreadable repair photos
+6de02ae Reuse inspection findings in Quibi estimate preparation
+3f8f9b9 Review inspection billing and guard duplicate charges
+d4499da Prepare inspection invoices through existing Quibi workflow
+4aee768 Prepare intake completion messages and checked manual slot proposals
+db89796 Accept configured and declared Preview intake origins without Git metadata
+b278eb2 Unify intake work queue and retain unresolved completion input
+ea494c1 Point queue scheduling links to a unique case section
+cda6070 Fix completion linking existing customer vehicle
+7614f6e Show newest inquiries first in dashboard queue
+6c9cbe6 Reject unpersisted inquiries and recover from honeypot autofill
+9c355e8 Register session refresh proxy alongside src app
+ac661d7 Refresh workshop views from authorized Supabase realtime events
+35c063a Wait for database realtime subscription confirmation
+46bb3fb Decouple internal repair work and review from Quibi availability
+2963841 Keep repair status selector aligned with realtime updates
+c93efc8 Connect AI estimate suggestions to verified Quibi preview
+a9bc369 Honor server-authorized DEV document sending in existing UI

@@ -3,9 +3,8 @@
  * Timestamps are derived from the caller's `now` so period filters
  * (Danes / Ta teden / Ta mesec) stay meaningful without a hardcoded product calendar day.
  *
- * DASHBOARD_INITIAL_CLOCK is a fixed UTC instant used only for the isomorphic
- * SSR + first client paint so hydration HTML matches. After mount the UI
- * switches to the real local clock.
+ * DASHBOARD_INITIAL_CLOCK remains for legacy demo helpers only.
+ * The real dashboard uses server `generatedAt` via useDashboardNow(iso).
  */
 
 import type {
@@ -184,6 +183,7 @@ export function buildDemoAppointments(now: Date): AppointmentDemo[] {
   return [
     {
       id: "a1",
+      dateLabel: "Danes",
       time: "09:00",
       customerName: "Eva Kocjan",
       vehicleLabel: "Audi A4 2.0 TDI · LJ 41-NPK",
@@ -192,6 +192,7 @@ export function buildDemoAppointments(now: Date): AppointmentDemo[] {
     },
     {
       id: "a2",
+      dateLabel: "Danes",
       time: "11:00",
       customerName: "Borut Zajc",
       vehicleLabel: "VW Golf VII · KP 58-GOL",
@@ -200,6 +201,7 @@ export function buildDemoAppointments(now: Date): AppointmentDemo[] {
     },
     {
       id: "a3",
+      dateLabel: "Danes",
       time: "14:00",
       customerName: "Maja Rozman",
       vehicleLabel: "Peugeot 3008 · CE 26-RVM",

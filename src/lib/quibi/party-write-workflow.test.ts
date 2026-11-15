@@ -1,0 +1,160 @@
+import {customerRemoteId} from './customer-remote-id.ts';
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { createOrReconcileCustomer, createOrReconcileVehicle } from "./party-write-workflow.ts";
+import type { NewOperation, Operation, OperationJournal, OperationPatch } from "./write-workflow.ts";
+
+const customerId = "00000000-0000-4000-8000-000000000011";
+const vehicleId = "00000000-0000-4000-8000-000000000012";
+const caseId = "00000000-0000-4000-8000-000000000013";
+
+function journalFixture() {
+  const rows = new Map<string, Operation>();
+  const journal: OperationJournal = {
+    async get(kind, localEntityId) { return rows.get(`${kind}:${localEntityId}`) ?? null; },
+    async insertOnce(entry: NewOperation) {
+      const key = `${entry.kind}:${entry.localEntityId}`;
+      if (rows.has(key)) return rows.get(key)!;
+      const row: Operation = { ...entry, id: key, state: "prepared", quibiId: null,
+        quibiContentSha256: null, documentNumber: null, sendId: null, sendStatus: null };
+      rows.set(key, row); return row;
+    },
+    async claim(id, expected) {
+      const row = rows.get(id);
+      if (!row || row.state !== expected) return false;
+      rows.set(id, { ...row, state: "dispatching" }); return true;
+    },
+    async patch(id, expected, changes: OperationPatch) {
+      const row = rows.get(id);
+      if (!row || row.state !== expected) throw new Error("CONCURRENT_CHANGE");
+      const next = { ...row, ...changes }; rows.set(id, next); return next;
+    },
+  };
+  return { journal, rows };
+}
+
+test("customer create re-reads exact remote_id and never repeats ambiguous create", async () => {
+  const f = journalFixture();
+  let writes = 0;
+  let remote: Array<{ id: string; remoteId: string; name: string; phone: string; email: string }> = [];
+  const read = { async customers() { return remote; }, async customer(id: string) {
+    return remote.find((item) => item.id === id)!;
+  } };
+  const write = { async createCustomer() {
+    writes++;
+    remote = [{ id: "9001", remoteId: customerRemoteId(customerId), name: "TEST Stranka", phone: "", email: "" }];
+    throw new Error("TIMEOUT");
+  } };
+  const input = { serviceRequestId: caseId, customerId, name: "TEST Stranka", phone: "", email: "" };
+  assert.equal((await createOrReconcileCustomer({ journal: f.journal, read, write, input })).quibiId, "9001");
+  assert.equal((await createOrReconcileCustomer({ journal: f.journal, read, write, input })).quibiId, "9001");
+  assert.equal(writes, 1);
+  await assert.rejects(createOrReconcileCustomer({ journal: f.journal, read, write,
+    input: { ...input, name: "Spremenjeno" } }), /QUIBI_CREATE_CHANGED_REQUIRES_UPDATE/);
+});
+
+test("customer preflight blocks an existing possible match", async () => {
+  const f = journalFixture();
+  let writes = 0;
+  await assert.rejects(createOrReconcileCustomer({ journal: f.journal,
+    read: { async customers() { return [{ id: "8", remoteId: "", name: "TEST Stranka", phone: "", email: "" }]; },
+      async customer() { throw new Error("UNEXPECTED"); } },
+    write: { async createCustomer() { writes++; } },
+    input: { serviceRequestId: caseId, customerId, name: "TEST Stranka", phone: "", email: "" },
+  }), /QUIBI_CUSTOMER_MATCH_REVIEW_REQUIRED/);
+  assert.equal(writes, 0);
+});
+
+test("customer without readable remote_id stays uncertain and is not posted twice", async () => {
+  const f = journalFixture();
+  let writes = 0;
+  const input = { serviceRequestId: caseId, customerId, name: "TEST Stranka", phone: "", email: "" };
+  const read = { async customers() { return []; }, async customer() { throw new Error("UNEXPECTED"); } };
+  const write = { async createCustomer() { writes++; throw new Error("TIMEOUT"); } };
+  await assert.rejects(createOrReconcileCustomer({ journal: f.journal, read, write, input }), /QUIBI_CUSTOMER_CREATE_UNCERTAIN/);
+  await assert.rejects(createOrReconcileCustomer({ journal: f.journal, read, write, input }), /QUIBI_CUSTOMER_CREATE_UNCERTAIN/);
+  assert.equal(writes, 1);
+});
+
+test("vehicle create timeout reconciles only one exact owner-scoped vehicle", async () => {
+  const f = journalFixture();
+  let writes = 0;
+  let remote: Array<{ id: string; customerId: string; vin: string; registration: string;
+    make: string; model: string; disabled: boolean }> = [];
+  const read = { async vehicles() { return remote; }, async vehicle(id: string) {
+    return remote.find((item) => item.id === id)!;
+  } };
+  const write = { async createVehicle() {
+    writes++;
+    remote = [{ id: "7001", customerId: "9001", vin: "TESTVIN1234567890", registration: "TEST-01",
+      make: "Test", model: "A", disabled: false }];
+    throw new Error("TIMEOUT");
+  } };
+  const input = { serviceRequestId: caseId, vehicleId, quibiCustomerId: "9001",
+    vin: "TESTVIN1234567890", registration: "TEST-01", make: "Test", model: "A" };
+  assert.equal((await createOrReconcileVehicle({ journal: f.journal, read, write, input })).quibiId, "7001");
+  assert.equal((await createOrReconcileVehicle({ journal: f.journal, read, write, input })).quibiId, "7001");
+  assert.equal(writes, 1);
+});
+
+test("ambiguous vehicle result never repeats create", async () => {
+  const f = journalFixture();
+  let writes = 0;
+  const input = { serviceRequestId: caseId, vehicleId, quibiCustomerId: "9001",
+    vin: "TESTVIN1234567890", registration: "TEST-01", make: "Test", model: "A" };
+  const read = { async vehicles() { return []; }, async vehicle() { throw new Error("UNEXPECTED"); } };
+  const write = { async createVehicle() { writes++; throw new Error("TIMEOUT"); } };
+  await assert.rejects(createOrReconcileVehicle({ journal: f.journal, read, write, input }), /QUIBI_VEHICLE_CREATE_UNCERTAIN/);
+  await assert.rejects(createOrReconcileVehicle({ journal: f.journal, read, write, input }), /QUIBI_VEHICLE_CREATE_UNCERTAIN/);
+  assert.equal(writes, 1);
+});
+
+test("vehicle preflight blocks duplicate registration before any POST", async () => {
+  const f = journalFixture();
+  let writes = 0;
+  await assert.rejects(createOrReconcileVehicle({ journal: f.journal,
+    read: { async vehicles() { return [{ id: "7", customerId: "9001", vin: "OTHER",
+      registration: "TEST-01", make: "", model: "", disabled: false }]; },
+      async vehicle() { throw new Error("UNEXPECTED"); } },
+    write: { async createVehicle() { writes++; return "7"; } },
+    input: { serviceRequestId: caseId, vehicleId, quibiCustomerId: "9001",
+      vin: "TESTVIN1234567890", registration: "TEST-01", make: "Test", model: "A" },
+  }), /QUIBI_VEHICLE_MATCH_REVIEW_REQUIRED/);
+  assert.equal(writes, 0);
+});
+
+test('legacy uncertain UUID request remains immutable and truncated prefix is never automatic proof',async()=>{
+ const f=journalFixture(),body={remote_id:customerId,naziv:'TEST Stranka'},requestBody=JSON.stringify(body);
+ const {createHash}=await import('node:crypto');const op=await f.journal.insertOnce({kind:'customer',localEntityId:customerId,serviceRequestId:caseId,externalId:customerId,requestBody,requestSha256:createHash('sha256').update(requestBody).digest('hex')});
+ await f.journal.claim(op.id,'prepared');await f.journal.patch(op.id,'dispatching',{state:'uncertain'});let writes=0;
+ await assert.rejects(createOrReconcileCustomer({journal:f.journal,input:{serviceRequestId:caseId,customerId,name:body.naziv,email:'',phone:''},read:{async customers(){return [{id:'9001',remoteId:customerId.slice(0,22),name:body.naziv,email:'',phone:''}]},async customer(){throw Error('UNEXPECTED')}},write:{async createCustomer(){writes++}}}),/CREATE_UNCERTAIN/);
+ assert.equal(writes,0);assert.equal((await f.journal.get('customer',customerId))?.requestBody,requestBody);
+});
+
+test('global VIN or registration conflicts, including disabled vehicles, prevent CREATE',async()=>{
+ const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,vehicleId,quibiCustomerId:'405957',vin:'TESTSELANAX202601',registration:'QA SELAN AI',make:'TEST',model:'SELAN AI'};
+ const read={async vehicles(){return []},async allVehicles(){return [{id:'1',customerId:'999',vin:'OTHER',registration:'QA-SELAN-AI',make:'TEST',model:'SELAN AI',disabled:true}]},async vehicle(){throw Error('unexpected')}};
+ await assert.rejects(createOrReconcileVehicle({journal:f.journal,read,write:{async createVehicle(){writes++;return '2'}},input}),/MATCH_REVIEW_REQUIRED/);assert.equal(writes,0);
+});
+test('definitive vehicle rejection remains failed and never dispatches again',async()=>{
+ const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,vehicleId,quibiCustomerId:'405957',vin:'TESTSELANAX202601',registration:'QA SELAN AI',make:'TEST',model:'SELAN AI'};const read={async vehicles(){return []},async vehicle(){throw Error('unexpected')}};const write={async createVehicle(){writes++;throw Error('QUIBI_HTTP_403')}};
+ await assert.rejects(createOrReconcileVehicle({journal:f.journal,read,write,input}),/CREATE_REJECTED/);assert.equal((await f.journal.get('vehicle',vehicleId))?.state,'failed');await assert.rejects(createOrReconcileVehicle({journal:f.journal,read,write,input}));assert.equal(writes,1);
+});
+
+test('vehicle CREATE transfers a known year and preserves the journal request on replay',async()=>{const f=journalFixture();let writes=0;const remote:Array<{id:string;customerId:string;vin:string;registration:string;make:string;model:string;disabled:boolean;year:number}>=[];const input={serviceRequestId:caseId,vehicleId,quibiCustomerId:'9001',vin:'TESTVIN1234567890',registration:'TEST-01',make:'Test',model:'A',year:2018};const read={vehicles:async()=>remote,vehicle:async()=>remote[0]};const write={createVehicle:async(body:{letnik?:number})=>{assert.equal(body.letnik,2018);writes++;remote.push({id:'7001',customerId:'9001',vin:input.vin,registration:input.registration,make:'Test',model:'A',disabled:false,year:2018});return '7001'}};await createOrReconcileVehicle({journal:f.journal,read,write,input});await createOrReconcileVehicle({journal:f.journal,read,write,input});assert.equal(writes,1);});
+
+
+test('explicit distinct same-name customer permits new contacts and replays without a duplicate POST',async()=>{
+ const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,customerId,name:'TEST Stranka',phone:'+386 000 024',email:'new@example.test',allowDistinctName:true};
+ const old={id:'8',remoteId:'',name:input.name,phone:'',email:'old@example.test'};let rows=[old];
+ const read={async customers(){return rows},async customer(id:string){return rows.find(r=>r.id===id)!}};
+ const write={async createCustomer(){writes++;rows=[old,{id:'9',remoteId:customerRemoteId(customerId),name:input.name,phone:input.phone,email:input.email}]}};
+ assert.equal((await createOrReconcileCustomer({journal:f.journal,read,write,input})).quibiId,'9');assert.equal((await createOrReconcileCustomer({journal:f.journal,read,write,input})).quibiId,'9');assert.equal(writes,1);
+});
+test('distinct name never bypasses an identical phone, email or missing identity contacts',async()=>{
+ for(const contact of [{phone:'386000024',email:'old@example.test'},{phone:'',email:'NEW@example.test'},{phone:'',email:''}]){
+  const f=journalFixture();let writes=0;const input={serviceRequestId:caseId,customerId,name:'TEST Stranka',phone:'+386 000 024',email:'new@example.test',allowDistinctName:true};
+  if(!contact.phone&&!contact.email){input.phone='';input.email=''}
+  await assert.rejects(createOrReconcileCustomer({journal:f.journal,input,read:{async customers(){return [{id:'8',remoteId:'',name:'Other',...contact}]},async customer(){throw Error('UNEXPECTED')}},write:{async createCustomer(){writes++}}}),/MATCH_REVIEW_REQUIRED/);assert.equal(writes,0);
+ }
+});

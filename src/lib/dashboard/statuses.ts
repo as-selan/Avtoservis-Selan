@@ -64,6 +64,15 @@ export const WORKFLOW_STATUSES: WorkflowStatusConfig[] = [
     nextActionDefault: "Sprejem vozila",
   },
   {
+    id: "caka_dele", label: "Čaka dele", badgeClass: "bg-amber-50 text-amber-800 ring-amber-200", counterClass: "bg-amber-600 text-white", nextActionDefault: "Pridobi dele in nadaljuj popravilo",
+  },
+  {
+    id: "aktivno_popravilo", label: "Aktivno popravilo", badgeClass: "bg-blue-50 text-blue-700 ring-blue-200", counterClass: "bg-blue-600 text-white", nextActionDefault: "Odpri nalog in spremljaj delo",
+  },
+  {
+    id: "pripravljeno_za_prevzem", label: "Pripravljeno za prevzem", badgeClass: "bg-emerald-50 text-emerald-800 ring-emerald-200", counterClass: "bg-emerald-600 text-white", nextActionDefault: "Preveri račun in uredi prevzem",
+  },
+  {
     id: "zakljuceno",
     label: "Zaključeno",
     badgeClass: "bg-slate-100 text-slate-600 ring-slate-200",

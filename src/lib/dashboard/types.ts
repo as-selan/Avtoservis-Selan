@@ -6,6 +6,9 @@ export type WorkflowStatusId =
   | "caka_potrditev_ponudbe"
   | "caka_izbiro_termina"
   | "termin_potrjen"
+  | "caka_dele"
+  | "aktivno_popravilo"
+  | "pripravljeno_za_prevzem"
   | "zakljuceno";
 
 export type DashboardPeriodId =
@@ -23,25 +26,47 @@ export type FuelType = "bencin" | "dizel" | "hibrid" | "elektrika" | "plin";
 
 export interface ServiceOrderDemo {
   id: string;
+  /** Canonical service_requests.id (UUID). Not shown in the ID column. */
+  serviceRequestId?: string;
   customerName: string;
   customerPhone?: string;
+  customerId?:string;vehicleId?:string;quibiCustomerId?:string;quibiVehicleId?:string;vehicleVin?:string;vehicleYear?:number|null;vehicleMileage?:number|null;vehicleFuel?:string|null;vehiclePowerKw?:number|null;vehicleEngine?:string|null;searchTerms?:string[];
   vehicleMakeModel: string;
   registration?: string;
   requestSummary: string;
+  synthetic?: boolean;
+  intakeConnectionLabel?:string;
+  repairPhase?:string;
+  quibiWorkOrderId?:string;
+  mechanicName?:string|null;
+  mechanicEmail?:string|null;
   status: WorkflowStatusId;
   nextActionLabel: string;
+  nextActionKind?: string;
+  /** Existing published-price path; distinct from a Quibi estimate. */
+  fixedPriceStatus?: string | null;
+  requiresAttention?: boolean;
+  slotOfferStatus?: string;
+  slotOfferExpired?: boolean;
+  inspectionRequested?: boolean;
   locationLabel?: string;
   appointmentTime?: string | null;
   updatedAt: string;
   updatedLabel: string;
+  /** True when offer_preparations.status is ready_for_provider (canonical). */
+  offerPreparationReady?: boolean;
 }
 
 export interface AppointmentDemo {
+  simulated?: boolean;
   id: string;
+  /** Compact date label for multi-day Termini card (e.g. Danes / 14. 9.). */
+  dateLabel: string;
   time: string;
   customerName: string;
   vehicleLabel: string;
   type: AppointmentType;
+  /** Workshop YYYY-MM-DD for the appointment start. */
   date: string;
 }
 
@@ -53,6 +78,8 @@ export interface AttentionItemDemo {
   timeLabel: string;
   primaryAction: string;
   secondaryAction?: string;
+  /** ISO timestamp for period filtering (real data). */
+  occurredAt?: string;
 }
 
 export interface ActivityItemDemo {
@@ -63,3 +90,22 @@ export interface ActivityItemDemo {
   timeAgo: string;
   occurredAt: string;
 }
+
+/** Server-loaded dashboard payload (no demo fallback). */
+export type DashboardSnapshotOk = {
+  ok: true;
+  /** Server reference instant used for labels + SSR/hydration period filtering. */
+  generatedAt: string;
+  orders: ServiceOrderDemo[];
+  attention: AttentionItemDemo[];
+  appointments: AppointmentDemo[];
+  activity: ActivityItemDemo[];
+};
+
+export type DashboardSnapshotError = {
+  ok: false;
+  generatedAt: string;
+  message: string;
+};
+
+export type DashboardSnapshot = DashboardSnapshotOk | DashboardSnapshotError;

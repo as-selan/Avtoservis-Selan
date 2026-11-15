@@ -1,0 +1,21 @@
+{
+  "fullBusinessE2E": "UNVERIFIED",
+  "browser": "browser-results.json",
+  "focusedTests": {
+    "failed": 0,
+    "skipped": 0,
+    "passed": 88
+  },
+  "authenticatedHostedScreen": "UNVERIFIED: IAB control initialization unavailable; user session is present but not accessible to agent",
+  "source": "Draft PR #19",
+  "widths": [
+    1440,
+    390,
+    350
+  ],
+  "productionChanges": false,
+  "quibiWriteSendEnabled": false,
+  "typescript": "passed",
+  "scopedEslint": "passed",
+  "independentReview": "no remaining actionable blockers in reviewed scope"
+}

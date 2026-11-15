@@ -1,8 +1,11 @@
 "use client";
 
+import type {IntakeCustomerCandidate} from '@/lib/intake/types';
 import { createContext, useContext, useMemo, useState } from "react";
 
 interface ManualEntryContextValue {
+  prefill?:{candidate:IntakeCustomerCandidate;vehicleId?:string};
+  openWithCandidate:(candidate:IntakeCustomerCandidate,vehicleId?:string)=>void;
   open: boolean;
   setOpen: (open: boolean) => void;
 }
@@ -14,8 +17,9 @@ export function ManualEntryProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const value = useMemo(() => ({ open, setOpen }), [open]);
+  const [prefill,setPrefill]=useState<{candidate:IntakeCustomerCandidate;vehicleId?:string}>();
+  const [open, setOpenState] = useState(false);
+  const value = useMemo(() => ({ open, setOpen:(value:boolean)=>{if(!value)setPrefill(undefined);setOpenState(value);}, prefill, openWithCandidate:(candidate:IntakeCustomerCandidate,vehicleId?:string)=>{setPrefill({candidate,vehicleId});setOpenState(true);} }), [open,prefill]);
   return (
     <ManualEntryContext.Provider value={value}>
       {children}

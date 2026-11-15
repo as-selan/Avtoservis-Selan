@@ -1,0 +1,38 @@
+{
+  "scope": "Hydrated real components with synthetic read snapshots. No application/backend E2E.",
+  "results": [
+    {
+      "width": 1440,
+      "essentialContext": true,
+      "ctaVisible": true,
+      "refreshSteps": 5,
+      "sameAnchorProgress": true,
+      "editingPreserved": true,
+      "mechanicRoleCopy": true,
+      "noOverflow": true,
+      "pageErrors": 0
+    },
+    {
+      "width": 390,
+      "essentialContext": true,
+      "ctaVisible": true,
+      "refreshSteps": 5,
+      "sameAnchorProgress": true,
+      "editingPreserved": true,
+      "mechanicRoleCopy": true,
+      "noOverflow": true,
+      "pageErrors": 0
+    },
+    {
+      "width": 350,
+      "essentialContext": true,
+      "ctaVisible": true,
+      "refreshSteps": 5,
+      "sameAnchorProgress": true,
+      "editingPreserved": true,
+      "mechanicRoleCopy": true,
+      "noOverflow": true,
+      "pageErrors": 0
+    }
+  ]
+}

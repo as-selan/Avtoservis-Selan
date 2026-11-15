@@ -396,17 +396,19 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 **Goal:** Website inquiries enter the **same** canonical workflow.
 
-- [ ] define secure intake endpoint
-- [ ] validate submitted data
-- [ ] create / reuse customer
-- [ ] create / reuse vehicle when safely identifiable
-- [ ] create `service_request`
-- [ ] source = `web_form`
-- [ ] idempotency / duplicate protection
-- [ ] abuse / rate-limit considerations
-- [ ] success / error handling
-- [ ] dashboard visibility
-- [ ] activity event
+**PREP V1:** [`docs/website-intake-prep-v1.md`](./website-intake-prep-v1.md) — public `/povprasevanje` + same-origin `POST /api/povprasevanje` + `public.create_web_service_request_intake`. Website and manual intake converge into `service_requests` with `source = web_form`. Organization/status/source are server-authoritative. Migration is **unapplied**. Durable rate limit / bot challenge is a **production launch blocker**. Phase 7 completion is a separate PREP (copy-link; email send still later).
+
+- [x] define secure intake endpoint (PREP; migration unapplied)
+- [x] validate submitted data (PREP)
+- [x] create / safely reuse customer (PREP RPC; unsafe identity is quarantined for human review)
+- [x] create / reuse vehicle when safely identifiable (PREP RPC)
+- [x] create `service_request` (PREP RPC)
+- [x] source = `web_form`
+- [x] idempotency / replay protection (`intake_request_id`; not general duplicate prevention)
+- [ ] abuse / rate-limit considerations — basic honeypot/size/same-origin in PREP; **durable rate limit still required before production exposure**
+- [x] success / error handling (generic public messages)
+- [x] dashboard visibility via existing Phase 5 `service_requests` loader (no second queue)
+- [ ] activity event — **deferred** until canonical `activity_events` exists (do not use demo activity)
 
 **Important:** Do **not** create a parallel “website inquiries” system. All inputs converge into `service_requests`.
 
@@ -416,26 +418,30 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 ## PHASE 7 — Missing data completion
 
-- [ ] completeness rules
-- [ ] determine required data
-- [ ] mark request “Manjkajo podatki”
-- [ ] prepare / send completion email
-- [ ] secure completion link / token
-- [ ] customer submits missing data
-- [ ] attach changes to **same** `service_request`
-- [ ] no duplicate case
-- [ ] activity history
-- [ ] expiry / security controls
-- [ ] dashboard state updates automatically
-- [ ] human / manual fallback required
+**PREP V1:** [`docs/missing-data-completion-prep-v1.md`](./missing-data-completion-prep-v1.md) — hashed completion links on `service_request_completion_links`; public `/dopolnitev#token=…` + `POST /api/dopolnitev`; SAME `service_request` update; complete → `preparing_offer` then STOP. Migration **unapplied**. No Quibi, MyPlanly, Calendar, or email send.
+
+- [x] completeness rules (same V1: phone, email, VIN, make, model) — PREP
+- [x] determine required data — PREP (no extra Quibi fields)
+- [x] mark request “Manjkajo podatki” (`needs_data`) — already from intake; completion recalculates
+- [ ] prepare / send completion email — **deferred** (staff copy-link only)
+- [x] secure completion link / token — PREP (32-byte crypto, SHA-256 stored, 7-day expiry, revoke-on-regenerate)
+- [x] customer submits missing data — PREP public form
+- [x] attach changes to **same** `service_request` — PREP (no second INSERT)
+- [x] no duplicate case — PREP
+- [ ] activity history — **deferred** (no `activity_events` model yet)
+- [x] expiry / security controls — PREP token lifecycle; production rate limit still a launch blocker (same class as Phase 6)
+- [x] dashboard state updates automatically — existing Phase 5 loader; copy-link on `needs_data`
+- [x] human / manual fallback required — staff issue/copy; identity conflicts → attention, `has_error = false`
 
 ---
 
 ## PHASE 8 — Quote / Quibi integration
 
-**Do NOT implement until API capabilities are confirmed.**
+**PREP V1:** [`docs/offer-preparation-prep-v1.md`](./offer-preparation-prep-v1.md) — internal `offer_preparations` is canonical preparation state. `next_action` is human copy only. Provider-neutral `OfferDraftProvider` is a **future boundary** (unconfigured / fail closed); **Phase 8 does not execute it**. Eligibility: locked `preparing_offer`, not archived, **and** canonical V1 completeness (phone, email, VIN, make, model) still holds — `preparing_offer` is necessary but not sufficient. Incomplete data fails closed (`incomplete_data`; no insert, no `needs_data` rollback). Idempotent one row per request. Migration **unapplied**. **No live Quibi API, no Quibi credentials, no invented endpoints.** `service_requests.status` stays `preparing_offer`. No MyPlanly. Phase 9 owns Tadej review, send, and `awaiting_customer_approval`. Live Quibi adapter waits for confirmed API docs/access.
 
-### Discovery first
+**Do NOT implement a live Quibi adapter until API capabilities are confirmed.**
+
+### Discovery first (still blocking a real adapter)
 
 - [ ] obtain Quibi API documentation / access
 - [ ] confirm create / read / update capabilities
@@ -444,17 +450,23 @@ Preserve existing Manual Entry UI — **do not redesign**.
 - [ ] confirm webhooks / polling possibilities
 - [ ] document rate limits / errors
 
-### Then implement
+### PREP implemented (internal only)
 
-- [ ] integration connection model
-- [ ] create Quibi draft after data completeness
-- [ ] store integration mapping
-- [ ] internal price review gate
+- [x] provider-neutral offer-draft interface (unconfigured / fail closed; **not invoked** by Phase 8 UI/action)
+- [x] internal offer-preparation entity (`offer_preparations`)
+- [x] create internal preparation after completeness (`preparing_offer` gate)
+- [ ] store integration mapping — **deferred** until a real external ID exists (`integration_links` later; do not fabricate)
+- [x] retry / idempotency for internal preparation (unique + lock `910007`)
+- [x] dashboard CTA **Pripravi ponudbo** with truthful unconfigured copy
+
+### Then implement (Phase 9 / after Quibi docs)
+
+- [ ] real Quibi adapter (only with confirmed API docs/access)
+- [ ] internal price review gate (Tadej)
 - [ ] do **NOT** auto-send unreviewed pricing
 - [ ] approve / send offer
-- [ ] sync status back to case
-- [ ] error / attention handling
-- [ ] retry / idempotency
+- [ ] sync status back to case (`awaiting_customer_approval` is Phase 9)
+- [ ] error / attention handling for live provider
 - [ ] audit trail
 
 **Quibi is NOT canonical storage.**
@@ -465,17 +477,19 @@ Preserve existing Manual Entry UI — **do not redesign**.
 
 ## PHASE 9 — Customer offer approval
 
-- [ ] sent status
-- [ ] viewed if available
-- [ ] approved
-- [ ] rejected
-- [ ] expired
-- [ ] approval timestamp
-- [ ] immutable evidence of what was approved where necessary
-- [ ] dashboard mapping
-- [ ] activity history
+**PREP V1:** [`docs/offer-review-customer-approval-prep-v1.md`](./offer-review-customer-approval-prep-v1.md) — provider-neutral `quotes` (immutable version evidence on `service_request` + `offer_preparation`, **not** `service_order`) + `customer_approvals`, with composite FKs for exact prep and quote/hash binding. Tadej review RPCs fail closed without real evidence (stale-version before idempotent). Delivery RPC always `delivery_unavailable` when still `preparing_offer` (no transport). DB guards for `awaiting_customer_approval` / premature `awaiting_slot_selection`. No fabricated prices/provider IDs. No Quibi HTTP. No MyPlanly/Calendar/slots. Phase 8 UI stays truthful (Quibi unconfigured). Migration **unapplied**. Activity history **deferred** (no `activity_events`). No successful customer-approval → `service_requests.status` transition yet (Phase 10 owns post-approval scheduling transition).
 
-After approval → transition to appointment proposal workflow (Phase 10).
+- [x] immutable offer version evidence model (`quotes` + `content_sha256`) — PREP
+- [x] Tadej internal review gate (`unreviewed` → `approved_for_send` / `rejected_for_revision`) — PREP contracts; fail closed without evidence
+- [x] customer lifecycle foundation (`not_delivered` → `delivered` → `approved` / `rejected` / `expired`) — PREP schema
+- [ ] sent / delivered status (real delivery transport) — **deferred** (RPC fails closed)
+- [ ] viewed if available — **deferred** (`viewed_at` nullable; never synthesized)
+- [ ] customer approved / rejected / expired executable path — **deferred** until real delivery
+- [ ] approval timestamp on successful customer decision — schema ready; path deferred
+- [x] dashboard mapping preserved for `awaiting_customer_approval` label — no fake send/review CTA
+- [ ] activity history — **deferred** until canonical `activity_events` exists
+
+After **real** customer approval → Phase 10 resolves transition toward appointment proposal (do **not** flip to `awaiting_slot_selection` before slots are offered).
 
 ---
 
@@ -483,6 +497,8 @@ After approval → transition to appointment proposal workflow (Phase 10).
 
 **Core Phase 1 requirement.**
 **Contract:** data-model §5.8 (holds), §7.2 appointment statuses.
+
+**Note:** Canonical `public.appointments` table + RLS were prepared early as PREP foundation (`20260914003000_appointments_foundation.sql`). Dashboard Termini can read **confirmed** rows in a 14-calendar-day window. This Phase still owns availability, holds, selection, expiry, and concurrency — do not treat the foundation migration as Phase 10 complete.
 
 - [ ] appointment availability model
 - [ ] temporary appointment hold entity / state
@@ -587,13 +603,15 @@ Each event records where appropriate: organization · entity · action · actor 
 
 **Tentative roles:** admin/owner · reception/service advisor · mechanic
 
-**Current recommendation (NOT YET CONFIRMED by Tadej):**
+**Tadej confirmed — two future configurable mechanic modes (not implemented in M3):**
 
 | Role | Access |
 |---|---|
 | admin / owner | full operational / admin access |
 | reception / advisor | customers, requests, quotes, appointments |
-| mechanic | limited operational data needed for assigned work **OR** full — **unconfirmed** |
+| mechanic | **M3: no automatic access.** Later: (A) restricted — only assigned/necessary jobs, vehicles, related customer data, **or** (B) full workshop access |
+
+Mechanic permission/assignment logic is a dedicated later slice. RLS remains authoritative.
 
 - [ ] login
 - [ ] logout
@@ -697,13 +715,13 @@ List and **explicitly defer** — do not implement opportunistically:
 
 | # | Question | Status | Blocking? |
 |---|---|---|---|
-| Q1 | Confirm mechanic permissions with Tadej (full vs restricted to assigned/needed data) | **OPEN** | BLOCKING FOR PHASE 14 (role UX); soft for Phase 2 if coarse membership RLS only |
+| Q1 | Mechanic permissions: two configurable modes (restricted assigned/necessary vs full workshop) | **CONFIRMED requirement; modes not implemented** | BLOCKING FOR PHASE 14 (role UX / mechanic modes). **Not blocking M3:** mechanic has no automatic access |
 | Q2 | Confirm exact meaning of Phase 1 “Zaključeno” (admin journey complete vs other) | **OPEN** (design proposal: admin complete ≠ repair) | BLOCKING FOR PHASE 1 approval / PHASE 5 mapping |
 | Q3 | Confirm temporary slot hold duration | **OPEN** | BLOCKING FOR PHASE 10 |
 | Q4 | Confirm what happens if customer never responds | **OPEN** | BLOCKING FOR PHASE 9–10 |
 | Q5 | Confirm quote expiry behavior | **OPEN** | BLOCKING FOR PHASE 9 |
-| Q6 | Confirm whether approved quote can later change | **OPEN** | BLOCKING FOR PHASE 8–9 |
-| Q7 | Obtain Quibi API capabilities | **OPEN** | BLOCKING FOR PHASE 8 |
+| Q6 | Confirm whether approved quote can later change | **OPEN** | BLOCKING FOR PHASE 9 (customer send/approval). **Not blocking Phase 8 internal PREP** |
+| Q7 | Obtain Quibi API capabilities | **OPEN** | **BLOCKING FOR the live Quibi adapter only.** **Not blocking Phase 8 internal PREP** (`offer_preparations` + unconfigured provider boundary) |
 | Q8 | Obtain MyPlanly API capabilities | **OPEN** | BLOCKING FOR PHASE 12 |
 | Q9 | Confirm Google Calendar account / calendar ownership | **OPEN** | BLOCKING FOR PHASE 11 |
 | Q10 | Confirm email sender / service for automated emails | **OPEN** | BLOCKING FOR PHASE 7 |
@@ -722,7 +740,7 @@ Update statuses to **CONFIRMED** when decided. Do not start a phase marked BLOCK
 | **M0** | Dashboard baseline | Dashboard V1 on `main` @ `7e073f0…`; lint/build/QA evidence; GitHub aligned |
 | **M1** | Architecture approved | Preservation + data-model + this roadmap reviewed; entity/status/hold/integration/RLS/migration decisions approved; no migrations yet |
 | **M2** | Secure Supabase foundation | Org/profiles/memberships live with RLS; negative access tests PASS; applied only after approval |
-| **M3** | Real customer/vehicle/request data | Schemas + RLS; create/read under membership; cross-org denied |
+| **M3** | Real customer/vehicle/request data | Schemas + RLS; owner/admin/reception create/read/update; mechanic no automatic access; cross-org denied |
 | **M4** | Manual intake end-to-end | Phone-call scenario: reuse customer/vehicle, create request, appears on locked dashboard |
 | **M5** | Website intake + missing-data completion | Web → same `service_request`; missing-data email; completion attaches to same case |
 | **M6** | Quote approval workflow | Quibi draft + human price gate + send + customer approve/reject mapped to dashboard |
@@ -742,7 +760,8 @@ Approve docs (Phase 1)
   → Phase 4 manual entry E2E
   → Phase 5 dashboard real-data wiring
   → Phase 6–7 web + missing data
-  → Phase 8–9 quotes (after Quibi API)
+  → Phase 8 internal offer prep (PREP; live Quibi after API)
+  → Phase 9 customer send/approval (after human price gate)
   → Phase 10 holds
   → Phase 11–12 Calendar / MyPlanly (after APIs)
   → Phase 13–14 harden activity + auth UX

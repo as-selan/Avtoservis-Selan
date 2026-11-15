@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {searchIntakeAction} from '@/lib/intake/quibi-search-action';
+import {automaticIntakeSelection,intakeAutofill,preserveEditedFields,intakeVehicleSelection} from '@/lib/intake/selection';
 import { X } from "lucide-react";
 import { FUEL_OPTIONS } from "@/lib/dashboard/demo-data";
 import type { FuelType } from "@/lib/dashboard/types";
 import { useManualEntry } from "@/components/dashboard/ManualEntryContext";
+import {
+  createManualServiceRequestIntakeAction,
+} from "@/lib/intake/actions";
+import { mapUiFuelToDb } from "@/lib/intake/fuel";
+import type {
+  IntakeFuelDb,
+  IntakeCustomerCandidate,
+  ManualIntakeChannel,
+} from "@/lib/intake/types";
 
 interface FormState {
   fullName: string;
@@ -19,10 +31,12 @@ interface FormState {
   powerKw: string;
   engineDisplacement: string;
   engineCode: string;
-  fuel: FuelType | "";
+  fuel: FuelType | IntakeFuelDb | "";
   serviceWanted: string;
   bringsOwnMaterial: "da" | "ne";
   problemDescription: string;
+  channel: ManualIntakeChannel;
+  searchQuery: string;
 }
 
 const INITIAL: FormState = {
@@ -42,56 +56,199 @@ const INITIAL: FormState = {
   serviceWanted: "",
   bringsOwnMaterial: "ne",
   problemDescription: "",
+  channel: "phone",
+  searchQuery: "",
 };
 
+type FieldKey = keyof FormState;
+
 export function ManualServiceOrderEntry() {
-  const { open, setOpen } = useManualEntry();
+  const router = useRouter();
+  const { open, setOpen, prefill } = useManualEntry();
   const [form, setForm] = useState<FormState>(INITIAL);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>(
-    {},
+  const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<IntakeCustomerCandidate[]>([]);
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<IntakeCustomerCandidate | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
+    null,
   );
-  const [demoNotice, setDemoNotice] = useState<string | null>(null);
+  const [quibiUnavailable, setQuibiUnavailable] = useState(false);
+  const [searchPending, startSearchTransition] = useTransition();
+  const [submitPending, startSubmitTransition] = useTransition();
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeqRef = useRef(0);
+  const edited=useRef(new Set<FieldKey>());
+  const selectionRef=useRef<string|null>(null);
+  const clientRequestIdRef = useRef<string | null>(null);
 
-  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  function ensureClientRequestId(): string {
+    if (!clientRequestIdRef.current) {
+      clientRequestIdRef.current = crypto.randomUUID();
+    }
+    return clientRequestIdRef.current;
   }
 
-  function validate(): boolean {
-    const next: Partial<Record<keyof FormState, string>> = {};
-    if (!form.fullName.trim()) next.fullName = "Obvezno polje";
-    if (!form.email.trim()) next.email = "Obvezno polje";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      next.email = "Neveljavna e-pošta";
-    }
-    if (!form.phone.trim()) next.phone = "Obvezno polje";
-    if (!form.vin.trim()) next.vin = "Obvezno polje";
-    if (!form.make.trim()) next.make = "Obvezno polje";
-    if (!form.model.trim()) next.model = "Obvezno polje";
-    if (!form.mileage.trim()) next.mileage = "Obvezno polje";
-    if (!form.serviceWanted.trim()) next.serviceWanted = "Obvezno polje";
-    if (!form.problemDescription.trim()) {
-      next.problemDescription = "Obvezno polje";
-    }
-    setErrors(next);
-    return Object.keys(next).length === 0;
+  function rotateClientRequestId() {
+    clientRequestIdRef.current = crypto.randomUUID();
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setDemoNotice(null);
-    if (!validate()) return;
+  function update<K extends FieldKey>(key: K, value: FormState[K]) {
+    const lookup=!selectionRef.current&&['fullName','phone','registration','vin'].includes(key)&&typeof value==='string';
+    if(key!=="searchQuery"&&!lookup)edited.current.add(key);
+    if(lookup)searchSeqRef.current+=1;
+    setForm((prev) => ({ ...prev, [key]: value, ...(lookup?{searchQuery:value as string}:{}) }));
+  }
 
-    setDemoNotice(
-      "Demo način: obrazec je preverjen lokalno. Servisni nalog NI bil ustvarjen v bazi (Supabase še ni povezan).",
-    );
+  function updateSearchQuery(value: string) {
+    searchSeqRef.current += 1;
+    if(selectionRef.current&&value!==form.searchQuery){
+      setSelectedCustomer(null);setSelectedVehicleId(null);
+      setForm(prev=>preserveEditedFields(prev,intakeAutofill({customerId:'',displayName:'',phone:null,email:null,vehicles:[]},null) as Partial<FormState>,edited.current));
+    }
+    update("searchQuery", value);
+    if (value.trim().length < 3) {
+      searchSeqRef.current += 1;
+      setCandidates([]);
+    }
+  }
+
+  function resetLocalState(opts?: { rotateRequestId?: boolean }) {
+    edited.current.clear();selectionRef.current=null;
+    setForm(INITIAL);
+    setErrors({});
+    setFormError(null);
+    setCandidates([]);
+    setSelectedCustomer(null);
+    setSelectedVehicleId(null);
+    searchSeqRef.current += 1;
+    if (opts?.rotateRequestId) {
+      rotateClientRequestId();
+    } else {
+      clientRequestIdRef.current = null;
+    }
   }
 
   function handleClose() {
+    if (submitPending) return;
     setOpen(false);
-    setDemoNotice(null);
+    resetLocalState();
+  }
+
+  useEffect(() => {
+    if (open) {
+      ensureClientRequestId();
+    }
+  }, [open]);
+
+  const applySelection=useCallback((candidate:IntakeCustomerCandidate,vehicle:IntakeCustomerCandidate['vehicles'][number]|null,automatic=false)=>{
+    const identity=candidate.customerId+':'+(vehicle?.vehicleId??'');
+    if(automatic&&edited.current.size&&selectionRef.current&&selectionRef.current!==identity)return;
+    if(!automatic&&selectionRef.current!==identity)edited.current.clear();
+    selectionRef.current=identity;setSelectedCustomer(candidate);setSelectedVehicleId(vehicle?.vehicleId??null);
+    setForm(prev=>preserveEditedFields(prev,intakeAutofill(candidate,vehicle) as Partial<FormState>,edited.current));setFormError(null);
+  },[]);
+  function selectCustomer(candidate:IntakeCustomerCandidate){applySelection(candidate,intakeVehicleSelection(candidate,form.searchQuery));}
+  function clearCustomerSelection(){updateSearchQuery('');setCandidates([]);setSelectedCustomer(null);setSelectedVehicleId(null);selectionRef.current=null;}
+  function selectVehicle(customer:IntakeCustomerCandidate,vehicleId:string){applySelection(customer,customer.vehicles.find(v=>v.vehicleId===vehicleId)??null);}
+  useEffect(()=>{if(open&&prefill){const vehicle=prefill.vehicleId?prefill.candidate.vehicles.find(v=>v.vehicleId===prefill.vehicleId)??null:intakeVehicleSelection(prefill.candidate,'');applySelection(prefill.candidate,vehicle);}},[open,prefill,applySelection]);
+
+  useEffect(() => {
+    if (!open) return;
+    const q = form.searchQuery.trim();
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.length < 3) return;
+
+    const seq = ++searchSeqRef.current;
+
+    searchTimer.current = setTimeout(() => {
+      startSearchTransition(async () => {
+        const result = await searchIntakeAction(q);
+        if (seq !== searchSeqRef.current) return;
+        if (!result.ok) {
+          setCandidates([]);
+          setFormError("Iskanja trenutno ni mogoče dokončati. Poskusite znova.");
+          return;
+        }
+        setFormError(null);
+        setCandidates(result.candidates);
+        setQuibiUnavailable(result.unavailable === true);
+        const match=automaticIntakeSelection(result.candidates,q);
+        if(match)applySelection(match.customer,match.vehicle,true);
+      });
+    }, 300);
+
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [form.searchQuery, open, applySelection]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitPending) return;
+
+    setErrors({});
+    setFormError(null);
+
+    startSubmitTransition(async () => {
+      const result = await createManualServiceRequestIntakeAction({
+        displayName: form.fullName,
+        phone: form.phone,
+        email: form.email,
+        channel: form.channel,
+        vin: form.vin,
+        registration: form.registration,
+        make: form.make,
+        model: form.model,
+        year: form.year,
+        powerKw: form.powerKw,
+        engine: form.engineDisplacement,
+        engineType: form.engineCode,
+        fuel: mapUiFuelToDb(form.fuel) ?? "",
+        mileage: form.mileage,
+        serviceWanted: form.serviceWanted,
+        problemDescription: form.problemDescription,
+        bringsOwnMaterial: form.bringsOwnMaterial === "da",
+        selectedCustomerId: selectedCustomer?.customerId.startsWith('quibi:') ? null : selectedCustomer?.customerId ?? null,
+        selectedVehicleId: selectedVehicleId?.startsWith('quibi:') ? null : selectedVehicleId,
+        clientRequestId: ensureClientRequestId(),
+      });
+
+      if (!result.ok) {
+        if (result.fieldErrors) {
+          const mapped: Partial<Record<FieldKey, string>> = {};
+          for (const [key, message] of Object.entries(result.fieldErrors)) {
+            if (key in INITIAL) mapped[key as FieldKey] = message;
+          }
+          setErrors(mapped);
+        }
+        // Keep the same clientRequestId: network retries must reuse it, and a
+        // conflict must not auto-create a duplicate via silent ID rotation.
+        // Follow-up: dedicated existing-request edit/view route (not in M4).
+        if (result.errorCode === "idempotency_conflict") {
+          const existingId = result.existingServiceRequestId;
+          setFormError(
+            existingId
+              ? `${result.message} Obstoječa zahteva: ${existingId}.`
+              : result.message,
+          );
+          return;
+        }
+        setFormError(result.message);
+        return;
+      }
+
+      resetLocalState({ rotateRequestId: true });
+      setOpen(false);
+      router.push(`/dashboard/primeri/${result.result.serviceRequestId}`);
+    });
   }
 
   if (!open) return null;
+
+  const visibleCandidates =
+    form.searchQuery.trim().length >= 3 && !(candidates.length===1&&selectedCustomer?.customerId===candidates[0].customerId&&(selectedVehicleId||candidates[0].vehicles.length===0)) ? candidates : [];
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
@@ -100,6 +257,7 @@ export function ManualServiceOrderEntry() {
         className="absolute inset-0 bg-slate-900/45"
         aria-label="Zapri ozadje"
         onClick={handleClose}
+        disabled={submitPending}
       />
       <div
         role="dialog"
@@ -113,18 +271,16 @@ export function ManualServiceOrderEntry() {
               id="manual-entry-title"
               className="text-base font-semibold text-slate-900"
             >
-              Ročni vnos
+              Novo povpraševanje
             </h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Ročni sprejem servisnega naloga. Trenutno samo lokalni demo — brez
-              zapisa v bazo.
-            </p>
+            {!selectedCustomer&&<p className="mt-0.5 text-sm text-slate-500">Poiščite stranko ali vozilo, nato vnesite novo storitev.</p>}
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
             aria-label="Zapri"
+            disabled={submitPending}
           >
             <X className="h-5 w-5" />
           </button>
@@ -138,6 +294,121 @@ export function ManualServiceOrderEntry() {
           <div className="space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
             <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                Poišči stranko ali vozilo
+              </legend>
+              {!selectedCustomer&&<p className="mt-1 text-xs text-slate-500">En zadetek se izpolni sam. Pri več zadetkih izberite pravega.</p>}
+              <div className="mt-2">
+                <Field
+                  label="Ime, telefon, registracija ali VIN"
+                  value={form.searchQuery}
+                  onChange={updateSearchQuery}
+                />
+              </div>
+              {(form.searchQuery||selectedCustomer) && <button type="button" onClick={clearCustomerSelection} className="min-h-11 px-2 text-sm text-blue-700">Zamenjaj stranko ali vozilo</button>}
+              {quibiUnavailable && <p role="status" className="mt-2 text-sm text-slate-600">Iskanje v Quibiju trenutno ni na voljo. Uporabite shranjene podatke ali vnesite nove.</p>}
+              {searchPending ? (
+                <p className="mt-2 text-xs text-slate-500">Iščem…</p>
+              ) : null}
+              {visibleCandidates.length > 0 ? (
+                <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2">
+                  {visibleCandidates.map((c) => {
+                    const isSelected =
+                      selectedCustomer?.customerId === c.customerId;
+                    return (
+                      <li
+                        key={c.customerId}
+                        className={[
+                          "rounded-lg border px-3 py-2 text-sm",
+                          isSelected
+                            ? "border-blue-600 bg-blue-50"
+                            : "border-slate-200",
+                        ].join(" ")}
+                      >
+                        <button
+                          type="button"
+                          className="w-full text-left"
+                          onClick={() => selectCustomer(c)}
+                        >
+                          <span className="font-medium text-slate-900">
+                            {c.displayName}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-slate-600">
+                            {[c.phone, c.email].filter(Boolean).join(" · ") ||
+                              "Brez kontakta"}
+                          </span>
+                        </button>
+                        {c.vehicles.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {c.vehicles.map((v) => {
+                              const label = [
+                                [v.make, v.model].filter(Boolean).join(" "),
+                                v.registrationCurrent,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ");
+                              const vehicleSelected =
+                                selectedVehicleId === v.vehicleId;
+                              return (
+                                <button
+                                  key={v.vehicleId}
+                                  type="button"
+                                  onClick={() => selectVehicle(c, v.vehicleId)}
+                                  className={[
+                                    "rounded-md border px-2 py-1 text-xs",
+                                    vehicleSelected
+                                      ? "border-blue-600 bg-white text-blue-700"
+                                      : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                                  ].join(" ")}
+                                >
+                                  {label || "Vozilo"}
+                                  {v.vin ? ` · VIN ${v.vin}` : ""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+</fieldset>
+
+            <details key={'channel:'+!!selectedCustomer} open={!selectedCustomer}><summary className="cursor-pointer text-sm text-slate-600">Prejem: {form.channel==='phone'?'telefon':form.channel==='sms'?'SMS':'osebno'}</summary>            <fieldset>
+              <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                Kanal
+              </legend>
+              <div className="mt-2 flex gap-2">
+                {(
+                  [
+                    ["phone", "Telefon"],
+                    ["sms", "SMS"],
+                    ["manual", "Osebno / ročno"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => update("channel", value)}
+                    className={[
+                      "min-h-10 flex-1 rounded-lg border px-3 text-sm font-medium",
+                      form.channel === value
+                        ? "border-blue-600 bg-blue-50 text-blue-700"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {errors.channel ? (
+                <p className="mt-1 text-xs text-red-600">{errors.channel}</p>
+              ) : null}
+            </fieldset></details>
+
+            <details key={'identity:'+selectedCustomer?.customerId+':'+selectedVehicleId} open={!selectedCustomer||!selectedVehicleId||!!errors.fullName||!!errors.phone||!!errors.email||!!errors.vin||!!errors.make||!!errors.model||!!errors.year||!!errors.powerKw||!!errors.mileage} className="rounded-lg border p-3"><summary className="min-h-11 cursor-pointer break-words py-2"><span className="block font-medium">{selectedCustomer?[form.fullName,form.phone,[[form.make,form.model].filter(Boolean).join(' '),form.registration].filter(Boolean).join(' · ')].filter(Boolean).join(' · '):'Stranka in vozilo'}</span><span className="text-sm text-blue-700">Uredi podatke</span></summary>
+            <fieldset>
+              <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
                 Stranka
               </legend>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -148,20 +419,23 @@ export function ManualServiceOrderEntry() {
                   onChange={(v) => update("fullName", v)}
                 />
                 <Field
-                  label="E-pošta *"
+                  label="E-pošta"
                   type="email"
                   error={errors.email}
                   value={form.email}
                   onChange={(v) => update("email", v)}
                 />
                 <Field
-                  label="Telefon *"
+                  label="Telefon"
                   type="tel"
                   error={errors.phone}
                   value={form.phone}
                   onChange={(v) => update("phone", v)}
                 />
               </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Obvezno: telefon ali e-pošta.
+              </p>
             </fieldset>
 
             <fieldset>
@@ -175,36 +449,38 @@ export function ManualServiceOrderEntry() {
                   onChange={(v) => update("registration", v)}
                 />
                 <Field
-                  label="VIN / številka šasije *"
+                  label="VIN / številka šasije"
                   error={errors.vin}
                   value={form.vin}
                   onChange={(v) => update("vin", v)}
                 />
                 <Field
-                  label="Znamka *"
+                  label="Znamka"
                   error={errors.make}
                   value={form.make}
                   onChange={(v) => update("make", v)}
                 />
                 <Field
-                  label="Model *"
+                  label="Model"
                   error={errors.model}
                   value={form.model}
                   onChange={(v) => update("model", v)}
                 />
                 <Field
                   label="Letnik"
+                  error={errors.year}
                   value={form.year}
                   onChange={(v) => update("year", v)}
                 />
                 <Field
-                  label="Kilometri *"
+                  label="Kilometri"
                   error={errors.mileage}
                   value={form.mileage}
                   onChange={(v) => update("mileage", v)}
                 />
                 <Field
                   label="Moč motorja (kW)"
+                  error={errors.powerKw}
                   value={form.powerKw}
                   onChange={(v) => update("powerKw", v)}
                 />
@@ -219,10 +495,11 @@ export function ManualServiceOrderEntry() {
                   onChange={(v) => update("engineCode", v)}
                 />
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                  <label htmlFor="manual-intake-fuel" className="mb-1 block text-xs font-medium text-slate-600">
                     Vrsta goriva
                   </label>
                   <select
+                    id="manual-intake-fuel"
                     value={form.fuel}
                     onChange={(e) =>
                       update("fuel", e.target.value as FuelType | "")
@@ -234,11 +511,11 @@ export function ManualServiceOrderEntry() {
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
-                    ))}
+                    ))}{([['plug_in_hybrid','Priključni hibrid'],['cng','Zemeljski plin (CNG)'],['hydrogen','Vodik'],['other','Drugo']] as const).map(([value,label])=><option key={value} value={value}>{label}</option>)}
                   </select>
                 </div>
               </div>
-            </fieldset>
+            </fieldset></details>
 
             <fieldset>
               <legend className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
@@ -246,7 +523,7 @@ export function ManualServiceOrderEntry() {
               </legend>
               <div className="mt-2 grid gap-3">
                 <Field
-                  label="Storitev / kaj stranka želi *"
+                  label="Storitev / kaj stranka želi"
                   error={errors.serviceWanted}
                   value={form.serviceWanted}
                   onChange={(v) => update("serviceWanted", v)}
@@ -274,10 +551,11 @@ export function ManualServiceOrderEntry() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    Kaj stranka potrebuje / opis težave *
+                  <label htmlFor="manual-intake-problem" className="mb-1 block text-xs font-medium text-slate-600">
+                    Kaj stranka potrebuje / opis težave
                   </label>
                   <textarea
+                    id="manual-intake-problem"
                     rows={3}
                     value={form.problemDescription}
                     onChange={(e) =>
@@ -295,33 +573,39 @@ export function ManualServiceOrderEntry() {
                       {errors.problemDescription}
                     </p>
                   ) : null}
+                  <p className="mt-1 text-xs text-slate-500">
+                    Obvezno: storitev ali opis težave.
+                  </p>
                 </div>
               </div>
             </fieldset>
 
-            {demoNotice ? (
+            {formError ? (
               <div
-                role="status"
-                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900"
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-900"
               >
-                {demoNotice}
+                {formError}
               </div>
             ) : null}
+
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
             <button
               type="button"
               onClick={handleClose}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              disabled={submitPending}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               Prekliči
             </button>
             <button
               type="submit"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+              disabled={submitPending}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Ustvari servisni nalog
+              {submitPending ? "Shranjujem…" : "Ustvari povpraševanje"}
             </button>
           </div>
         </form>
@@ -343,12 +627,14 @@ function Field({
   error?: string;
   type?: string;
 }) {
+  const id = useId();
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-slate-600">
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-slate-600">
         {label}
       </label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
