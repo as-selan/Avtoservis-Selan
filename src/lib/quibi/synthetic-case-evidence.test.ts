@@ -14,3 +14,10 @@ test('only an isolated loopback fixture may record marked synthetic approval loc
  const fixture={APP_ENV:'local',CI:'true',SELAN_ISOLATED_E2E:'1',QUIBI_E2E_WRITE_ENABLED:'1',QUIBI_E2E_ORIGIN:'http://127.0.0.1:47862',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',PUBLIC_APP_ORIGIN:'http://127.0.0.1:3000',QUIBI_DEV_USERNAME:'selan-isolated-fixture',QUIBI_DEV_PASSWORD:'selan-isolated-fixture'};
  assert.equal(syntheticCaseEvidenceAllowed(fixture,data),true);assert.equal(syntheticCaseEvidenceAllowed({...fixture,VERCEL_ENV:'preview'},data),false);assert.equal(syntheticCaseEvidenceAllowed({...fixture,NEXT_PUBLIC_SUPABASE_URL:'https://remote.supabase.co'},data),false);assert.equal(syntheticCaseEvidenceAllowed(fixture,{...data,email:'real@example.com'}),false);
 });
+
+test('URL integration fixture records only a simulated DEV decision for the exact synthetic identity',()=>{
+ const fixture={caseId:'51540c22-65b5-4631-9fb8-c11a40fa43df',name:'TEST-AUTOSERVIS-SELAN-URL-B917',email:'qa-url-b917@example.test',vin:'TESTSELANURLB9181',description:'QA-SIM synthetic URL integration only; no customer or email'};
+ assert.equal(syntheticCaseEvidenceAllowed(env,fixture),true);
+ for(const patch of [{caseId:'other'},{name:'Real customer'},{email:'real@example.com'},{vin:'OTHER'},{description:'Actual repair'}])assert.equal(syntheticCaseEvidenceAllowed(env,{...fixture,...patch}),false);
+ assert.equal(syntheticCaseEvidenceAllowed({...env,QUIBI_MODE:'production'},fixture),false);
+});

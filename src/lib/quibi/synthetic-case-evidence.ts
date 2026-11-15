@@ -6,5 +6,6 @@ export function syntheticCaseEvidenceAllowed(env:Record<string,string|undefined>
  const marked=!!data.description?.startsWith('QA-SIM-')&&!!data.name?.startsWith('TEST-')&&!!data.email?.endsWith('@example.test')&&!!data.vin?.startsWith('TEST');
  const a73=data.caseId==='a73db6be-7216-4677-bc0a-26e97693ad75'&&data.name==='TEST SELAN SPLET 24-10'&&data.vin==='TESTSELANBX202602'&&data.email==='selan.test.2410@example.com'&&!!data.description?.startsWith('TESTNO POVPRAŠEVANJE – AVTOSERVIS SELAN');
  const c066=data.caseId==='c066482d-0002-43c4-9090-b23833928f71'&&data.name==='TEST REA E2E 20261025'&&data.email==='test.rea.e2e.20261025@example.test'&&data.vin==='TESTREA20261025XX'&&data.description==='Sintetični TEST REA E2E – brez dejanske storitve.';
- return marked||a73||c066;
+ const urlFixture=data.caseId==='51540c22-65b5-4631-9fb8-c11a40fa43df'&&data.name==='TEST-AUTOSERVIS-SELAN-URL-B917'&&data.email==='qa-url-b917@example.test'&&data.vin==='TESTSELANURLB9181'&&data.description==='QA-SIM synthetic URL integration only; no customer or email';
+ return marked||a73||c066||urlFixture;
 }
