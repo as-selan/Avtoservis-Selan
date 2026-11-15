@@ -1,6 +1,6 @@
 import {loadHistoricalPrices,type HistoricalPriceSuggestion} from './estimate-history';
 import {loadEstimateCatalog,type EstimateCatalogOption} from './estimate-catalog.ts';
-import {estimateBillableRows,completeServiceReferences,conditionalInspectionRows,suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
+import {estimateBillableRows,canEnrichGeneratedRow,completeServiceReferences,conditionalInspectionRows,suggestedEstimateRows,canonicalEstimateOptions,draftTotal,type EstimateDraftRow} from './estimate-editor.ts';
 import {estimateCatalogSource} from './estimate-catalog-source.ts';
 import type {QuibiChoice} from './write-options';
 import {quibiEstimateDefaults} from './estimate-defaults.ts';
@@ -26,7 +26,7 @@ export async function buildAutomaticEstimateDraft(input:{wanted:string|null;desc
 }
 
 /** Repair only untouched generated rows. User choices, prices, quantities and removed rows stay intact. */
-export function needsCatalogFieldRepair(draft:AutomaticEstimateDraft){return draft.rows.some(row=>row.key?(!row.unitId||!row.vatId):row.matchSource==='Predlog iz opisa'&&!row.quantity&&!row.discount&&!Object.hasOwn(row,'unitPrice')&&(row.description??row.requestedService)===row.requestedService&&(!row.unitId||row.unitId===draft.defaults.unitId)&&(!row.vatId||row.vatId===draft.defaults.vatId));}
+export function needsCatalogFieldRepair(draft:AutomaticEstimateDraft){return draft.rows.some(row=>row.key?(!row.unitId||!row.vatId):canEnrichGeneratedRow(row,draft.defaults));}
 export function repairCatalogDraftFields(saved:AutomaticEstimateDraft,fresh:AutomaticEstimateDraft){
  const options=new Map([...saved.options,...fresh.options].map(option=>[option.key,option]));
  const rows=saved.rows.map(row=>{

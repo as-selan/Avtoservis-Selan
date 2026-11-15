@@ -26,3 +26,12 @@ test('existing generated rows recover catalog data once without restoring remove
 
 
 test('saved complete draft skips unnecessary refresh; missing fields and changed state still require it',async()=>{const {draft,state}=await buildAutomaticEstimateDraft(input,fixture().read);assert.equal(needsAutomaticDraftRefresh(draft,state,null),false);assert.equal(needsAutomaticDraftRefresh(draft,'needs_data',null),true);const incomplete={...draft,rows:draft.rows.map((row,index)=>index===0?{...row,unitId:undefined}:row)};assert.equal(needsAutomaticDraftRefresh(incomplete,state,null),true)});
+
+test('saved automatic service suggestions are repaired without changing entered prices or restoring removed rows',async()=>{
+ const fresh=(await buildAutomaticEstimateDraft({wanted:'Avtomehanika',description:input.wanted,customerId:'7'},fixture().read)).draft;
+ const row={...fresh.rows[0],key:'',quantity:'',unitId:undefined,vatId:undefined,matchSource:'Predlog storitve'};
+ const manual={...row,unitPrice:'12',quantity:'2'};
+ const saved={...fresh,rows:[row,manual]};assert.equal(needsCatalogFieldRepair(saved),true);
+ const repaired=repairCatalogDraftFields(saved,fresh);assert.equal(repaired.draft.rows.length,2);assert.equal(repaired.draft.rows[0].key,'article:1');assert.deepEqual(repaired.draft.rows[1],manual);
+ assert.equal(repairCatalogDraftFields({...saved,rows:[]},fresh).draft.rows.length,0);
+});

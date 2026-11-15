@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import {test} from 'node:test';
-import {enrichUntouchedEstimateRows,suggestedEstimateRows,draftRowPrice,draftTotal,initialEstimateRows,canonicalEstimateOptions,requestedEstimateRows,assistedEstimateRows} from './estimate-editor.ts';
+import {markEstimateRowEdited,enrichUntouchedEstimateRows,suggestedEstimateRows,draftRowPrice,draftTotal,initialEstimateRows,canonicalEstimateOptions,requestedEstimateRows,assistedEstimateRows} from './estimate-editor.ts';
 const option={key:'9:11',articleId:'11',priceListId:'9',name:'Servis',code:'S',priceListName:'Cenik',unitId:'1',unitLabel:'kos',vatId:'2',vatLabel:'22 %',grossPrice:122,discount:0,priceListNetPrice:'80',priceListDiscount:5,priceListDiffers:true,sourceSha:'a',stockManaged:false};
 test('confirmed customer pricing is reused without a typed price or repeated confirmation',()=>{assert.deepEqual(initialEstimateRows([],option.key),[{key:option.key,quantity:'1',discount:''}]);assert.equal(draftRowPrice({key:option.key,quantity:'2',discount:''},option,'9').unitPrice,97.6);assert.equal(draftRowPrice({key:option.key,quantity:'2',discount:''},option,null).unitPrice,122)});
 test('row choices and discount produce per-line cents and incomplete input has no false total',()=>{const row={key:option.key,quantity:'2',discount:'5',unitPrice:'100'};assert.equal(draftTotal([row],[option],'9'),190);assert.equal(draftTotal([{...row,quantity:''}],[option],'9'),null);assert.equal(draftTotal([{...row,unitPrice:'0oops'}],[option],'9'),null);assert.equal(draftTotal([],[option],'9'),null)});
@@ -69,7 +69,7 @@ test('prose and negated services never invent billable work; explicit service se
 });
 
 // Conditional inspection uses the existing article price and percentage discount.
-import {conditionalInspectionRows} from './estimate-editor.ts';
+import {conditionalInspectionRows,pendingInspection} from './estimate-editor.ts';
 import {estimateCatalogRows} from './estimate-catalog-source.ts';
 const inspectionOption={...option,key:'article:211414',articleId:'211414',code:'ASBPVPTH',name:'BREZPLAČNI PREGLED VOZILA PRED TEHNIČNIM PREGLEDOM',priceListId:'',grossPrice:58.9992,priceListNetPrice:'48.36',priceListDiscount:0,discount:0,priceListDiffers:false,vatId:'5'};
 const inspectionRows=[{key:option.key,quantity:'1',discount:''},{key:'',quantity:'1',discount:'',requestedService:'Pregled pred tehničnim pregledom',description:'Pregled pred tehničnim pregledom',candidateKeys:[inspectionOption.key],unitId:'1',vatId:'5'},{key:'',quantity:'',discount:'',description:'Pregled zavor'}];
@@ -104,4 +104,26 @@ test('late catalog fills only untouched machine suggestions and preserves entere
  const manual={...generated,quantity:'2',unitPrice:'12.00'};
  const [filled,kept]=enrichUntouchedEstimateRows([generated,manual],[option],'9');
  assert.equal(filled.key,option.key);assert.equal(filled.quantity,'1');assert.equal(filled.unitId,'1');assert.equal(filled.vatId,'2');assert.deepEqual(kept,manual);
+});
+
+test('late verified catalog enriches both automatic suggestion labels without overwriting manual or restoring deleted rows',()=>{
+ const generated={key:'',quantity:'',discount:'',requestedService:'Servis',description:'Servis',matchSource:'Predlog storitve'};
+ const manual={...generated,unitPrice:'12',quantity:'2'};
+ const result=enrichUntouchedEstimateRows([generated,manual],[option],'9');
+ assert.equal(result[0].key,option.key);assert.equal(result[0].quantity,'1');assert.equal(result[0].unitId,'1');assert.equal(result[0].vatId,'2');assert.deepEqual(result[1],manual);
+ assert.deepEqual(enrichUntouchedEstimateRows([],[option],'9'),[]);
+});
+
+ test('a user edit before the catalog arrives owns only that row across saved reloads',()=>{
+  const generated={key:'',quantity:'',discount:'',requestedService:'Servis',description:'Servis',matchSource:'Predlog storitve'};
+  const edited=markEstimateRowEdited(generated,{description:'Lastna storitev'});const saved=JSON.parse(JSON.stringify(edited));
+  const result=enrichUntouchedEstimateRows([saved,generated],[option],'9');assert.deepEqual(result[0],saved);assert.equal(result[1].key,option.key);
+ });
+
+test('late inspection catalog preserves the pending term and applies the actual customer decision',()=>{
+ const raw={key:'',quantity:'',discount:'',requestedService:inspectionOption.name,description:inspectionOption.name,matchSource:'Predlog storitve'};
+ const filled=enrichUntouchedEstimateRows([raw],[inspectionOption],null);
+ const pending=conditionalInspectionRows(filled,[inspectionOption],null);assert.ok(pendingInspection(pending[0],[inspectionOption]));
+ assert.equal(draftTotal(conditionalInspectionRows(filled,[inspectionOption],'ordered'),[inspectionOption]),0);
+ assert.equal(draftTotal(conditionalInspectionRows(filled,[inspectionOption],'not_ordered'),[inspectionOption]),59);
 });
