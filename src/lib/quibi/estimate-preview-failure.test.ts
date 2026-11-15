@@ -4,3 +4,5 @@ test('temporary READ error offers safe preview retry without blaming identity or
 test('actual changed identity still requires review instead of blindly retrying',async()=>{const r=await attempt(new Error('QUIBI_LINK_CHANGED'));assert.equal(r.result.ok,false);assert.match(r.result.message,/pravega vozila/);assert.equal(JSON.parse(r.logs[0]).code,'QUIBI_LINK_CHANGED')});
 
 test('Quibi READ denial is reported as API access, not a wrong vehicle',async()=>{const r=await attempt(new Error('QUIBI_HTTP_403'));assert.equal(r.result.ok,false);assert.match(r.result.message,/Quibi ne dovoli branja/);assert.doesNotMatch(r.result.message,/pravega vozila/);assert.equal(JSON.parse(r.logs[0]).code,'QUIBI_HTTP_403')});
+
+test('Quibi API rejection during identity verification explains the failed read without claiming a wrong vehicle',async()=>{const r=await attempt(new Error('QUIBI_API_ERROR'));assert.equal(r.result.ok,false);assert.match(r.result.message,/Quibi ni potrdil branja/);assert.match(r.result.message,/povezavo/);assert.doesNotMatch(r.result.message,/pravega vozila/);assert.equal(JSON.parse(r.logs[0]).code,'QUIBI_API_ERROR');});

@@ -324,6 +324,7 @@ export async function prepareQuibiEstimate(form: FormData): Promise<Result> {
     const errorType=error instanceof Error && ['Error','TypeError','TimeoutError','AbortError'].includes(error.name)?error.name:'other';
     console.error(JSON.stringify({event:'quibi_preview_failed',caseId:id,stage,code,errorType}));
     if(code==='QUIBI_HTTP_401'||code==='QUIBI_HTTP_403')return fail('Quibi ne dovoli branja podatkov. Poskusite pozneje; če se napaka ponavlja, preverite dostop do Quibi DEV. Noben dokument ni ustvarjen ali poslan.');
+    if(code==='QUIBI_API_ERROR'&&stage==='identity')return fail('Quibi ni potrdil branja stranke ali vozila. Preverite dostop in povezavo v Quibiju; noben dokument ni ustvarjen ali poslan.');
     if(['QUIBI_CATALOG_LINES_INVALID','QUIBI_CATALOG_QUANTITY_INVALID','QUIBI_CATALOG_DISCOUNT_INVALID'].includes(code))return fail('Pri postavkah dopolnite opis, količino, ceno in potrebne podatke. Vnosi so ohranjeni.');
     if(code==='QUIBI_PREPARATION_AMOUNT_DIFFERENCE')return fail('Izračun priprave se razlikuje od vnesenih bruto cen. Preverite količine, DDV in zneske postavk pred ustvarjanjem. Dokument ni ustvarjen.');
     if(code==='QUIBI_CATALOG_PRICE_INVALID')return fail('Popravite ceno pri postavki. Vnesite veljaven znesek v evrih; vnosi so ohranjeni.');
