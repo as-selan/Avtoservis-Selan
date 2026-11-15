@@ -150,6 +150,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     let syncConfigurationProblem=intakeSyncConfigurationProblem(process.env,'read');
     if(!syncConfigurationProblem){const actor=await db.from('organization_memberships').select('role,is_active').eq('organization_id',access.organizationId).eq('profile_id',process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!).maybeSingle();if(actor.error||!actor.data?.is_active||!['owner','admin'].includes(actor.data.role))syncConfigurationProblem=INTAKE_ACTOR_ACCESS_PROBLEM;}
     const customer = customerResult.data;
+    const customerChoicesTask=customer&&!linkResult.data&&['owner','admin'].includes(access.role)&&isHostedQuibiEnvironment(process.env)&&['new','needs_data','preparing_offer'].includes(request.status)?(async()=>{try{const read=configuredQuibiReadClient();return 'customers' in read?await read.customers():[];}catch{return [];}})():null;
     const vehicle = vehicleResult.data;
     let prep = prepResult.data;
     if(!earlyEditor&&prep?.auto_draft&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)){
@@ -306,8 +307,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     let intakeCustomerChoices:import('@/components/dashboard/AutomaticIntakeSync').IntakeCustomerChoice[]=[];
     if(customer&&!link&&['owner','admin'].includes(access.role)&&isHostedQuibiEnvironment(process.env)&&['new','needs_data','preparing_offer'].includes(request.status))try{
       const norm=(s:string)=>s.trim().toLocaleLowerCase('sl-SI'),phone=(s:string)=>s.replace(/[^0-9]/g,'');
-      const identityRead=configuredQuibiReadClient();
-      const remoteCustomers='customers' in identityRead?await identityRead.customers():[];
+      const remoteCustomers=customerChoicesTask?await customerChoicesTask:[];
       let automaticMatch:string|null=null;try{automaticMatch=automaticCustomerMatch({name:customer.display_name,phone:customer.phone??'',email:customer.email??''},remoteCustomers);}catch{}
       intakeCustomerChoices=(automaticMatch?[]:remoteCustomers).filter(c=>norm(c.name)===norm(customer.display_name)||!!customer.phone&&phone(c.phone)===phone(customer.phone)||!!customer.email&&norm(c.email)===norm(customer.email)).slice(0,8).map(c=>({id:c.id,name:c.name,phone:c.phone,email:c.email,fingerprint:customerFingerprint(c)}));
     }catch{}
