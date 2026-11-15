@@ -78,7 +78,10 @@ const unavailable = <div role="alert" className="rounded-xl border border-red-20
 function LoadedCaseView({content}:{content:Promise<ReactNode>}) { return use(content); }
 
 export default async function CasePage({ params }: { params: Promise<{ serviceRequestId: string }> }) {
-  const access = await requirePhase1OperationalAccess();
+  const traceStart=performance.now();
+  const traceId=crypto.randomUUID();
+  const measure=async <T,>(step:string,operation:PromiseLike<T>):Promise<T>=>{const start=performance.now();try{return await operation;}finally{if(process.env.VERCEL_ENV==='preview')console.info(JSON.stringify({event:'case_page_timing',trace:traceId,step,start_ms:Math.round(start-traceStart),duration_ms:Math.round(performance.now()-start)}));}};
+  const access = await measure('auth',requirePhase1OperationalAccess());
   const { serviceRequestId } = await params;
   if (!canQueryCustomerId(serviceRequestId)) {
     const referenceDb=await createClient();
@@ -88,13 +91,13 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
   }
 
     const db = await createClient();
-    const { data: requestData, error: requestError } = await db.from("service_requests")
+    const { data: requestData, error: requestError } = await measure("case_read",db.from("service_requests")
       .select("id, customer_id, vehicle_id, status, source, channel, intake_request_id, summary, problem_description, service_wanted, missing_fields, next_action, attention_needed, attention_reason, has_error, error_reason, created_at, updated_at")
       .eq("organization_id", access.organizationId).eq("id", serviceRequestId)
-      .is("archived_at", null).maybeSingle();
+      .is("archived_at", null).maybeSingle());
     if (requestError || !requestData) return unavailable;
     const request=requestData;
-    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult] = await Promise.all([
+    const [customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult] = await measure("supabase_case_data",Promise.all([
       request.customer_id ? db.from("customers").select("id, display_name, phone, email")
         .eq("organization_id", access.organizationId).eq("id", request.customer_id)
         .is("archived_at", null).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -128,7 +131,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         .select("quibi_customer_id, quibi_vehicle_id, local_fingerprint, external_fingerprint, sync_status,quibi_environment")
         .eq("organization_id", access.organizationId).eq("vehicle_id", request.vehicle_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-    ]);
+    ]));
     if ([customerResult, vehicleResult, prepResult, linkResult, quoteResult, appointmentResult, approvalResult, inspectionResult, slotOffersResult, fixedPriceResult, vehicleLinkResult].some((result) => result.error)) return unavailable;
 
     const savedDraft=prepResult.data?.auto_draft as AutomaticEstimateDraft|null;
@@ -142,15 +145,15 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       const catalog=await catalogTask;return {choices,catalogOptions:catalog.options,operationState,writeReady};
     })():undefined;
     async function loadCaseContent() {
-    const repairWorkTask=loadCaseWork(serviceRequestId).then(value=>({value}),error=>({error}));
+    const repairWorkTask=measure('work_order',loadCaseWork(serviceRequestId)).then(value=>({value}),error=>({error}));
     const estimateDataTask = !earlyEditor&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
-      try {const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([loadEstimateCatalog(read),linkResult.data?.sync_status==='ok'?read.customer(linkResult.data.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);return {catalog,customerPrice};}
+      try {const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([measure('quibi_estimate_catalog',loadEstimateCatalog(read)),linkResult.data?.sync_status==='ok'?read.customer(linkResult.data.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);return {catalog,customerPrice};}
       catch {return null;}
     })() : null;
     let syncConfigurationProblem=intakeSyncConfigurationProblem(process.env,'read');
     if(!syncConfigurationProblem){const actor=await db.from('organization_memberships').select('role,is_active').eq('organization_id',access.organizationId).eq('profile_id',process.env.QUIBI_INTAKE_SYNC_ACTOR_ID!).maybeSingle();if(actor.error||!actor.data?.is_active||!['owner','admin'].includes(actor.data.role))syncConfigurationProblem=INTAKE_ACTOR_ACCESS_PROBLEM;}
     const customer = customerResult.data;
-    const customerChoicesTask=customer&&!linkResult.data&&['owner','admin'].includes(access.role)&&isHostedQuibiEnvironment(process.env)&&['new','needs_data','preparing_offer'].includes(request.status)?(async()=>{try{const read=configuredQuibiReadClient();return 'customers' in read?await read.customers():[];}catch{return [];}})():null;
+    const customerChoicesTask=customer&&!linkResult.data&&['owner','admin'].includes(access.role)&&isHostedQuibiEnvironment(process.env)&&['new','needs_data','preparing_offer'].includes(request.status)?(async()=>{try{const read=configuredQuibiReadClient();return 'customers' in read?await measure('quibi_customers',read.customers()):[];}catch{return [];}})():null;
     const vehicle = vehicleResult.data;
     let prep = prepResult.data;
     if(!earlyEditor&&prep?.auto_draft&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)){
@@ -224,7 +227,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     if (!earlyEditor && !quote && !createdOperation?.quibiId && !fixedPrice && ["new","preparing_offer"].includes(request.status) && ["owner","admin"].includes(access.role) && !writeChoices) {
       try {
         const read=configuredQuibiReadClient();
-        const [saleTypes,units,vatRates,warehouses]=await Promise.all([read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat'),read.catalog('warehouses')]);
+        const [saleTypes,units,vatRates,warehouses]=await measure('quibi_write_catalogs',Promise.all([read.catalog('saleTypes'),read.catalog('units'),read.catalog('vat'),read.catalog('warehouses')]));
         writeChoices={saleTypes,units,vatRates,warehouses,defaults:quibiEstimateDefaults({saleTypes,units,vatRates,warehouses})};
       } catch { /* fail closed: catalog errors do not enable dispatch */ }
     }
@@ -251,12 +254,12 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
       try {
         if (link.quibi_environment !== quibiLinkEnvironment(process.env) || vehicleLink.quibi_environment !== quibiLinkEnvironment(process.env)) throw Error("QUIBI_ENVIRONMENT_MISMATCH");
         const quibi = configuredQuibiReadClient();
-        const [remoteVehicle, listed, remoteCustomer] = await Promise.all([
+        const [remoteVehicle, listed, remoteCustomer] = await measure("quibi_document_checks",Promise.all([
           quibi.vehicle(vehicleLink.quibi_vehicle_id, link.external_id), quibi.estimates(link.external_id),
           quibi.customer(link.external_id).catch(() => null),
-        ]);
+        ]));
         if (listed.some((document) => document.id === quibiEstimateId)) {
-          const detail = await quibi.estimateDetail(quibiEstimateId, link.external_id);
+          const detail = await measure("quibi_document_detail",quibi.estimateDetail(quibiEstimateId, link.external_id));
           reviewDetail = detail;
           if (remoteCustomer) try { testRecipient = workflowRecipient(process.env, customer?.email ?? null, remoteCustomer.email); }
           catch { /* sending remains closed */ }
@@ -289,10 +292,10 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     const aiNotes=aiProvider?await db.from('service_case_notes').select('body').eq('case_id',serviceRequestId).is('deleted_at',null).order('created_at',{ascending:false}).limit(20):null;
     // Authenticated RLS supplies only this case's notes. No structured customer IDs,
     // prices, credentials, PDFs or financial documents; free text may contain PII.
-    const assistance=await analyzeIntake({summary:[request.summary,request.problem_description].filter(Boolean).join('\n').slice(0,10000),missingFields:missing,serviceWanted:request.service_wanted??undefined,
+    const assistance=await measure('ai_assistance',analyzeIntake({summary:[request.summary,request.problem_description].filter(Boolean).join('\n').slice(0,10000),missingFields:missing,serviceWanted:request.service_wanted??undefined,
       estimateContext:{requestedServices:requestedEstimateRows(request.service_wanted,request.problem_description,[]).map(r=>r.requestedService!),inspectionFindings:inspectionResult.data?.status==='completed'?inspectionResult.data.findings??undefined:undefined,
         mechanicNotes:aiNotes?.error?undefined:aiNotes?.data?.map(n=>n.body),vehicle:vehicle?{make:vehicle.make??'',model:vehicle.model??''}:undefined,
-        catalog:canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).length<=500?canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).map(o=>({key:o.key,code:o.code,name:o.name,unit:o.unitLabel})):[]}},aiProvider);
+        catalog:canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).length<=500?canonicalEstimateOptions(estimateCatalog.options,customerPriceListId).map(o=>({key:o.key,code:o.code,name:o.name,unit:o.unitLabel})):[]}},aiProvider));
     const recipient = customer?.display_name || "stranka";
     const communicationDraft = step.kind === "send_estimate" && fixedPrice?.status === "approved" && !!request.service_wanted &&
         fixedPrice.service_label.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI") === request.service_wanted.trim().replace(/\s+/g, " ").toLocaleLowerCase("sl-SI")
@@ -322,6 +325,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',
         hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,hasInvoice:!!repairWork?.invoice,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',inspectionDecisionPending:inspectionResult.data?.status==='completed'&&inspectionResult.data.repair_decision==='pending',inspectionSuggested:!inspectionResult.data&&!quote&&!fixedPrice&&!workOrder&&!businessHasWorkOrder&&!repairWork&&['new','preparing_offer'].includes(request.status)&&!!request.problem_description?.trim()&&(!suggestedEstimateRows(request.service_wanted,request.problem_description,[]).length),fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,devNoEmail:quibiLinkEnvironment(process.env)==="dev",sendReady:sendReady&&!!testRecipient&&!!proposedPrice&&!!quibiEstimateId&&!!reviewDetail?.lines.length,sendAttempted:!!sendOperation,sendState:sendOperation?.sendStatus,
       };
+    if(process.env.VERCEL_ENV==='preview')console.info(JSON.stringify({event:'case_page_timing',trace:traceId,step:'next_action_ready',start_ms:Math.round(performance.now()-traceStart),duration_ms:0}));
     let caseStatus=repairWork?.phase?.label??(intakeCustomerChoices.length?'Izberi pravo stranko':null)??(businessHasWorkOrder&&!businessHasInvoice&&!['closed','declined','cancelled'].includes(request.status)?'Delovni nalog pripravljen – dodeli mehaniku':newVehicleRequired?'Novo vozilo – potrebna potrditev':journeyInput.customerApproved?'Priprava delovnega naloga':operatorApprovalReady||quote?.internal_review_status==='approved_for_send'||!quote&&!!createdOperation?.quibiId?'Čaka odobritev stranke':quote?'Predračun čaka pregled':!fixedPrice&&automaticState?automaticDraftPresentation(automaticState).label:getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status)));
     if(caseJourney(journeyInput).action.href==='#termini'&&!quote){
       if(inspectionResult.data?.status==='requested')caseStatus='Predhodni pregled poteka';
