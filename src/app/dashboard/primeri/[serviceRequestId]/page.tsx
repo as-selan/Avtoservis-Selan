@@ -75,12 +75,15 @@ const fixedPriceEnabled = process.env.SELAN_FIXED_PRICE_V1 === "1";
 
 const unavailable = <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">Primera trenutno ni mogoče prikazati.</div>;
 
+function createCaseTrace(){
+ const origin=performance.now(),trace=crypto.randomUUID();
+ const record=(step:string,start:number)=>{if(process.env.VERCEL_ENV==='preview')console.info(JSON.stringify({event:'case_page_timing',trace,step,start_ms:Math.round(start-origin),duration_ms:Math.round(performance.now()-start)}));};
+ return {measure:async <T,>(step:string,operation:PromiseLike<T>):Promise<T>=>{const start=performance.now();try{return await operation;}finally{record(step,start);}},mark:(step:string)=>record(step,performance.now())};
+}
 function LoadedCaseView({content}:{content:Promise<ReactNode>}) { return use(content); }
 
 export default async function CasePage({ params }: { params: Promise<{ serviceRequestId: string }> }) {
-  const traceStart=performance.now();
-  const traceId=crypto.randomUUID();
-  const measure=async <T,>(step:string,operation:PromiseLike<T>):Promise<T>=>{const start=performance.now();try{return await operation;}finally{if(process.env.VERCEL_ENV==='preview')console.info(JSON.stringify({event:'case_page_timing',trace:traceId,step,start_ms:Math.round(start-traceStart),duration_ms:Math.round(performance.now()-start)}));}};
+  const {measure,mark}=createCaseTrace();
   const access = await measure('auth',requirePhase1OperationalAccess());
   const { serviceRequestId } = await params;
   if (!canQueryCustomerId(serviceRequestId)) {
@@ -146,7 +149,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
     })():undefined;
     async function loadCaseContent() {
     const repairWorkTask=measure('work_order',loadCaseWork(serviceRequestId)).then(value=>({value}),error=>({error}));
-    const estimateDataTask = !earlyEditor&&!quoteResult.data?.length&&!fixedPriceResult.data&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
+    const estimateDataTask = !earlyEditor&&!quoteResult.data?.length&&!fixedPriceResult.data&&(!isHostedQuibiEnvironment(process.env)||!!savedDraft)&&linkResult.data?.sync_status==='ok'&&vehicleLinkResult.data?.sync_status==='ok'&&['owner','admin'].includes(access.role)&&['new','preparing_offer'].includes(request.status) ? (async()=>{
       try {const read=configuredQuibiReadClient();const [catalog,customerPrice]=await Promise.all([measure('quibi_estimate_catalog',loadEstimateCatalog(read)),linkResult.data?.sync_status==='ok'?read.customer(linkResult.data.external_id).then(customer=>customer.priceListId).catch(()=>undefined):Promise.resolve(undefined)]);return {catalog,customerPrice};}
       catch {return null;}
     })() : null;
@@ -325,7 +328,7 @@ export default async function CasePage({ params }: { params: Promise<{ serviceRe
         customerApproved:!!approval&&!!quote&&hasRecordedCustomerApproval(approval,quote.content_sha256),dispatched:approval?.delivery_status==='delivered'||sendOperation?.sendStatus==='sent',
         hasWorkOrder:!!workOrder||!!repairWork||businessHasWorkOrder,hasAssignedWork:!!workOrder||!!repairWork,repairPhase:repairWork?.phase?.id,hasInvoice:!!repairWork?.invoice,internalOrdersEnabled,inspectionPending:inspectionResult.data?.status==='requested',inspectionDecisionPending:inspectionResult.data?.status==='completed'&&inspectionResult.data.repair_decision==='pending',inspectionSuggested:!inspectionResult.data&&!quote&&!fixedPrice&&!workOrder&&!businessHasWorkOrder&&!repairWork&&['new','preparing_offer'].includes(request.status)&&!!request.problem_description?.trim()&&(!suggestedEstimateRows(request.service_wanted,request.problem_description,[]).length),fixedPriceStatus:fixedPrice?.status,workOrderHref:workOrder?'/dashboard/nalogi/'+workOrder.id:undefined,writeReady,devNoEmail:quibiLinkEnvironment(process.env)==="dev",sendReady:sendReady&&!!testRecipient&&!!proposedPrice&&!!quibiEstimateId&&!!reviewDetail?.lines.length,sendAttempted:!!sendOperation,sendState:sendOperation?.sendStatus,
       };
-    if(process.env.VERCEL_ENV==='preview')console.info(JSON.stringify({event:'case_page_timing',trace:traceId,step:'next_action_ready',start_ms:Math.round(performance.now()-traceStart),duration_ms:0}));
+    mark('next_action_ready');
     let caseStatus=repairWork?.phase?.label??(intakeCustomerChoices.length?'Izberi pravo stranko':null)??(businessHasWorkOrder&&!businessHasInvoice&&!['closed','declined','cancelled'].includes(request.status)?'Delovni nalog pripravljen – dodeli mehaniku':newVehicleRequired?'Novo vozilo – potrebna potrditev':journeyInput.customerApproved?'Priprava delovnega naloga':operatorApprovalReady||quote?.internal_review_status==='approved_for_send'||!quote&&!!createdOperation?.quibiId?'Čaka odobritev stranke':quote?'Predračun čaka pregled':!fixedPrice&&automaticState?automaticDraftPresentation(automaticState).label:getStatusLabel(mapDbStatusToUiStatus(request.status,workOrder?.status)));
     if(caseJourney(journeyInput).action.href==='#termini'&&!quote){
       if(inspectionResult.data?.status==='requested')caseStatus='Predhodni pregled poteka';
